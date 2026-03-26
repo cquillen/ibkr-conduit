@@ -1,0 +1,25 @@
+{
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(dotnet *)",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(mkdir *)",
+      "Bash(mv *)",
+      "Bash(cp *)",
+      "Bash(rm *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(pwd)",
+      "Bash(which *)",
+      "Bash(echo *)"
+    ]
+  }
+}
