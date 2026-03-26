@@ -31,8 +31,8 @@ coverage/
 .windsurf/
 .cursor/
 
-# Claude Code
-.claude/
+# Claude Code (local settings only — .claude/settings.json and rules/ are committed)
+.claude/settings.local.json
 
 # OS files
 Thumbs.db
