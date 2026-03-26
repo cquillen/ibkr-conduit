@@ -16,7 +16,7 @@ M1 is laser-focused on proving OAuth works. No session lifecycle (M2), no rate l
 4. Sign requests with HMAC-SHA256
 5. Call `GET /portfolio/accounts` and get a response
 
-If `/portfolio/accounts` requires brokerage session init (`/iserver/auth/ssodh/init`), we pull that in minimally — but it's not planned.
+Per design doc §10.3, `/portfolio` endpoints do not require brokerage session init — they work with just the OAuth-signed request.
 
 ### Deferred to Later Milestones
 
@@ -157,7 +157,7 @@ Orchestrates the full LST acquisition flow:
 4. Parse response: `diffie_hellman_response` (IBKR's DH public value `B`) and `live_session_token_signature`
 5. Derive shared DH secret via `OAuthCrypto.DeriveDhSecret()`
 6. Derive live session token via `OAuthCrypto.DeriveLiveSessionToken()`
-7. Validate `live_session_token_signature` from response (integrity check)
+7. Validate `live_session_token_signature` from response — compute `HMAC-SHA1(live_session_token, consumer_key_bytes)` and compare to the signature returned by IBKR (integrity check)
 8. Return `LiveSessionToken` with 24h expiry
 
 Uses a plain `HttpClient` (not the Refit pipeline) since `/oauth/live_session_token` has unique signing requirements — it's a one-shot bootstrap call.
