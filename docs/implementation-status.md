@@ -25,8 +25,8 @@ Updated at the end of each implementation session.
 | GitHub templates and config | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
 | Claude Code configuration | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
 | Implementation status tracker | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| GitHub repo creation and push | In Progress | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| Branch protection setup | Not Started | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
+| GitHub repo creation and push | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
+| Branch protection setup | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
 
 ---
 
@@ -88,7 +88,7 @@ Updated at the end of each implementation session.
 |---|---|---|
 | NuGet packaging and metadata | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
 | GitHub Actions CI/CD | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| Branch protection | Not Started | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
+| Branch protection | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
 | PR and issue templates | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
 | CONTRIBUTING.md | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
 | SECURITY.md | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
