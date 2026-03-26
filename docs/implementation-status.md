@@ -12,11 +12,15 @@ Updated at the end of each implementation session.
 | In Progress | Implementation underway |
 | Done | Implemented and tested |
 
+## Workflow
+
+Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainstorm, spec, plan, implement). Each task = 1 PR. Unit tests are baked into every task — not separate. Milestones are vertical slices validated against a real IBKR paper account.
+
 ---
 
-## Repo Scaffolding
+## Repo Scaffolding (Done)
 
-| Capability | Status | Spec |
+| Task | Status | Spec |
 |---|---|---|
 | Git init and foundation files | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
 | Solution and project structure | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
@@ -24,75 +28,95 @@ Updated at the end of each implementation session.
 | Open source documents | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
 | GitHub templates and config | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
 | Claude Code configuration | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| Implementation status tracker | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| GitHub repo creation and push | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| Branch protection setup | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-
----
-
-## Phase 1 — Core Authentication and Session
-
-| Capability | Status | Spec |
-|---|---|---|
-| OAuth 1.0a crypto (RSA-OAEP, DH, HMAC-SHA256) | Not Started | — |
-| Live session token acquisition and refresh | Not Started | — |
-| Multi-tenant session manager | Not Started | — |
-| Tickle timer (PeriodicTimer per tenant) | Not Started | — |
-| Brokerage session initialization | Not Started | — |
-| Question suppression | Not Started | — |
-| Token bucket rate limiters (global + per-endpoint) | Not Started | — |
-| OAuthSigningHandler DelegatingHandler | Not Started | — |
-| Polly resilience pipeline | Not Started | — |
-| 429 adaptive response logic | Not Started | — |
-| Maintenance window detection and handling | Not Started | — |
-| Unit tests — OAuth crypto | Not Started | — |
-| Unit tests — session manager concurrency | Not Started | — |
-| Unit tests — rate limiter behavior | Not Started | — |
-| WireMock integration tests — session lifecycle | Not Started | — |
-
----
-
-## Phase 2 — Order and Portfolio APIs
-
-| Capability | Status | Spec |
-|---|---|---|
-| Order submission with question/reply flow | Not Started | — |
-| Order cancellation | Not Started | — |
-| Conid resolution and caching | Not Started | — |
-| Position and account data retrieval | Not Started | — |
-| Current session orders and fills endpoints | Not Started | — |
-| Market data snapshot with pre-flight handling | Not Started | — |
-| Historical market data | Not Started | — |
-| WireMock edge case scenarios — order flow | Not Started | — |
-
----
-
-## Phase 3 — WebSocket and Flex
-
-| Capability | Status | Spec |
-|---|---|---|
-| WebSocket client with heartbeat and reconnection | Not Started | — |
-| sor topic (order updates and history) | Not Started | — |
-| smd topic (market data streaming) | Not Started | — |
-| spl topic (P&L streaming) | Not Started | — |
-| Flex Web Service client (two-step async) | Not Started | — |
-| Flex XML response parsing | Not Started | — |
-| Per-tenant Flex configuration model | Not Started | — |
-| WireMock scenarios — WebSocket and Flex | Not Started | — |
-
----
-
-## Phase 4 — Open Source Hardening
-
-| Capability | Status | Spec |
-|---|---|---|
 | NuGet packaging and metadata | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| GitHub Actions CI/CD | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| Branch protection | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| PR and issue templates | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| CONTRIBUTING.md | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| SECURITY.md | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| README with quick start | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| Samples project | Not Started | — |
-| API documentation (XML comments on all public types) | Not Started | — |
-| CHANGELOG.md | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
+
+---
+
+## Milestone 1 — First Authenticated API Call to Paper Account
+
+**Goal:** Prove the OAuth 1.0a pipeline works end-to-end by calling `GET /portfolio/accounts` against a real IBKR paper account.
+
+| # | Task | Status | Spec |
+|---|---|---|---|
+| 1.1 | OAuth key generation script | Not Started | — |
+| 1.2 | OAuth credentials model + crypto primitives | Not Started | — |
+| 1.3 | OAuth signature and header builder | Not Started | — |
+| 1.4 | Live session token client | Not Started | — |
+| 1.5 | OAuthSigningHandler + HTTP pipeline | Not Started | — |
+| 1.6 | Portfolio accounts endpoint + paper account validation | Not Started | — |
+
+---
+
+## Milestone 2 — Session Lifecycle Management
+
+**Goal:** Library can initialize a brokerage session, keep it alive, and recover from expiry — validated against a paper account.
+
+| # | Task | Status | Spec |
+|---|---|---|---|
+| 2.1 | Brokerage session initialization + auth status | Not Started | — |
+| 2.2 | Question suppression | Not Started | — |
+| 2.3 | Tickle timer | Not Started | — |
+| 2.4 | Multi-tenant session manager | Not Started | — |
+| 2.5 | Token refresh (proactive + reactive 401) | Not Started | — |
+| 2.6 | Session lifecycle integration test | Not Started | — |
+
+---
+
+## Milestone 3 — Order Management
+
+**Goal:** Submit and cancel orders against a paper account, with rate limiting and resilience protecting the pipeline.
+
+| # | Task | Status | Spec |
+|---|---|---|---|
+| 3.1 | Rate limiting infrastructure | Not Started | — |
+| 3.2 | Polly resilience pipeline + 429 adaptive response | Not Started | — |
+| 3.3 | Conid resolution + caching | Not Started | — |
+| 3.4 | Order submission with question/reply flow | Not Started | — |
+| 3.5 | Order cancellation + live orders + trades | Not Started | — |
+
+---
+
+## Milestone 4 — Portfolio + Market Data
+
+**Goal:** Retrieve positions, account summary, and market data from a paper account.
+
+| # | Task | Status | Spec |
+|---|---|---|---|
+| 4.1 | Position and account data retrieval | Not Started | — |
+| 4.2 | Market data snapshot with pre-flight handling | Not Started | — |
+| 4.3 | Historical market data | Not Started | — |
+
+---
+
+## Milestone 5 — WebSocket Streaming
+
+**Goal:** Stream real-time order updates and market data from a paper account via WebSocket.
+
+| # | Task | Status | Spec |
+|---|---|---|---|
+| 5.1 | WebSocket client infrastructure | Not Started | — |
+| 5.2 | Order updates topic (sor) | Not Started | — |
+| 5.3 | Market data + P&L streaming (smd, spl) | Not Started | — |
+
+---
+
+## Milestone 6 — Flex Web Service
+
+**Goal:** Execute a Flex query against a paper account and parse trade confirmations and open orders.
+
+| # | Task | Status | Spec |
+|---|---|---|---|
+| 6.1 | Flex credentials model + HTTP client | Not Started | — |
+| 6.2 | Two-step async retrieval | Not Started | — |
+| 6.3 | XML response parsing | Not Started | — |
+
+---
+
+## Milestone 7 — Production Readiness
+
+**Goal:** Library is documented and has working samples demonstrating all major features.
+
+| # | Task | Status | Spec |
+|---|---|---|---|
+| 7.1 | Samples project | Not Started | — |
+| 7.2 | API documentation audit | Not Started | — |
