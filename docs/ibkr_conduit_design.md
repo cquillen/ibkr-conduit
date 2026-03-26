@@ -39,8 +39,7 @@ This document captures all design decisions, architectural choices, known IBKR A
 15. [Security Considerations](#15-security-considerations)
 16. [Key IBKR API Endpoints Reference](#16-key-ibkr-api-endpoints-reference)
 17. [Open Source Distribution](#17-open-source-distribution)
-18. [Implementation Priorities](#18-implementation-priorities)
-19. [Reference Materials](#19-reference-materials)
+18. [Reference Materials](#18-reference-materials)
 
 ---
 
@@ -1322,66 +1321,9 @@ The `IbkrConduit.Samples` project demonstrates real-world usage patterns with no
 
 ---
 
-## 18. Implementation Priorities
+## 18. Reference Materials
 
-### 18.1 Phase 1 — Core Authentication and Session (Build First)
-
-- OAuth 1.0a crypto (RSA-OAEP decrypt, DH key exchange, HMAC-SHA256 signing)
-- Live session token acquisition and proactive refresh
-- Multi-tenant session manager with `ConcurrentDictionary` and per-tenant `SemaphoreSlim`
-- Tickle timer (`PeriodicTimer` per tenant)
-- Brokerage session initialization
-- Question suppression
-- Token bucket rate limiters (global and per-endpoint)
-- `OAuthSigningHandler` DelegatingHandler
-- Polly resilience pipeline
-- 429 adaptive response logic
-- Maintenance window detection and handling
-- Unit tests for OAuth crypto (pinned against IBKR Campus examples)
-- Unit tests for session manager concurrency
-- Unit tests for rate limiter behavior
-- WireMock integration test suite for session lifecycle
-
-### 18.2 Phase 2 — Order and Portfolio APIs
-
-- Order submission with question/reply flow
-- Order cancellation
-- Conid resolution and caching
-- Position and account data retrieval
-- Current session orders and fills endpoints
-- Market data snapshot with pre-flight handling
-- Historical market data
-- WireMock edge case scenarios for order flow
-
-### 18.3 Phase 3 — WebSocket and Flex
-
-- WebSocket client with heartbeat and reconnection
-- `sor` topic (order updates and history)
-- `smd` topic (market data streaming)
-- `spl` topic (P&L streaming)
-- Flex Web Service client (two-step async retrieval)
-- Flex XML response parsing (Trades, OpenOrders, OpenPositions sections)
-- Per-tenant Flex configuration model
-- WireMock scenarios for WebSocket reconnection and Flex polling
-
-### 18.4 Phase 4 — Open Source Hardening
-
-- NuGet packaging and metadata
-- GitHub Actions CI/CD pipelines
-- Branch protection configuration
-- PR and issue templates
-- CONTRIBUTING.md
-- SECURITY.md
-- README with quick start and full documentation
-- Samples project
-- API documentation (XML comments on all public types)
-- CHANGELOG.md
-
----
-
-## 19. Reference Materials
-
-### 19.1 IBKR Official Documentation
+### 18.1 IBKR Official Documentation
 
 - CP Web API v1.0: https://www.interactivebrokers.com/campus/ibkr-api-page/cpapi-v1/
 - OAuth 1.0a Extended guide: https://www.interactivebrokers.com/campus/ibkr-api-page/oauth-1-0a-extended/
@@ -1391,7 +1333,7 @@ The `IbkrConduit.Samples` project demonstrates real-world usage patterns with no
 - Flex Web Service v3 configuration: https://www.ibkrguides.com/clientportal/performanceandstatements/flex3.htm
 - OAuth Self-Service Portal: https://ndcdyn.interactivebrokers.com/sso/Login?action=OAUTH&RL=1&ip2loc=US
 
-### 19.2 Reference Implementations
+### 18.2 Reference Implementations
 
 - IBind (Python) — most complete OAuth 1.0a reference: https://github.com/Voyz/ibind
 - IBind OAuth wiki — detailed setup walkthrough: https://github.com/Voyz/ibind/wiki/OAuth-1.0a
@@ -1400,7 +1342,7 @@ The `IbkrConduit.Samples` project demonstrates real-world usage patterns with no
 - gabbersepp/ib-flex-reader (C# .NET Standard Flex client): https://github.com/gabbersepp/ib-flex-reader
 - IBKR.Sdk.Client (existing .NET package, Web API 2.0): https://www.nuget.org/packages/IBKR.Sdk.Client
 
-### 19.3 Design Decisions Log
+### 18.3 Design Decisions Log
 
 | Decision | Choice | Rationale |
 |---|---|---|
