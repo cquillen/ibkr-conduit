@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/IbkrConduit/IbkrConduit.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/IbkrConduit.Tests.Integration/IbkrConduit.Tests.Integration.csproj" />
+    <Project Path="tests/IbkrConduit.Tests.Unit/IbkrConduit.Tests.Unit.csproj" />
+  </Folder>
+</Solution>
