@@ -1,0 +1,47 @@
+# Build outputs
+bin/
+obj/
+artifacts/
+publish/
+out/
+*.nupkg
+*.snupkg
+
+# .NET / C#
+*.user
+*.suo
+*.cache
+project.lock.json
+*.nuget.props
+*.nuget.targets
+TestResults/
+coverage/
+
+# Visual Studio
+.vs/
+*.userprefs
+*.sln.docstates
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# VS Code and forks (Windsurf, Cursor, etc.)
+.vscode/
+.windsurf/
+.cursor/
+
+# Claude Code
+.claude/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Security / secrets
+*.pem
+*.pfx
+*.key
+appsettings.*.json
+.env
