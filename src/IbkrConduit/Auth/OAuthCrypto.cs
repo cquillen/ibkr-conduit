@@ -9,7 +9,7 @@ namespace IbkrConduit.Auth;
 /// </summary>
 public static class OAuthCrypto
 {
-    private const int DhGenerator = 2;
+    private const int _dhGenerator = 2;
 
     /// <summary>
     /// Converts a BigInteger to a big-endian two's complement byte array,
@@ -53,7 +53,7 @@ public static class OAuthCrypto
         positiveBytes[^1] = 0;
 
         var privateKey = new BigInteger(positiveBytes);
-        var publicKey = BigInteger.ModPow(DhGenerator, privateKey, prime);
+        var publicKey = BigInteger.ModPow(_dhGenerator, privateKey, prime);
 
         return (privateKey, publicKey);
     }
