@@ -1,0 +1,5 @@
+- Brainstorm and spec at the milestone level — one spec covers the full milestone scope
+- Implement one task at a time — each task gets its own branch and PR for review
+- Independent tasks can be built in parallel on separate branches
+- Dependent tasks must wait until the PR they depend on is merged before starting
+- Never combine multiple tasks into a single PR
