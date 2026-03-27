@@ -79,6 +79,7 @@ public class OAuthCryptoTests
 
         privateKey1.Sign.ShouldBe(1);
         privateKey2.Sign.ShouldBe(1);
+        privateKey1.ShouldNotBe(privateKey2);
     }
 
     [Fact]
