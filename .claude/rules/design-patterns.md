@@ -1,0 +1,4 @@
+- Prefer strategy pattern and object composition with DI over if/switch/conditional branching when behavior varies by context
+- Define an interface for the varying behavior and provide separate implementations, composed via dependency injection
+- Each strategy implementation should be independently testable without needing to exercise the other variants
+- Avoid a single class with conditional logic selecting between behaviors — split into focused implementations behind a shared abstraction
