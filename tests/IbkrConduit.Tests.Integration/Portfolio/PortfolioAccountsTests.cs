@@ -25,7 +25,7 @@ public class PortfolioAccountsTests : IDisposable
     {
         _server.Given(
             Request.Create()
-                .WithPath("/portfolio/accounts")
+                .WithPath("/v1/api/portfolio/accounts")
                 .UsingGet()
                 .WithHeader("Authorization", "*"))
             .RespondWith(
@@ -73,7 +73,7 @@ public class PortfolioAccountsTests : IDisposable
     {
         _server.Given(
             Request.Create()
-                .WithPath("/portfolio/accounts")
+                .WithPath("/v1/api/portfolio/accounts")
                 .UsingGet())
             .RespondWith(
                 Response.Create()
@@ -123,7 +123,7 @@ public class PortfolioAccountsTests : IDisposable
 
         using var httpClient = new HttpClient(signingHandler)
         {
-            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
+            BaseAddress = new Uri("https://api.ibkr.com"),
         };
 
         var api = Refit.RestService.For<IIbkrPortfolioApi>(httpClient);

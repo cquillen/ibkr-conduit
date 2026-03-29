@@ -10,6 +10,6 @@ public interface IIbkrPortfolioApi
     /// <summary>
     /// Retrieves the list of accounts for the authenticated user.
     /// </summary>
-    [Get("/portfolio/accounts")]
+    [Get("/v1/api/portfolio/accounts")]
     Task<List<Account>> GetAccountsAsync();
 }
