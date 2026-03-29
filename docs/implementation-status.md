@@ -38,12 +38,12 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 | # | Task | Status | Spec |
 |---|---|---|---|
-| 1.1 | OAuth key generation script | Not Started | — |
-| 1.2 | OAuth credentials model + crypto primitives | Not Started | — |
-| 1.3 | OAuth signature and header builder | Not Started | — |
-| 1.4 | Live session token client | Not Started | — |
-| 1.5 | OAuthSigningHandler + HTTP pipeline | Not Started | — |
-| 1.6 | Portfolio accounts endpoint + paper account validation | Not Started | — |
+| 1.1 | OAuth key generation script | Done | [M1 spec](superpowers/specs/2026-03-26-milestone1-oauth-pipeline-design.md) |
+| 1.2 | OAuth credentials model + crypto primitives | Done | [M1 spec](superpowers/specs/2026-03-26-milestone1-oauth-pipeline-design.md) |
+| 1.3 | OAuth signature and header builder | Done | [M1 spec](superpowers/specs/2026-03-26-milestone1-oauth-pipeline-design.md) |
+| 1.4 | Live session token client | Done | [M1 spec](superpowers/specs/2026-03-26-milestone1-oauth-pipeline-design.md) |
+| 1.5 | OAuthSigningHandler + HTTP pipeline | Done | [M1 spec](superpowers/specs/2026-03-26-milestone1-oauth-pipeline-design.md) |
+| 1.6 | Portfolio accounts endpoint + paper account validation | Done | [M1 spec](superpowers/specs/2026-03-26-milestone1-oauth-pipeline-design.md) |
 
 ---
 
