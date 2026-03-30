@@ -154,7 +154,11 @@ public class SessionLifecycleTests : IAsyncDisposable
         entries.ShouldContain(e => e.RequestMessage.Path!.Contains("logout"));
     }
 
-    [Fact(Skip = "Requires real IBKR paper account credentials in environment variables")]
+    /// <summary>
+    /// End-to-end test against a real IBKR paper account.
+    /// Runs automatically when IBKR_CONSUMER_KEY environment variable is set.
+    /// </summary>
+    [EnvironmentFact("IBKR_CONSUMER_KEY")]
     public async Task PaperAccount_FullLifecycle_InitializesAndShutdown()
     {
         using var creds = OAuthCredentialsFactory.FromEnvironment();

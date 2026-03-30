@@ -101,10 +101,9 @@ public class PortfolioAccountsTests : IDisposable
 
     /// <summary>
     /// End-to-end test against a real IBKR paper account.
-    /// Requires IBKR_* environment variables to be set.
-    /// Run manually: dotnet test --filter "PortfolioAccounts_WithPaperAccount_ReturnsAccountList"
+    /// Runs automatically when IBKR_CONSUMER_KEY environment variable is set.
     /// </summary>
-    [Fact(Skip = "Requires real IBKR paper account credentials in environment variables")]
+    [EnvironmentFact("IBKR_CONSUMER_KEY")]
     public async Task PortfolioAccounts_WithPaperAccount_ReturnsAccountList()
     {
         using var creds = OAuthCredentialsFactory.FromEnvironment();
