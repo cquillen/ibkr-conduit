@@ -2,3 +2,5 @@
 - Define an interface for the varying behavior and provide separate implementations, composed via dependency injection
 - Each strategy implementation should be independently testable without needing to exercise the other variants
 - Avoid a single class with conditional logic selecting between behaviors — split into focused implementations behind a shared abstraction
+- Use immutable positional records for DTOs (request/response models, API contracts) — not mutable classes with `{ get; init; }`
+- Co-locate Refit interface DTOs in a companion file named `I{InterfaceName}Models.cs` alongside the interface declaration
