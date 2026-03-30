@@ -39,7 +39,7 @@ public class ResilienceHandlerTests
         };
 
         using var client = new HttpClient(handler);
-        var response = await client.GetAsync("http://localhost/test");
+        var response = await client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         innerHandler.CallCount.ShouldBe(2);
@@ -58,7 +58,7 @@ public class ResilienceHandlerTests
         };
 
         using var client = new HttpClient(handler);
-        var response = await client.GetAsync("http://localhost/test");
+        var response = await client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         innerHandler.CallCount.ShouldBe(2);
@@ -77,7 +77,7 @@ public class ResilienceHandlerTests
         };
 
         using var client = new HttpClient(handler);
-        var response = await client.GetAsync("http://localhost/test");
+        var response = await client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         innerHandler.CallCount.ShouldBe(2);
@@ -94,7 +94,7 @@ public class ResilienceHandlerTests
         };
 
         using var client = new HttpClient(handler);
-        var response = await client.GetAsync("http://localhost/test");
+        var response = await client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         innerHandler.CallCount.ShouldBe(1);
@@ -111,7 +111,7 @@ public class ResilienceHandlerTests
         };
 
         using var client = new HttpClient(handler);
-        var response = await client.GetAsync("http://localhost/test");
+        var response = await client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         innerHandler.CallCount.ShouldBe(1);
@@ -128,7 +128,7 @@ public class ResilienceHandlerTests
         };
 
         using var client = new HttpClient(handler);
-        var response = await client.GetAsync("http://localhost/test");
+        var response = await client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         innerHandler.CallCount.ShouldBe(1);
@@ -149,7 +149,7 @@ public class ResilienceHandlerTests
         };
 
         using var client = new HttpClient(handler);
-        var response = await client.GetAsync("http://localhost/test");
+        var response = await client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
         innerHandler.CallCount.ShouldBe(4); // 1 initial + 3 retries
