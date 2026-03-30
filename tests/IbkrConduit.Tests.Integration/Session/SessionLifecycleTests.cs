@@ -159,16 +159,23 @@ public class SessionLifecycleTests : IAsyncDisposable
     {
         using var creds = OAuthCredentialsFactory.FromEnvironment();
 
-        using var lstHttpClient = new HttpClient
+        using var lstHttpClient = new HttpClient(new HttpClientHandler
+        {
+            AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+        })
         {
             BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
         };
         var lstClient = new LiveSessionTokenClient(lstHttpClient);
         var tokenProvider = new SessionTokenProvider(creds, lstClient);
 
+        var decompressionHandler = new HttpClientHandler
+        {
+            AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+        };
         var signingHandler = new OAuthSigningHandler(tokenProvider, creds.ConsumerKey, creds.AccessToken)
         {
-            InnerHandler = new HttpClientHandler(),
+            InnerHandler = decompressionHandler,
         };
 
         using var sessionHttpClient = new HttpClient(signingHandler)
@@ -190,7 +197,10 @@ public class SessionLifecycleTests : IAsyncDisposable
         var consumerSigningHandler = new OAuthSigningHandler(
             tokenProvider, creds.ConsumerKey, creds.AccessToken, sessionManager)
         {
-            InnerHandler = new HttpClientHandler(),
+            InnerHandler = new HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+            },
         };
 
         using var consumerHttpClient = new HttpClient(consumerSigningHandler)

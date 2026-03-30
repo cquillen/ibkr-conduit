@@ -109,7 +109,10 @@ public class PortfolioAccountsTests : IDisposable
     {
         using var creds = OAuthCredentialsFactory.FromEnvironment();
 
-        using var lstHttpClient = new HttpClient
+        using var lstHttpClient = new HttpClient(new HttpClientHandler
+        {
+            AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+        })
         {
             BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
         };
@@ -118,7 +121,10 @@ public class PortfolioAccountsTests : IDisposable
 
         var signingHandler = new OAuthSigningHandler(tokenProvider, creds.ConsumerKey, creds.AccessToken)
         {
-            InnerHandler = new HttpClientHandler(),
+            InnerHandler = new HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+            },
         };
 
         using var httpClient = new HttpClient(signingHandler)
