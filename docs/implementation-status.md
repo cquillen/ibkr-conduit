@@ -53,12 +53,14 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 | # | Task | Status | Spec |
 |---|---|---|---|
-| 2.1 | Brokerage session initialization + auth status | Not Started | — |
-| 2.2 | Question suppression | Not Started | — |
-| 2.3 | Tickle timer | Not Started | — |
-| 2.4 | Multi-tenant session manager | Not Started | — |
-| 2.5 | Token refresh (proactive + reactive 401) | Not Started | — |
-| 2.6 | Session lifecycle integration test | Not Started | — |
+| 2.1 | Refit session interfaces + response models | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
+| 2.2 | SessionTokenProvider refresh support | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
+| 2.3 | Tickle timer | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
+| 2.4 | Session manager | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
+| 2.5 | Token refresh handler (reactive 401 + proactive) | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
+| 2.6 | Pipeline wiring + IbkrClientOptions | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
+| 2.7 | Session lifecycle integration tests | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
+| 2.8 | Suppressible message IDs + constants | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
 
 ---
 
