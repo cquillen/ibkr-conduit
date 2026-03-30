@@ -20,10 +20,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="IbkrConduit.Tests.Unit" />
+    <InternalsVisibleTo Include="IbkrConduit.Tests.Integration" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Refit" />
     <PackageReference Include="Refit.HttpClientFactory" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
 </Project>
