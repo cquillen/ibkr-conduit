@@ -350,31 +350,20 @@ public class SessionManagerTests
         {
             InitCallCount++;
             LastInitRequest = request;
-            return Task.FromResult(new SsodhInitResponse
-            {
-                Authenticated = true,
-                Connected = true,
-            });
+            return Task.FromResult(new SsodhInitResponse(Authenticated: true, Connected: true, Competing: false));
         }
 
         public Task<TickleResponse> TickleAsync() =>
-            Task.FromResult(new TickleResponse
-            {
-                Iserver = new TickleIserverStatus
-                {
-                    AuthStatus = new TickleAuthStatus
-                    {
-                        Authenticated = true,
-                        Connected = true,
-                    },
-                },
-            });
+            Task.FromResult(new TickleResponse(
+                Session: string.Empty,
+                Iserver: new TickleIserverStatus(
+                    AuthStatus: new TickleAuthStatus(Authenticated: true, Competing: false, Connected: true))));
 
         public Task<SuppressResponse> SuppressQuestionsAsync(SuppressRequest request)
         {
             SuppressCallCount++;
             LastSuppressRequest = request;
-            return Task.FromResult(new SuppressResponse { Status = "submitted" });
+            return Task.FromResult(new SuppressResponse(Status: "submitted"));
         }
 
         public Task<LogoutResponse> LogoutAsync()
@@ -385,7 +374,7 @@ public class SessionManagerTests
                 throw new HttpRequestException("Simulated logout failure");
             }
 
-            return Task.FromResult(new LogoutResponse { Confirmed = true });
+            return Task.FromResult(new LogoutResponse(Confirmed: true));
         }
     }
 }
