@@ -80,6 +80,9 @@ public class OAuthSigningHandlerTests
 
         public Task<LiveSessionToken> GetLiveSessionTokenAsync(CancellationToken cancellationToken) =>
             Task.FromResult(_token);
+
+        public Task<LiveSessionToken> RefreshAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(_token);
     }
 
     private class FakeInnerHandler : HttpMessageHandler

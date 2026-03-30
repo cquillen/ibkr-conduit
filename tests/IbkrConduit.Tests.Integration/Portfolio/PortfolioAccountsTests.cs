@@ -148,5 +148,8 @@ public class PortfolioAccountsTests : IDisposable
 
         public Task<LiveSessionToken> GetLiveSessionTokenAsync(CancellationToken cancellationToken) =>
             Task.FromResult(_token);
+
+        public Task<LiveSessionToken> RefreshAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(_token);
     }
 }
