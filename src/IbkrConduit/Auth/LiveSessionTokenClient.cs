@@ -55,10 +55,9 @@ public class LiveSessionTokenClient : ILiveSessionTokenClient
             "POST", url, credentials.ConsumerKey, credentials.AccessToken, extraParams);
 
         // 6. Send HTTP request
+        // Note: Accept-Encoding is handled by HttpClientHandler.AutomaticDecompression
         using var request = new HttpRequestMessage(HttpMethod.Post, _lstEndpoint);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*"));
-        request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
-        request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("deflate"));
         request.Headers.TryAddWithoutValidation("Authorization", authHeader);
         request.Headers.Connection.Add("keep-alive");
         request.Headers.UserAgent.Add(new ProductInfoHeaderValue("IbkrConduit", "1.0"));
