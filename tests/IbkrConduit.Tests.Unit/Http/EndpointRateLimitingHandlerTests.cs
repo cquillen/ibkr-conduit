@@ -42,7 +42,7 @@ public class EndpointRateLimitingHandlerTests : IDisposable
         };
 
         using var client = new HttpClient(handler);
-        var response = await client.GetAsync("http://localhost/v1/api/iserver/account/orders");
+        var response = await client.GetAsync("http://localhost/v1/api/iserver/account/orders", TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
@@ -58,11 +58,11 @@ public class EndpointRateLimitingHandlerTests : IDisposable
         using var client = new HttpClient(handler);
 
         // Consume the single token
-        await client.GetAsync("http://localhost/v1/api/iserver/account/orders");
+        await client.GetAsync("http://localhost/v1/api/iserver/account/orders", TestContext.Current.CancellationToken);
 
         // Next request should be rejected
         await Should.ThrowAsync<RateLimitRejectedException>(
-            () => client.GetAsync("http://localhost/v1/api/iserver/account/orders"));
+            () => client.GetAsync("http://localhost/v1/api/iserver/account/orders", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -76,11 +76,11 @@ public class EndpointRateLimitingHandlerTests : IDisposable
         using var client = new HttpClient(handler);
 
         // Unmatched endpoint should always pass through even after token is consumed
-        await client.GetAsync("http://localhost/v1/api/iserver/account/orders");
+        await client.GetAsync("http://localhost/v1/api/iserver/account/orders", TestContext.Current.CancellationToken);
 
         for (var i = 0; i < 5; i++)
         {
-            var response = await client.GetAsync("http://localhost/v1/api/some/other/endpoint");
+            var response = await client.GetAsync("http://localhost/v1/api/some/other/endpoint", TestContext.Current.CancellationToken);
             response.StatusCode.ShouldBe(HttpStatusCode.OK);
         }
     }
@@ -96,7 +96,7 @@ public class EndpointRateLimitingHandlerTests : IDisposable
         using var invoker = new HttpMessageInvoker(handler);
         var request = new HttpRequestMessage(HttpMethod.Get, (Uri?)null);
 
-        var response = await invoker.SendAsync(request, CancellationToken.None);
+        var response = await invoker.SendAsync(request, TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }

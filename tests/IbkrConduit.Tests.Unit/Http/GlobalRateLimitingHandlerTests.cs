@@ -30,7 +30,7 @@ public class GlobalRateLimitingHandlerTests
         };
 
         using var client = new HttpClient(handler);
-        var response = await client.GetAsync("http://localhost/test");
+        var response = await client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
@@ -56,11 +56,11 @@ public class GlobalRateLimitingHandlerTests
         using var client = new HttpClient(handler);
 
         // Consume the single token
-        await client.GetAsync("http://localhost/test");
+        await client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
 
         // Next request should be rejected
         await Should.ThrowAsync<RateLimitRejectedException>(
-            () => client.GetAsync("http://localhost/test"));
+            () => client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class GlobalRateLimitingHandlerTests
 
         for (var i = 0; i < 5; i++)
         {
-            var response = await client.GetAsync("http://localhost/test");
+            var response = await client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
             response.StatusCode.ShouldBe(HttpStatusCode.OK);
         }
     }
