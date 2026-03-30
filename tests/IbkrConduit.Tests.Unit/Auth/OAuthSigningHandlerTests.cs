@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Session;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Auth;
@@ -70,6 +71,49 @@ public class OAuthSigningHandlerTests
         };
 
         await httpClient.GetAsync("portfolio/accounts", TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task SendAsync_CallsEnsureInitializedAsync_BeforeSigning()
+    {
+        var lstBytes = new byte[] { 0x01, 0x02, 0x03, 0x04 };
+        var provider = new FakeTokenProvider(new LiveSessionToken(
+            lstBytes, DateTimeOffset.UtcNow.AddHours(24)));
+
+        var sessionManager = new FakeSessionManager();
+
+        var innerHandler = new FakeInnerHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+
+        var signingHandler = new OAuthSigningHandler(
+            provider, "MYKEY", "mytoken", sessionManager)
+        {
+            InnerHandler = innerHandler,
+        };
+
+        using var httpClient = new HttpClient(signingHandler)
+        {
+            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
+        };
+
+        await httpClient.GetAsync("portfolio/accounts", TestContext.Current.CancellationToken);
+
+        sessionManager.EnsureInitCalled.ShouldBeTrue();
+    }
+
+    private class FakeSessionManager : ISessionManager
+    {
+        public bool EnsureInitCalled { get; private set; }
+
+        public Task EnsureInitializedAsync(CancellationToken cancellationToken)
+        {
+            EnsureInitCalled = true;
+            return Task.CompletedTask;
+        }
+
+        public Task ReauthenticateAsync(CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private class FakeTokenProvider : ISessionTokenProvider

@@ -8,7 +8,7 @@ namespace IbkrConduit.Session;
 /// Manages the lifecycle of an IBKR brokerage session: initialization,
 /// keepalive, re-authentication, and shutdown.
 /// </summary>
-internal interface ISessionManager : IAsyncDisposable
+public interface ISessionManager : IAsyncDisposable
 {
     /// <summary>
     /// Ensures the brokerage session is initialized. On first call, acquires an LST,
