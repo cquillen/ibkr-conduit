@@ -134,27 +134,19 @@ public class TickleTimerTests
                 throw new HttpRequestException("Simulated tickle failure");
             }
 
-            return Task.FromResult(new TickleResponse
-            {
-                Iserver = new TickleIserverStatus
-                {
-                    AuthStatus = new TickleAuthStatus
-                    {
-                        Authenticated = Authenticated,
-                        Connected = true,
-                        Competing = false,
-                    },
-                },
-            });
+            return Task.FromResult(new TickleResponse(
+                Session: string.Empty,
+                Iserver: new TickleIserverStatus(
+                    AuthStatus: new TickleAuthStatus(Authenticated: Authenticated, Competing: false, Connected: true))));
         }
 
         public Task<SsodhInitResponse> InitializeBrokerageSessionAsync(SsodhInitRequest request) =>
-            Task.FromResult(new SsodhInitResponse { Authenticated = true, Connected = true });
+            Task.FromResult(new SsodhInitResponse(Authenticated: true, Connected: true, Competing: false));
 
         public Task<SuppressResponse> SuppressQuestionsAsync(SuppressRequest request) =>
-            Task.FromResult(new SuppressResponse { Status = "submitted" });
+            Task.FromResult(new SuppressResponse(Status: "submitted"));
 
         public Task<LogoutResponse> LogoutAsync() =>
-            Task.FromResult(new LogoutResponse { Confirmed = true });
+            Task.FromResult(new LogoutResponse(Confirmed: true));
     }
 }
