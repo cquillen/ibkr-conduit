@@ -37,7 +37,11 @@ public static class ServiceCollectionExtensions
         // LST client (plain HttpClient, not through Refit pipeline)
         services.AddSingleton<ILiveSessionTokenClient>(sp =>
         {
-            var httpClient = new HttpClient
+            var handler = new HttpClientHandler
+            {
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+            };
+            var httpClient = new HttpClient(handler)
             {
                 BaseAddress = new Uri(_ibkrBaseUrl + "/v1/api/"),
             };
@@ -71,6 +75,10 @@ public static class ServiceCollectionExtensions
         //   ResilienceHandler -> GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
         services.AddRefitClient<IIbkrSessionApi>()
             .ConfigureHttpClient(c => c.BaseAddress = new Uri(_ibkrBaseUrl))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+            })
             .AddHttpMessageHandler(sp =>
                 new ResilienceHandler(
                     sp.GetRequiredService<ResiliencePipeline<HttpResponseMessage>>()))
@@ -100,6 +108,10 @@ public static class ServiceCollectionExtensions
         //   EndpointRateLimitingHandler -> OAuthSigningHandler
         services.AddRefitClient<TApi>()
             .ConfigureHttpClient(c => c.BaseAddress = new Uri(_ibkrBaseUrl))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+            })
             .AddHttpMessageHandler(sp =>
                 new TokenRefreshHandler(
                     sp.GetRequiredService<ISessionManager>()))
