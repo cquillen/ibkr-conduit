@@ -2,13 +2,15 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit.Session;
 
 namespace IbkrConduit.Auth;
 
 /// <summary>
 /// DelegatingHandler that signs outgoing HTTP requests with OAuth HMAC-SHA256
-/// using the Live Session Token. Also sets required HTTP headers that the
-/// IBKR API gateway (Akamai CDN) expects on every request.
+/// using the Live Session Token. Ensures the brokerage session is initialized
+/// before signing. Also sets required HTTP headers that the IBKR API gateway
+/// (Akamai CDN) expects on every request.
 /// </summary>
 public class OAuthSigningHandler : DelegatingHandler
 {
@@ -17,24 +19,32 @@ public class OAuthSigningHandler : DelegatingHandler
     private readonly ISessionTokenProvider _tokenProvider;
     private readonly string _consumerKey;
     private readonly string _accessToken;
+    private readonly ISessionManager? _sessionManager;
 
     /// <summary>
-    /// Creates a new signing handler.
+    /// Creates a new signing handler with optional session management.
     /// </summary>
     public OAuthSigningHandler(
         ISessionTokenProvider tokenProvider,
         string consumerKey,
-        string accessToken)
+        string accessToken,
+        ISessionManager? sessionManager = null)
     {
         _tokenProvider = tokenProvider;
         _consumerKey = consumerKey;
         _accessToken = accessToken;
+        _sessionManager = sessionManager;
     }
 
     /// <inheritdoc />
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        if (_sessionManager != null)
+        {
+            await _sessionManager.EnsureInitializedAsync(cancellationToken);
+        }
+
         var lst = await _tokenProvider.GetLiveSessionTokenAsync(cancellationToken);
 
         var signer = new HmacSha256Signer(lst.Token);
