@@ -11,6 +11,7 @@ using WireMock.Server;
 
 namespace IbkrConduit.Tests.Integration.Portfolio;
 
+[Collection("IBKR E2E")]
 public class PortfolioAccountsTests : IDisposable
 {
     private readonly WireMockServer _server;

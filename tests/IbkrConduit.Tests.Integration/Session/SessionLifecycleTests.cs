@@ -15,6 +15,7 @@ using WireMock.Server;
 
 namespace IbkrConduit.Tests.Integration.Session;
 
+[Collection("IBKR E2E")]
 public class SessionLifecycleTests : IAsyncDisposable
 {
     private readonly WireMockServer _server;
