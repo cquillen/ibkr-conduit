@@ -6,7 +6,7 @@ namespace IbkrConduit.Client;
 public interface IIbkrClient : IAsyncDisposable
 {
     /// <summary>
-    /// Portfolio operations (account listing).
+    /// Portfolio operations (accounts, positions, summary, ledger, allocation, performance, transactions).
     /// </summary>
     IPortfolioOperations Portfolio { get; }
 
@@ -19,4 +19,9 @@ public interface IIbkrClient : IAsyncDisposable
     /// Order management operations (place, cancel, query).
     /// </summary>
     IOrderOperations Orders { get; }
+
+    /// <summary>
+    /// Market data operations (snapshots with pre-flight handling, historical bars).
+    /// </summary>
+    IMarketDataOperations MarketData { get; }
 }

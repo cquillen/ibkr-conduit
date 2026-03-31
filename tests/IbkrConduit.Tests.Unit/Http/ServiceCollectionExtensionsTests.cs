@@ -5,6 +5,7 @@ using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
 using IbkrConduit.Http;
+using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
@@ -64,6 +65,7 @@ public class ServiceCollectionExtensionsTests
         provider.GetService<IIbkrPortfolioApi>().ShouldNotBeNull();
         provider.GetService<IIbkrContractApi>().ShouldNotBeNull();
         provider.GetService<IIbkrOrderApi>().ShouldNotBeNull();
+        provider.GetService<IIbkrMarketDataApi>().ShouldNotBeNull();
     }
 
     [Fact]
@@ -83,6 +85,7 @@ public class ServiceCollectionExtensionsTests
         client.Portfolio.ShouldNotBeNull();
         client.Contracts.ShouldNotBeNull();
         client.Orders.ShouldNotBeNull();
+        client.MarketData.ShouldNotBeNull();
     }
 
     private static IbkrOAuthCredentials CreateTestCredentials()

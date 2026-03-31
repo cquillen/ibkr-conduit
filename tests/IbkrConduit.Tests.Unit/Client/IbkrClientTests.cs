@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
@@ -41,6 +42,15 @@ public class IbkrClientTests
     }
 
     [Fact]
+    public void MarketData_ReturnsSameInstance()
+    {
+        var marketData = new FakeMarketDataOperations();
+        var client = CreateClient(marketData: marketData);
+
+        client.MarketData.ShouldBeSameAs(marketData);
+    }
+
+    [Fact]
     public async Task DisposeAsync_DisposesSessionManager()
     {
         var sessionManager = new FakeSessionManager();
@@ -55,11 +65,13 @@ public class IbkrClientTests
         IPortfolioOperations? portfolio = null,
         IContractOperations? contracts = null,
         IOrderOperations? orders = null,
+        IMarketDataOperations? marketData = null,
         ISessionManager? sessionManager = null) =>
         new(
             portfolio ?? new FakePortfolioOperations(),
             contracts ?? new FakeContractOperations(),
             orders ?? new FakeOrderOperations(),
+            marketData ?? new FakeMarketDataOperations(),
             sessionManager ?? new FakeSessionManager());
 
     private class FakePortfolioOperations : IPortfolioOperations
@@ -135,6 +147,17 @@ public class IbkrClientTests
 
         public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<Trade>());
+    }
+
+    private class FakeMarketDataOperations : IMarketDataOperations
+    {
+        public Task<List<MarketDataSnapshot>> GetSnapshotAsync(int[] conids, string[] fields,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<MarketDataSnapshot>());
+
+        public Task<HistoricalDataResponse> GetHistoryAsync(int conid, string period, string bar,
+            bool? outsideRth = null, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 
     private class FakeSessionManager : ISessionManager

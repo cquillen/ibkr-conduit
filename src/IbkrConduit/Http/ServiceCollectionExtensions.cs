@@ -6,6 +6,7 @@ using System.Threading.RateLimiting;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
@@ -114,11 +115,13 @@ public static class ServiceCollectionExtensions
         RegisterConsumerRefitClient<IIbkrPortfolioApi>(services, credentials);
         RegisterConsumerRefitClient<IIbkrContractApi>(services, credentials);
         RegisterConsumerRefitClient<IIbkrOrderApi>(services, credentials);
+        RegisterConsumerRefitClient<IIbkrMarketDataApi>(services, credentials);
 
         // Operations implementations
         services.AddSingleton<IPortfolioOperations, PortfolioOperations>();
         services.AddSingleton<IContractOperations, ContractOperations>();
         services.AddSingleton<IOrderOperations, OrderOperations>();
+        services.AddSingleton<IMarketDataOperations, MarketDataOperations>();
 
         // Unified facade
         services.AddSingleton<IIbkrClient, IbkrClient>();

@@ -16,16 +16,19 @@ public class IbkrClient : IIbkrClient
     /// <param name="portfolio">Portfolio operations.</param>
     /// <param name="contracts">Contract operations.</param>
     /// <param name="orders">Order operations.</param>
+    /// <param name="marketData">Market data operations.</param>
     /// <param name="sessionManager">The session manager for lifecycle management.</param>
     public IbkrClient(
         IPortfolioOperations portfolio,
         IContractOperations contracts,
         IOrderOperations orders,
+        IMarketDataOperations marketData,
         ISessionManager sessionManager)
     {
         Portfolio = portfolio;
         Contracts = contracts;
         Orders = orders;
+        MarketData = marketData;
         _sessionManager = sessionManager;
     }
 
@@ -37,6 +40,9 @@ public class IbkrClient : IIbkrClient
 
     /// <inheritdoc />
     public IOrderOperations Orders { get; }
+
+    /// <inheritdoc />
+    public IMarketDataOperations MarketData { get; }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
