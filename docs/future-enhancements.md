@@ -73,3 +73,15 @@ Ideas that aren't worth building now but may be valuable later. Each entry shoul
 **Why deferred:** Sub-accounts are specific to FA/IBroker account types. Individual traders don't need this. Adding it requires pagination handling and a different account discovery flow.
 
 **Trigger to build:** A consumer with an FA or IBroker account needs to manage sub-accounts programmatically.
+
+---
+
+## AccountSummaryFields Static Constants
+
+**What:** A static class with named constants for all account summary field keys (e.g., `NetLiquidationValue = "netliquidationvalue"`, `TotalCashValue = "totalcashvalue"`) so consumers don't need to hardcode string keys.
+
+**Current behavior:** The `/portfolio/{accountId}/summary` endpoint returns `Dictionary<string, AccountSummaryEntry>` with dynamic string keys. Consumers must know the key names.
+
+**Why deferred:** The IBKR documentation does not exhaustively list all possible summary field keys. Building constants from incomplete documentation risks missing fields or including incorrect names. Real API responses are needed to discover the full set of keys.
+
+**Trigger to build:** Observe real API responses to catalog all summary field keys, then create a `AccountSummaryFields` static class similar to `MarketDataFields`.
