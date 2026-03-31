@@ -1,7 +1,9 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Session;
@@ -53,6 +55,8 @@ internal sealed partial class SessionManager : ISessionManager
             return;
         }
 
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Initialize");
+
         await _semaphore.WaitAsync(cancellationToken);
         try
         {
@@ -92,6 +96,8 @@ internal sealed partial class SessionManager : ISessionManager
     /// <inheritdoc />
     public async Task ReauthenticateAsync(CancellationToken cancellationToken)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Reauthenticate");
+
         await _semaphore.WaitAsync(cancellationToken);
         try
         {
@@ -144,6 +150,8 @@ internal sealed partial class SessionManager : ISessionManager
         {
             return;
         }
+
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Shutdown");
 
         var wasInitialized = _state != SessionState.Uninitialized;
         _state = SessionState.ShuttingDown;

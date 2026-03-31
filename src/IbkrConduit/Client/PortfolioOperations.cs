@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Portfolio;
 
 namespace IbkrConduit.Client;
@@ -16,58 +18,104 @@ public class PortfolioOperations : IPortfolioOperations
     public PortfolioOperations(IIbkrPortfolioApi api) => _api = api;
 
     /// <inheritdoc />
-    public Task<List<Account>> GetAccountsAsync(CancellationToken cancellationToken = default) =>
-        _api.GetAccountsAsync(cancellationToken);
+    public async Task<List<Account>> GetAccountsAsync(CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAccounts");
+        return await _api.GetAccountsAsync(cancellationToken);
+    }
 
     /// <inheritdoc />
-    public Task<List<Position>> GetPositionsAsync(string accountId, int page = 0,
-        CancellationToken cancellationToken = default) =>
-        _api.GetPositionsAsync(accountId, page, cancellationToken: cancellationToken);
+    public async Task<List<Position>> GetPositionsAsync(string accountId, int page = 0,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPositions");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        activity?.SetTag("page", page);
+        return await _api.GetPositionsAsync(accountId, page, cancellationToken: cancellationToken);
+    }
 
     /// <inheritdoc />
-    public Task<Dictionary<string, AccountSummaryEntry>> GetAccountSummaryAsync(string accountId,
-        CancellationToken cancellationToken = default) =>
-        _api.GetAccountSummaryAsync(accountId, cancellationToken);
+    public async Task<Dictionary<string, AccountSummaryEntry>> GetAccountSummaryAsync(string accountId,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAccountSummary");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.GetAccountSummaryAsync(accountId, cancellationToken);
+    }
 
     /// <inheritdoc />
-    public Task<Dictionary<string, LedgerEntry>> GetLedgerAsync(string accountId,
-        CancellationToken cancellationToken = default) =>
-        _api.GetLedgerAsync(accountId, cancellationToken);
+    public async Task<Dictionary<string, LedgerEntry>> GetLedgerAsync(string accountId,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetLedger");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.GetLedgerAsync(accountId, cancellationToken);
+    }
 
     /// <inheritdoc />
-    public Task<AccountInfo> GetAccountInfoAsync(string accountId,
-        CancellationToken cancellationToken = default) =>
-        _api.GetAccountInfoAsync(accountId, cancellationToken);
+    public async Task<AccountInfo> GetAccountInfoAsync(string accountId,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAccountInfo");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.GetAccountInfoAsync(accountId, cancellationToken);
+    }
 
     /// <inheritdoc />
-    public Task<AccountAllocation> GetAccountAllocationAsync(string accountId,
-        CancellationToken cancellationToken = default) =>
-        _api.GetAccountAllocationAsync(accountId, cancellationToken);
+    public async Task<AccountAllocation> GetAccountAllocationAsync(string accountId,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAllocation");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.GetAccountAllocationAsync(accountId, cancellationToken);
+    }
 
     /// <inheritdoc />
-    public Task<List<Position>> GetPositionByConidAsync(string accountId, string conid,
-        CancellationToken cancellationToken = default) =>
-        _api.GetPositionByConidAsync(accountId, conid, cancellationToken);
+    public async Task<List<Position>> GetPositionByConidAsync(string accountId, string conid,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPositionByConid");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        activity?.SetTag(LogFields.Conid, conid);
+        return await _api.GetPositionByConidAsync(accountId, conid, cancellationToken);
+    }
 
     /// <inheritdoc />
-    public Task<PositionContractInfo> GetPositionAndContractInfoAsync(string conid,
-        CancellationToken cancellationToken = default) =>
-        _api.GetPositionAndContractInfoAsync(conid, cancellationToken);
+    public async Task<PositionContractInfo> GetPositionAndContractInfoAsync(string conid,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPositionContractInfo");
+        activity?.SetTag(LogFields.Conid, conid);
+        return await _api.GetPositionAndContractInfoAsync(conid, cancellationToken);
+    }
 
     /// <inheritdoc />
-    public Task InvalidatePortfolioCacheAsync(string accountId,
-        CancellationToken cancellationToken = default) =>
-        _api.InvalidatePortfolioCacheAsync(accountId, cancellationToken);
+    public async Task InvalidatePortfolioCacheAsync(string accountId,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.InvalidateCache");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        await _api.InvalidatePortfolioCacheAsync(accountId, cancellationToken);
+    }
 
     /// <inheritdoc />
-    public Task<AccountPerformance> GetAccountPerformanceAsync(List<string> accountIds, string period,
-        CancellationToken cancellationToken = default) =>
-        _api.GetAccountPerformanceAsync(new PerformanceRequest(accountIds, period), cancellationToken);
+    public async Task<AccountPerformance> GetAccountPerformanceAsync(List<string> accountIds, string period,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPerformance");
+        activity?.SetTag("period", period);
+        return await _api.GetAccountPerformanceAsync(new PerformanceRequest(accountIds, period), cancellationToken);
+    }
 
     /// <inheritdoc />
-    public Task<TransactionHistory> GetTransactionHistoryAsync(List<string> accountIds,
+    public async Task<TransactionHistory> GetTransactionHistoryAsync(List<string> accountIds,
         List<string> conids, string currency, int? days = null,
-        CancellationToken cancellationToken = default) =>
-        _api.GetTransactionHistoryAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetTransactionHistory");
+        activity?.SetTag("currency", currency);
+        activity?.SetTag("days", days);
+        return await _api.GetTransactionHistoryAsync(
             new TransactionHistoryRequest(accountIds, conids, currency, days), cancellationToken);
+    }
 }

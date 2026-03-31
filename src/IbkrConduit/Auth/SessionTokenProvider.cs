@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit.Diagnostics;
 
 namespace IbkrConduit.Auth;
 
@@ -37,8 +39,11 @@ public class SessionTokenProvider : ISessionTokenProvider, IDisposable
     /// <inheritdoc />
     public async Task<LiveSessionToken> GetLiveSessionTokenAsync(CancellationToken cancellationToken)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.GetToken");
+
         if (_cached != null)
         {
+            activity?.SetTag(LogFields.Cached, true);
             return _cached;
         }
 
@@ -47,9 +52,11 @@ public class SessionTokenProvider : ISessionTokenProvider, IDisposable
         {
             if (_cached != null)
             {
+                activity?.SetTag(LogFields.Cached, true);
                 return _cached;
             }
 
+            activity?.SetTag(LogFields.Cached, false);
             _cached = await _lstClient.GetLiveSessionTokenAsync(_credentials, cancellationToken);
             return _cached;
         }
@@ -62,6 +69,8 @@ public class SessionTokenProvider : ISessionTokenProvider, IDisposable
     /// <inheritdoc />
     public async Task<LiveSessionToken> RefreshAsync(CancellationToken cancellationToken)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.RefreshToken");
+
         var versionBeforeWait = Interlocked.Read(ref _version);
 
         await _semaphore.WaitAsync(cancellationToken);

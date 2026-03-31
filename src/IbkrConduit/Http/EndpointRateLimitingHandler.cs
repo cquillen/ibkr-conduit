@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
+using IbkrConduit.Diagnostics;
 
 namespace IbkrConduit.Http;
 
@@ -36,7 +38,17 @@ internal sealed class EndpointRateLimitingHandler : DelegatingHandler
 
         if (limiter != null)
         {
+            var sw = Stopwatch.StartNew();
             using var lease = await limiter.AcquireAsync(1, cancellationToken);
+            sw.Stop();
+
+            if (sw.ElapsedMilliseconds > 0)
+            {
+                using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.EndpointRateLimit.Wait");
+                activity?.SetTag(LogFields.Endpoint, request.RequestUri?.PathAndQuery);
+                activity?.SetTag("wait_ms", sw.ElapsedMilliseconds);
+            }
+
             if (!lease.IsAcquired)
             {
                 throw new RateLimitRejectedException(

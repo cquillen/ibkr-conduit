@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
 using IbkrConduit.Auth;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging;
 
@@ -86,6 +88,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         string topicPrefix,
         CancellationToken cancellationToken)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Subscribe");
+        activity?.SetTag(LogFields.Topic, topicPrefix);
+
         if (_webSocket == null || _webSocket.State != WebSocketState.Open)
         {
             await ConnectAsync(cancellationToken);
@@ -147,6 +152,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             return;
         }
 
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Connect");
+        activity?.SetTag("url", _webSocketBaseUrl);
+
         LogConnecting();
 
         var tickleResponse = await _sessionApi.TickleAsync(cancellationToken);
@@ -170,6 +178,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
     private async Task DisconnectAsync()
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Disconnect");
+
         _heartbeatCts?.Cancel();
         _messagePumpCts?.Cancel();
 
@@ -341,6 +351,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         await _connectLock.WaitAsync(cancellationToken);
         try
         {
+            using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Reconnect");
+            activity?.SetTag(LogFields.Trigger, "connection_lost");
+
             LogReconnecting();
 
             await DisconnectAsync();

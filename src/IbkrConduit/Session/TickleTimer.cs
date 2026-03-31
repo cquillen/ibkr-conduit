@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Session;
@@ -91,8 +93,11 @@ internal sealed partial class TickleTimer : ITickleTimer
         {
             try
             {
+                using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Tickle");
+
                 var response = await _sessionApi.TickleAsync(cancellationToken);
                 var isAuthenticated = response.Iserver?.AuthStatus?.Authenticated ?? false;
+                activity?.SetTag("authenticated", isAuthenticated);
 
                 if (!isAuthenticated)
                 {

@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.MarketData;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Caching.Memory;
@@ -48,12 +50,18 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
     public async Task<List<MarketDataSnapshot>> GetSnapshotAsync(int[] conids, string[] fields,
         CancellationToken cancellationToken = default)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.Snapshot");
+        activity?.SetTag("conid_count", conids.Length);
+        activity?.SetTag("field_count", fields.Length);
+
         var conidsStr = string.Join(",", conids);
         var fieldsStr = string.Join(",", fields);
 
         var rawSnapshots = await _api.GetSnapshotAsync(conidsStr, fieldsStr, cancellationToken);
 
         var preflightNeeded = GetConidsNeedingPreflight(rawSnapshots);
+
+        activity?.SetTag(LogFields.PreflightNeeded, preflightNeeded.Count > 0);
 
         if (preflightNeeded.Count > 0)
         {
@@ -77,9 +85,15 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
     }
 
     /// <inheritdoc />
-    public Task<HistoricalDataResponse> GetHistoryAsync(int conid, string period, string bar,
-        bool? outsideRth = null, CancellationToken cancellationToken = default) =>
-        _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period, bar, outsideRth, cancellationToken);
+    public async Task<HistoricalDataResponse> GetHistoryAsync(int conid, string period, string bar,
+        bool? outsideRth = null, CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.History");
+        activity?.SetTag(LogFields.Conid, conid);
+        activity?.SetTag("period", period);
+        activity?.SetTag("bar", bar);
+        return await _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period, bar, outsideRth, cancellationToken);
+    }
 
     /// <summary>
     /// Disposes the pre-flight memory cache.
