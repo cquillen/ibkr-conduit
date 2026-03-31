@@ -61,3 +61,15 @@ Ideas that aren't worth building now but may be valuable later. Each entry shoul
 **Why deferred:** Core functionality takes priority. The logging infrastructure is in place (`Microsoft.Extensions.Logging.Abstractions`) — adding OTel is additive, not a redesign.
 
 **Trigger to build:** Moving toward production deployment where observability is required for operations.
+
+---
+
+## Sub-account Support (FA/IBroker)
+
+**What:** Support for tiered account structures — Financial Advisors and IBroker accounts managing multiple sub-accounts. Endpoints: `/portfolio/subaccounts`, `/portfolio/subaccounts2` (paginated).
+
+**Current behavior:** Only individual accounts supported via `/portfolio/accounts`.
+
+**Why deferred:** Sub-accounts are specific to FA/IBroker account types. Individual traders don't need this. Adding it requires pagination handling and a different account discovery flow.
+
+**Trigger to build:** A consumer with an FA or IBroker account needs to manage sub-accounts programmatically.
