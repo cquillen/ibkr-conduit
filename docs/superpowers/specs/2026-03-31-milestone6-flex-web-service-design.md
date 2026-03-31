@@ -284,9 +284,30 @@ IFlexOperations Flex { get; }
 - Two-step flow: mock SendRequest → reference code, mock GetStatement → XML report
 - Polling: first GetStatement returns "in progress", second returns data
 
-### E2E
+### E2E Test
 
-No E2E test — Flex requires a separate token configured in Client Portal which we don't have set up. Noted for manual testing.
+Conditional on both `IBKR_FLEX_TOKEN` and `IBKR_FLEX_QUERY_ID` environment variables.
+Uses the DI pattern:
+
+```csharp
+var services = new ServiceCollection();
+services.AddLogging();
+services.AddIbkrClient(creds, new IbkrClientOptions
+{
+    FlexToken = Environment.GetEnvironmentVariable("IBKR_FLEX_TOKEN"),
+});
+
+var client = provider.GetRequiredService<IIbkrClient>();
+var queryId = Environment.GetEnvironmentVariable("IBKR_FLEX_QUERY_ID")!;
+var result = await client.Flex.ExecuteQueryAsync(queryId, ct);
+result.RawXml.ShouldNotBeNull();
+```
+
+Note: The Flex token and query ID are separate from OAuth credentials.
+Flex token is stored at `tools/flex_token`, query ID at `tools/flex_query_id`.
+
+Use a custom `[EnvironmentFact("IBKR_FLEX_TOKEN")]` since the Flex E2E tests
+have different credential requirements than the OAuth E2E tests.
 
 ---
 
