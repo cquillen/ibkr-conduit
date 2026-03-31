@@ -115,6 +115,100 @@ public class MarketDataTests : IDisposable
         result.Points.ShouldBe(2);
     }
 
+    /// <summary>
+    /// End-to-end test against real IBKR paper account.
+    /// Verifies portfolio positions and market data snapshot for SPY.
+    /// </summary>
+    [EnvironmentFact("IBKR_CONSUMER_KEY")]
+    public async Task EndToEnd_PortfolioPositionsAndSnapshot_Succeeds()
+    {
+        using var creds = OAuthCredentialsFactory.FromEnvironment();
+
+        using var lstHttpClient = new HttpClient(new HttpClientHandler
+        {
+            AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+        })
+        {
+            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
+        };
+        var lstClient = new LiveSessionTokenClient(lstHttpClient);
+        var tokenProvider = new SessionTokenProvider(creds, lstClient);
+
+        var sessionSigningHandler = new OAuthSigningHandler(tokenProvider, creds.ConsumerKey, creds.AccessToken)
+        {
+            InnerHandler = new HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+            },
+        };
+        using var sessionHttpClient = new HttpClient(sessionSigningHandler)
+        {
+            BaseAddress = new Uri("https://api.ibkr.com"),
+        };
+        var sessionApi = Refit.RestService.For<IbkrConduit.Session.IIbkrSessionApi>(sessionHttpClient);
+
+        var options = new IbkrConduit.Session.IbkrClientOptions { Compete = true };
+        var tickleTimerFactory = new IbkrConduit.Session.TickleTimerFactory(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<IbkrConduit.Session.TickleTimer>.Instance);
+        await using var sessionManager = new IbkrConduit.Session.SessionManager(
+            tokenProvider, tickleTimerFactory, sessionApi, options,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<IbkrConduit.Session.SessionManager>.Instance);
+
+        var consumerSigningHandler = new OAuthSigningHandler(
+            tokenProvider, creds.ConsumerKey, creds.AccessToken, sessionManager)
+        {
+            InnerHandler = new HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+            },
+        };
+        using var httpClient = new HttpClient(consumerSigningHandler)
+        {
+            BaseAddress = new Uri("https://api.ibkr.com"),
+        };
+
+        var portfolioApi = Refit.RestService.For<IbkrConduit.Portfolio.IIbkrPortfolioApi>(httpClient);
+        var marketDataApi = Refit.RestService.For<IIbkrMarketDataApi>(httpClient);
+        var contractApi = Refit.RestService.For<IbkrConduit.Contracts.IIbkrContractApi>(httpClient);
+
+        var ct = TestContext.Current.CancellationToken;
+
+        // Get account ID
+        var accounts = await portfolioApi.GetAccountsAsync(ct);
+        accounts.ShouldNotBeNull();
+        accounts.ShouldNotBeEmpty();
+        var accountId = accounts[0].Id;
+
+        // Get positions — should have SPY from M3b order
+        var positions = await portfolioApi.GetPositionsAsync(accountId, cancellationToken: ct);
+        positions.ShouldNotBeNull();
+
+        // Get account summary
+        var summary = await portfolioApi.GetAccountSummaryAsync(accountId, ct);
+        summary.ShouldNotBeNull();
+        summary.ShouldNotBeEmpty();
+
+        // Get ledger
+        var ledger = await portfolioApi.GetLedgerAsync(accountId, ct);
+        ledger.ShouldNotBeNull();
+        ledger.ShouldNotBeEmpty();
+
+        // Look up SPY conid for snapshot
+        var spyResults = await contractApi.SearchBySymbolAsync("SPY", ct);
+        spyResults.ShouldNotBeNull();
+        spyResults.ShouldNotBeEmpty();
+        var spyConid = spyResults[0].Conid;
+
+        // Market data snapshot — pre-flight + data
+        var snapshots = await marketDataApi.GetSnapshotAsync(
+            spyConid.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            $"{MarketDataFields.LastPrice},{MarketDataFields.BidPrice},{MarketDataFields.AskPrice},{MarketDataFields.Volume}",
+            ct);
+        snapshots.ShouldNotBeNull();
+        snapshots.ShouldNotBeEmpty();
+        snapshots[0].Conid.ShouldBe(spyConid);
+    }
+
     public void Dispose()
     {
         _server.Dispose();
