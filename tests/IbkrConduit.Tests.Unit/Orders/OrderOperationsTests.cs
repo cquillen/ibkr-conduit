@@ -37,7 +37,7 @@ public class OrderOperationsTests
             Tif = "DAY",
         };
 
-        var result = await _sut.PlaceOrderAsync("DU1234567", order);
+        var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
 
         result.OrderId.ShouldBe("12345");
         result.OrderStatus.ShouldBe("PreSubmitted");
@@ -72,7 +72,7 @@ public class OrderOperationsTests
             Tif = "GTC",
         };
 
-        var result = await _sut.PlaceOrderAsync("DU1234567", order);
+        var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
 
         result.OrderId.ShouldBe("67890");
         result.OrderStatus.ShouldBe("Submitted");
@@ -108,7 +108,7 @@ public class OrderOperationsTests
             OrderType = "MKT",
         };
 
-        var result = await _sut.PlaceOrderAsync("DU1234567", order);
+        var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
 
         result.OrderId.ShouldBe("99999");
         _fakeApi.ReplyCallCount.ShouldBe(2);
@@ -141,7 +141,7 @@ public class OrderOperationsTests
         };
 
         var ex = await Should.ThrowAsync<InvalidOperationException>(
-            () => _sut.PlaceOrderAsync("DU1234567", order));
+            () => _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken));
 
         ex.Message.ShouldContain("exceeded maximum");
     }
@@ -163,7 +163,7 @@ public class OrderOperationsTests
         };
 
         var ex = await Should.ThrowAsync<InvalidOperationException>(
-            () => _sut.PlaceOrderAsync("DU1234567", order));
+            () => _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken));
 
         ex.Message.ShouldContain("Unexpected order submission response");
     }
@@ -188,7 +188,7 @@ public class OrderOperationsTests
             ManualIndicator = false,
         };
 
-        await _sut.PlaceOrderAsync("DU1234567", order);
+        await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
 
         var payload = _fakeApi.LastPlaceOrderPayload;
         payload.ShouldNotBeNull();
@@ -223,8 +223,8 @@ public class OrderOperationsTests
             OrderType = "MKT",
         };
 
-        var task1 = ops.PlaceOrderAsync("ACCT1", order);
-        var task2 = ops.PlaceOrderAsync("ACCT1", order);
+        var task1 = ops.PlaceOrderAsync("ACCT1", order, TestContext.Current.CancellationToken);
+        var task2 = ops.PlaceOrderAsync("ACCT1", order, TestContext.Current.CancellationToken);
 
         // Allow first call to complete
         semaphore1.Release();
@@ -242,7 +242,7 @@ public class OrderOperationsTests
     {
         _fakeApi.CancelResponse = new CancelOrderResponse("Order cancelled", "12345", 265598);
 
-        var result = await _sut.CancelOrderAsync("DU1234567", "12345");
+        var result = await _sut.CancelOrderAsync("DU1234567", "12345", TestContext.Current.CancellationToken);
 
         result.Message.ShouldBe("Order cancelled");
         result.OrderId.ShouldBe("12345");
@@ -256,7 +256,7 @@ public class OrderOperationsTests
             new LiveOrder("111", 265598, "AAPL", "BUY", 100, "LMT", 150.00m, "PreSubmitted", 0, 100),
         ]);
 
-        var result = await _sut.GetLiveOrdersAsync();
+        var result = await _sut.GetLiveOrdersAsync(TestContext.Current.CancellationToken);
 
         result.Count.ShouldBe(1);
         result[0].OrderId.ShouldBe("111");
@@ -267,7 +267,7 @@ public class OrderOperationsTests
     {
         _fakeApi.LiveOrdersResponse = new OrdersResponse(null);
 
-        var result = await _sut.GetLiveOrdersAsync();
+        var result = await _sut.GetLiveOrdersAsync(TestContext.Current.CancellationToken);
 
         result.ShouldBeEmpty();
     }
@@ -280,7 +280,7 @@ public class OrderOperationsTests
             new Trade("exec-1", 265598, "AAPL", "BUY", 100, 150.00m, "ref-1", "user1"),
         ];
 
-        var result = await _sut.GetTradesAsync();
+        var result = await _sut.GetTradesAsync(TestContext.Current.CancellationToken);
 
         result.Count.ShouldBe(1);
         result[0].ExecutionId.ShouldBe("exec-1");
