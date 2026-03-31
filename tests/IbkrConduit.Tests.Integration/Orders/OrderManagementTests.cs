@@ -57,7 +57,7 @@ public class OrderManagementTests : IDisposable
             Tif = "DAY",
         };
 
-        var result = await ops.PlaceOrderAsync("DU1234567", order);
+        var result = await ops.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
 
         result.OrderId.ShouldBe("12345");
         result.OrderStatus.ShouldBe("PreSubmitted");
@@ -115,7 +115,7 @@ public class OrderManagementTests : IDisposable
             Tif = "GTC",
         };
 
-        var result = await ops.PlaceOrderAsync("DU1234567", order);
+        var result = await ops.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
 
         result.OrderId.ShouldBe("67890");
         result.OrderStatus.ShouldBe("Submitted");
@@ -143,7 +143,7 @@ public class OrderManagementTests : IDisposable
         var api = CreateRefitClient<IIbkrOrderApi>();
         var ops = new OrderOperations(api, NullLogger<OrderOperations>.Instance);
 
-        var result = await ops.CancelOrderAsync("DU1234567", "12345");
+        var result = await ops.CancelOrderAsync("DU1234567", "12345", TestContext.Current.CancellationToken);
 
         result.OrderId.ShouldBe("12345");
         result.Conid.ShouldBe(265598);
@@ -186,7 +186,7 @@ public class OrderManagementTests : IDisposable
         var api = CreateRefitClient<IIbkrContractApi>();
         var ops = new ContractOperations(api);
 
-        var result = await ops.SearchBySymbolAsync("AAPL");
+        var result = await ops.SearchBySymbolAsync("AAPL", TestContext.Current.CancellationToken);
 
         result.Count.ShouldBe(1);
         result[0].Conid.ShouldBe(265598);
@@ -250,11 +250,11 @@ public class OrderManagementTests : IDisposable
 
         var client = new IbkrClient(portfolio, contracts, orders, sessionManager);
 
-        var accounts = await client.Portfolio.GetAccountsAsync();
+        var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
         accounts.Count.ShouldBe(1);
         accounts[0].Id.ShouldBe("DU1234567");
 
-        var searchResults = await client.Contracts.SearchBySymbolAsync("MSFT");
+        var searchResults = await client.Contracts.SearchBySymbolAsync("MSFT", TestContext.Current.CancellationToken);
         searchResults.Count.ShouldBe(1);
         searchResults[0].Symbol.ShouldBe("MSFT");
     }
