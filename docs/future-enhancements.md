@@ -1,0 +1,63 @@
+# Future Enhancements
+
+Ideas that aren't worth building now but may be valuable later. Each entry should describe the enhancement, why it's deferred, and what would trigger building it.
+
+---
+
+## Selective Order Question Answers
+
+**What:** Allow consumers to provide a `Dictionary<string, bool>` answer map when submitting orders, controlling which IBKR confirmation questions are accepted vs rejected (similar to ibind's `Answers` pattern).
+
+**Current behavior:** Auto-confirm all questions with a warning log. Known question types are suppressed at session init via `SuppressibleMessages`.
+
+**Why deferred:** Auto-confirm is sufficient for automated trading systems that validate orders before submission. The suppression mechanism already prevents most questions. Adding a per-order answer map adds API complexity without clear value today.
+
+**Trigger to build:** A consumer needs to reject specific question types at order submission time (e.g., fail-safe against mispriced orders that bypass their own validation). Could be implemented as an optional `Answers` parameter on the order submission method.
+
+---
+
+## 429 Adaptive Rate Limiting
+
+**What:** Dynamically tighten the local rate limiter by 10-20% on 429 response, run at tightened rate for 60 seconds, then gradually relax back to configured limits. A control loop, not a permanent ratchet.
+
+**Current behavior:** Local token bucket prevents most 429s. If one slips through, Polly retries with exponential backoff.
+
+**Why deferred:** YAGNI — the local rate limiter should prevent 429s entirely. The adaptive loop adds significant complexity for a scenario that shouldn't occur.
+
+**Trigger to build:** Observing repeated 429s in production despite correct rate limiter configuration, suggesting drift between local and server-side enforcement.
+
+---
+
+## Circuit Breaker
+
+**What:** Polly circuit breaker that opens after N consecutive failures, preventing request storms during extended outages.
+
+**Current behavior:** SessionManager handles session-level failures (re-auth on 401, tickle detects dead sessions). Polly retries transient errors.
+
+**Why deferred:** Two competing recovery mechanisms (circuit breaker + SessionManager) add complexity. SessionManager already handles the recovery path.
+
+**Trigger to build:** Observing cascading failure patterns where rapid retries during an outage cause additional problems (e.g., IP penalty box from retry storms).
+
+---
+
+## Multi-Tenant Session Registry
+
+**What:** A registry that manages N independent `SessionManager` instances, one per tenant. Consumers register multiple tenants and the registry handles lifecycle for all of them.
+
+**Current behavior:** Single-tenant `SessionManager` with clean interfaces. Multi-tenant requires multiple `AddIbkrClient` registrations.
+
+**Why deferred:** Single-tenant is sufficient for initial consumers. The per-tenant `SessionManager` has clean interfaces that make a registry wrapper straightforward when needed.
+
+**Trigger to build:** A consumer needs to manage 3+ tenant sessions concurrently with shared infrastructure (e.g., an advisor managing multiple client accounts).
+
+---
+
+## OpenTelemetry + Structured Logging
+
+**What:** OTel spans for LST acquisition, session init, re-auth flows, and structured log fields (tenant ID, endpoint, duration) across all components.
+
+**Current behavior:** Basic `ILogger` with `LoggerMessage` source generation in TickleTimer and SessionManager.
+
+**Why deferred:** Core functionality takes priority. The logging infrastructure is in place (`Microsoft.Extensions.Logging.Abstractions`) — adding OTel is additive, not a redesign.
+
+**Trigger to build:** Moving toward production deployment where observability is required for operations.
