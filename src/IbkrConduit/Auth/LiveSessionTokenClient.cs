@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using IbkrConduit.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Auth;
 
@@ -13,19 +14,21 @@ namespace IbkrConduit.Auth;
 /// Uses a plain HttpClient (not the Refit pipeline) since the LST endpoint
 /// has unique signing requirements.
 /// </summary>
-public class LiveSessionTokenClient : ILiveSessionTokenClient
+public partial class LiveSessionTokenClient : ILiveSessionTokenClient
 {
     private const string _lstEndpoint = "oauth/live_session_token";
 
     private readonly HttpClient _httpClient;
+    private readonly ILogger<LiveSessionTokenClient> _logger;
 
     /// <summary>
     /// Creates a new LST client using the provided HttpClient.
     /// The HttpClient should have BaseAddress set to the IBKR API base URL.
     /// </summary>
-    public LiveSessionTokenClient(HttpClient httpClient)
+    public LiveSessionTokenClient(HttpClient httpClient, ILogger<LiveSessionTokenClient> logger)
     {
         _httpClient = httpClient;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -33,6 +36,8 @@ public class LiveSessionTokenClient : ILiveSessionTokenClient
         IbkrOAuthCredentials credentials, CancellationToken cancellationToken)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.OAuth.AcquireLst");
+
+        LogAcquiringLst();
 
         // 1. Decrypt access token secret
         var decryptedSecret = OAuthCrypto.DecryptAccessTokenSecret(
@@ -89,12 +94,23 @@ public class LiveSessionTokenClient : ILiveSessionTokenClient
         // 10. Validate LST
         if (!OAuthCrypto.ValidateLiveSessionToken(lstBytes, credentials.ConsumerKey, signatureHex))
         {
+            LogLstValidationFailed();
             throw new CryptographicException(
                 "Live Session Token validation failed: computed signature does not match server's signature.");
         }
 
         // 11. Convert expiration and return
         var expiry = DateTimeOffset.FromUnixTimeMilliseconds(expirationMs);
+        LogLstAcquired(expiry);
         return new LiveSessionToken(lstBytes, expiry);
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Acquiring Live Session Token")]
+    private partial void LogAcquiringLst();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Live Session Token acquired, expires at {Expiry}")]
+    private partial void LogLstAcquired(DateTimeOffset expiry);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Live Session Token validation failed")]
+    private partial void LogLstValidationFailed();
 }

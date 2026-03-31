@@ -53,7 +53,7 @@ public static class ServiceCollectionExtensions
             {
                 BaseAddress = new Uri(_ibkrBaseUrl + "/v1/api/"),
             };
-            return new LiveSessionTokenClient(httpClient);
+            return new LiveSessionTokenClient(httpClient, sp.GetRequiredService<ILogger<LiveSessionTokenClient>>());
         });
 
         // Session token provider
