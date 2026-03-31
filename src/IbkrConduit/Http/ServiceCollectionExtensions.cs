@@ -10,6 +10,7 @@ using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
+using IbkrConduit.Streaming;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Polly;
@@ -126,6 +127,17 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IContractOperations, ContractOperations>();
         services.AddSingleton<IOrderOperations, OrderOperations>();
         services.AddSingleton<IMarketDataOperations, MarketDataOperations>();
+
+        // WebSocket streaming
+        services.AddSingleton(sp =>
+            new IbkrWebSocketClient(
+                sp.GetRequiredService<IIbkrSessionApi>(),
+                credentials,
+                sp.GetRequiredService<ISessionLifecycleNotifier>(),
+                sp.GetRequiredService<ILogger<IbkrWebSocketClient>>()));
+        services.AddSingleton<IStreamingOperations>(sp =>
+            new StreamingOperations(
+                sp.GetRequiredService<IbkrWebSocketClient>()));
 
         // Unified facade
         services.AddSingleton<IIbkrClient, IbkrClient>();
