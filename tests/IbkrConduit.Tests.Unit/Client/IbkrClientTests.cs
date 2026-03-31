@@ -8,6 +8,7 @@ using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
+using IbkrConduit.Streaming;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Client;
@@ -51,6 +52,15 @@ public class IbkrClientTests
     }
 
     [Fact]
+    public void Streaming_ReturnsSameInstance()
+    {
+        var streaming = new FakeStreamingOperations();
+        var client = CreateClient(streaming: streaming);
+
+        client.Streaming.ShouldBeSameAs(streaming);
+    }
+
+    [Fact]
     public async Task DisposeAsync_DisposesSessionManager()
     {
         var sessionManager = new FakeSessionManager();
@@ -66,12 +76,14 @@ public class IbkrClientTests
         IContractOperations? contracts = null,
         IOrderOperations? orders = null,
         IMarketDataOperations? marketData = null,
+        IStreamingOperations? streaming = null,
         ISessionManager? sessionManager = null) =>
         new(
             portfolio ?? new FakePortfolioOperations(),
             contracts ?? new FakeContractOperations(),
             orders ?? new FakeOrderOperations(),
             marketData ?? new FakeMarketDataOperations(),
+            streaming ?? new FakeStreamingOperations(),
             sessionManager ?? new FakeSessionManager());
 
     private class FakePortfolioOperations : IPortfolioOperations
@@ -157,6 +169,24 @@ public class IbkrClientTests
 
         public Task<HistoricalDataResponse> GetHistoryAsync(int conid, string period, string bar,
             bool? outsideRth = null, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
+    private class FakeStreamingOperations : IStreamingOperations
+    {
+        public IObservable<MarketDataTick> MarketData(int conid, string[] fields, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public IObservable<OrderUpdate> OrderUpdates(int? days = null, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public IObservable<PnlUpdate> ProfitAndLoss(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public IObservable<AccountSummaryUpdate> AccountSummary(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public IObservable<AccountLedgerUpdate> AccountLedger(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 

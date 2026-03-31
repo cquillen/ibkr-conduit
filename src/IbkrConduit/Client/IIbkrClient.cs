@@ -24,4 +24,9 @@ public interface IIbkrClient : IAsyncDisposable
     /// Market data operations (snapshots with pre-flight handling, historical bars).
     /// </summary>
     IMarketDataOperations MarketData { get; }
+
+    /// <summary>
+    /// Real-time WebSocket streaming operations (market data, orders, P&amp;L, account summary, account ledger).
+    /// </summary>
+    IStreamingOperations Streaming { get; }
 }

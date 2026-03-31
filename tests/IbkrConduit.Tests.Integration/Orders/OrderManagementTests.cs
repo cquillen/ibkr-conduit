@@ -11,6 +11,7 @@ using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
+using IbkrConduit.Streaming;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -253,7 +254,7 @@ public class OrderManagementTests : IDisposable
         var orders = new OrderOperations(orderApi, NullLogger<OrderOperations>.Instance);
         var sessionManager = new FakeSessionManager();
 
-        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), sessionManager);
+        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), new FakeStreamingOperations(), sessionManager);
 
         var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
         accounts.Count.ShouldBe(1);
@@ -383,6 +384,24 @@ public class OrderManagementTests : IDisposable
 
         public Task<HistoricalDataResponse> GetHistoryAsync(int conid, string period, string bar,
             bool? outsideRth = null, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
+    private class FakeStreamingOperations : IStreamingOperations
+    {
+        public IObservable<MarketDataTick> MarketData(int conid, string[] fields, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public IObservable<OrderUpdate> OrderUpdates(int? days = null, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public IObservable<PnlUpdate> ProfitAndLoss(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public IObservable<AccountSummaryUpdate> AccountSummary(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public IObservable<AccountLedgerUpdate> AccountLedger(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 
