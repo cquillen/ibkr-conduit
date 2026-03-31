@@ -154,7 +154,7 @@ internal sealed partial class SessionManager : ISessionManager
         {
             try
             {
-                await _sessionApi.LogoutAsync();
+                await _sessionApi.LogoutAsync(CancellationToken.None);
             }
             catch (Exception ex)
             {
