@@ -337,6 +337,96 @@ public class OrderManagementTests : IDisposable
         searchResults[0].Symbol.ShouldBe("AAPL");
     }
 
+    /// <summary>
+    /// End-to-end test that places a real market order for 1 share of SPY on the paper account.
+    /// Runs only when IBKR_CONSUMER_KEY environment variable is set.
+    /// </summary>
+    [EnvironmentFact("IBKR_CONSUMER_KEY")]
+    public async Task EndToEnd_BuyOneSpy_MarketOrder_Succeeds()
+    {
+        using var creds = OAuthCredentialsFactory.FromEnvironment();
+
+        using var lstHttpClient = new HttpClient(new HttpClientHandler
+        {
+            AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+        })
+        {
+            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
+        };
+        var lstClient = new LiveSessionTokenClient(lstHttpClient);
+        var tokenProvider = new SessionTokenProvider(creds, lstClient);
+
+        var sessionSigningHandler = new OAuthSigningHandler(tokenProvider, creds.ConsumerKey, creds.AccessToken)
+        {
+            InnerHandler = new HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+            },
+        };
+        using var sessionHttpClient = new HttpClient(sessionSigningHandler)
+        {
+            BaseAddress = new Uri("https://api.ibkr.com"),
+        };
+        var sessionApi = Refit.RestService.For<IIbkrSessionApi>(sessionHttpClient);
+
+        var options = new IbkrClientOptions { Compete = true };
+        var tickleTimerFactory = new TickleTimerFactory(NullLogger<TickleTimer>.Instance);
+        await using var sessionManager = new SessionManager(
+            tokenProvider, tickleTimerFactory, sessionApi, options,
+            NullLogger<SessionManager>.Instance);
+
+        var consumerSigningHandler = new OAuthSigningHandler(
+            tokenProvider, creds.ConsumerKey, creds.AccessToken, sessionManager)
+        {
+            InnerHandler = new HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+            },
+        };
+        using var httpClient = new HttpClient(consumerSigningHandler)
+        {
+            BaseAddress = new Uri("https://api.ibkr.com"),
+        };
+
+        var portfolioApi = Refit.RestService.For<IIbkrPortfolioApi>(httpClient);
+        var contractApi = Refit.RestService.For<IIbkrContractApi>(httpClient);
+        var orderApi = Refit.RestService.For<IIbkrOrderApi>(httpClient);
+
+        var portfolio = new PortfolioOperations(portfolioApi);
+        var contracts = new ContractOperations(contractApi);
+        var orders = new OrderOperations(orderApi, NullLogger<OrderOperations>.Instance);
+
+        var client = new IbkrClient(portfolio, contracts, orders, sessionManager);
+
+        // Get account ID
+        var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
+        accounts.ShouldNotBeNull();
+        accounts.ShouldNotBeEmpty();
+        var accountId = accounts[0].Id;
+
+        // Look up SPY conid
+        var spyResults = await client.Contracts.SearchBySymbolAsync("SPY", TestContext.Current.CancellationToken);
+        spyResults.ShouldNotBeNull();
+        spyResults.ShouldNotBeEmpty();
+        var spyConid = spyResults[0].Conid;
+        spyConid.ShouldBeGreaterThan(0);
+
+        // Place market order: buy 1 share of SPY
+        var order = new OrderRequest
+        {
+            Conid = spyConid,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "MKT",
+            Tif = "DAY",
+        };
+
+        var result = await client.Orders.PlaceOrderAsync(accountId, order, TestContext.Current.CancellationToken);
+
+        result.ShouldNotBeNull();
+        result.OrderId.ShouldNotBeNullOrWhiteSpace();
+    }
+
     public void Dispose()
     {
         _server.Dispose();
