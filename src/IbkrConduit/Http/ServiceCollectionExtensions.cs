@@ -149,8 +149,11 @@ public static class ServiceCollectionExtensions
                 var handler = new HttpClientHandler
                 {
                     AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+                    Proxy = System.Net.WebRequest.DefaultWebProxy,
+                    UseProxy = true,
                 };
                 var httpClient = new HttpClient(handler);
+                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("IbkrConduit/1.0");
                 return new FlexClient(
                     httpClient,
                     flexToken,
