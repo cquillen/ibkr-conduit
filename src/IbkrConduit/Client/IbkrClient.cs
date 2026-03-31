@@ -18,6 +18,7 @@ public class IbkrClient : IIbkrClient
     /// <param name="orders">Order operations.</param>
     /// <param name="marketData">Market data operations.</param>
     /// <param name="streaming">Streaming operations.</param>
+    /// <param name="flex">Flex Web Service operations.</param>
     /// <param name="sessionManager">The session manager for lifecycle management.</param>
     public IbkrClient(
         IPortfolioOperations portfolio,
@@ -25,6 +26,7 @@ public class IbkrClient : IIbkrClient
         IOrderOperations orders,
         IMarketDataOperations marketData,
         IStreamingOperations streaming,
+        IFlexOperations flex,
         ISessionManager sessionManager)
     {
         Portfolio = portfolio;
@@ -32,6 +34,7 @@ public class IbkrClient : IIbkrClient
         Orders = orders;
         MarketData = marketData;
         Streaming = streaming;
+        Flex = flex;
         _sessionManager = sessionManager;
     }
 
@@ -49,6 +52,9 @@ public class IbkrClient : IIbkrClient
 
     /// <inheritdoc />
     public IStreamingOperations Streaming { get; }
+
+    /// <inheritdoc />
+    public IFlexOperations Flex { get; }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()

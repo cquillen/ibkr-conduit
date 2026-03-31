@@ -29,4 +29,9 @@ public interface IIbkrClient : IAsyncDisposable
     /// Real-time WebSocket streaming operations (market data, orders, P&amp;L, account summary, account ledger).
     /// </summary>
     IStreamingOperations Streaming { get; }
+
+    /// <summary>
+    /// Flex Web Service operations (query execution, trade confirmations, activity statements).
+    /// </summary>
+    IFlexOperations Flex { get; }
 }

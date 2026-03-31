@@ -87,6 +87,7 @@ public class ServiceCollectionExtensionsTests
         client.Orders.ShouldNotBeNull();
         client.MarketData.ShouldNotBeNull();
         client.Streaming.ShouldNotBeNull();
+        client.Flex.ShouldNotBeNull();
     }
 
     private static IbkrOAuthCredentials CreateTestCredentials()
