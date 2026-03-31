@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
@@ -249,7 +251,7 @@ public class OrderManagementTests : IDisposable
         var orders = new OrderOperations(orderApi, NullLogger<OrderOperations>.Instance);
         var sessionManager = new FakeSessionManager();
 
-        var client = new IbkrClient(portfolio, contracts, orders, sessionManager);
+        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), sessionManager);
 
         var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
         accounts.Count.ShouldBe(1);
@@ -323,7 +325,7 @@ public class OrderManagementTests : IDisposable
         var contracts = new ContractOperations(contractApi);
         var orders = new OrderOperations(orderApi, NullLogger<OrderOperations>.Instance);
 
-        var client = new IbkrClient(portfolio, contracts, orders, sessionManager);
+        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), sessionManager);
 
         var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
         accounts.ShouldNotBeNull();
@@ -396,7 +398,7 @@ public class OrderManagementTests : IDisposable
         var contracts = new ContractOperations(contractApi);
         var orders = new OrderOperations(orderApi, NullLogger<OrderOperations>.Instance);
 
-        var client = new IbkrClient(portfolio, contracts, orders, sessionManager);
+        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), sessionManager);
 
         // Get account ID
         var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
@@ -464,6 +466,17 @@ public class OrderManagementTests : IDisposable
 
         public Task<LiveSessionToken> RefreshAsync(CancellationToken cancellationToken) =>
             Task.FromResult(_token);
+    }
+
+    private class FakeMarketDataOperations : IMarketDataOperations
+    {
+        public Task<List<MarketDataSnapshot>> GetSnapshotAsync(int[] conids, string[] fields,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<MarketDataSnapshot>());
+
+        public Task<HistoricalDataResponse> GetHistoryAsync(int conid, string period, string bar,
+            bool? outsideRth = null, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 
     private class FakeSessionManager : ISessionManager
