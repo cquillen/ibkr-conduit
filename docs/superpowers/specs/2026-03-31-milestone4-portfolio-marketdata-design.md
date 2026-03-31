@@ -21,6 +21,20 @@ M4 adds read-only query operations for portfolio data and market data to the `II
 - **Conid caching** — consumers cache conids themselves.
 - **Regulatory snapshots** — incur per-request fees ($0.01 USD). Not included to avoid accidental charges.
 
+### IbkrClientOptions Addition
+
+```csharp
+/// <summary>
+/// How long a conid stays in the pre-flight cache before a fresh pre-flight is required.
+/// Default is 5 minutes.
+/// </summary>
+public TimeSpan PreflightCacheDuration { get; init; } = TimeSpan.FromMinutes(5);
+```
+
+### NuGet Dependency
+
+- `Microsoft.Extensions.Caching.Memory` — for `MemoryCache` used in pre-flight tracking
+
 ---
 
 ## Architecture
@@ -39,10 +53,12 @@ client.Orders       — unchanged
 `MarketDataOperations.GetSnapshotAsync`:
 1. Call snapshot endpoint
 2. If response is empty/partial (no field data for requested conids): wait 500ms, retry once
-3. Track pre-flighted conids in a `HashSet<int>` — skip retry on subsequent calls for same conid
+3. Track pre-flighted conids in a `MemoryCache` with configurable expiration (`IbkrClientOptions.PreflightCacheDuration`, default 5 minutes) — skip retry on subsequent calls for the same conid within the cache window
 4. Return whatever the second call returns
 
-Pre-flight state is per `MarketDataOperations` instance (scoped to the DI lifetime, which is singleton per tenant). Resets on session re-initialization.
+The cache duration balances two concerns: long enough to avoid redundant pre-flights during rapid polling, short enough that a request after a quiet period triggers a fresh pre-flight to re-establish the data stream.
+
+Pre-flight state is per `MarketDataOperations` instance (scoped to the DI lifetime, which is singleton per tenant).
 
 ---
 
@@ -373,17 +389,17 @@ public interface IMarketDataOperations
 
 ### MarketDataOperations
 
-**Constructor:** Takes `IIbkrMarketDataApi`, `ILogger<MarketDataOperations>`
+**Constructor:** Takes `IIbkrMarketDataApi`, `IbkrClientOptions`, `ILogger<MarketDataOperations>`
 
 **Fields:**
-- `_preflightedConids`: `HashSet<int>` — tracks conids that have completed pre-flight
+- `_preflightCache`: `MemoryCache` — tracks conids that have completed pre-flight, entries expire after `IbkrClientOptions.PreflightCacheDuration`
 
 **`GetSnapshotAsync`:**
 1. Build comma-separated conids and fields strings
 2. Call `_api.GetSnapshotAsync(conids, fields)`
 3. Check if any requested conids have no field data in the response (pre-flight needed)
-4. If pre-flight needed AND those conids are not in `_preflightedConids`:
-   - Add them to `_preflightedConids`
+4. If pre-flight needed AND those conids are not in `_preflightCache`:
+   - Add them to `_preflightCache` with absolute expiration of `_options.PreflightCacheDuration`
    - Wait 500ms
    - Retry the call
 5. Map `MarketDataSnapshotRaw` → `MarketDataSnapshot` (map numeric field IDs to named properties)
