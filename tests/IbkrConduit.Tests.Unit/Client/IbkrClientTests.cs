@@ -66,6 +66,47 @@ public class IbkrClientTests
     {
         public Task<List<Account>> GetAccountsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<Account>());
+
+        public Task<List<Position>> GetPositionsAsync(string accountId, int page = 0,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<Dictionary<string, AccountSummaryEntry>> GetAccountSummaryAsync(string accountId,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<Dictionary<string, LedgerEntry>> GetLedgerAsync(string accountId,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AccountInfo> GetAccountInfoAsync(string accountId,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AccountAllocation> GetAccountAllocationAsync(string accountId,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<Position>> GetPositionByConidAsync(string accountId, string conid,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<PositionContractInfo> GetPositionAndContractInfoAsync(string conid,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task InvalidatePortfolioCacheAsync(string accountId,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AccountPerformance> GetAccountPerformanceAsync(List<string> accountIds, string period,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<TransactionHistory> GetTransactionHistoryAsync(List<string> accountIds,
+            List<string> conids, string currency, int? days = null,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 
     private class FakeContractOperations : IContractOperations
