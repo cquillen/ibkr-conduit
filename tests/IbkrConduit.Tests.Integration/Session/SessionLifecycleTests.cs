@@ -5,8 +5,11 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Client;
+using IbkrConduit.Http;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using WireMock.RequestBuilders;
@@ -163,62 +166,21 @@ public class SessionLifecycleTests : IAsyncDisposable
     public async Task PaperAccount_FullLifecycle_InitializesAndShutdown()
     {
         using var creds = OAuthCredentialsFactory.FromEnvironment();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddIbkrClient(creds);
 
-        using var lstHttpClient = new HttpClient(new HttpClientHandler
-        {
-            AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-        })
-        {
-            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
-        };
-        var lstClient = new LiveSessionTokenClient(lstHttpClient);
-        var tokenProvider = new SessionTokenProvider(creds, lstClient);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<IIbkrClient>();
 
-        var decompressionHandler = new HttpClientHandler
-        {
-            AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-        };
-        var signingHandler = new OAuthSigningHandler(tokenProvider, creds.ConsumerKey, creds.AccessToken)
-        {
-            InnerHandler = decompressionHandler,
-        };
-
-        using var sessionHttpClient = new HttpClient(signingHandler)
-        {
-            BaseAddress = new Uri("https://api.ibkr.com"),
-        };
-        var sessionApi = Refit.RestService.For<IIbkrSessionApi>(sessionHttpClient);
-
-        var options = new IbkrClientOptions { Compete = true };
-        var tickleTimerFactory = new TickleTimerFactory(NullLogger<TickleTimer>.Instance);
-
-        await using var sessionManager = new SessionManager(
-            tokenProvider,
-            tickleTimerFactory,
-            sessionApi,
-            options,
-            NullLogger<SessionManager>.Instance);
-
-        var consumerSigningHandler = new OAuthSigningHandler(
-            tokenProvider, creds.ConsumerKey, creds.AccessToken, sessionManager)
-        {
-            InnerHandler = new HttpClientHandler
-            {
-                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-            },
-        };
-
-        using var consumerHttpClient = new HttpClient(consumerSigningHandler)
-        {
-            BaseAddress = new Uri("https://api.ibkr.com"),
-        };
-        var portfolioApi = Refit.RestService.For<IIbkrPortfolioApi>(consumerHttpClient);
-
-        var accounts = await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken);
+        // Making any API call triggers lazy session initialization
+        var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
 
         accounts.ShouldNotBeNull();
         accounts.ShouldNotBeEmpty();
         accounts[0].Id.ShouldNotBeNullOrWhiteSpace();
+
+        // Disposing the provider triggers clean session shutdown (logout)
     }
 
     /// <inheritdoc />

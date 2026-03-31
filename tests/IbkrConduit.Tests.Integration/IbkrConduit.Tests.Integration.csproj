@@ -3,6 +3,8 @@
   <ItemGroup>
     <PackageReference Include="Refit" />
     <PackageReference Include="WireMock.Net" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
   </ItemGroup>
 
   <ItemGroup>
