@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Text.Json;
 using IbkrConduit.Diagnostics;
@@ -16,6 +17,21 @@ namespace IbkrConduit.Client;
 public partial class MarketDataOperations : IMarketDataOperations, IDisposable
 {
     private const int _preflightDelayMs = 500;
+
+    private static readonly Histogram<double> _snapshotDuration =
+        IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.marketdata.snapshot.duration", "ms");
+
+    private static readonly Counter<long> _snapshotCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.marketdata.snapshot.count");
+
+    private static readonly Counter<long> _preflightCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.marketdata.snapshot.preflight.count");
+
+    private static readonly Histogram<double> _historyDuration =
+        IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.marketdata.history.duration", "ms");
+
+    private static readonly Counter<long> _historyCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.marketdata.history.count");
 
     private static readonly HashSet<string> _nonDataKeys = new(StringComparer.Ordinal)
     {
@@ -54,6 +70,9 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
         activity?.SetTag("conid_count", conids.Length);
         activity?.SetTag("field_count", fields.Length);
 
+        _snapshotCount.Add(1);
+        var sw = Stopwatch.StartNew();
+
         var conidsStr = string.Join(",", conids);
         var fieldsStr = string.Join(",", fields);
 
@@ -65,6 +84,7 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
 
         if (preflightNeeded.Count > 0)
         {
+            _preflightCount.Add(1);
             foreach (var conid in preflightNeeded)
             {
                 _preflightCache.Set(conid, true, new MemoryCacheEntryOptions
@@ -81,6 +101,9 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
             rawSnapshots = await _api.GetSnapshotAsync(conidsStr, fieldsStr, cancellationToken);
         }
 
+        _snapshotDuration.Record(sw.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>("preflight", preflightNeeded.Count > 0));
+
         return rawSnapshots.Select(MapSnapshot).ToList();
     }
 
@@ -92,7 +115,12 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
         activity?.SetTag(LogFields.Conid, conid);
         activity?.SetTag("period", period);
         activity?.SetTag("bar", bar);
-        return await _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period, bar, outsideRth, cancellationToken);
+
+        _historyCount.Add(1);
+        var sw = Stopwatch.StartNew();
+        var result = await _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period, bar, outsideRth, cancellationToken);
+        _historyDuration.Record(sw.Elapsed.TotalMilliseconds);
+        return result;
     }
 
     /// <summary>

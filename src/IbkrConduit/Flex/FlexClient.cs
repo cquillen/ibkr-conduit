@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Xml.Linq;
 using IbkrConduit.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -14,6 +15,18 @@ internal sealed partial class FlexClient
 {
     private const string _defaultBaseUrl = "https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService/";
     private const int _inProgressErrorCode = 1019;
+
+    private static readonly Histogram<double> _queryDuration =
+        IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.flex.query.duration", "ms");
+
+    private static readonly Counter<long> _queryCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.flex.query.count");
+
+    private static readonly Counter<long> _pollCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.flex.poll.count");
+
+    private static readonly Counter<long> _errorCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.flex.error.count");
 
     private static readonly int[] _pollDelaysMs = [1000, 2000, 3000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000];
     private const int _maxTotalWaitMs = 60000;
@@ -56,9 +69,13 @@ internal sealed partial class FlexClient
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Flex.ExecuteQuery");
         activity?.SetTag(LogFields.QueryId, queryId);
 
+        _queryCount.Add(1);
+        var sw = Stopwatch.StartNew();
+
         var referenceCode = await SendRequestAsync(queryId, fromDate, toDate, cancellationToken);
         var result = await PollForStatementAsync(referenceCode, cancellationToken);
 
+        _queryDuration.Record(sw.Elapsed.TotalMilliseconds);
         activity?.SetTag(LogFields.PollCount, _lastPollCount);
         return result;
     }
@@ -115,6 +132,7 @@ internal sealed partial class FlexClient
             }
 
             attempt++;
+            _pollCount.Add(1);
             var responseStr = await _httpClient.GetStringAsync(url, cancellationToken);
             var doc = XDocument.Parse(responseStr);
 
@@ -177,6 +195,7 @@ internal sealed partial class FlexClient
         var errorCodeStr = root.Element("ErrorCode")?.Value;
         if (int.TryParse(errorCodeStr, out var errorCode) && errorCode != 0)
         {
+            _errorCount.Add(1, new KeyValuePair<string, object?>(LogFields.ErrorCode, errorCode));
             var errorMessage = root.Element("ErrorMessage")?.Value ?? "Unknown Flex query error";
             throw new FlexQueryException(errorCode, errorMessage);
         }

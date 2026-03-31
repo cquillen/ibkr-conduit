@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
@@ -17,6 +18,15 @@ namespace IbkrConduit.Auth;
 public class OAuthSigningHandler : DelegatingHandler
 {
     private static readonly ProductInfoHeaderValue _defaultUserAgent = new("IbkrConduit", "1.0");
+
+    private static readonly Histogram<double> _requestDuration =
+        IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.http.request.duration", "ms");
+
+    private static readonly Counter<long> _requestCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.http.request.count");
+
+    private static readonly UpDownCounter<long> _activeRequests =
+        IbkrConduitDiagnostics.Meter.CreateUpDownCounter<long>("ibkr.conduit.http.active_requests");
 
     private readonly ISessionTokenProvider _tokenProvider;
     private readonly string _consumerKey;
@@ -72,9 +82,31 @@ public class OAuthSigningHandler : DelegatingHandler
             request.Headers.UserAgent.Add(_defaultUserAgent);
         }
 
-        var response = await base.SendAsync(request, cancellationToken);
-        activity?.SetTag(LogFields.StatusCode, (int)response.StatusCode);
+        var endpoint = request.RequestUri?.AbsolutePath ?? "unknown";
+        _activeRequests.Add(1);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var response = await base.SendAsync(request, cancellationToken);
+            sw.Stop();
 
-        return response;
+            var statusCode = (int)response.StatusCode;
+            activity?.SetTag(LogFields.StatusCode, statusCode);
+
+            var tags = new TagList
+            {
+                { LogFields.Endpoint, endpoint },
+                { LogFields.Method, method },
+                { LogFields.StatusCode, statusCode },
+            };
+            _requestDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            _requestCount.Add(1, tags);
+
+            return response;
+        }
+        finally
+        {
+            _activeRequests.Add(-1);
+        }
     }
 }

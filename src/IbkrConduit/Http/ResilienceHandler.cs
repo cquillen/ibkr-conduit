@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +16,12 @@ namespace IbkrConduit.Http;
 /// </summary>
 internal sealed class ResilienceHandler : DelegatingHandler
 {
+    private static readonly Counter<long> _status429Count =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.http.status_429.count");
+
+    private static readonly Counter<long> _retryCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.http.retry.count");
+
     private readonly ResiliencePipeline<HttpResponseMessage> _pipeline;
 
     /// <summary>
@@ -30,6 +38,7 @@ internal sealed class ResilienceHandler : DelegatingHandler
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var attempt = 0;
+        var endpoint = request.RequestUri?.AbsolutePath ?? "unknown";
         return await _pipeline.ExecuteAsync(
             async ct =>
             {
@@ -38,9 +47,19 @@ internal sealed class ResilienceHandler : DelegatingHandler
                 {
                     using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.ResilienceRetry");
                     activity?.SetTag(LogFields.Attempt, attempt);
+
+                    _retryCount.Add(1,
+                        new KeyValuePair<string, object?>(LogFields.Endpoint, endpoint),
+                        new KeyValuePair<string, object?>(LogFields.Attempt, attempt));
                 }
 
                 var response = await base.SendAsync(request, ct);
+
+                if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    _status429Count.Add(1,
+                        new KeyValuePair<string, object?>(LogFields.Endpoint, endpoint));
+                }
 
                 if (attempt > 1)
                 {

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Orders;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,18 @@ namespace IbkrConduit.Client;
 public partial class OrderOperations : IOrderOperations
 {
     private const int _maxReplyIterations = 20;
+
+    private static readonly Histogram<double> _submissionDuration =
+        IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.order.submission.duration", "ms");
+
+    private static readonly Counter<long> _submissionCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.order.submission.count");
+
+    private static readonly Counter<long> _cancelCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.order.cancel.count");
+
+    private static readonly Counter<long> _questionCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.order.question.count");
 
     private readonly IIbkrOrderApi _orderApi;
     private readonly ILogger<OrderOperations> _logger;
@@ -41,7 +54,8 @@ public partial class OrderOperations : IOrderOperations
 
         var semaphore = _accountLocks.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
         await semaphore.WaitAsync(cancellationToken);
-        var questionCount = 0;
+        var questionIterations = 0;
+        var sw = Stopwatch.StartNew();
         try
         {
             var wireModel = new OrderWireModel(
@@ -62,13 +76,18 @@ public partial class OrderOperations : IOrderOperations
             {
                 if (response.OrderId is not null)
                 {
-                    activity?.SetTag(LogFields.QuestionCount, questionCount);
+                    activity?.SetTag(LogFields.QuestionCount, questionIterations);
+                    _submissionDuration.Record(sw.Elapsed.TotalMilliseconds);
+                    _submissionCount.Add(1,
+                        new KeyValuePair<string, object?>(LogFields.Side, order.Side),
+                        new KeyValuePair<string, object?>(LogFields.OrderType, order.OrderType));
                     return new OrderResult(response.OrderId, response.OrderStatus ?? string.Empty);
                 }
 
                 if (response.Message is not null && response.Id is not null)
                 {
-                    questionCount++;
+                    questionIterations++;
+                    _questionCount.Add(1);
                     var messageText = string.Join("; ", response.Message);
                     LogOrderQuestionAutoConfirmed(messageText);
 
@@ -99,6 +118,7 @@ public partial class OrderOperations : IOrderOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Cancel");
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag(LogFields.OrderId, orderId);
+        _cancelCount.Add(1);
         return await _orderApi.CancelOrderAsync(accountId, orderId, cancellationToken);
     }
 
