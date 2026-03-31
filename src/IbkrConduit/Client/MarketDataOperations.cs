@@ -39,6 +39,8 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
         _api = api;
         _options = options;
         _logger = logger;
+        // MemoryCache doesn't support global default expiration — it's set per-entry
+        // in GetSnapshotAsync using _options.PreflightCacheDuration
         _preflightCache = new MemoryCache(new MemoryCacheOptions());
     }
 
