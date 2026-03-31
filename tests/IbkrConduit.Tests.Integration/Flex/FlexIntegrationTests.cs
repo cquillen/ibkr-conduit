@@ -4,6 +4,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Flex;
+using IbkrConduit.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using WireMock.RequestBuilders;
@@ -201,11 +204,18 @@ public class FlexIntegrationTests : IDisposable
             return;
         }
 
-        var httpClient = new HttpClient();
-        var flexClient = new FlexClient(httpClient, flexToken, NullLogger<FlexClient>.Instance);
-        var ops = new FlexOperations(flexClient);
+        using var creds = IbkrConduit.Auth.OAuthCredentialsFactory.FromEnvironment();
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddLogging();
+        services.AddIbkrClient(creds, new IbkrConduit.Session.IbkrClientOptions
+        {
+            FlexToken = flexToken,
+        });
 
-        var result = await ops.ExecuteQueryAsync(queryId, TestContext.Current.CancellationToken);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<IbkrConduit.Client.IIbkrClient>();
+
+        var result = await client.Flex.ExecuteQueryAsync(queryId, TestContext.Current.CancellationToken);
 
         result.RawXml.ShouldNotBeNull();
     }
