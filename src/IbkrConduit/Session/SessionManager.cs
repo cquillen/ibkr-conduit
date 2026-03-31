@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
@@ -14,6 +15,18 @@ namespace IbkrConduit.Session;
 /// </summary>
 internal sealed partial class SessionManager : ISessionManager
 {
+    private static readonly UpDownCounter<long> _activeSessionCount =
+        IbkrConduitDiagnostics.Meter.CreateUpDownCounter<long>("ibkr.conduit.session.active");
+
+    private static readonly Histogram<double> _initDuration =
+        IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.session.initialize.duration", "ms");
+
+    private static readonly Counter<long> _refreshCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.session.refresh.count");
+
+    private static readonly Histogram<double> _refreshDuration =
+        IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.session.refresh.duration", "ms");
+
     private readonly ISessionTokenProvider _sessionTokenProvider;
     private readonly ITickleTimerFactory _tickleTimerFactory;
     private readonly IIbkrSessionApi _sessionApi;
@@ -58,6 +71,7 @@ internal sealed partial class SessionManager : ISessionManager
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Initialize");
 
         await _semaphore.WaitAsync(cancellationToken);
+        var sw = Stopwatch.StartNew();
         try
         {
             if (_state == SessionState.Ready)
@@ -85,6 +99,8 @@ internal sealed partial class SessionManager : ISessionManager
             ScheduleProactiveRefresh();
 
             _state = SessionState.Ready;
+            _activeSessionCount.Add(1);
+            _initDuration.Record(sw.Elapsed.TotalMilliseconds);
             LogInitialized();
         }
         finally
@@ -99,6 +115,7 @@ internal sealed partial class SessionManager : ISessionManager
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Reauthenticate");
 
         await _semaphore.WaitAsync(cancellationToken);
+        var sw = Stopwatch.StartNew();
         try
         {
             if (_state == SessionState.ShuttingDown)
@@ -135,6 +152,8 @@ internal sealed partial class SessionManager : ISessionManager
             await _notifier.NotifyAsync(cancellationToken);
 
             _state = SessionState.Ready;
+            _refreshCount.Add(1, new KeyValuePair<string, object?>(LogFields.Trigger, "reauth"));
+            _refreshDuration.Record(sw.Elapsed.TotalMilliseconds);
             LogReauthenticated();
         }
         finally
@@ -155,6 +174,11 @@ internal sealed partial class SessionManager : ISessionManager
 
         var wasInitialized = _state != SessionState.Uninitialized;
         _state = SessionState.ShuttingDown;
+
+        if (wasInitialized)
+        {
+            _activeSessionCount.Add(-1);
+        }
 
         if (_tickleTimer != null)
         {

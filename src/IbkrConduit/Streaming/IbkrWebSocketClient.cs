@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -21,6 +22,18 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private const int _heartbeatIntervalSeconds = 10;
     private const int _reconnectDelayMs = 1000;
     private const int _receiveBufferSize = 8192;
+
+    private static readonly Counter<long> _messagesReceived =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.websocket.messages.received");
+
+    private static readonly Counter<long> _messagesSent =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.websocket.messages.sent");
+
+    private static readonly Counter<long> _reconnectCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.websocket.reconnect.count");
+
+    private static readonly Counter<long> _heartbeatCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.websocket.heartbeat.count");
 
     private readonly IIbkrSessionApi _sessionApi;
     private readonly IbkrOAuthCredentials _credentials;
@@ -54,6 +67,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         _credentials = credentials;
         _notifier = notifier;
         _logger = logger;
+
+        IbkrConduitDiagnostics.Meter.CreateObservableGauge(
+            "ibkr.conduit.websocket.connection_state",
+            () => _webSocket is { State: WebSocketState.Open } ? 1 : 0);
 
         _notifierSubscription = _notifier.Subscribe(OnSessionRefreshedAsync);
     }
@@ -224,6 +241,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                     try
                     {
                         await SendTextAsync("tic", ct);
+                        _heartbeatCount.Add(1);
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
@@ -329,6 +347,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         var plusIndex = topic.IndexOf('+');
         var prefix = plusIndex >= 0 ? topic[..plusIndex] : topic;
 
+        _messagesReceived.Add(1, new KeyValuePair<string, object?>(LogFields.Topic, prefix));
+
         if (_subscribers.TryGetValue(prefix, out var writers))
         {
             lock (writers)
@@ -354,6 +374,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Reconnect");
             activity?.SetTag(LogFields.Trigger, "connection_lost");
 
+            _reconnectCount.Add(1, new KeyValuePair<string, object?>(LogFields.Trigger, "connection_lost"));
             LogReconnecting();
 
             await DisconnectAsync();
@@ -410,6 +431,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             WebSocketMessageType.Text,
             true,
             cancellationToken);
+
+        _messagesSent.Add(1);
     }
 
     private void Unsubscribe(string topicPrefix, ChannelWriter<JsonElement> writer, string subscribeMessage)

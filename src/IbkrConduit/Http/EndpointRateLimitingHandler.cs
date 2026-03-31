@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.RateLimiting;
@@ -16,6 +17,12 @@ namespace IbkrConduit.Http;
 /// </summary>
 internal sealed class EndpointRateLimitingHandler : DelegatingHandler
 {
+    private static readonly Histogram<double> _waitDuration =
+        IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.ratelimiter.endpoint.wait_duration", "ms");
+
+    private static readonly Counter<long> _rejectedCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.ratelimiter.endpoint.rejected.count");
+
     private readonly IReadOnlyDictionary<string, RateLimiter> _endpointLimiters;
 
     /// <summary>
@@ -38,19 +45,25 @@ internal sealed class EndpointRateLimitingHandler : DelegatingHandler
 
         if (limiter != null)
         {
+            var endpoint = request.RequestUri?.PathAndQuery ?? "unknown";
             var sw = Stopwatch.StartNew();
             using var lease = await limiter.AcquireAsync(1, cancellationToken);
             sw.Stop();
 
+            _waitDuration.Record(sw.Elapsed.TotalMilliseconds,
+                new KeyValuePair<string, object?>(LogFields.Endpoint, endpoint));
+
             if (sw.ElapsedMilliseconds > 0)
             {
                 using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.EndpointRateLimit.Wait");
-                activity?.SetTag(LogFields.Endpoint, request.RequestUri?.PathAndQuery);
+                activity?.SetTag(LogFields.Endpoint, endpoint);
                 activity?.SetTag("wait_ms", sw.ElapsedMilliseconds);
             }
 
             if (!lease.IsAcquired)
             {
+                _rejectedCount.Add(1,
+                    new KeyValuePair<string, object?>(LogFields.Endpoint, endpoint));
                 throw new RateLimitRejectedException(
                     $"Endpoint rate limit exceeded for {request.RequestUri?.PathAndQuery} — queue is full.");
             }

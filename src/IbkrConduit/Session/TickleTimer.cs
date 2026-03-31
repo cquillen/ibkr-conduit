@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Diagnostics;
@@ -14,6 +15,12 @@ namespace IbkrConduit.Session;
 /// </summary>
 internal sealed partial class TickleTimer : ITickleTimer
 {
+    private static readonly Counter<long> _tickleCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.session.tickle.count");
+
+    private static readonly Counter<long> _tickleFailureCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.session.tickle.failure.count");
+
     private readonly IIbkrSessionApi _sessionApi;
     private readonly Func<CancellationToken, Task> _onFailure;
     private readonly ILogger<TickleTimer> _logger;
@@ -101,11 +108,14 @@ internal sealed partial class TickleTimer : ITickleTimer
 
                 if (!isAuthenticated)
                 {
+                    _tickleCount.Add(1, new KeyValuePair<string, object?>("success", false));
+                    _tickleFailureCount.Add(1);
                     LogSessionNotAuthenticated();
                     await _onFailure(cancellationToken);
                 }
                 else
                 {
+                    _tickleCount.Add(1, new KeyValuePair<string, object?>("success", true));
                     LogTickleSuccessful();
                 }
             }
@@ -115,6 +125,8 @@ internal sealed partial class TickleTimer : ITickleTimer
             }
             catch (Exception ex)
             {
+                _tickleCount.Add(1, new KeyValuePair<string, object?>("success", false));
+                _tickleFailureCount.Add(1);
                 LogTickleFailed(ex);
                 try
                 {
