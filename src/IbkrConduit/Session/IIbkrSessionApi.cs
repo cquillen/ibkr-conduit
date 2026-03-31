@@ -13,24 +13,24 @@ public interface IIbkrSessionApi
     /// </summary>
     [Post("/v1/api/iserver/auth/ssodh/init")]
     Task<SsodhInitResponse> InitializeBrokerageSessionAsync(
-        [Body] SsodhInitRequest request);
+        [Body] SsodhInitRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sends a tickle to keep the session alive and check auth status.
     /// </summary>
     [Post("/v1/api/tickle")]
-    Task<TickleResponse> TickleAsync();
+    Task<TickleResponse> TickleAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Suppresses specified question message IDs to avoid interactive prompts.
     /// </summary>
     [Post("/v1/api/iserver/questions/suppress")]
     Task<SuppressResponse> SuppressQuestionsAsync(
-        [Body] SuppressRequest request);
+        [Body] SuppressRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Logs out and terminates the brokerage session.
     /// </summary>
     [Post("/v1/api/logout")]
-    Task<LogoutResponse> LogoutAsync();
+    Task<LogoutResponse> LogoutAsync(CancellationToken cancellationToken = default);
 }

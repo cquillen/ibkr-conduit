@@ -91,7 +91,7 @@ internal sealed partial class TickleTimer : ITickleTimer
         {
             try
             {
-                var response = await _sessionApi.TickleAsync();
+                var response = await _sessionApi.TickleAsync(cancellationToken);
                 var isAuthenticated = response.Iserver?.AuthStatus?.Authenticated ?? false;
 
                 if (!isAuthenticated)

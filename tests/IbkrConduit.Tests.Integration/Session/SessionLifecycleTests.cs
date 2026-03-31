@@ -54,7 +54,7 @@ public class SessionLifecycleTests : IAsyncDisposable
         var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);
 
         // Act: call portfolio endpoint (triggers lazy init)
-        var accounts = await portfolioApi.GetAccountsAsync();
+        var accounts = await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken);
 
         // Assert
         accounts.ShouldNotBeNull();
@@ -113,7 +113,7 @@ public class SessionLifecycleTests : IAsyncDisposable
         var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);
 
         // Act
-        var accounts = await portfolioApi.GetAccountsAsync();
+        var accounts = await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken);
 
         // Assert
         accounts.ShouldNotBeNull();
@@ -145,7 +145,7 @@ public class SessionLifecycleTests : IAsyncDisposable
         var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);
 
         // Initialize by making an API call
-        await portfolioApi.GetAccountsAsync();
+        await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken);
 
         // Act: Dispose triggers shutdown
         await sessionManager.DisposeAsync();
@@ -214,7 +214,7 @@ public class SessionLifecycleTests : IAsyncDisposable
         };
         var portfolioApi = Refit.RestService.For<IIbkrPortfolioApi>(consumerHttpClient);
 
-        var accounts = await portfolioApi.GetAccountsAsync();
+        var accounts = await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken);
 
         accounts.ShouldNotBeNull();
         accounts.ShouldNotBeEmpty();

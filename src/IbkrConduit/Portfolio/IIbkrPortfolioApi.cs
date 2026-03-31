@@ -11,5 +11,5 @@ public interface IIbkrPortfolioApi
     /// Retrieves the list of accounts for the authenticated user.
     /// </summary>
     [Get("/v1/api/portfolio/accounts")]
-    Task<List<Account>> GetAccountsAsync();
+    Task<List<Account>> GetAccountsAsync(CancellationToken cancellationToken = default);
 }
