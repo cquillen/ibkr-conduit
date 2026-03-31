@@ -16,6 +16,7 @@ using WireMock.Server;
 
 namespace IbkrConduit.Tests.Integration.Orders;
 
+[Collection("IBKR E2E")]
 public class OrderManagementTests : IDisposable
 {
     private readonly WireMockServer _server;

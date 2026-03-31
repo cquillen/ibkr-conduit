@@ -15,7 +15,9 @@ namespace IbkrConduit.Contracts;
 /// <param name="ListingExchange">The primary listing exchange.</param>
 /// <param name="Sections">Optional list of contract sections (e.g., for derivatives).</param>
 public record ContractSearchResult(
-    [property: JsonPropertyName("conid")] int Conid,
+    [property: JsonPropertyName("conid")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    int Conid,
     [property: JsonPropertyName("companyHeader")] string CompanyHeader,
     [property: JsonPropertyName("companyName")] string CompanyName,
     [property: JsonPropertyName("description")] string Description,
@@ -38,7 +40,9 @@ public record ContractSection(
     [property: JsonPropertyName("months")] string? Months,
     [property: JsonPropertyName("symbol")] string? Symbol,
     [property: JsonPropertyName("exchange")] string? Exchange,
-    [property: JsonPropertyName("conid")] int? Conid);
+    [property: JsonPropertyName("conid")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    int? Conid);
 
 /// <summary>
 /// Detailed contract information from the /iserver/contract/{conid}/info endpoint.
@@ -52,7 +56,9 @@ public record ContractSection(
 /// <param name="InstrumentType">The instrument type (e.g., "STK").</param>
 /// <param name="ValidExchanges">Comma-separated list of valid exchanges.</param>
 public record ContractDetails(
-    [property: JsonPropertyName("con_id")] int Conid,
+    [property: JsonPropertyName("con_id")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    int Conid,
     [property: JsonPropertyName("symbol")] string Symbol,
     [property: JsonPropertyName("company_name")] string CompanyName,
     [property: JsonPropertyName("exchange")] string Exchange,
