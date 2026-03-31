@@ -47,11 +47,14 @@ public class SessionLifecycleTests : IAsyncDisposable
 
         var tickleTimerFactory = new TickleTimerFactory(NullLogger<TickleTimer>.Instance);
 
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+
         await using var sessionManager = new SessionManager(
             tokenProvider,
             tickleTimerFactory,
             sessionApi,
             options,
+            notifier,
             NullLogger<SessionManager>.Instance);
 
         var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);
@@ -106,11 +109,14 @@ public class SessionLifecycleTests : IAsyncDisposable
         var options = new IbkrClientOptions();
         var tickleTimerFactory = new TickleTimerFactory(NullLogger<TickleTimer>.Instance);
 
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+
         await using var sessionManager = new SessionManager(
             tokenProvider,
             tickleTimerFactory,
             sessionApi,
             options,
+            notifier,
             NullLogger<SessionManager>.Instance);
 
         var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);
@@ -138,11 +144,14 @@ public class SessionLifecycleTests : IAsyncDisposable
         var options = new IbkrClientOptions();
         var tickleTimerFactory = new TickleTimerFactory(NullLogger<TickleTimer>.Instance);
 
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+
         var sessionManager = new SessionManager(
             tokenProvider,
             tickleTimerFactory,
             sessionApi,
             options,
+            notifier,
             NullLogger<SessionManager>.Instance);
 
         var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);

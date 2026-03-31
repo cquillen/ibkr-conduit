@@ -100,6 +100,9 @@ public static class ServiceCollectionExtensions
                     credentials.ConsumerKey,
                     credentials.AccessToken));
 
+        // Session lifecycle notifier
+        services.AddSingleton<ISessionLifecycleNotifier, SessionLifecycleNotifier>();
+
         // Session manager
         services.AddSingleton<ISessionManager>(sp =>
             new SessionManager(
@@ -107,6 +110,7 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<ITickleTimerFactory>(),
                 sp.GetRequiredService<IIbkrSessionApi>(),
                 clientOptions,
+                sp.GetRequiredService<ISessionLifecycleNotifier>(),
                 sp.GetRequiredService<ILogger<SessionManager>>()));
 
         // Consumer Refit clients (all go through the full pipeline):

@@ -22,6 +22,7 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -42,6 +43,7 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -60,6 +62,7 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -82,6 +85,7 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -102,6 +106,7 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -119,6 +124,7 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -137,6 +143,7 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         // Initialize first
@@ -159,6 +166,7 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -187,6 +195,7 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -205,6 +214,7 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -223,6 +233,7 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -243,6 +254,7 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         // Should not throw even if never initialized
@@ -262,12 +274,32 @@ public class SessionManagerTests
             deps.TickleTimerFactory,
             deps.SessionApi,
             deps.Options,
+            deps.Notifier,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
         // Should not throw
         await manager.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_NotifiesSessionLifecycleSubscribers()
+    {
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+        await manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
+
+        deps.Notifier.NotifyCallCount.ShouldBe(1);
     }
 
     private static TestDependencies CreateDependencies() => new();
@@ -277,6 +309,7 @@ public class SessionManagerTests
         public FakeSessionTokenProvider TokenProvider { get; } = new();
         public FakeTickleTimerFactory TickleTimerFactory { get; } = new();
         public FakeSessionApi SessionApi { get; } = new();
+        public FakeLifecycleNotifier Notifier { get; } = new();
         public IbkrClientOptions Options { get; set; } = new();
     }
 
@@ -333,6 +366,20 @@ public class SessionManagerTests
         public Task StopAsync()
         {
             Stopped = true;
+            return Task.CompletedTask;
+        }
+    }
+
+    internal class FakeLifecycleNotifier : ISessionLifecycleNotifier
+    {
+        public int NotifyCallCount { get; private set; }
+
+        public IDisposable Subscribe(Func<CancellationToken, Task> onSessionRefreshed) =>
+            throw new NotImplementedException();
+
+        public Task NotifyAsync(CancellationToken cancellationToken)
+        {
+            NotifyCallCount++;
             return Task.CompletedTask;
         }
     }
