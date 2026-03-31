@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Xml.Linq;
+using IbkrConduit.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Flex;
@@ -20,6 +22,7 @@ internal sealed partial class FlexClient
     private readonly string _flexToken;
     private readonly string _baseUrl;
     private readonly ILogger<FlexClient> _logger;
+    private int _lastPollCount;
 
     /// <summary>
     /// Creates a new <see cref="FlexClient"/> instance.
@@ -50,13 +53,22 @@ internal sealed partial class FlexClient
     public async Task<XDocument> ExecuteQueryAsync(
         string queryId, string? fromDate, string? toDate, CancellationToken cancellationToken)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Flex.ExecuteQuery");
+        activity?.SetTag(LogFields.QueryId, queryId);
+
         var referenceCode = await SendRequestAsync(queryId, fromDate, toDate, cancellationToken);
-        return await PollForStatementAsync(referenceCode, cancellationToken);
+        var result = await PollForStatementAsync(referenceCode, cancellationToken);
+
+        activity?.SetTag(LogFields.PollCount, _lastPollCount);
+        return result;
     }
 
     internal async Task<string> SendRequestAsync(
         string queryId, string? fromDate, string? toDate, CancellationToken cancellationToken)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Flex.SendRequest");
+        activity?.SetTag(LogFields.QueryId, queryId);
+
         var url = $"{_baseUrl}SendRequest?t={_flexToken}&q={queryId}&v=3";
         if (!string.IsNullOrEmpty(fromDate) && !string.IsNullOrEmpty(toDate))
         {
@@ -88,8 +100,12 @@ internal sealed partial class FlexClient
 
     internal async Task<XDocument> PollForStatementAsync(string referenceCode, CancellationToken cancellationToken)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Flex.GetStatement");
+        activity?.SetTag("reference_code", referenceCode);
+
         var url = $"{_baseUrl}GetStatement?t={_flexToken}&q={referenceCode}&v=3";
         var totalWaited = 0;
+        var attempt = 0;
 
         foreach (var delayMs in _pollDelaysMs)
         {
@@ -98,6 +114,7 @@ internal sealed partial class FlexClient
                 break;
             }
 
+            attempt++;
             var responseStr = await _httpClient.GetStringAsync(url, cancellationToken);
             var doc = XDocument.Parse(responseStr);
 
@@ -105,6 +122,8 @@ internal sealed partial class FlexClient
             {
                 CheckForError(doc);
                 LogGetStatementCompleted(totalWaited);
+                _lastPollCount = attempt;
+                activity?.SetTag(LogFields.Attempt, attempt);
                 return doc;
             }
 
@@ -114,6 +133,7 @@ internal sealed partial class FlexClient
         }
 
         // One final attempt after all delays
+        attempt++;
         var finalResponseStr = await _httpClient.GetStringAsync(url, cancellationToken);
         var finalDoc = XDocument.Parse(finalResponseStr);
 
@@ -124,6 +144,8 @@ internal sealed partial class FlexClient
         }
 
         CheckForError(finalDoc);
+        _lastPollCount = attempt;
+        activity?.SetTag(LogFields.Attempt, attempt);
         return finalDoc;
     }
 

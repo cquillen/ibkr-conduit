@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Session;
 
 namespace IbkrConduit.Auth;
@@ -40,6 +42,10 @@ public class OAuthSigningHandler : DelegatingHandler
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.Request");
+        activity?.SetTag(LogFields.Method, request.Method.Method);
+        activity?.SetTag("url", request.RequestUri?.ToString());
+
         if (_sessionManager != null)
         {
             await _sessionManager.EnsureInitializedAsync(cancellationToken);
@@ -66,6 +72,9 @@ public class OAuthSigningHandler : DelegatingHandler
             request.Headers.UserAgent.Add(_defaultUserAgent);
         }
 
-        return await base.SendAsync(request, cancellationToken);
+        var response = await base.SendAsync(request, cancellationToken);
+        activity?.SetTag(LogFields.StatusCode, (int)response.StatusCode);
+
+        return response;
     }
 }

@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using IbkrConduit.Contracts;
+using IbkrConduit.Diagnostics;
 
 namespace IbkrConduit.Client;
 
@@ -16,12 +18,20 @@ public class ContractOperations : IContractOperations
     public ContractOperations(IIbkrContractApi api) => _api = api;
 
     /// <inheritdoc />
-    public Task<List<ContractSearchResult>> SearchBySymbolAsync(
-        string symbol, CancellationToken cancellationToken = default) =>
-        _api.SearchBySymbolAsync(symbol, cancellationToken);
+    public async Task<List<ContractSearchResult>> SearchBySymbolAsync(
+        string symbol, CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.SearchBySymbol");
+        activity?.SetTag(LogFields.Symbol, symbol);
+        return await _api.SearchBySymbolAsync(symbol, cancellationToken);
+    }
 
     /// <inheritdoc />
-    public Task<ContractDetails> GetContractDetailsAsync(
-        string conid, CancellationToken cancellationToken = default) =>
-        _api.GetContractDetailsAsync(conid, cancellationToken);
+    public async Task<ContractDetails> GetContractDetailsAsync(
+        string conid, CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetDetails");
+        activity?.SetTag(LogFields.Conid, conid);
+        return await _api.GetContractDetailsAsync(conid, cancellationToken);
+    }
 }

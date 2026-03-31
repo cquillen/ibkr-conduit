@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Orders;
 using Microsoft.Extensions.Logging;
 
@@ -31,8 +33,15 @@ public partial class OrderOperations : IOrderOperations
     public async Task<OrderResult> PlaceOrderAsync(
         string accountId, OrderRequest order, CancellationToken cancellationToken = default)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Place");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        activity?.SetTag(LogFields.Conid, order.Conid);
+        activity?.SetTag(LogFields.Side, order.Side);
+        activity?.SetTag(LogFields.OrderType, order.OrderType);
+
         var semaphore = _accountLocks.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
         await semaphore.WaitAsync(cancellationToken);
+        var questionCount = 0;
         try
         {
             var wireModel = new OrderWireModel(
@@ -53,11 +62,13 @@ public partial class OrderOperations : IOrderOperations
             {
                 if (response.OrderId is not null)
                 {
+                    activity?.SetTag(LogFields.QuestionCount, questionCount);
                     return new OrderResult(response.OrderId, response.OrderStatus ?? string.Empty);
                 }
 
                 if (response.Message is not null && response.Id is not null)
                 {
+                    questionCount++;
                     var messageText = string.Join("; ", response.Message);
                     LogOrderQuestionAutoConfirmed(messageText);
 
@@ -82,22 +93,31 @@ public partial class OrderOperations : IOrderOperations
     }
 
     /// <inheritdoc />
-    public Task<CancelOrderResponse> CancelOrderAsync(
-        string accountId, string orderId, CancellationToken cancellationToken = default) =>
-        _orderApi.CancelOrderAsync(accountId, orderId, cancellationToken);
+    public async Task<CancelOrderResponse> CancelOrderAsync(
+        string accountId, string orderId, CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Cancel");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        activity?.SetTag(LogFields.OrderId, orderId);
+        return await _orderApi.CancelOrderAsync(accountId, orderId, cancellationToken);
+    }
 
     /// <inheritdoc />
     public async Task<List<LiveOrder>> GetLiveOrdersAsync(
         CancellationToken cancellationToken = default)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetLiveOrders");
         var response = await _orderApi.GetLiveOrdersAsync(cancellationToken);
         return response.Orders ?? [];
     }
 
     /// <inheritdoc />
-    public Task<List<Trade>> GetTradesAsync(
-        CancellationToken cancellationToken = default) =>
-        _orderApi.GetTradesAsync(cancellationToken);
+    public async Task<List<Trade>> GetTradesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetTrades");
+        return await _orderApi.GetTradesAsync(cancellationToken);
+    }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "IBKR order question auto-confirmed: {Message}")]
     private partial void LogOrderQuestionAutoConfirmed(string message);

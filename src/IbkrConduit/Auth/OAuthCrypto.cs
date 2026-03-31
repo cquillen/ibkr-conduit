@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Numerics;
 using System.Security.Cryptography;
+using IbkrConduit.Diagnostics;
 
 namespace IbkrConduit.Auth;
 
@@ -28,6 +30,8 @@ public static class OAuthCrypto
     /// </summary>
     public static byte[] DecryptAccessTokenSecret(RSA encryptionKey, string encryptedSecret)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.OAuth.DecryptSecret");
+
         var ciphertext = Convert.FromBase64String(encryptedSecret);
 
         try
@@ -45,6 +49,8 @@ public static class OAuthCrypto
     /// </summary>
     public static (BigInteger PrivateKey, BigInteger PublicKey) GenerateDhKeyPair(BigInteger prime)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.OAuth.DhKeyPair");
+
         var randomBytes = new byte[32];
         RandomNumberGenerator.Fill(randomBytes);
 

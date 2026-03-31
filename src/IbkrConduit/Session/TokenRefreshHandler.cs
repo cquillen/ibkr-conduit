@@ -1,8 +1,10 @@
 using System;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit.Diagnostics;
 
 namespace IbkrConduit.Session;
 
@@ -52,6 +54,9 @@ internal sealed class TokenRefreshHandler : DelegatingHandler
         }
 
         // Trigger re-authentication
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.TokenRefreshRetry");
+        activity?.SetTag("original_status_code", (int)response.StatusCode);
+
         await _sessionManager.ReauthenticateAsync(cancellationToken);
 
         // Clone the request for retry

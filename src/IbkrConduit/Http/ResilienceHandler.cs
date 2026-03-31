@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit.Diagnostics;
 using Polly;
 
 namespace IbkrConduit.Http;
@@ -25,8 +27,28 @@ internal sealed class ResilienceHandler : DelegatingHandler
 
     /// <inheritdoc />
     protected override async Task<HttpResponseMessage> SendAsync(
-        HttpRequestMessage request, CancellationToken cancellationToken) =>
-        await _pipeline.ExecuteAsync(
-            async ct => await base.SendAsync(request, ct),
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var attempt = 0;
+        return await _pipeline.ExecuteAsync(
+            async ct =>
+            {
+                attempt++;
+                if (attempt > 1)
+                {
+                    using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.ResilienceRetry");
+                    activity?.SetTag(LogFields.Attempt, attempt);
+                }
+
+                var response = await base.SendAsync(request, ct);
+
+                if (attempt > 1)
+                {
+                    Activity.Current?.SetTag(LogFields.StatusCode, (int)response.StatusCode);
+                }
+
+                return response;
+            },
             cancellationToken);
+    }
 }

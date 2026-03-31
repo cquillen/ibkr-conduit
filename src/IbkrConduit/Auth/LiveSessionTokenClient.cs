@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Text.Json;
+using IbkrConduit.Diagnostics;
 
 namespace IbkrConduit.Auth;
 
@@ -30,6 +32,8 @@ public class LiveSessionTokenClient : ILiveSessionTokenClient
     public async Task<LiveSessionToken> GetLiveSessionTokenAsync(
         IbkrOAuthCredentials credentials, CancellationToken cancellationToken)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.OAuth.AcquireLst");
+
         // 1. Decrypt access token secret
         var decryptedSecret = OAuthCrypto.DecryptAccessTokenSecret(
             credentials.EncryptionPrivateKey, credentials.EncryptedAccessTokenSecret);
