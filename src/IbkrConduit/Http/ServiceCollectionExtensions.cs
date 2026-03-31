@@ -4,6 +4,10 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.RateLimiting;
 using IbkrConduit.Auth;
+using IbkrConduit.Client;
+using IbkrConduit.Contracts;
+using IbkrConduit.Orders;
+using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -21,16 +25,17 @@ public static class ServiceCollectionExtensions
     private const string _ibkrBaseUrl = "https://api.ibkr.com";
 
     /// <summary>
-    /// Registers the IBKR API client pipeline for the given tenant.
+    /// Registers the full IBKR API client pipeline including all Refit interfaces,
+    /// operations implementations, and the unified <see cref="IIbkrClient"/> facade.
     /// Consumer pipeline: Refit -> TokenRefreshHandler -> ResilienceHandler ->
     /// GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler -> HttpClient.
     /// Internal session pipeline: Refit -> ResilienceHandler -> GlobalRateLimitingHandler ->
     /// EndpointRateLimitingHandler -> OAuthSigningHandler -> HttpClient (no TokenRefreshHandler).
     /// </summary>
-    public static IServiceCollection AddIbkrClient<TApi>(
+    public static IServiceCollection AddIbkrClient(
         this IServiceCollection services,
         IbkrOAuthCredentials credentials,
-        IbkrClientOptions? options = null) where TApi : class
+        IbkrClientOptions? options = null)
     {
         var clientOptions = options ?? new IbkrClientOptions();
 
@@ -103,9 +108,31 @@ public static class ServiceCollectionExtensions
                 clientOptions,
                 sp.GetRequiredService<ILogger<SessionManager>>()));
 
-        // Consumer Refit client:
+        // Consumer Refit clients (all go through the full pipeline):
         //   TokenRefreshHandler -> ResilienceHandler -> GlobalRateLimitingHandler ->
         //   EndpointRateLimitingHandler -> OAuthSigningHandler
+        RegisterConsumerRefitClient<IIbkrPortfolioApi>(services, credentials);
+        RegisterConsumerRefitClient<IIbkrContractApi>(services, credentials);
+        RegisterConsumerRefitClient<IIbkrOrderApi>(services, credentials);
+
+        // Operations implementations
+        services.AddSingleton<IPortfolioOperations, PortfolioOperations>();
+        services.AddSingleton<IContractOperations, ContractOperations>();
+        services.AddSingleton<IOrderOperations, OrderOperations>();
+
+        // Unified facade
+        services.AddSingleton<IIbkrClient, IbkrClient>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a consumer-facing Refit client through the full HTTP pipeline.
+    /// </summary>
+    private static void RegisterConsumerRefitClient<TApi>(
+        IServiceCollection services,
+        IbkrOAuthCredentials credentials) where TApi : class
+    {
         services.AddRefitClient<TApi>()
             .ConfigureHttpClient(c => c.BaseAddress = new Uri(_ibkrBaseUrl))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
@@ -130,8 +157,6 @@ public static class ServiceCollectionExtensions
                     credentials.ConsumerKey,
                     credentials.AccessToken,
                     sp.GetRequiredService<ISessionManager>()));
-
-        return services;
     }
 
     /// <summary>
