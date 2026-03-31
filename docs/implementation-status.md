@@ -70,11 +70,19 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 | # | Task | Status | Spec |
 |---|---|---|---|
-| 3.1 | Rate limiting infrastructure | Not Started | — |
-| 3.2 | Polly resilience pipeline + 429 adaptive response | Not Started | — |
-| 3.3 | Conid resolution + caching | Not Started | — |
-| 3.4 | Order submission with question/reply flow | Not Started | — |
-| 3.5 | Order cancellation + live orders + trades | Not Started | — |
+| 3a.1 | RateLimitRejectedException + NuGet deps | Done | [M3a spec](superpowers/specs/2026-03-30-milestone3a-rate-limiting-resilience-design.md) |
+| 3a.2 | GlobalRateLimitingHandler (10 req/s) | Done | [M3a spec](superpowers/specs/2026-03-30-milestone3a-rate-limiting-resilience-design.md) |
+| 3a.3 | EndpointRateLimitingHandler (per-endpoint) | Done | [M3a spec](superpowers/specs/2026-03-30-milestone3a-rate-limiting-resilience-design.md) |
+| 3a.4 | ResilienceHandler (Polly retry) | Done | [M3a spec](superpowers/specs/2026-03-30-milestone3a-rate-limiting-resilience-design.md) |
+| 3a.5 | Pipeline wiring | Done | [M3a spec](superpowers/specs/2026-03-30-milestone3a-rate-limiting-resilience-design.md) |
+| 3a.6 | Integration tests | Done | [M3a spec](superpowers/specs/2026-03-30-milestone3a-rate-limiting-resilience-design.md) |
+| 3b.1 | Contract Refit interface + models | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
+| 3b.2 | Order Refit interface + models | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
+| 3b.3 | Operations interfaces | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
+| 3b.4 | OrderOperations (question/reply loop) | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
+| 3b.5 | IIbkrClient facade | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
+| 3b.6 | DI wiring update | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
+| 3b.7 | Integration tests + SPY order E2E | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
 
 ---
 
