@@ -155,6 +155,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         var ws = new ClientWebSocket();
         ws.Options.SetRequestHeader("Cookie", $"api={tickleResponse.Session}");
 
+        // Use system proxy if configured (e.g., HTTPS_PROXY environment variable)
+        ws.Options.Proxy = System.Net.WebRequest.DefaultWebProxy;
+
         await ws.ConnectAsync(uri, cancellationToken);
         _webSocket = ws;
 
