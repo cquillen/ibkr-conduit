@@ -46,8 +46,13 @@ public class FlexQueryResult
                 trades.Add(MapTrade(element));
             }
 
-            // Also look for <TradeConfirmations><TradeConfirmation .../> elements
+            // Also look for <TradeConfirmations>/<TradeConfirmation> or <TradeConfirms>/<TradeConfirm>
             foreach (var element in statement.Descendants("TradeConfirmation"))
+            {
+                trades.Add(MapTrade(element));
+            }
+
+            foreach (var element in statement.Descendants("TradeConfirm"))
             {
                 trades.Add(MapTrade(element));
             }
