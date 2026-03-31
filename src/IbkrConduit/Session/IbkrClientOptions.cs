@@ -21,4 +21,11 @@ public record IbkrClientOptions
     /// Default is 5 minutes.
     /// </summary>
     public TimeSpan PreflightCacheDuration { get; init; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Flex Web Service access token. Generated in Client Portal under
+    /// Reporting / Flex Queries / Flex Web Configuration.
+    /// Required for Flex operations. If null, Flex operations will throw.
+    /// </summary>
+    public string? FlexToken { get; init; }
 }
