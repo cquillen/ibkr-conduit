@@ -3,7 +3,10 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Client;
+using IbkrConduit.Http;
 using IbkrConduit.Portfolio;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
@@ -78,33 +81,14 @@ public class PortfolioAccountsTests : IDisposable
     public async Task PortfolioAccounts_WithPaperAccount_ReturnsAccountList()
     {
         using var creds = OAuthCredentialsFactory.FromEnvironment();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddIbkrClient(creds);
 
-        using var lstHttpClient = new HttpClient(new HttpClientHandler
-        {
-            AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-        })
-        {
-            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
-        };
-        var lstClient = new LiveSessionTokenClient(lstHttpClient);
-        var tokenProvider = new SessionTokenProvider(creds, lstClient);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<IIbkrClient>();
 
-        var signingHandler = new OAuthSigningHandler(tokenProvider, creds.ConsumerKey, creds.AccessToken)
-        {
-            InnerHandler = new HttpClientHandler
-            {
-                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-            },
-        };
-
-        using var httpClient = new HttpClient(signingHandler)
-        {
-            BaseAddress = new Uri("https://api.ibkr.com"),
-        };
-
-        var api = Refit.RestService.For<IIbkrPortfolioApi>(httpClient);
-
-        var accounts = await api.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
 
         accounts.ShouldNotBeNull();
         accounts.ShouldNotBeEmpty();

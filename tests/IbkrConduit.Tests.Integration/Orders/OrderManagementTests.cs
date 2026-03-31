@@ -6,10 +6,12 @@ using System.Threading.Tasks;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.Http;
 using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using WireMock.RequestBuilders;
@@ -271,61 +273,12 @@ public class OrderManagementTests : IDisposable
     public async Task EndToEnd_PortfolioAndContractSearch_Succeeds()
     {
         using var creds = OAuthCredentialsFactory.FromEnvironment();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddIbkrClient(creds);
 
-        using var lstHttpClient = new HttpClient(new HttpClientHandler
-        {
-            AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-        })
-        {
-            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
-        };
-        var lstClient = new LiveSessionTokenClient(lstHttpClient);
-        var tokenProvider = new SessionTokenProvider(creds, lstClient);
-
-        // Session API pipeline (signing only, no TokenRefreshHandler)
-        var sessionSigningHandler = new OAuthSigningHandler(tokenProvider, creds.ConsumerKey, creds.AccessToken)
-        {
-            InnerHandler = new HttpClientHandler
-            {
-                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-            },
-        };
-        using var sessionHttpClient = new HttpClient(sessionSigningHandler)
-        {
-            BaseAddress = new Uri("https://api.ibkr.com"),
-        };
-        var sessionApi = Refit.RestService.For<IIbkrSessionApi>(sessionHttpClient);
-
-        // Real session manager — initializes brokerage session
-        var options = new IbkrClientOptions { Compete = true };
-        var tickleTimerFactory = new TickleTimerFactory(NullLogger<TickleTimer>.Instance);
-        await using var sessionManager = new SessionManager(
-            tokenProvider, tickleTimerFactory, sessionApi, options,
-            NullLogger<SessionManager>.Instance);
-
-        // Consumer API pipeline (signing + session init)
-        var consumerSigningHandler = new OAuthSigningHandler(
-            tokenProvider, creds.ConsumerKey, creds.AccessToken, sessionManager)
-        {
-            InnerHandler = new HttpClientHandler
-            {
-                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-            },
-        };
-        using var httpClient = new HttpClient(consumerSigningHandler)
-        {
-            BaseAddress = new Uri("https://api.ibkr.com"),
-        };
-
-        var portfolioApi = Refit.RestService.For<IIbkrPortfolioApi>(httpClient);
-        var contractApi = Refit.RestService.For<IIbkrContractApi>(httpClient);
-        var orderApi = Refit.RestService.For<IIbkrOrderApi>(httpClient);
-
-        var portfolio = new PortfolioOperations(portfolioApi);
-        var contracts = new ContractOperations(contractApi);
-        var orders = new OrderOperations(orderApi, NullLogger<OrderOperations>.Instance);
-
-        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), sessionManager);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<IIbkrClient>();
 
         var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
         accounts.ShouldNotBeNull();
@@ -347,58 +300,12 @@ public class OrderManagementTests : IDisposable
     public async Task EndToEnd_BuyOneSpy_MarketOrder_Succeeds()
     {
         using var creds = OAuthCredentialsFactory.FromEnvironment();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddIbkrClient(creds);
 
-        using var lstHttpClient = new HttpClient(new HttpClientHandler
-        {
-            AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-        })
-        {
-            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
-        };
-        var lstClient = new LiveSessionTokenClient(lstHttpClient);
-        var tokenProvider = new SessionTokenProvider(creds, lstClient);
-
-        var sessionSigningHandler = new OAuthSigningHandler(tokenProvider, creds.ConsumerKey, creds.AccessToken)
-        {
-            InnerHandler = new HttpClientHandler
-            {
-                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-            },
-        };
-        using var sessionHttpClient = new HttpClient(sessionSigningHandler)
-        {
-            BaseAddress = new Uri("https://api.ibkr.com"),
-        };
-        var sessionApi = Refit.RestService.For<IIbkrSessionApi>(sessionHttpClient);
-
-        var options = new IbkrClientOptions { Compete = true };
-        var tickleTimerFactory = new TickleTimerFactory(NullLogger<TickleTimer>.Instance);
-        await using var sessionManager = new SessionManager(
-            tokenProvider, tickleTimerFactory, sessionApi, options,
-            NullLogger<SessionManager>.Instance);
-
-        var consumerSigningHandler = new OAuthSigningHandler(
-            tokenProvider, creds.ConsumerKey, creds.AccessToken, sessionManager)
-        {
-            InnerHandler = new HttpClientHandler
-            {
-                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-            },
-        };
-        using var httpClient = new HttpClient(consumerSigningHandler)
-        {
-            BaseAddress = new Uri("https://api.ibkr.com"),
-        };
-
-        var portfolioApi = Refit.RestService.For<IIbkrPortfolioApi>(httpClient);
-        var contractApi = Refit.RestService.For<IIbkrContractApi>(httpClient);
-        var orderApi = Refit.RestService.For<IIbkrOrderApi>(httpClient);
-
-        var portfolio = new PortfolioOperations(portfolioApi);
-        var contracts = new ContractOperations(contractApi);
-        var orders = new OrderOperations(orderApi, NullLogger<OrderOperations>.Instance);
-
-        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), sessionManager);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<IIbkrClient>();
 
         // Get account ID
         var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
