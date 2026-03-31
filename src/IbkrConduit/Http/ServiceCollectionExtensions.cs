@@ -129,7 +129,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMarketDataOperations, MarketDataOperations>();
 
         // WebSocket streaming
-        services.AddSingleton(sp =>
+        services.AddSingleton<IIbkrWebSocketClient>(sp =>
             new IbkrWebSocketClient(
                 sp.GetRequiredService<IIbkrSessionApi>(),
                 credentials,
@@ -137,7 +137,7 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<ILogger<IbkrWebSocketClient>>()));
         services.AddSingleton<IStreamingOperations>(sp =>
             new StreamingOperations(
-                sp.GetRequiredService<IbkrWebSocketClient>()));
+                sp.GetRequiredService<IIbkrWebSocketClient>()));
 
         // Unified facade
         services.AddSingleton<IIbkrClient, IbkrClient>();

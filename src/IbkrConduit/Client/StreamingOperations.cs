@@ -10,13 +10,13 @@ namespace IbkrConduit.Client;
 /// </summary>
 internal sealed class StreamingOperations : IStreamingOperations
 {
-    private readonly IbkrWebSocketClient _webSocketClient;
+    private readonly IIbkrWebSocketClient _webSocketClient;
 
     /// <summary>
     /// Creates a new <see cref="StreamingOperations"/>.
     /// </summary>
     /// <param name="webSocketClient">The underlying WebSocket client.</param>
-    public StreamingOperations(IbkrWebSocketClient webSocketClient)
+    public StreamingOperations(IIbkrWebSocketClient webSocketClient)
     {
         _webSocketClient = webSocketClient;
     }

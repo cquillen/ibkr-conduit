@@ -13,7 +13,7 @@ namespace IbkrConduit.Streaming;
 /// Internal WebSocket client that manages the connection to the IBKR WebSocket API,
 /// heartbeat, message pump, and topic-based routing to subscribers.
 /// </summary>
-internal sealed partial class IbkrWebSocketClient : IAsyncDisposable
+internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 {
     private const string _webSocketBaseUrl = "wss://api.ibkr.com/v1/api/ws";
     private const int _heartbeatIntervalSeconds = 10;
