@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Auth;
@@ -102,7 +103,7 @@ public class LiveSessionTokenClientTests
             BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
         };
 
-        var client = new LiveSessionTokenClient(httpClient);
+        var client = new LiveSessionTokenClient(httpClient, NullLogger<LiveSessionTokenClient>.Instance);
 
         // === ACT ===
         var result = await client.GetLiveSessionTokenAsync(creds, CancellationToken.None);
@@ -147,7 +148,7 @@ public class LiveSessionTokenClientTests
             BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
         };
 
-        var client = new LiveSessionTokenClient(httpClient);
+        var client = new LiveSessionTokenClient(httpClient, NullLogger<LiveSessionTokenClient>.Instance);
 
         await Should.ThrowAsync<CryptographicException>(
             () => client.GetLiveSessionTokenAsync(creds, CancellationToken.None));
