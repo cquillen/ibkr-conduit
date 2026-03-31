@@ -16,6 +16,7 @@ internal sealed partial class SessionManager : ISessionManager
     private readonly ITickleTimerFactory _tickleTimerFactory;
     private readonly IIbkrSessionApi _sessionApi;
     private readonly IbkrClientOptions _options;
+    private readonly ISessionLifecycleNotifier _notifier;
     private readonly ILogger<SessionManager> _logger;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly CancellationTokenSource _disposeCts = new();
@@ -33,12 +34,14 @@ internal sealed partial class SessionManager : ISessionManager
         ITickleTimerFactory tickleTimerFactory,
         IIbkrSessionApi sessionApi,
         IbkrClientOptions options,
+        ISessionLifecycleNotifier notifier,
         ILogger<SessionManager> logger)
     {
         _sessionTokenProvider = sessionTokenProvider;
         _tickleTimerFactory = tickleTimerFactory;
         _sessionApi = sessionApi;
         _options = options;
+        _notifier = notifier;
         _logger = logger;
     }
 
@@ -122,6 +125,8 @@ internal sealed partial class SessionManager : ISessionManager
             await _tickleTimer.StartAsync(cancellationToken);
 
             ScheduleProactiveRefresh();
+
+            await _notifier.NotifyAsync(cancellationToken);
 
             _state = SessionState.Ready;
             LogReauthenticated();
