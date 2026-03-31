@@ -12,3 +12,5 @@ globs: "**/*.cs"
 - Prefer expression-bodied members for single-line implementations
 - Always use braces for control flow statements (no single-line `if` without braces)
 - `this.` qualification is unnecessary — do not use it
+- Always pass `CancellationToken` through the entire call chain — every async method that accepts a `CancellationToken` must pass it to all awaited async calls, including Refit interface methods, `HttpClient` calls, `SemaphoreSlim.WaitAsync`, and `Task.Delay`
+- All Refit interface methods must include `CancellationToken cancellationToken = default` as the last parameter
