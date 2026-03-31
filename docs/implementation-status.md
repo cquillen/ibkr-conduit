@@ -92,9 +92,12 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 | # | Task | Status | Spec |
 |---|---|---|---|
-| 4.1 | Position and account data retrieval | Not Started | — |
-| 4.2 | Market data snapshot with pre-flight handling | Not Started | — |
-| 4.3 | Historical market data | Not Started | — |
+| 4.1 | Portfolio Refit expansion + models | Done | [M4 spec](superpowers/specs/2026-03-31-milestone4-portfolio-marketdata-design.md) |
+| 4.2 | MarketData Refit interface + models + MarketDataFields (110 constants) | Done | [M4 spec](superpowers/specs/2026-03-31-milestone4-portfolio-marketdata-design.md) |
+| 4.3 | IPortfolioOperations expansion (10 new methods) | Done | [M4 spec](superpowers/specs/2026-03-31-milestone4-portfolio-marketdata-design.md) |
+| 4.4 | IMarketDataOperations + pre-flight handling (MemoryCache) | Done | [M4 spec](superpowers/specs/2026-03-31-milestone4-portfolio-marketdata-design.md) |
+| 4.5 | IIbkrClient facade update + DI wiring | Done | [M4 spec](superpowers/specs/2026-03-31-milestone4-portfolio-marketdata-design.md) |
+| 4.6 | Integration tests + E2E (positions, summary, snapshot) | Done | [M4 spec](superpowers/specs/2026-03-31-milestone4-portfolio-marketdata-design.md) |
 
 ---
 
@@ -104,9 +107,12 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 | # | Task | Status | Spec |
 |---|---|---|---|
-| 5.1 | WebSocket client infrastructure | Not Started | — |
-| 5.2 | Order updates topic (sor) | Not Started | — |
-| 5.3 | Market data + P&L streaming (smd, spl) | Not Started | — |
+| 5.1 | ISessionLifecycleNotifier + wire into SessionManager | Done | [M5 spec](superpowers/specs/2026-03-31-milestone5-websocket-streaming-design.md) |
+| 5.2 | IbkrWebSocketClient (heartbeat, message pump, reconnect) | Done | [M5 spec](superpowers/specs/2026-03-31-milestone5-websocket-streaming-design.md) |
+| 5.3 | Streaming response models | Done | [M5 spec](superpowers/specs/2026-03-31-milestone5-websocket-streaming-design.md) |
+| 5.4 | ChannelObservable + IStreamingOperations | Done | [M5 spec](superpowers/specs/2026-03-31-milestone5-websocket-streaming-design.md) |
+| 5.5 | IIbkrClient facade + DI wiring | Done | [M5 spec](superpowers/specs/2026-03-31-milestone5-websocket-streaming-design.md) |
+| 5.6 | Tests + WebSocket E2E | Done | [M5 spec](superpowers/specs/2026-03-31-milestone5-websocket-streaming-design.md) |
 
 ---
 
@@ -116,9 +122,24 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 | # | Task | Status | Spec |
 |---|---|---|---|
-| 6.1 | Flex credentials model + HTTP client | Not Started | — |
-| 6.2 | Two-step async retrieval | Not Started | — |
-| 6.3 | XML response parsing | Not Started | — |
+| 6.1 | FlexClient + models + FlexQueryException | Done | [M6 spec](superpowers/specs/2026-03-31-milestone6-flex-web-service-design.md) |
+| 6.2 | IFlexOperations + FlexQueryResult (typed Trades/OpenPositions) | Done | [M6 spec](superpowers/specs/2026-03-31-milestone6-flex-web-service-design.md) |
+| 6.3 | IIbkrClient facade + DI wiring | Done | [M6 spec](superpowers/specs/2026-03-31-milestone6-flex-web-service-design.md) |
+| 6.4 | Tests + Flex E2E (paper account query) | Done | [M6 spec](superpowers/specs/2026-03-31-milestone6-flex-web-service-design.md) |
+
+---
+
+## Observability — Tracing, Metrics, Structured Logging
+
+**Goal:** Production-grade observability with zero external dependencies.
+
+| # | Task | Status | Spec |
+|---|---|---|---|
+| O.1 | IbkrConduitDiagnostics + LogFields foundation | Done | [Observability spec](superpowers/specs/2026-03-31-observability-design.md) |
+| O.2 | Distributed tracing (38 spans) | Done | [Observability spec](superpowers/specs/2026-03-31-observability-design.md) |
+| O.3 | Metrics (34 instruments) | Done | [Observability spec](superpowers/specs/2026-03-31-observability-design.md) |
+| O.4 | Structured logging audit (17 components) | Done | [Observability spec](superpowers/specs/2026-03-31-observability-design.md) |
+| O.5 | Tests + observability consumer guide | Done | [Observability spec](superpowers/specs/2026-03-31-observability-design.md) |
 
 ---
 
