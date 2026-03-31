@@ -6,6 +6,7 @@ using System.Threading.RateLimiting;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.Flex;
 using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
@@ -138,6 +139,30 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IStreamingOperations>(sp =>
             new StreamingOperations(
                 sp.GetRequiredService<IIbkrWebSocketClient>()));
+
+        // Flex Web Service (plain HTTP, no signing pipeline)
+        if (!string.IsNullOrEmpty(clientOptions.FlexToken))
+        {
+            var flexToken = clientOptions.FlexToken;
+            services.AddSingleton(sp =>
+            {
+                var handler = new HttpClientHandler
+                {
+                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+                };
+                var httpClient = new HttpClient(handler);
+                return new FlexClient(
+                    httpClient,
+                    flexToken,
+                    sp.GetRequiredService<ILogger<FlexClient>>());
+            });
+            services.AddSingleton<IFlexOperations>(sp =>
+                new FlexOperations(sp.GetRequiredService<FlexClient>()));
+        }
+        else
+        {
+            services.AddSingleton<IFlexOperations>(_ => new FlexOperations(null));
+        }
 
         // Unified facade
         services.AddSingleton<IIbkrClient, IbkrClient>();

@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.Flex;
 using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
@@ -61,6 +62,15 @@ public class IbkrClientTests
     }
 
     [Fact]
+    public void Flex_ReturnsSameInstance()
+    {
+        var flex = new FakeFlexOperations();
+        var client = CreateClient(flex: flex);
+
+        client.Flex.ShouldBeSameAs(flex);
+    }
+
+    [Fact]
     public async Task DisposeAsync_DisposesSessionManager()
     {
         var sessionManager = new FakeSessionManager();
@@ -77,6 +87,7 @@ public class IbkrClientTests
         IOrderOperations? orders = null,
         IMarketDataOperations? marketData = null,
         IStreamingOperations? streaming = null,
+        IFlexOperations? flex = null,
         ISessionManager? sessionManager = null) =>
         new(
             portfolio ?? new FakePortfolioOperations(),
@@ -84,6 +95,7 @@ public class IbkrClientTests
             orders ?? new FakeOrderOperations(),
             marketData ?? new FakeMarketDataOperations(),
             streaming ?? new FakeStreamingOperations(),
+            flex ?? new FakeFlexOperations(),
             sessionManager ?? new FakeSessionManager());
 
     private class FakePortfolioOperations : IPortfolioOperations
@@ -187,6 +199,18 @@ public class IbkrClientTests
             throw new NotImplementedException();
 
         public IObservable<AccountLedgerUpdate> AccountLedger(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
+    private class FakeFlexOperations : IFlexOperations
+    {
+        public Task<FlexQueryResult> ExecuteQueryAsync(
+            string queryId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<FlexQueryResult> ExecuteQueryAsync(
+            string queryId, string fromDate, string toDate,
+            CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 

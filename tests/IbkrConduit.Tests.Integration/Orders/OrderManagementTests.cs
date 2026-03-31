@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.Flex;
 using IbkrConduit.Http;
 using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
@@ -254,7 +255,7 @@ public class OrderManagementTests : IDisposable
         var orders = new OrderOperations(orderApi, NullLogger<OrderOperations>.Instance);
         var sessionManager = new FakeSessionManager();
 
-        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), new FakeStreamingOperations(), sessionManager);
+        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), new FakeStreamingOperations(), new FakeFlexOperations(), sessionManager);
 
         var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
         accounts.Count.ShouldBe(1);
@@ -402,6 +403,18 @@ public class OrderManagementTests : IDisposable
             throw new NotImplementedException();
 
         public IObservable<AccountLedgerUpdate> AccountLedger(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
+    private class FakeFlexOperations : IFlexOperations
+    {
+        public Task<FlexQueryResult> ExecuteQueryAsync(
+            string queryId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<FlexQueryResult> ExecuteQueryAsync(
+            string queryId, string fromDate, string toDate,
+            CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 
