@@ -7,13 +7,39 @@ on:
     branches: [main]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'tests/**'
+              - '*.slnx'
+              - '*.props'
+              - '*.targets'
+              - '.editorconfig'
+              - '.github/workflows/**'
+
   build-and-test:
+    needs: changes
     runs-on: ubuntu-latest
 
     steps:
+      - name: Skip — docs-only change
+        if: needs.changes.outputs.code != 'true'
+        run: echo "No code changes detected — skipping build and test."
+
       - uses: actions/checkout@v6
+        if: needs.changes.outputs.code == 'true'
 
       - name: Setup .NET SDKs
+        if: needs.changes.outputs.code == 'true'
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
@@ -21,18 +47,23 @@ jobs:
             10.x
 
       - name: Restore dependencies
+        if: needs.changes.outputs.code == 'true'
         run: dotnet restore
 
       - name: Check formatting
+        if: needs.changes.outputs.code == 'true'
         run: dotnet format --verify-no-changes
 
       - name: Build
+        if: needs.changes.outputs.code == 'true'
         run: dotnet build --no-restore --configuration Release
 
       - name: Test
+        if: needs.changes.outputs.code == 'true'
         run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage"
 
       - name: Upload coverage to Codecov
+        if: needs.changes.outputs.code == 'true'
         uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: false
