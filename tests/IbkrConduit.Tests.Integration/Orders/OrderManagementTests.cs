@@ -279,15 +279,37 @@ public class OrderManagementTests : IDisposable
         var lstClient = new LiveSessionTokenClient(lstHttpClient);
         var tokenProvider = new SessionTokenProvider(creds, lstClient);
 
-        var signingHandler = new OAuthSigningHandler(tokenProvider, creds.ConsumerKey, creds.AccessToken)
+        // Session API pipeline (signing only, no TokenRefreshHandler)
+        var sessionSigningHandler = new OAuthSigningHandler(tokenProvider, creds.ConsumerKey, creds.AccessToken)
         {
             InnerHandler = new HttpClientHandler
             {
                 AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
             },
         };
+        using var sessionHttpClient = new HttpClient(sessionSigningHandler)
+        {
+            BaseAddress = new Uri("https://api.ibkr.com"),
+        };
+        var sessionApi = Refit.RestService.For<IIbkrSessionApi>(sessionHttpClient);
 
-        using var httpClient = new HttpClient(signingHandler)
+        // Real session manager — initializes brokerage session
+        var options = new IbkrClientOptions { Compete = true };
+        var tickleTimerFactory = new TickleTimerFactory(NullLogger<TickleTimer>.Instance);
+        await using var sessionManager = new SessionManager(
+            tokenProvider, tickleTimerFactory, sessionApi, options,
+            NullLogger<SessionManager>.Instance);
+
+        // Consumer API pipeline (signing + session init)
+        var consumerSigningHandler = new OAuthSigningHandler(
+            tokenProvider, creds.ConsumerKey, creds.AccessToken, sessionManager)
+        {
+            InnerHandler = new HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+            },
+        };
+        using var httpClient = new HttpClient(consumerSigningHandler)
         {
             BaseAddress = new Uri("https://api.ibkr.com"),
         };
@@ -299,16 +321,15 @@ public class OrderManagementTests : IDisposable
         var portfolio = new PortfolioOperations(portfolioApi);
         var contracts = new ContractOperations(contractApi);
         var orders = new OrderOperations(orderApi, NullLogger<OrderOperations>.Instance);
-        var sessionManager = new FakeSessionManager();
 
         var client = new IbkrClient(portfolio, contracts, orders, sessionManager);
 
-        var accounts = await client.Portfolio.GetAccountsAsync();
+        var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
         accounts.ShouldNotBeNull();
         accounts.ShouldNotBeEmpty();
         accounts[0].Id.ShouldNotBeNullOrWhiteSpace();
 
-        var searchResults = await client.Contracts.SearchBySymbolAsync("AAPL");
+        var searchResults = await client.Contracts.SearchBySymbolAsync("AAPL", TestContext.Current.CancellationToken);
         searchResults.ShouldNotBeNull();
         searchResults.ShouldNotBeEmpty();
         searchResults[0].Conid.ShouldBeGreaterThan(0);
