@@ -18,10 +18,10 @@ public class ContractOperations : IContractOperations
     /// <inheritdoc />
     public Task<List<ContractSearchResult>> SearchBySymbolAsync(
         string symbol, CancellationToken cancellationToken = default) =>
-        _api.SearchBySymbolAsync(symbol);
+        _api.SearchBySymbolAsync(symbol, cancellationToken);
 
     /// <inheritdoc />
     public Task<ContractDetails> GetContractDetailsAsync(
         string conid, CancellationToken cancellationToken = default) =>
-        _api.GetContractDetailsAsync(conid);
+        _api.GetContractDetailsAsync(conid, cancellationToken);
 }

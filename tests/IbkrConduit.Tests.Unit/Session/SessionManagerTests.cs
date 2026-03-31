@@ -346,27 +346,27 @@ public class SessionManagerTests
         public SuppressRequest? LastSuppressRequest { get; private set; }
         public bool LogoutShouldThrow { get; set; }
 
-        public Task<SsodhInitResponse> InitializeBrokerageSessionAsync(SsodhInitRequest request)
+        public Task<SsodhInitResponse> InitializeBrokerageSessionAsync(SsodhInitRequest request, CancellationToken cancellationToken = default)
         {
             InitCallCount++;
             LastInitRequest = request;
             return Task.FromResult(new SsodhInitResponse(Authenticated: true, Connected: true, Competing: false));
         }
 
-        public Task<TickleResponse> TickleAsync() =>
+        public Task<TickleResponse> TickleAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new TickleResponse(
                 Session: string.Empty,
                 Iserver: new TickleIserverStatus(
                     AuthStatus: new TickleAuthStatus(Authenticated: true, Competing: false, Connected: true))));
 
-        public Task<SuppressResponse> SuppressQuestionsAsync(SuppressRequest request)
+        public Task<SuppressResponse> SuppressQuestionsAsync(SuppressRequest request, CancellationToken cancellationToken = default)
         {
             SuppressCallCount++;
             LastSuppressRequest = request;
             return Task.FromResult(new SuppressResponse(Status: "submitted"));
         }
 
-        public Task<LogoutResponse> LogoutAsync()
+        public Task<LogoutResponse> LogoutAsync(CancellationToken cancellationToken = default)
         {
             LogoutCallCount++;
             if (LogoutShouldThrow)

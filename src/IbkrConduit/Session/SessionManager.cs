@@ -64,12 +64,12 @@ internal sealed partial class SessionManager : ISessionManager
             _currentLst = await _sessionTokenProvider.GetLiveSessionTokenAsync(cancellationToken);
 
             await _sessionApi.InitializeBrokerageSessionAsync(
-                new SsodhInitRequest(Publish: true, Compete: _options.Compete));
+                new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
 
             if (_options.SuppressMessageIds.Count > 0)
             {
                 await _sessionApi.SuppressQuestionsAsync(
-                    new SuppressRequest(_options.SuppressMessageIds));
+                    new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
             }
 
             _tickleTimer = _tickleTimerFactory.Create(_sessionApi, OnTickleFailureAsync);
@@ -110,12 +110,12 @@ internal sealed partial class SessionManager : ISessionManager
             _currentLst = await _sessionTokenProvider.RefreshAsync(cancellationToken);
 
             await _sessionApi.InitializeBrokerageSessionAsync(
-                new SsodhInitRequest(Publish: true, Compete: _options.Compete));
+                new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
 
             if (_options.SuppressMessageIds.Count > 0)
             {
                 await _sessionApi.SuppressQuestionsAsync(
-                    new SuppressRequest(_options.SuppressMessageIds));
+                    new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
             }
 
             _tickleTimer = _tickleTimerFactory.Create(_sessionApi, OnTickleFailureAsync);

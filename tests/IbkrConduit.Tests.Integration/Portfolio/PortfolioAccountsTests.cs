@@ -61,7 +61,7 @@ public class PortfolioAccountsTests : IDisposable
 
         var api = Refit.RestService.For<IIbkrPortfolioApi>(httpClient);
 
-        var accounts = await api.GetAccountsAsync();
+        var accounts = await api.GetAccountsAsync(TestContext.Current.CancellationToken);
 
         accounts.ShouldNotBeNull();
         accounts.Count.ShouldBe(1);
@@ -97,7 +97,7 @@ public class PortfolioAccountsTests : IDisposable
 
         var api = Refit.RestService.For<IIbkrPortfolioApi>(httpClient);
 
-        await Should.ThrowAsync<Refit.ApiException>(() => api.GetAccountsAsync());
+        await Should.ThrowAsync<Refit.ApiException>(() => api.GetAccountsAsync(TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -134,7 +134,7 @@ public class PortfolioAccountsTests : IDisposable
 
         var api = Refit.RestService.For<IIbkrPortfolioApi>(httpClient);
 
-        var accounts = await api.GetAccountsAsync();
+        var accounts = await api.GetAccountsAsync(TestContext.Current.CancellationToken);
 
         accounts.ShouldNotBeNull();
         accounts.ShouldNotBeEmpty();

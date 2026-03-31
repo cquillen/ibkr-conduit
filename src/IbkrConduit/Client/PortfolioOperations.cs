@@ -17,5 +17,5 @@ public class PortfolioOperations : IPortfolioOperations
 
     /// <inheritdoc />
     public Task<List<Account>> GetAccountsAsync(CancellationToken cancellationToken = default) =>
-        _api.GetAccountsAsync();
+        _api.GetAccountsAsync(cancellationToken);
 }

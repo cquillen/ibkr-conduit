@@ -298,27 +298,27 @@ public class OrderOperationsTests
         public int ReplyCallCount { get; private set; }
 
         public Task<List<OrderSubmissionResponse>> PlaceOrderAsync(
-            string accountId, OrdersPayload orders)
+            string accountId, OrdersPayload orders, CancellationToken cancellationToken = default)
         {
             LastPlaceOrderPayload = orders;
             return Task.FromResult(PlaceOrderResponses.Dequeue());
         }
 
         public Task<List<OrderSubmissionResponse>> ReplyAsync(
-            string replyId, ReplyRequest request)
+            string replyId, ReplyRequest request, CancellationToken cancellationToken = default)
         {
             LastReplyRequest = request;
             ReplyCallCount++;
             return Task.FromResult(ReplyResponses.Dequeue());
         }
 
-        public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId) =>
+        public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             Task.FromResult(CancelResponse!);
 
-        public Task<OrdersResponse> GetLiveOrdersAsync() =>
+        public Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(LiveOrdersResponse);
 
-        public Task<List<Trade>> GetTradesAsync() =>
+        public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(TradesResponse!);
     }
 
@@ -340,26 +340,26 @@ public class OrderOperationsTests
         }
 
         public async Task<List<OrderSubmissionResponse>> PlaceOrderAsync(
-            string accountId, OrdersPayload orders)
+            string accountId, OrdersPayload orders, CancellationToken cancellationToken = default)
         {
             var call = Interlocked.Increment(ref _callCount);
             var semaphore = call == 1 ? _semaphore1 : _semaphore2;
-            await semaphore.WaitAsync();
+            await semaphore.WaitAsync(cancellationToken);
             _callOrder.Add($"call-{call}");
             return [new OrderSubmissionResponse(null, null, null, null, $"order-{call}", "Submitted")];
         }
 
         public Task<List<OrderSubmissionResponse>> ReplyAsync(
-            string replyId, ReplyRequest request) =>
+            string replyId, ReplyRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult<List<OrderSubmissionResponse>>([]);
 
-        public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId) =>
+        public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<OrdersResponse> GetLiveOrdersAsync() =>
+        public Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<List<Trade>> GetTradesAsync() =>
+        public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 }

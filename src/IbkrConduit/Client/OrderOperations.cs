@@ -46,7 +46,7 @@ public partial class OrderOperations : IOrderOperations
                 order.ManualIndicator);
 
             var payload = new OrdersPayload([wireModel]);
-            var responses = await _orderApi.PlaceOrderAsync(accountId, payload);
+            var responses = await _orderApi.PlaceOrderAsync(accountId, payload, cancellationToken);
             var response = responses[0];
 
             for (var i = 0; i < _maxReplyIterations; i++)
@@ -62,7 +62,7 @@ public partial class OrderOperations : IOrderOperations
                     LogOrderQuestionAutoConfirmed(messageText);
 
                     var replyResponses = await _orderApi.ReplyAsync(
-                        response.Id, new ReplyRequest(true));
+                        response.Id, new ReplyRequest(true), cancellationToken);
                     response = replyResponses[0];
                 }
                 else
@@ -84,20 +84,20 @@ public partial class OrderOperations : IOrderOperations
     /// <inheritdoc />
     public Task<CancelOrderResponse> CancelOrderAsync(
         string accountId, string orderId, CancellationToken cancellationToken = default) =>
-        _orderApi.CancelOrderAsync(accountId, orderId);
+        _orderApi.CancelOrderAsync(accountId, orderId, cancellationToken);
 
     /// <inheritdoc />
     public async Task<List<LiveOrder>> GetLiveOrdersAsync(
         CancellationToken cancellationToken = default)
     {
-        var response = await _orderApi.GetLiveOrdersAsync();
+        var response = await _orderApi.GetLiveOrdersAsync(cancellationToken);
         return response.Orders ?? [];
     }
 
     /// <inheritdoc />
     public Task<List<Trade>> GetTradesAsync(
         CancellationToken cancellationToken = default) =>
-        _orderApi.GetTradesAsync();
+        _orderApi.GetTradesAsync(cancellationToken);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "IBKR order question auto-confirmed: {Message}")]
     private partial void LogOrderQuestionAutoConfirmed(string message);

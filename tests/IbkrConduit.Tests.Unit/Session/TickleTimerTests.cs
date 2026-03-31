@@ -125,7 +125,7 @@ public class TickleTimerTests
         public bool Authenticated { get; set; } = true;
         public bool ShouldThrow { get; set; }
 
-        public Task<TickleResponse> TickleAsync()
+        public Task<TickleResponse> TickleAsync(CancellationToken cancellationToken = default)
         {
             TickleCallCount++;
 
@@ -140,13 +140,13 @@ public class TickleTimerTests
                     AuthStatus: new TickleAuthStatus(Authenticated: Authenticated, Competing: false, Connected: true))));
         }
 
-        public Task<SsodhInitResponse> InitializeBrokerageSessionAsync(SsodhInitRequest request) =>
+        public Task<SsodhInitResponse> InitializeBrokerageSessionAsync(SsodhInitRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult(new SsodhInitResponse(Authenticated: true, Connected: true, Competing: false));
 
-        public Task<SuppressResponse> SuppressQuestionsAsync(SuppressRequest request) =>
+        public Task<SuppressResponse> SuppressQuestionsAsync(SuppressRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult(new SuppressResponse(Status: "submitted"));
 
-        public Task<LogoutResponse> LogoutAsync() =>
+        public Task<LogoutResponse> LogoutAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new LogoutResponse(Confirmed: true));
     }
 }
