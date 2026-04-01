@@ -227,10 +227,13 @@ public class FlexIntegrationTests : IDisposable
 
     private FlexClient CreateFlexClient()
     {
-        var httpClient = new HttpClient
-        {
-            BaseAddress = new Uri(_server.Url! + "/AccountManagement/FlexWebService/"),
-        };
-        return new FlexClient(httpClient, "TEST_TOKEN", NullLogger<FlexClient>.Instance);
+        var factory = new FakeHttpClientFactory();
+        var baseUrl = _server.Url! + "/AccountManagement/FlexWebService/";
+        return new FlexClient(factory, "test-flex", "TEST_TOKEN", NullLogger<FlexClient>.Instance, baseUrl);
+    }
+
+    private sealed class FakeHttpClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new HttpClient();
     }
 }

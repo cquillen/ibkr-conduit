@@ -46,12 +46,13 @@ internal sealed partial class FlexClient
     /// <param name="clientName">The named client to request from the factory.</param>
     /// <param name="flexToken">The Flex Web Service access token.</param>
     /// <param name="logger">Logger for poll progress.</param>
-    public FlexClient(IHttpClientFactory httpClientFactory, string clientName, string flexToken, ILogger<FlexClient> logger)
+    /// <param name="baseUrl">Optional base URL override (used for testing).</param>
+    public FlexClient(IHttpClientFactory httpClientFactory, string clientName, string flexToken, ILogger<FlexClient> logger, string? baseUrl = null)
     {
         _httpClientFactory = httpClientFactory;
         _clientName = clientName;
         _flexToken = flexToken;
-        _baseUrl = _defaultBaseUrl;
+        _baseUrl = baseUrl ?? _defaultBaseUrl;
         _logger = logger;
     }
 
