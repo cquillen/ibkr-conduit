@@ -90,6 +90,17 @@ public sealed class Scenario11_FlexWebServiceTests : E2eScenarioBase
             FlexToken = flexToken,
         });
 
+        // Register recording infrastructure so Flex HTTP calls are captured
+        services.AddSingleton(_recordingContext);
+        if (string.Equals(
+                Environment.GetEnvironmentVariable("IBKR_RECORD_RESPONSES"),
+                "true", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddTransient<Microsoft.Extensions.Http.IHttpMessageHandlerBuilderFilter>(sp =>
+                new Recording.RecordingHandlerFilter(
+                    sp.GetRequiredService<Recording.RecordingContext>(), true));
+        }
+
         var provider = services.BuildServiceProvider();
         var ibkrClient = provider.GetRequiredService<IIbkrClient>();
         return (provider, ibkrClient);
