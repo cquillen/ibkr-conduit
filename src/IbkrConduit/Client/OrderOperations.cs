@@ -155,10 +155,27 @@ public partial class OrderOperations : IOrderOperations
     }
 
     /// <inheritdoc />
-    public Task<WhatIfResponse> WhatIfOrderAsync(
+    public async Task<WhatIfResponse> WhatIfOrderAsync(
         string accountId, OrderRequest order,
-        CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.WhatIf");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        activity?.SetTag(LogFields.Conid, order.Conid);
+
+        var wireModel = new OrderWireModel(
+            order.Conid,
+            order.Side,
+            order.Quantity,
+            order.OrderType,
+            order.Price,
+            order.AuxPrice,
+            order.Tif,
+            order.ManualIndicator);
+
+        var payload = new OrdersPayload([wireModel]);
+        return await _orderApi.WhatIfOrderAsync(accountId, payload, cancellationToken);
+    }
 
     /// <inheritdoc />
     public Task<OrderStatus> GetOrderStatusAsync(
