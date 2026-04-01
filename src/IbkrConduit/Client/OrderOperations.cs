@@ -54,7 +54,6 @@ public partial class OrderOperations : IOrderOperations
 
         var semaphore = _accountLocks.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
         await semaphore.WaitAsync(cancellationToken);
-        var questionIterations = 0;
         var sw = Stopwatch.StartNew();
         try
         {
@@ -70,40 +69,13 @@ public partial class OrderOperations : IOrderOperations
 
             var payload = new OrdersPayload([wireModel]);
             var responses = await _orderApi.PlaceOrderAsync(accountId, payload, cancellationToken);
-            var response = responses[0];
+            var result = await HandleQuestionReplyLoopAsync(responses, cancellationToken);
 
-            for (var i = 0; i < _maxReplyIterations; i++)
-            {
-                if (response.OrderId is not null)
-                {
-                    activity?.SetTag(LogFields.QuestionCount, questionIterations);
-                    _submissionDuration.Record(sw.Elapsed.TotalMilliseconds);
-                    _submissionCount.Add(1,
-                        new KeyValuePair<string, object?>(LogFields.Side, order.Side),
-                        new KeyValuePair<string, object?>(LogFields.OrderType, order.OrderType));
-                    return new OrderResult(response.OrderId, response.OrderStatus ?? string.Empty);
-                }
-
-                if (response.Message is not null && response.Id is not null)
-                {
-                    questionIterations++;
-                    _questionCount.Add(1);
-                    var messageText = string.Join("; ", response.Message);
-                    LogOrderQuestionAutoConfirmed(messageText);
-
-                    var replyResponses = await _orderApi.ReplyAsync(
-                        response.Id, new ReplyRequest(true), cancellationToken);
-                    response = replyResponses[0];
-                }
-                else
-                {
-                    throw new InvalidOperationException(
-                        "Unexpected order submission response: no order ID and no question message.");
-                }
-            }
-
-            throw new InvalidOperationException(
-                $"Order question/reply loop exceeded maximum of {_maxReplyIterations} iterations.");
+            _submissionDuration.Record(sw.Elapsed.TotalMilliseconds);
+            _submissionCount.Add(1,
+                new KeyValuePair<string, object?>(LogFields.Side, order.Side),
+                new KeyValuePair<string, object?>(LogFields.OrderType, order.OrderType));
+            return result;
         }
         finally
         {
@@ -137,6 +109,39 @@ public partial class OrderOperations : IOrderOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetTrades");
         return await _orderApi.GetTradesAsync(cancellationToken);
+    }
+
+    private async Task<OrderResult> HandleQuestionReplyLoopAsync(
+        List<OrderSubmissionResponse> responses, CancellationToken cancellationToken)
+    {
+        var response = responses[0];
+
+        for (var i = 0; i < _maxReplyIterations; i++)
+        {
+            if (response.OrderId is not null)
+            {
+                return new OrderResult(response.OrderId, response.OrderStatus ?? string.Empty);
+            }
+
+            if (response.Message is not null && response.Id is not null)
+            {
+                _questionCount.Add(1);
+                var messageText = string.Join("; ", response.Message);
+                LogOrderQuestionAutoConfirmed(messageText);
+
+                var replyResponses = await _orderApi.ReplyAsync(
+                    response.Id, new ReplyRequest(true), cancellationToken);
+                response = replyResponses[0];
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    "Unexpected order submission response: no order ID and no question message.");
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Order question/reply loop exceeded maximum of {_maxReplyIterations} iterations.");
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "IBKR order question auto-confirmed: {Message}")]
