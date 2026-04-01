@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using IbkrConduit.Contracts;
 using IbkrConduit.Diagnostics;
 
@@ -8,7 +7,6 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// Contract lookup operations that delegate to the underlying Refit API.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public class ContractOperations : IContractOperations
 {
     private readonly IIbkrContractApi _api;
