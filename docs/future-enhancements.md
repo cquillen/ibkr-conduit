@@ -76,6 +76,18 @@ Ideas that aren't worth building now but may be valuable later. Each entry shoul
 
 ---
 
+## Vogen Strongly-Typed Identifiers
+
+**What:** Replace raw `string` parameters (`accountId`, `conid`, `orderId`, `flexQueryId`) with Vogen value objects (`AccountId`, `Conid`, `OrderId`, `FlexQueryId`) across all Refit interfaces, operations, and public API surface. Prevents accidental parameter swaps at compile time.
+
+**Current behavior:** All identifiers are plain strings. Nothing stops `GetPositionByConidAsync(conid, accountId)` from compiling with swapped arguments.
+
+**Why deferred:** Spike on `spike/vogen-value-objects` branch confirmed Vogen works cleanly with Refit path parameters and System.Text.Json. However, the conversion is a high-churn mechanical refactor that touches nearly every file. Better to do after the public API surface stabilizes.
+
+**Trigger to build:** Pre-v1.0 API stabilization pass. Good candidates: `AccountId`, `Conid`, `OrderId`, `FlexQueryId`, `FlexToken`.
+
+---
+
 ## AccountSummaryFields Static Constants
 
 **What:** A static class with named constants for all account summary field keys (e.g., `NetLiquidationValue = "netliquidationvalue"`, `TotalCashValue = "totalcashvalue"`) so consumers don't need to hardcode string keys.
