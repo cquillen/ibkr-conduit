@@ -21,3 +21,6 @@ globs: "tests/**"
   var client = provider.GetRequiredService<IIbkrClient>();
   ```
 - All integration test classes with E2E tests must have `[Collection("IBKR E2E")]` to prevent parallel session competition
+- Use `[ExcludeFromCodeCoverage]` on trivial code (record types, pure pass-through operations, static constant classes) to keep coverage metrics meaningful
+- Do NOT use `[ExcludeFromCodeCoverage]` on code with branching logic, error handling, state management, or protocol flows
+- When modifying code that has `[ExcludeFromCodeCoverage]`, reassess whether it is still trivial — if the change adds branching logic or non-trivial behavior, remove the exclusion and write tests for it
