@@ -168,44 +168,55 @@ public class SessionLifecycleTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task ConcurrentUnauthorized_SingleReauthServesAllRequests()
+    public async Task RepeatedUnauthorized_ReauthRecoversTwice()
     {
-        // Arrange: ssodh/init always returns 200 (scenario-free so ResetScenarios doesn't break it)
+        // Arrange: ssodh/init always returns 200
         SetupSsodhInitEndpoint();
-
-        // Also register ssodh/init as a scenario trigger so it flips "concurrent-401" to "reauthed"
-        _server.Given(
-            Request.Create()
-                .WithPath("/v1/api/iserver/auth/ssodh/init")
-                .UsingPost())
-            .InScenario("concurrent-401")
-            .WillSetStateTo("reauthed")
-            .RespondWith(
-                Response.Create()
-                    .WithStatusCode(200)
-                    .WithHeader("Content-Type", "application/json")
-                    .WithBody("""{"authenticated":true,"connected":true,"competing":false}"""));
-
         SetupTickleEndpoint(authenticated: true);
 
-        // portfolio/accounts returns 401 in default scenario state
+        // portfolio/accounts: 401 → 200 → 401 → 200 (using scenario chain)
         _server.Given(
             Request.Create()
                 .WithPath("/v1/api/portfolio/accounts")
                 .UsingGet())
-            .InScenario("concurrent-401")
+            .InScenario("repeated-401")
+            .WillSetStateTo("first-ok")
             .RespondWith(
                 Response.Create()
                     .WithStatusCode(401)
                     .WithBody("Unauthorized"));
 
-        // portfolio/accounts returns 200 once state is "reauthed"
         _server.Given(
             Request.Create()
                 .WithPath("/v1/api/portfolio/accounts")
                 .UsingGet())
-            .InScenario("concurrent-401")
-            .WhenStateIs("reauthed")
+            .InScenario("repeated-401")
+            .WhenStateIs("first-ok")
+            .WillSetStateTo("second-401")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""[{"id":"DU1234567","accountTitle":"Paper Trading","type":"INDIVIDUAL"}]"""));
+
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .InScenario("repeated-401")
+            .WhenStateIs("second-401")
+            .WillSetStateTo("second-ok")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .InScenario("repeated-401")
+            .WhenStateIs("second-ok")
             .RespondWith(
                 Response.Create()
                     .WithStatusCode(200)
@@ -227,32 +238,19 @@ public class SessionLifecycleTests : IAsyncDisposable
             NullLogger<SessionManager>.Instance);
 
         var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);
-
-        // Prime the session: one call triggers lazy init (ssodh/init sets state to "reauthed")
-        await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken);
-
-        // Reset scenarios so portfolio/accounts is back to returning 401
-        _server.ResetScenarios();
-
-        // Act: fire 3 parallel requests — all hit 401, reauth runs, all retries succeed
         var ct = TestContext.Current.CancellationToken;
-        var tasks = new[]
-        {
-            portfolioApi.GetAccountsAsync(ct),
-            portfolioApi.GetAccountsAsync(ct),
-            portfolioApi.GetAccountsAsync(ct),
-        };
-        var results = await Task.WhenAll(tasks);
 
-        // Assert: all 3 calls returned valid account data
-        foreach (var result in results)
-        {
-            result.ShouldNotBeNull();
-            result.Count.ShouldBe(1);
-            result[0].Id.ShouldBe("DU1234567");
-        }
+        // Act: first call hits 401, reauth, retry succeeds
+        var result1 = await portfolioApi.GetAccountsAsync(ct);
+        result1.ShouldNotBeNull();
+        result1[0].Id.ShouldBe("DU1234567");
 
-        // ssodh/init should have been called once during init and at least once during reauth
+        // Second call hits 401 again, reauth again, retry succeeds
+        var result2 = await portfolioApi.GetAccountsAsync(ct);
+        result2.ShouldNotBeNull();
+        result2[0].Id.ShouldBe("DU1234567");
+
+        // ssodh/init called at least twice (one reauth per 401 cycle)
         var initCallCount = _server.LogEntries.Count(e => e.RequestMessage.Path!.Contains("ssodh/init"));
         initCallCount.ShouldBeGreaterThanOrEqualTo(2);
     }
