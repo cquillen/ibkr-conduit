@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using IbkrConduit.Accounts;
 using IbkrConduit.Diagnostics;
 
@@ -7,7 +6,6 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// Account operations that delegate to the underlying Refit API.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public class AccountOperations : IAccountOperations
 {
     private readonly IIbkrAccountApi _api;
