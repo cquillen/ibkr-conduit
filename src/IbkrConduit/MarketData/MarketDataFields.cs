@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace IbkrConduit.MarketData;
 
 /// <summary>
@@ -5,6 +7,7 @@ namespace IbkrConduit.MarketData;
 /// Use these with <see cref="IIbkrMarketDataApi.GetSnapshotAsync"/> and
 /// <see cref="MarketDataSnapshot.AllFields"/> for field lookup.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public static class MarketDataFields
 {
     /// <summary>Last traded price.</summary>

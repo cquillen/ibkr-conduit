@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -6,6 +7,7 @@ namespace IbkrConduit.Streaming;
 /// <summary>
 /// A real-time market data tick from the WebSocket smd topic.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public record MarketDataTick
 {
     /// <summary>Contract identifier.</summary>
@@ -26,6 +28,7 @@ public record MarketDataTick
 /// <summary>
 /// A real-time order update from the WebSocket sor topic.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public record OrderUpdate
 {
     /// <summary>Order identifier.</summary>
@@ -76,6 +79,7 @@ public record OrderUpdate
 /// <summary>
 /// A real-time profit and loss update from the WebSocket spl topic.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public record PnlUpdate
 {
     /// <summary>Account identifier.</summary>
@@ -106,6 +110,7 @@ public record PnlUpdate
 /// <summary>
 /// A real-time account summary update from the WebSocket ssd topic.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public record AccountSummaryUpdate
 {
     /// <summary>Account identifier.</summary>
@@ -120,6 +125,7 @@ public record AccountSummaryUpdate
 /// <summary>
 /// A real-time account ledger update from the WebSocket sld topic.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public record AccountLedgerUpdate
 {
     /// <summary>Account identifier.</summary>

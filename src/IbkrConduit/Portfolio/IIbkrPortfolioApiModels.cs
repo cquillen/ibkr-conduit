@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -9,6 +10,7 @@ namespace IbkrConduit.Portfolio;
 /// <param name="Id">The account identifier (e.g., "U1234567").</param>
 /// <param name="AccountTitle">The account title/description.</param>
 /// <param name="Type">The account type (e.g., "INDIVIDUAL").</param>
+[ExcludeFromCodeCoverage]
 public record Account(
     [property: JsonPropertyName("id")] string Id,
     [property: JsonPropertyName("accountTitle")] string AccountTitle,
@@ -34,6 +36,7 @@ public record Account(
 /// <param name="Ticker">The ticker symbol.</param>
 /// <param name="Multiplier">The contract multiplier, if applicable.</param>
 /// <param name="IsUs">Whether the instrument is US-listed.</param>
+[ExcludeFromCodeCoverage]
 public record Position(
     [property: JsonPropertyName("acctId")] string AccountId,
     [property: JsonPropertyName("conid")] int Conid,
@@ -69,6 +72,7 @@ public record Position(
 /// <param name="IsNull">Whether the value is null/unavailable.</param>
 /// <param name="Timestamp">Unix timestamp of the value.</param>
 /// <param name="Value">String representation of the value.</param>
+[ExcludeFromCodeCoverage]
 public record AccountSummaryEntry(
     [property: JsonPropertyName("amount")] decimal? Amount,
     [property: JsonPropertyName("currency")] string? Currency,
@@ -96,6 +100,7 @@ public record AccountSummaryEntry(
 /// <param name="WarrantsMarketValue">Market value of warrants.</param>
 /// <param name="FutureMarketValue">Market value of futures positions.</param>
 /// <param name="CommodityMarketValue">Market value of commodity positions.</param>
+[ExcludeFromCodeCoverage]
 public record LedgerEntry(
     [property: JsonPropertyName("cashbalance")] decimal CashBalance,
     [property: JsonPropertyName("netliquidationvalue")] decimal NetLiquidationValue,
@@ -123,6 +128,7 @@ public record LedgerEntry(
 /// <param name="AccountAlias">The account alias, if set.</param>
 /// <param name="Type">The account type.</param>
 /// <param name="Currency">The base currency.</param>
+[ExcludeFromCodeCoverage]
 public record AccountInfo(
     [property: JsonPropertyName("id")] string Id,
     [property: JsonPropertyName("accountId")] string AccountId,
@@ -144,6 +150,7 @@ public record AccountInfo(
 /// <param name="AssetClass">Allocation breakdown by asset class.</param>
 /// <param name="Sector">Allocation breakdown by sector.</param>
 /// <param name="Group">Allocation breakdown by group.</param>
+[ExcludeFromCodeCoverage]
 public record AccountAllocation(
     [property: JsonPropertyName("assetClass")] Dictionary<string, Dictionary<string, decimal>>? AssetClass,
     [property: JsonPropertyName("sector")] Dictionary<string, Dictionary<string, decimal>>? Sector,
@@ -165,6 +172,7 @@ public record AccountAllocation(
 /// <param name="AssetClass">The asset class.</param>
 /// <param name="ListingExchange">The listing exchange.</param>
 /// <param name="Currency">The currency.</param>
+[ExcludeFromCodeCoverage]
 public record PositionContractInfo(
     [property: JsonPropertyName("conid")] int? Conid,
     [property: JsonPropertyName("ticker")] string? Ticker,
@@ -185,6 +193,7 @@ public record PositionContractInfo(
 /// </summary>
 /// <param name="CurrencyType">The currency type used for performance data.</param>
 /// <param name="Rc">Return code.</param>
+[ExcludeFromCodeCoverage]
 public record AccountPerformance(
     [property: JsonPropertyName("currencyType")] string? CurrencyType,
     [property: JsonPropertyName("rc")] int? Rc)
@@ -202,6 +211,7 @@ public record AccountPerformance(
 /// <param name="Id">Transaction identifier.</param>
 /// <param name="CurrencyType">The currency type.</param>
 /// <param name="Rc">Return code.</param>
+[ExcludeFromCodeCoverage]
 public record TransactionHistory(
     [property: JsonPropertyName("id")] string? Id,
     [property: JsonPropertyName("currencyType")] string? CurrencyType,
@@ -219,6 +229,7 @@ public record TransactionHistory(
 /// </summary>
 /// <param name="AccountIds">The account IDs to query performance for.</param>
 /// <param name="Period">The time period (e.g., "1D", "1W", "1M", "1Y").</param>
+[ExcludeFromCodeCoverage]
 public record PerformanceRequest(
     [property: JsonPropertyName("acctIds")] List<string> AccountIds,
     [property: JsonPropertyName("period")] string Period);
@@ -230,6 +241,7 @@ public record PerformanceRequest(
 /// <param name="Conids">The contract IDs to filter by.</param>
 /// <param name="Currency">The currency code.</param>
 /// <param name="Days">Number of days of history to return.</param>
+[ExcludeFromCodeCoverage]
 public record TransactionHistoryRequest(
     [property: JsonPropertyName("acctIds")] List<string> AccountIds,
     [property: JsonPropertyName("conids")] List<string> Conids,

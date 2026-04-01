@@ -1,8 +1,11 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace IbkrConduit.Session;
 
 /// <summary>
 /// Configuration options for the IBKR client session behavior.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public record IbkrClientOptions
 {
     /// <summary>

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -12,6 +13,7 @@ namespace IbkrConduit.MarketData;
 /// <param name="Updated">Unix timestamp (milliseconds) of the last update.</param>
 /// <param name="ServerId">The server ID that provided the data.</param>
 /// <param name="MarketDataAvailability">Market data availability status.</param>
+[ExcludeFromCodeCoverage]
 public record MarketDataSnapshotRaw(
     [property: JsonPropertyName("conid")] int Conid,
     [property: JsonPropertyName("conidEx")] string? ConidExtended,
@@ -30,6 +32,7 @@ public record MarketDataSnapshotRaw(
 /// Consumer-facing market data snapshot with typed properties for common fields
 /// and a dictionary for all fields.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public record MarketDataSnapshot
 {
     /// <summary>The contract identifier.</summary>
@@ -133,6 +136,7 @@ public record MarketDataSnapshot
 /// <param name="Data">The OHLCV bar data.</param>
 /// <param name="Points">Number of data points.</param>
 /// <param name="TravelTime">Server processing time in milliseconds.</param>
+[ExcludeFromCodeCoverage]
 public record HistoricalDataResponse(
     [property: JsonPropertyName("symbol")] string Symbol,
     [property: JsonPropertyName("text")] string Text,
@@ -163,6 +167,7 @@ public record HistoricalDataResponse(
 /// <param name="Low">Low price.</param>
 /// <param name="Volume">Volume traded.</param>
 /// <param name="Timestamp">Unix timestamp (milliseconds).</param>
+[ExcludeFromCodeCoverage]
 public record HistoricalBar(
     [property: JsonPropertyName("o")] decimal Open,
     [property: JsonPropertyName("c")] decimal Close,
