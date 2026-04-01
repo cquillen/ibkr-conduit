@@ -13,6 +13,50 @@ Design a comprehensive E2E test suite that exercises every implemented endpoint 
 5. **Market-hours independence**: Order tests use GTC limit orders priced far from market ($1.00 for a stock trading at $500+) so they don't fill and work outside market hours.
 6. **DI pipeline**: All tests use the full `AddIbkrClient` DI pipeline exactly as a real consumer would — no manual HttpClient wiring.
 
+## Handling API Quirks vs Bugs
+
+Running these tests against the real IBKR API will surface unexpected behaviors — responses that don't match documentation, error codes that differ from what we assumed, or fields that are null when we expected values. Every such discovery must go through a verification process before the test expectation is adjusted.
+
+### The Rule
+
+**Never change a test assertion to match unexpected behavior without first confirming the behavior is intentional.** A test that fails against the real API is information — it might mean our code is wrong, or it might mean the API behaves differently than documented. Both are valuable, but they require different responses.
+
+### Verification Process
+
+When a test produces an unexpected result:
+
+1. **Record the actual response.** Save the raw HTTP response (the recording infrastructure captures this automatically). Note the exact status code, headers, and body.
+
+2. **Check ibind's behavior.** Does ibind (our primary reference implementation) handle this case? If ibind treats it as normal, the behavior is likely intentional. If ibind doesn't exercise this path, we have less evidence.
+
+3. **Check IBKR documentation.** Does the official documentation describe this behavior? IBKR docs are often incomplete or outdated, so absence of documentation is not proof of a bug.
+
+4. **Reproduce deterministically.** Run the same request 2-3 times. If the behavior is consistent, it's likely the real API contract. If it varies, it may be a timing issue, rate limit, or server-side state problem.
+
+5. **Classify the finding.** Based on the evidence:
+   - **Confirmed quirk**: Behavior is intentional but undocumented or surprising. Update the test expectation AND add a comment explaining the quirk with the date discovered and evidence.
+   - **Likely bug in our code**: Our library is constructing the request wrong, missing a header, or misinterpreting the response. Fix the library code, not the test.
+   - **Ambiguous**: Not enough evidence to classify. Add the test as `[Fact(Skip = "IBKR returns X instead of Y — investigating")]` and file a tracking issue. Do not adjust the assertion.
+
+### Documentation
+
+Every confirmed quirk gets a comment in the test:
+
+```csharp
+// IBKR quirk (discovered 2026-04-02): Cancelling a non-existent order returns
+// 200 with {"error": "Order not found"} instead of 404. Confirmed via ibind
+// and 3 repeated calls. The API treats this as a successful no-op.
+```
+
+This ensures future readers understand why the assertion looks unusual and can re-verify if IBKR changes their behavior.
+
+### What NOT to Do
+
+- Do not silently change `ShouldBe(HttpStatusCode.NotFound)` to `ShouldBe(HttpStatusCode.OK)` because the test failed.
+- Do not add broad `catch (Exception)` blocks to mask unexpected responses.
+- Do not mark a test as passing by removing the assertion.
+- Do not assume the first unexpected response is the "correct" one — reproduce it.
+
 ## Response Recording Infrastructure
 
 ### Purpose
