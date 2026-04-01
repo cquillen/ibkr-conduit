@@ -204,6 +204,46 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
+    public async Task MalformedJson_DroppedWithoutCrash()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (reader, unsubscribe) = await client.SubscribeTopicAsync(
+            "smd+265598+{\"fields\":[\"31\"]}", "smd",
+            TestContext.Current.CancellationToken);
+
+        _adapter.EnqueueServerMessage("not json");
+        _adapter.EnqueueServerMessage("""{"topic":"smd+265598","31":"150.25"}""");
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var msg = await reader.ReadAsync(cts.Token);
+
+        msg.GetProperty("topic").GetString().ShouldBe("smd+265598");
+        unsubscribe();
+    }
+
+    [Fact]
+    public async Task InternalTopics_NotDeliveredToSubscribers()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (reader, unsubscribe) = await client.SubscribeTopicAsync(
+            "smd+123+{}", "smd",
+            TestContext.Current.CancellationToken);
+
+        _adapter.EnqueueServerMessage("""{"topic":"tic"}""");
+        _adapter.EnqueueServerMessage("""{"topic":"smd+123","31":"100"}""");
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var msg = await reader.ReadAsync(cts.Token);
+
+        msg.GetProperty("topic").GetString().ShouldBe("smd+123");
+        unsubscribe();
+    }
+
+    [Fact]
     public async Task ServerCloseFrame_TriggersReconnect()
     {
         await using var client = CreateClient();
