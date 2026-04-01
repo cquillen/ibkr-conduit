@@ -3,7 +3,7 @@
 **Last updated:** 2026-04-01
 **Source:** [IBKR Client Portal Web API v1.0 Documentation](https://www.interactivebrokers.com/campus/ibkr-api-page/cpapi-v1)
 
-**Total: 25 implemented / 83 documented = 30%**
+**Total: 32 implemented / 83 documented = 39%**
 
 ---
 
@@ -40,13 +40,13 @@
 | `/portfolio/{id}/positions/invalidate` | POST | ✅ | Cache invalidation |
 | `/pa/performance` | POST | ✅ | |
 | `/pa/transactions` | POST | ✅ | |
-| `/portfolio/allocation` | POST | ❌ | Consolidated allocation |
-| `/portfolio/{id}/combo/positions` | GET | ❌ | Combination positions |
-| `/portfolio2/{id}/positions` | GET | ❌ | Real-time positions (no cache) |
-| `/portfolio/subaccounts` | GET | ❌ | FA/IBroker only |
-| `/portfolio/subaccounts2` | GET | ❌ | FA/IBroker paginated |
-| `/pa/allperiods` | POST | ❌ | All period performance |
-| `/iserver/account/pnl/partitioned` | GET | ❌ | Partitioned P&L |
+| `/portfolio/allocation` | POST | ✅ | Consolidated allocation |
+| `/portfolio/{id}/combo/positions` | GET | ✅ | Combination positions |
+| `/portfolio2/{id}/positions` | GET | ✅ | Real-time positions (no cache) |
+| `/portfolio/subaccounts` | GET | ✅ | FA/IBroker only |
+| `/portfolio/subaccounts2` | GET | ✅ | FA/IBroker paginated |
+| `/pa/allperiods` | POST | ✅ | All period performance |
+| `/iserver/account/pnl/partitioned` | GET | ✅ | Partitioned P&L |
 
 ---
 
