@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using IbkrConduit.Alerts;
 using IbkrConduit.Diagnostics;
 
@@ -7,7 +6,6 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// Alert operations that delegate to the underlying Refit API.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public class AlertOperations : IAlertOperations
 {
     private readonly IIbkrAlertApi _api;
