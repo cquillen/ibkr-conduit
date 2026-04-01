@@ -2,6 +2,19 @@
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true
   },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"At session start, invoke the using-superpowers skill via the Skill tool to load the full superpowers skill catalog. Do this before responding to the user.\"}}'",
+            "statusMessage": "Loading superpowers..."
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(dotnet *)",
