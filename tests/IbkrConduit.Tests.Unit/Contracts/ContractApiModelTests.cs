@@ -185,7 +185,7 @@ public class ContractApiModelTests
                 "symbol": "ES",
                 "conid": 495512552,
                 "underlyingConid": 11004968,
-                "expirationDate": "20261218",
+                "expirationDate": 20261218,
                 "ltd": "20261218"
             }
             """;
@@ -196,7 +196,7 @@ public class ContractApiModelTests
         result.Symbol.ShouldBe("ES");
         result.Conid.ShouldBe(495512552);
         result.UnderlyingConid.ShouldBe(11004968);
-        result.ExpirationDate.ShouldBe("20261218");
+        result.ExpirationDate.ShouldBe(20261218L);
         result.LastTradingDay.ShouldBe("20261218");
     }
 
