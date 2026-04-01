@@ -111,6 +111,23 @@ public partial class OrderOperations : IOrderOperations
         return await _orderApi.GetTradesAsync(cancellationToken);
     }
 
+    /// <inheritdoc />
+    public Task<OrderResult> ModifyOrderAsync(
+        string accountId, string orderId, OrderRequest order,
+        CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    /// <inheritdoc />
+    public Task<WhatIfResponse> WhatIfOrderAsync(
+        string accountId, OrderRequest order,
+        CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    /// <inheritdoc />
+    public Task<OrderStatus> GetOrderStatusAsync(
+        string orderId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
     private async Task<OrderResult> HandleQuestionReplyLoopAsync(
         List<OrderSubmissionResponse> responses, CancellationToken cancellationToken)
     {

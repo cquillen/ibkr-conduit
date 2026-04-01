@@ -29,4 +29,25 @@ public interface IOrderOperations
     /// Retrieves completed trades for the current session.
     /// </summary>
     Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Modifies an existing order. Automatically confirms any
+    /// follow-up questions from IBKR by replying with confirmed=true.
+    /// </summary>
+    Task<OrderResult> ModifyOrderAsync(
+        string accountId, string orderId, OrderRequest order,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Previews the commission and margin impact of an order without placing it.
+    /// </summary>
+    Task<WhatIfResponse> WhatIfOrderAsync(
+        string accountId, OrderRequest order,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves detailed status for a single order.
+    /// </summary>
+    Task<OrderStatus> GetOrderStatusAsync(
+        string orderId, CancellationToken cancellationToken = default);
 }
