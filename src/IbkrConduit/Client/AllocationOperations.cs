@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using IbkrConduit.Allocation;
 using IbkrConduit.Diagnostics;
 
@@ -7,7 +6,6 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// FA allocation operations that delegate to the underlying Refit API.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public class AllocationOperations : IAllocationOperations
 {
     private readonly IIbkrAllocationApi _api;
