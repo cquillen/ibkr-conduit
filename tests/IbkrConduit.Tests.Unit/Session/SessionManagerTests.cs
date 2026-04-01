@@ -284,6 +284,26 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task EnsureInitializedAsync_PreCancelledToken_ThrowsOperationCanceled()
+    {
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => manager.EnsureInitializedAsync(cts.Token));
+    }
+
+    [Fact]
     public async Task ReauthenticateAsync_NotifiesSessionLifecycleSubscribers()
     {
         var deps = CreateDependencies();
