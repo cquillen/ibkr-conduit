@@ -1,0 +1,162 @@
+using System;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using IbkrConduit.Auth;
+using IbkrConduit.Http;
+using IbkrConduit.Session;
+using Shouldly;
+using WireMock.RequestBuilders;
+using WireMock.ResponseBuilders;
+using WireMock.Server;
+
+namespace IbkrConduit.Tests.Integration.Session;
+
+public class SessionNewEndpointTests : IDisposable
+{
+    private readonly WireMockServer _server;
+
+    public SessionNewEndpointTests()
+    {
+        _server = WireMockServer.Start();
+    }
+
+    [Fact]
+    public async Task ResetSuppressedQuestionsAsync_ReturnsStatus()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/questions/suppress/reset")
+                .UsingPost())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"status":"submitted"}"""));
+
+        var api = CreateRefitClient<IIbkrSessionApi>();
+
+        var result = await api.ResetSuppressedQuestionsAsync(TestContext.Current.CancellationToken);
+
+        result.ShouldNotBeNull();
+        result.Status.ShouldBe("submitted");
+    }
+
+    [Fact]
+    public async Task GetAuthStatusAsync_ReturnsAuthStatus()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/auth/status")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""
+                        {
+                            "authenticated": true,
+                            "competing": false,
+                            "connected": true,
+                            "fail": null,
+                            "message": null,
+                            "prompts": null
+                        }
+                        """));
+
+        var api = CreateRefitClient<IIbkrSessionApi>();
+
+        var result = await api.GetAuthStatusAsync(TestContext.Current.CancellationToken);
+
+        result.ShouldNotBeNull();
+        result.Authenticated.ShouldBeTrue();
+        result.Competing.ShouldBeFalse();
+        result.Connected.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_ReturnsMessage()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/reauthenticate")
+                .UsingPost())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"message":"triggered"}"""));
+
+        var api = CreateRefitClient<IIbkrSessionApi>();
+
+#pragma warning disable CS0618 // Obsolete member
+        var result = await api.ReauthenticateAsync(TestContext.Current.CancellationToken);
+#pragma warning restore CS0618
+
+        result.ShouldNotBeNull();
+        result.Message.ShouldBe("triggered");
+    }
+
+    [Fact]
+    public async Task ValidateSsoAsync_ReturnsSsoValidation()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/sso/validate")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"USER_ID":12345,"expire":1700000000,"RESULT":true,"AUTH_TIME":1699990000}"""));
+
+        var api = CreateRefitClient<IIbkrSessionApi>();
+
+        var result = await api.ValidateSsoAsync(TestContext.Current.CancellationToken);
+
+        result.ShouldNotBeNull();
+        result.UserId.ShouldBe(12345);
+        result.Expire.ShouldBe(1700000000);
+        result.Result.ShouldBeTrue();
+        result.AuthTime.ShouldBe(1699990000);
+    }
+
+    public void Dispose()
+    {
+        _server.Dispose();
+    }
+
+    private TApi CreateRefitClient<TApi>() where TApi : class
+    {
+        var lstBytes = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                                     0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+                                     0x11, 0x12, 0x13, 0x14 };
+        var tokenProvider = new FakeTokenProvider(
+            new LiveSessionToken(lstBytes, DateTimeOffset.UtcNow.AddHours(24)));
+
+        var signingHandler = new OAuthSigningHandler(tokenProvider, "TESTKEY01", "mytoken")
+        {
+            InnerHandler = new HttpClientHandler(),
+        };
+
+        var httpClient = new HttpClient(signingHandler)
+        {
+            BaseAddress = new Uri(_server.Url!),
+        };
+
+        return Refit.RestService.For<TApi>(httpClient);
+    }
+
+    private class FakeTokenProvider : ISessionTokenProvider
+    {
+        private readonly LiveSessionToken _token;
+
+        public FakeTokenProvider(LiveSessionToken token) => _token = token;
+
+        public Task<LiveSessionToken> GetLiveSessionTokenAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(_token);
+
+        public Task<LiveSessionToken> RefreshAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(_token);
+    }
+}

@@ -259,5 +259,19 @@ public class SessionManagerEdgeTests
 
             return Task.FromResult(new LogoutResponse(true));
         }
+
+        public Task<SuppressResetResponse> ResetSuppressedQuestionsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new SuppressResetResponse(Status: "submitted"));
+
+        public Task<AuthStatusResponse> GetAuthStatusAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AuthStatusResponse(true, false, true, null, null, null));
+
+#pragma warning disable CS0618 // Obsolete member
+        public Task<ReauthenticateResponse> ReauthenticateAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ReauthenticateResponse(Message: "triggered"));
+#pragma warning restore CS0618
+
+        public Task<SsoValidateResponse> ValidateSsoAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new SsoValidateResponse(UserId: 12345, Expire: 0, Result: true, AuthTime: 0));
     }
 }

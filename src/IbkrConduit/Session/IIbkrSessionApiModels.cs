@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace IbkrConduit.Session;
@@ -78,3 +79,79 @@ public record SuppressResponse(
 [ExcludeFromCodeCoverage]
 public record LogoutResponse(
     [property: JsonPropertyName("confirmed")] bool Confirmed);
+
+/// <summary>
+/// Response from POST /iserver/questions/suppress/reset.
+/// </summary>
+/// <param name="Status">Status of the reset request.</param>
+[ExcludeFromCodeCoverage]
+public record SuppressResetResponse(
+    [property: JsonPropertyName("status")] string Status)
+{
+    /// <summary>
+    /// Additional undocumented fields from the API response.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// Response from GET /iserver/auth/status.
+/// </summary>
+/// <param name="Authenticated">Whether the session is authenticated.</param>
+/// <param name="Competing">Whether this session is competing with another.</param>
+/// <param name="Connected">Whether the session is connected to the backend.</param>
+/// <param name="Fail">Failure reason, if any.</param>
+/// <param name="Message">Optional status message.</param>
+/// <param name="Prompts">Optional prompts from the server.</param>
+[ExcludeFromCodeCoverage]
+public record AuthStatusResponse(
+    [property: JsonPropertyName("authenticated")] bool Authenticated,
+    [property: JsonPropertyName("competing")] bool Competing,
+    [property: JsonPropertyName("connected")] bool Connected,
+    [property: JsonPropertyName("fail")] string? Fail,
+    [property: JsonPropertyName("message")] string? Message,
+    [property: JsonPropertyName("prompts")] List<string>? Prompts)
+{
+    /// <summary>
+    /// Additional undocumented fields from the API response.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// Response from POST /iserver/reauthenticate.
+/// </summary>
+/// <param name="Message">Status message from the server.</param>
+[ExcludeFromCodeCoverage]
+public record ReauthenticateResponse(
+    [property: JsonPropertyName("message")] string? Message)
+{
+    /// <summary>
+    /// Additional undocumented fields from the API response.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// Response from GET /sso/validate.
+/// </summary>
+/// <param name="UserId">The authenticated user ID.</param>
+/// <param name="Expire">Expiration timestamp.</param>
+/// <param name="Result">Validation result indicator.</param>
+/// <param name="AuthTime">Time of authentication.</param>
+[ExcludeFromCodeCoverage]
+public record SsoValidateResponse(
+    [property: JsonPropertyName("USER_ID")] int UserId,
+    [property: JsonPropertyName("expire")] long Expire,
+    [property: JsonPropertyName("RESULT")] bool Result,
+    [property: JsonPropertyName("AUTH_TIME")] long AuthTime)
+{
+    /// <summary>
+    /// Additional undocumented fields from the API response.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}

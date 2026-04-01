@@ -3,7 +3,7 @@
 **Last updated:** 2026-04-01
 **Source:** [IBKR Client Portal Web API v1.0 Documentation](https://www.interactivebrokers.com/campus/ibkr-api-page/cpapi-v1)
 
-**Total: 38 implemented / 83 documented = 46%**
+**Total: 55 implemented / 83 documented = 66%**
 
 ---
 
@@ -16,10 +16,10 @@
 | `/tickle` | POST | ✅ | TickleTimer |
 | `/logout` | POST | ✅ | SessionManager.DisposeAsync |
 | `/iserver/questions/suppress` | POST | ✅ | SessionManager |
-| `/iserver/questions/suppress/reset` | POST | ❌ | |
-| `/iserver/auth/status` | GET | ❌ | |
-| `/iserver/reauthenticate` | POST | ❌ | Deprecated by IBKR |
-| `/sso/validate` | GET | ❌ | |
+| `/iserver/questions/suppress/reset` | POST | ✅ | IIbkrSessionApi |
+| `/iserver/auth/status` | GET | ✅ | IIbkrSessionApi |
+| `/iserver/reauthenticate` | POST | ✅ | IIbkrSessionApi (Obsolete) |
+| `/sso/validate` | GET | ✅ | IIbkrSessionApi |
 | `/oauth/request_token` | POST | ❌ | Third-party OAuth only |
 | `/oauth/access_token` | POST | ❌ | Third-party OAuth only |
 
@@ -99,26 +99,26 @@
 
 ---
 
-## Alerts — Not Implemented
+## Alerts
 
-| Endpoint | Method | Status |
-|---|---|---|
-| `POST /iserver/account/{id}/alert` | POST | ❌ |
-| `GET /iserver/account/mta` | GET | ❌ |
-| `GET /iserver/account/alert/{id}` | GET | ❌ |
-| `DELETE /iserver/account/{id}/alert/{id}` | DELETE | ❌ |
+| Endpoint | Method | Status | Notes |
+|---|---|---|---|
+| `POST /iserver/account/{id}/alert` | POST | ✅ | IIbkrAlertApi |
+| `GET /iserver/account/mta` | GET | ✅ | IIbkrAlertApi |
+| `GET /iserver/account/alert/{id}` | GET | ✅ | IIbkrAlertApi |
+| `DELETE /iserver/account/{id}/alert/{id}` | DELETE | ✅ | IIbkrAlertApi |
 
 ---
 
-## Accounts — Not Implemented
+## Accounts
 
-| Endpoint | Method | Status |
-|---|---|---|
-| `GET /iserver/accounts` | GET | ❌ |
-| `POST /iserver/account` | POST | ❌ |
-| `POST /iserver/dynaccount` | POST | ❌ |
-| `GET /iserver/account/search/{pattern}` | GET | ❌ |
-| `GET /iserver/account/{id}` | GET | ❌ |
+| Endpoint | Method | Status | Notes |
+|---|---|---|---|
+| `GET /iserver/accounts` | GET | ✅ | IIbkrAccountApi |
+| `POST /iserver/account` | POST | ✅ | IIbkrAccountApi |
+| `POST /iserver/dynaccount` | POST | ✅ | IIbkrAccountApi |
+| `GET /iserver/account/search/{pattern}` | GET | ✅ | IIbkrAccountApi |
+| `GET /iserver/account/{id}` | GET | ✅ | IIbkrAccountApi |
 
 ---
 
@@ -156,11 +156,11 @@
 
 ---
 
-## Watchlists — Not Implemented
+## Watchlists
 
-| Endpoint | Method | Status |
-|---|---|---|
-| `POST /iserver/watchlist` | POST | ❌ |
-| `GET /iserver/watchlists` | GET | ❌ |
-| `GET /iserver/watchlist` | GET | ❌ |
-| `DELETE /iserver/watchlist` | DELETE | ❌ |
+| Endpoint | Method | Status | Notes |
+|---|---|---|---|
+| `POST /iserver/watchlist` | POST | ✅ | IIbkrWatchlistApi |
+| `GET /iserver/watchlists` | GET | ✅ | IIbkrWatchlistApi |
+| `GET /iserver/watchlist` | GET | ✅ | IIbkrWatchlistApi |
+| `DELETE /iserver/watchlist` | DELETE | ✅ | IIbkrWatchlistApi |
