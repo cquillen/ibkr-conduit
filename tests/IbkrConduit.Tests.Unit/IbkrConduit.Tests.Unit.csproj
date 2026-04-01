@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="NSubstitute" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/IbkrConduit/IbkrConduit.csproj" />
   </ItemGroup>
 

@@ -21,6 +21,8 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="coverlet.collector" Version="8.0.1" />
+    <!-- Mocking -->
+    <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <!-- Integration testing -->
     <PackageVersion Include="WireMock.Net" Version="2.1.0" />
   </ItemGroup>
