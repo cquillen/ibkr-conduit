@@ -137,6 +137,11 @@ Building the WireMock-based replay test suite that consumes the recordings. That
 
 **Cleanup**: Re-suppress the configured message IDs to restore original state.
 
+**Error & Edge Cases**:
+- Search for non-existent account pattern (e.g., "ZZZZZ") → verify empty results, no exception
+- Get account info for bogus account ID (e.g., "INVALID999") → verify appropriate error response (ApiException)
+- Switch to non-existent account ID → verify error response
+
 **Endpoints covered (11)**: `oauth/live_session_token`, `ssodh/init`, `tickle`, `questions/suppress`, `sso/validate`, `iserver/auth/status`, `iserver/accounts`, `iserver/account/search`, `iserver/account/{id}`, `iserver/account` (switch), `iserver/dynaccount`, `questions/suppress/reset`
 
 ---
@@ -161,6 +166,13 @@ Building the WireMock-based replay test suite that consumes the recordings. That
 
 **Cleanup**: None needed (all read-only).
 
+**Error & Edge Cases**:
+- Search for non-existent symbol (e.g., "ZZZZNOTREAL") → verify empty results, no exception
+- Get contract details for invalid conid (e.g., "0" or "999999999") → verify error response
+- Get option strikes for a non-optionable instrument or invalid month → verify error or empty response
+- Get exchange rate for same currency (e.g., USD/USD) → verify response (should return 1.0 or an error)
+- Get trading rules with conid = 0 → verify error response
+
 **Endpoints covered (12)**: All 12 contract endpoints.
 
 ---
@@ -181,6 +193,12 @@ Building the WireMock-based replay test suite that consumes the recordings. That
 9. Unsubscribe all market data (`iserver/marketdata/unsubscribeall`)
 
 **Cleanup**: Unsubscribe all (step 9).
+
+**Error & Edge Cases**:
+- Get snapshot for invalid conid (e.g., 0) → verify error or empty fields
+- Get historical bars with invalid period (e.g., "0min") → verify error response
+- Unsubscribe a conid that was never subscribed → verify no-op or graceful error
+- Run scanner with invalid scan type → verify error response
 
 **Endpoints covered (8)**: All 8 market data endpoints (`regsnapshot` conditional).
 
@@ -204,6 +222,14 @@ Building the WireMock-based replay test suite that consumes the recordings. That
 11. Get trades — verify response shape (`iserver/account/trades`)
 
 **Cleanup**: In finally block, list live orders, cancel any that match our E2E order (identified by the $1.00-$1.01 price on SPY). This handles cases where the test fails mid-scenario.
+
+**Error & Edge Cases**:
+- Get order status for non-existent order ID (e.g., "000000000") → verify error response (ApiException or empty)
+- Cancel a non-existent order ID → verify error response
+- Modify a non-existent order ID → verify error response
+- Cancel the same order twice (after successful cancel in step 9) → verify error or "order not found" response
+- What-if with invalid conid (e.g., 0) → verify error response
+- Place order with quantity 0 → verify rejection/error
 
 **Endpoints covered (8)**: All 8 order endpoints.
 
@@ -237,6 +263,12 @@ Building the WireMock-based replay test suite that consumes the recordings. That
 
 **Cleanup**: None needed (all read-only except cache invalidate, which is harmless).
 
+**Error & Edge Cases**:
+- Get position by conid for a conid not held in the portfolio (e.g., a random conid) → verify empty list response
+- Get position + contract info for non-existent conid → verify empty or error response
+- Get performance with empty account list → verify error or empty response
+- Get positions page 999 (far beyond actual pages) → verify empty list response
+
 **Endpoints covered (18)**: All 18 portfolio endpoints.
 
 ---
@@ -255,6 +287,11 @@ Building the WireMock-based replay test suite that consumes the recordings. That
 
 **Cleanup**: In finally block, list all alerts, find any with name matching `E2E-` prefix, delete them.
 
+**Error & Edge Cases**:
+- Get alert detail for non-existent alert ID (e.g., "0") → verify error response
+- Delete a non-existent alert ID → verify error response
+- Delete the same alert twice (after successful delete in step 5) → verify error or "not found" response
+
 **Endpoints covered (4)**: All 4 alert endpoints.
 
 ---
@@ -271,6 +308,11 @@ Building the WireMock-based replay test suite that consumes the recordings. That
 5. List watchlists again — verify ours is gone
 
 **Cleanup**: In finally block, list all watchlists, find any with name matching `E2E-` prefix, delete them.
+
+**Error & Edge Cases**:
+- Get watchlist with non-existent ID (e.g., "FAKE-ID-99999") → verify error response
+- Delete a non-existent watchlist ID → verify error response
+- Delete the same watchlist twice (after successful delete in step 4) → verify error or "not found" response
 
 **Endpoints covered (4)**: All 4 watchlist endpoints.
 
@@ -297,6 +339,12 @@ Building the WireMock-based replay test suite that consumes the recordings. That
 
 **Cleanup**: Settings restored inline (steps 4, 8). Device deleted if registered (step 10).
 
+**Error & Edge Cases**:
+- Update setting with invalid typecode (e.g., "NONEXISTENT") → verify error response
+- Get disclaimer for invalid typecode → verify error response
+- Mark non-existent notification as read (e.g., ID "0") → verify error response
+- Delete a non-existent device ID → verify error response
+
 **Endpoints covered (12)**: All 12 FYI endpoints (device endpoints best-effort).
 
 ---
@@ -319,6 +367,11 @@ Building the WireMock-based replay test suite that consumes the recordings. That
 
 **Cleanup**: In finally block, attempt to delete any group matching our E2E prefix. Restore presets to original.
 
+**Error & Edge Cases**:
+- Get detail for non-existent group name → verify error response
+- Delete a non-existent group name → verify error response
+- Create a group with duplicate name (same name twice) → verify error or idempotent response
+
 **Endpoints covered (8)**: All 8 FA allocation endpoints.
 
 ---
@@ -339,6 +392,10 @@ Building the WireMock-based replay test suite that consumes the recordings. That
 
 **Cleanup**: Dispose handles disconnect and unsubscribe.
 
+**Error & Edge Cases**:
+- Subscribe to an invalid topic prefix → verify no crash, no messages received
+- Receive messages after unsubscribing from a topic → verify messages are not delivered
+
 **Endpoints covered**: WebSocket connect, subscribe, message receive, unsubscribe, disconnect. Also exercises `tickle` implicitly.
 
 ---
@@ -356,6 +413,10 @@ Building the WireMock-based replay test suite that consumes the recordings. That
 4. Verify the response contains expected elements (FlexStatements, TradeConfirm or similar)
 
 **Cleanup**: None needed (read-only).
+
+**Error & Edge Cases**:
+- Execute query with invalid query ID → verify `FlexQueryException` with appropriate error code
+- Execute query with invalid token → verify authentication error
 
 **Endpoints covered (2)**: Flex send request, Flex poll for statement.
 
