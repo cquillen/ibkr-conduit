@@ -194,8 +194,21 @@ public class FlexClientPollingTests
 
     private static FlexClient CreateClient(HttpMessageHandler handler)
     {
-        var httpClient = new HttpClient(handler);
-        return new FlexClient(httpClient, "FAKE_TOKEN", NullLogger<FlexClient>.Instance);
+        var factory = new FakeHttpClientFactory(handler);
+        return new FlexClient(factory, "test-flex", "FAKE_TOKEN", NullLogger<FlexClient>.Instance);
+    }
+
+    private sealed class FakeHttpClientFactory : IHttpClientFactory
+    {
+        private readonly HttpMessageHandler _handler;
+
+        public FakeHttpClientFactory(HttpMessageHandler handler)
+        {
+            _handler = handler;
+        }
+
+        public HttpClient CreateClient(string name) =>
+            new HttpClient(_handler, disposeHandler: false);
     }
 
     private sealed class SequentialFakeHttpHandler : HttpMessageHandler

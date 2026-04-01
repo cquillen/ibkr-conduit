@@ -43,8 +43,8 @@ public class FlexOperationsTests
             </FlexQueryResponse>
             """);
 
-        var httpClient = new HttpClient(handler);
-        var flexClient = new FlexClient(httpClient, "FAKE_TOKEN", NullLogger<FlexClient>.Instance);
+        var factory = new FakeHttpClientFactory(handler);
+        var flexClient = new FlexClient(factory, "test-flex", "FAKE_TOKEN", NullLogger<FlexClient>.Instance);
         var ops = new FlexOperations(flexClient);
 
         var result = await ops.ExecuteQueryAsync("Q1", "20260101", "20260301", CancellationToken.None);
@@ -55,6 +55,19 @@ public class FlexOperationsTests
         var sendRequestUrl = handler.RequestUris[0].ToString();
         sendRequestUrl.ShouldContain("fd=20260101");
         sendRequestUrl.ShouldContain("td=20260301");
+    }
+
+    private sealed class FakeHttpClientFactory : IHttpClientFactory
+    {
+        private readonly HttpMessageHandler _handler;
+
+        public FakeHttpClientFactory(HttpMessageHandler handler)
+        {
+            _handler = handler;
+        }
+
+        public HttpClient CreateClient(string name) =>
+            new HttpClient(_handler, disposeHandler: false);
     }
 
     private sealed class FakeHttpHandler : HttpMessageHandler
