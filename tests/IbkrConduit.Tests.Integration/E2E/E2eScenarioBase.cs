@@ -21,7 +21,12 @@ public abstract class E2eScenarioBase : IAsyncDisposable
 {
     private ServiceProvider? _provider;
     private IbkrOAuthCredentials? _credentials;
-    private RecordingContext? _recordingContext;
+
+    /// <summary>
+    /// Recording context shared across all DI containers in this test instance.
+    /// Always initialized so subclasses can register it in custom DI pipelines.
+    /// </summary>
+    protected readonly RecordingContext _recordingContext = new();
 
     /// <summary>
     /// Creates the full DI pipeline and returns the IIbkrClient facade.
@@ -35,12 +40,11 @@ public abstract class E2eScenarioBase : IAsyncDisposable
         services.AddIbkrClient(_credentials);
 
         // Register recording infrastructure if IBKR_RECORD_RESPONSES=true
+        services.AddSingleton(_recordingContext);
         if (string.Equals(
             Environment.GetEnvironmentVariable("IBKR_RECORD_RESPONSES"),
             "true", StringComparison.OrdinalIgnoreCase))
         {
-            _recordingContext = new RecordingContext();
-            services.AddSingleton(_recordingContext);
             services.AddSingleton<IHttpMessageHandlerBuilderFilter>(
                 new RecordingHandlerFilter(_recordingContext));
         }
@@ -55,7 +59,7 @@ public abstract class E2eScenarioBase : IAsyncDisposable
     /// </summary>
     protected void StartRecording(string scenarioName)
     {
-        _recordingContext?.Reset(scenarioName);
+        _recordingContext.Reset(scenarioName);
     }
 
     /// <summary>
@@ -63,10 +67,7 @@ public abstract class E2eScenarioBase : IAsyncDisposable
     /// </summary>
     protected void StopRecording()
     {
-        if (_recordingContext is not null)
-        {
-            _recordingContext.ScenarioName = null;
-        }
+        _recordingContext.ScenarioName = null;
     }
 
     /// <summary>
