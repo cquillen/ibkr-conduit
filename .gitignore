@@ -17,6 +17,9 @@ project.lock.json
 TestResults/
 coverage/
 
+# E2E response recordings (captured from real IBKR paper account)
+Recordings/
+
 # Visual Studio
 .vs/
 *.userprefs
