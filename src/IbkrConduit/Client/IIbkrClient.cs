@@ -49,4 +49,14 @@ public interface IIbkrClient : IAsyncDisposable
     /// Watchlist operations (create, list, get, delete).
     /// </summary>
     IWatchlistOperations Watchlists { get; }
+
+    /// <summary>
+    /// FYI notification operations (settings, delivery options, notifications).
+    /// </summary>
+    IFyiOperations Notifications { get; }
+
+    /// <summary>
+    /// FA allocation operations (groups, presets, sub-accounts).
+    /// </summary>
+    IAllocationOperations Allocations { get; }
 }
