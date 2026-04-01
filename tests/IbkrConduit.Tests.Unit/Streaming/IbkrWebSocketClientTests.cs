@@ -53,7 +53,7 @@ public class IbkrWebSocketClientTests
 
         // Give the heartbeat loop a moment to fire (interval is 10s but we just
         // verify the background tasks started without throwing)
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         // The client should still be in a healthy state (no crash)
         _adapter.State.ShouldBe(System.Net.WebSockets.WebSocketState.Open);
@@ -151,7 +151,7 @@ public class IbkrWebSocketClientTests
         await _notifier.TriggerRefreshAsync(TestContext.Current.CancellationToken);
 
         // Wait a moment for the reconnect to replay
-        await Task.Delay(200);
+        await Task.Delay(200, TestContext.Current.CancellationToken);
 
         // After reconnect, subscriptions should be replayed
         var sent = _adapter.SentMessages.ToArray();
@@ -197,7 +197,7 @@ public class IbkrWebSocketClientTests
         await _notifier.TriggerRefreshAsync(TestContext.Current.CancellationToken);
 
         // Wait for reconnect to complete
-        await Task.Delay(200);
+        await Task.Delay(200, TestContext.Current.CancellationToken);
 
         // ConnectAsync should have been called again (adapter was re-created via factory)
         _adapter.ConnectedUri.ShouldNotBeNull();
