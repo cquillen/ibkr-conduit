@@ -192,6 +192,24 @@ public class FlexClientPollingTests
             () => client.ExecuteQueryAsync("Q1", null, null, cts.Token));
     }
 
+    [Fact]
+    public async Task ExecuteQueryAsync_CancelledDuringPollDelay_ThrowsOperationCanceled()
+    {
+        var responses = new List<string> { _successSendRequest };
+        for (var i = 0; i < 20; i++)
+        {
+            responses.Add(_inProgressResponse);
+        }
+
+        var handler = new SequentialFakeHttpHandler(responses.ToArray());
+        var client = CreateClient(handler);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => client.ExecuteQueryAsync("Q1", null, null, cts.Token));
+    }
+
     private static FlexClient CreateClient(HttpMessageHandler handler)
     {
         var factory = new FakeHttpClientFactory(handler);
