@@ -135,7 +135,8 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<IIbkrSessionApi>(),
                 credentials,
                 sp.GetRequiredService<ISessionLifecycleNotifier>(),
-                sp.GetRequiredService<ILogger<IbkrWebSocketClient>>()));
+                sp.GetRequiredService<ILogger<IbkrWebSocketClient>>(),
+                () => new ClientWebSocketAdapter()));
         services.AddSingleton<IStreamingOperations>(sp =>
             new StreamingOperations(
                 sp.GetRequiredService<IIbkrWebSocketClient>()));
