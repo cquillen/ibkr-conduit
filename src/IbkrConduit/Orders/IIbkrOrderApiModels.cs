@@ -55,8 +55,12 @@ public record OrderResult(string OrderId, string OrderStatus);
 [ExcludeFromCodeCoverage]
 public record CancelOrderResponse(
     [property: JsonPropertyName("msg")] string Message,
-    [property: JsonPropertyName("order_id")] string OrderId,
-    [property: JsonPropertyName("conid")] int Conid);
+    [property: JsonPropertyName("order_id")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    int OrderId,
+    [property: JsonPropertyName("conid")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    int Conid);
 
 /// <summary>
 /// Wrapper for the orders array sent to IBKR.
@@ -280,9 +284,13 @@ public record WhatIfMargin(
 public record OrderStatus(
     [property: JsonPropertyName("sub_type")] string? SubType,
     [property: JsonPropertyName("request_id")] string? RequestId,
-    [property: JsonPropertyName("order_id")] int OrderId,
+    [property: JsonPropertyName("order_id")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    int OrderId,
     [property: JsonPropertyName("conidex")] string? ConidEx,
-    [property: JsonPropertyName("conid")] int Conid,
+    [property: JsonPropertyName("conid")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    int Conid,
     [property: JsonPropertyName("symbol")] string Symbol,
     [property: JsonPropertyName("side")] string Side,
     [property: JsonPropertyName("contract_description_1")] string? ContractDescription,
@@ -291,15 +299,33 @@ public record OrderStatus(
     [property: JsonPropertyName("order_desc")] string? OrderDescription,
     [property: JsonPropertyName("order_status")] string Status,
     [property: JsonPropertyName("order_type")] string? OrderType,
-    [property: JsonPropertyName("size")] decimal? Size,
-    [property: JsonPropertyName("fill_price")] decimal? FillPrice,
-    [property: JsonPropertyName("filled_quantity")] decimal? FilledQuantity,
-    [property: JsonPropertyName("remaining_quantity")] decimal? RemainingQuantity,
-    [property: JsonPropertyName("avg_fill_price")] decimal? AvgFillPrice,
-    [property: JsonPropertyName("last_fill_price")] decimal? LastFillPrice,
-    [property: JsonPropertyName("total_size")] decimal? TotalSize,
-    [property: JsonPropertyName("total_cash_size")] decimal? TotalCashSize,
-    [property: JsonPropertyName("price")] decimal? Price,
+    [property: JsonPropertyName("size")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal? Size,
+    [property: JsonPropertyName("fill_price")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal? FillPrice,
+    [property: JsonPropertyName("filled_quantity")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal? FilledQuantity,
+    [property: JsonPropertyName("remaining_quantity")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal? RemainingQuantity,
+    [property: JsonPropertyName("avg_fill_price")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal? AvgFillPrice,
+    [property: JsonPropertyName("last_fill_price")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal? LastFillPrice,
+    [property: JsonPropertyName("total_size")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal? TotalSize,
+    [property: JsonPropertyName("total_cash_size")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal? TotalCashSize,
+    [property: JsonPropertyName("price")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal? Price,
     [property: JsonPropertyName("tif")] string? Tif,
     [property: JsonPropertyName("bg_color")] string? BgColor,
     [property: JsonPropertyName("fg_color")] string? FgColor,

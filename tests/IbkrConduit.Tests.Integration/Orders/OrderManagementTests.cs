@@ -212,7 +212,7 @@ public class OrderManagementTests : IDisposable
 
         var result = await ops.CancelOrderAsync("DU1234567", "12345", TestContext.Current.CancellationToken);
 
-        result.OrderId.ShouldBe("12345");
+        result.OrderId.ShouldBe(12345);
         result.Conid.ShouldBe(265598);
         result.Message.ShouldContain("cancelled");
     }

@@ -385,12 +385,12 @@ public class OrderOperationsTests
     [Fact]
     public async Task CancelOrderAsync_DelegatesToApi()
     {
-        _fakeApi.CancelResponse = new CancelOrderResponse("Order cancelled", "12345", 265598);
+        _fakeApi.CancelResponse = new CancelOrderResponse("Order cancelled", 12345, 265598);
 
         var result = await _sut.CancelOrderAsync("DU1234567", "12345", TestContext.Current.CancellationToken);
 
         result.Message.ShouldBe("Order cancelled");
-        result.OrderId.ShouldBe("12345");
+        result.OrderId.ShouldBe(12345);
     }
 
     [Fact]
