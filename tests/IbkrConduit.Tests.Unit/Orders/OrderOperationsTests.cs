@@ -289,11 +289,17 @@ public class OrderOperationsTests
     private class FakeOrderApi : IIbkrOrderApi
     {
         public Queue<List<OrderSubmissionResponse>> PlaceOrderResponses { get; } = new();
+        public Queue<List<OrderSubmissionResponse>> ModifyOrderResponses { get; } = new();
         public Queue<List<OrderSubmissionResponse>> ReplyResponses { get; } = new();
         public CancelOrderResponse? CancelResponse { get; set; }
         public OrdersResponse LiveOrdersResponse { get; set; } = new(null);
         public List<Trade>? TradesResponse { get; set; }
+        public WhatIfResponse? WhatIfResponse { get; set; }
+        public OrderStatus? OrderStatusResponse { get; set; }
         public OrdersPayload? LastPlaceOrderPayload { get; private set; }
+        public OrdersPayload? LastModifyOrderPayload { get; private set; }
+        public OrdersPayload? LastWhatIfPayload { get; private set; }
+        public string? LastModifyOrderId { get; private set; }
         public ReplyRequest? LastReplyRequest { get; private set; }
         public int ReplyCallCount { get; private set; }
 
@@ -302,6 +308,14 @@ public class OrderOperationsTests
         {
             LastPlaceOrderPayload = orders;
             return Task.FromResult(PlaceOrderResponses.Dequeue());
+        }
+
+        public Task<List<OrderSubmissionResponse>> ModifyOrderAsync(
+            string accountId, string orderId, OrdersPayload orders, CancellationToken cancellationToken = default)
+        {
+            LastModifyOrderPayload = orders;
+            LastModifyOrderId = orderId;
+            return Task.FromResult(ModifyOrderResponses.Dequeue());
         }
 
         public Task<List<OrderSubmissionResponse>> ReplyAsync(
@@ -320,6 +334,17 @@ public class OrderOperationsTests
 
         public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(TradesResponse!);
+
+        public Task<WhatIfResponse> WhatIfOrderAsync(
+            string accountId, OrdersPayload orders, CancellationToken cancellationToken = default)
+        {
+            LastWhatIfPayload = orders;
+            return Task.FromResult(WhatIfResponse!);
+        }
+
+        public Task<OrderStatus> GetOrderStatusAsync(
+            string orderId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(OrderStatusResponse!);
     }
 
     private class BlockingOrderApi : IIbkrOrderApi
@@ -349,6 +374,10 @@ public class OrderOperationsTests
             return [new OrderSubmissionResponse(null, null, null, null, $"order-{call}", "Submitted")];
         }
 
+        public Task<List<OrderSubmissionResponse>> ModifyOrderAsync(
+            string accountId, string orderId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
+            PlaceOrderAsync(accountId, orders, cancellationToken);
+
         public Task<List<OrderSubmissionResponse>> ReplyAsync(
             string replyId, ReplyRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult<List<OrderSubmissionResponse>>([]);
@@ -360,6 +389,14 @@ public class OrderOperationsTests
             throw new NotImplementedException();
 
         public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<WhatIfResponse> WhatIfOrderAsync(
+            string accountId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<OrderStatus> GetOrderStatusAsync(
+            string orderId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 }

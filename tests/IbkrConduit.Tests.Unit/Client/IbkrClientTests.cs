@@ -171,6 +171,20 @@ public class IbkrClientTests
 
         public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<Trade>());
+
+        public Task<OrderResult> ModifyOrderAsync(
+            string accountId, string orderId, OrderRequest order,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<WhatIfResponse> WhatIfOrderAsync(
+            string accountId, OrderRequest order,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<OrderStatus> GetOrderStatusAsync(
+            string orderId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 
     private class FakeMarketDataOperations : IMarketDataOperations
