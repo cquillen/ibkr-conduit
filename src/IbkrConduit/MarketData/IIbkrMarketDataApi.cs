@@ -31,4 +31,67 @@ public interface IIbkrMarketDataApi
         [Query] string conid, [Query] string period,
         [Query] string bar, [Query] bool? outsideRth = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves a regulatory snapshot for a single contract.
+    /// <para>
+    /// <strong>WARNING:</strong> This endpoint incurs a $0.01 USD fee per request on both
+    /// live and paper trading accounts. Use sparingly.
+    /// </para>
+    /// </summary>
+    /// <param name="conid">The contract identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [Get("/v1/api/md/regsnapshot")]
+    Task<MarketDataSnapshotRaw> GetRegulatorySnapshotAsync(
+        [Query] int conid,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Unsubscribes from market data for a specific contract.
+    /// </summary>
+    /// <param name="request">The unsubscribe request containing the contract ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [Post("/v1/api/iserver/marketdata/unsubscribe")]
+    Task<UnsubscribeResponse> UnsubscribeAsync(
+        [Body] UnsubscribeRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Unsubscribes from all market data subscriptions.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [Get("/v1/api/iserver/marketdata/unsubscribeall")]
+    Task<UnsubscribeAllResponse> UnsubscribeAllAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs a market scanner using the iserver backend.
+    /// Returns a maximum of 50 contracts.
+    /// </summary>
+    /// <param name="request">The scanner request parameters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [Post("/v1/api/iserver/scanner/run")]
+    Task<ScannerResponse> RunScannerAsync(
+        [Body] ScannerRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves available scanner parameters including scanner types, instruments,
+    /// locations, and filters.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [Get("/v1/api/iserver/scanner/params")]
+    Task<ScannerParameters> GetScannerParametersAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs a market scanner using the HMDS backend.
+    /// Returns a maximum of 250 contracts.
+    /// </summary>
+    /// <param name="request">The HMDS scanner request parameters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [Post("/v1/api/hmds/scanner")]
+    Task<HmdsScannerResponse> RunHmdsScannerAsync(
+        [Body] HmdsScannerRequest request,
+        CancellationToken cancellationToken = default);
 }

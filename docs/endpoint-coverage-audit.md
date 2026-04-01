@@ -3,7 +3,7 @@
 **Last updated:** 2026-04-01
 **Source:** [IBKR Client Portal Web API v1.0 Documentation](https://www.interactivebrokers.com/campus/ibkr-api-page/cpapi-v1)
 
-**Total: 32 implemented / 83 documented = 39%**
+**Total: 38 implemented / 83 documented = 46%**
 
 ---
 
@@ -90,12 +90,12 @@
 |---|---|---|---|
 | `/iserver/marketdata/snapshot` | GET | ✅ | With pre-flight handling |
 | `/iserver/marketdata/history` | GET | ✅ | Historical OHLCV bars |
-| `/md/regsnapshot` | GET | ❌ | Regulatory snapshot ($0.01/req) |
-| `/iserver/marketdata/unsubscribe` | POST | ❌ | Unsubscribe conid |
-| `/iserver/marketdata/unsubscribeall` | GET | ❌ | Unsubscribe all |
-| `/iserver/scanner/run` | POST | ❌ | Market scanner |
-| `/iserver/scanner/params` | GET | ❌ | Scanner parameters |
-| `/hmds/scanner` | POST | ❌ | HMDS market scanner |
+| `/md/regsnapshot` | GET | ✅ | Regulatory snapshot ($0.01/req) |
+| `/iserver/marketdata/unsubscribe` | POST | ✅ | Unsubscribe conid |
+| `/iserver/marketdata/unsubscribeall` | GET | ✅ | Unsubscribe all |
+| `/iserver/scanner/run` | POST | ✅ | Market scanner |
+| `/iserver/scanner/params` | GET | ✅ | Scanner parameters |
+| `/hmds/scanner` | POST | ✅ | HMDS market scanner |
 
 ---
 
