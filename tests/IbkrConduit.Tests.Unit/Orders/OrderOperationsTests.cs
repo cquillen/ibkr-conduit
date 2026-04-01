@@ -488,6 +488,63 @@ public class OrderOperationsTests
             Task.FromResult(OrderStatusResponse!);
     }
 
+    [Fact]
+    public async Task PlaceOrderAsync_DifferentAccounts_RunInParallel()
+    {
+        var api = new ParallelVerifyingOrderApi();
+        var ops = new OrderOperations(api, NullLogger<OrderOperations>.Instance);
+
+        var order = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "MKT" };
+
+        // Fire two orders for DIFFERENT accounts simultaneously
+        var task1 = ops.PlaceOrderAsync("ACCT1", order, TestContext.Current.CancellationToken);
+        var task2 = ops.PlaceOrderAsync("ACCT2", order, TestContext.Current.CancellationToken);
+
+        var results = await Task.WhenAll(task1, task2);
+
+        results[0].OrderId.ShouldBe("order-ACCT1");
+        results[1].OrderId.ShouldBe("order-ACCT2");
+    }
+
+    private class ParallelVerifyingOrderApi : IIbkrOrderApi
+    {
+        private readonly CountdownEvent _barrier = new(2);
+
+        public async Task<List<OrderSubmissionResponse>> PlaceOrderAsync(
+            string accountId, OrdersPayload orders, CancellationToken cancellationToken = default)
+        {
+            _barrier.Signal();
+            _barrier.Wait(TimeSpan.FromSeconds(2)); // Both must arrive within 2s
+            await Task.CompletedTask;
+            return [new OrderSubmissionResponse(null, null, null, null, $"order-{accountId}", "Submitted")];
+        }
+
+        public Task<List<OrderSubmissionResponse>> ModifyOrderAsync(
+            string accountId, string orderId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<OrderSubmissionResponse>> ReplyAsync(
+            string replyId, ReplyRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<WhatIfResponse> WhatIfOrderAsync(
+            string accountId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<OrderStatus> GetOrderStatusAsync(
+            string orderId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
     private class BlockingOrderApi : IIbkrOrderApi
     {
         private readonly List<string> _callOrder;
