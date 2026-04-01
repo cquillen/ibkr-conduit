@@ -1,0 +1,247 @@
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using IbkrConduit.Client;
+using IbkrConduit.Orders;
+using Microsoft.Extensions.Logging.Abstractions;
+using Shouldly;
+
+namespace IbkrConduit.Tests.Unit.Orders;
+
+public class OrderOperationsModifyTests
+{
+    private readonly FakeOrderApi _fakeApi = new();
+    private readonly OrderOperations _sut;
+
+    public OrderOperationsModifyTests()
+    {
+        _sut = new OrderOperations(_fakeApi, NullLogger<OrderOperations>.Instance);
+    }
+
+    [Fact]
+    public async Task ModifyOrderAsync_DirectConfirmation_ReturnsOrderResult()
+    {
+        _fakeApi.ModifyOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(null, null, null, null, "12345", "PreSubmitted"),
+        ]);
+
+        var order = new OrderRequest
+        {
+            Conid = 265598,
+            Side = "BUY",
+            Quantity = 100,
+            OrderType = "LMT",
+            Price = 155.00m,
+            Tif = "DAY",
+        };
+
+        var result = await _sut.ModifyOrderAsync("DU1234567", "99999", order, TestContext.Current.CancellationToken);
+
+        result.OrderId.ShouldBe("12345");
+        result.OrderStatus.ShouldBe("PreSubmitted");
+    }
+
+    [Fact]
+    public async Task ModifyOrderAsync_WithQuestion_AutoConfirmsAndReturnsOrderResult()
+    {
+        _fakeApi.ModifyOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(
+                "reply-id-1",
+                ["Are you sure you want to modify this order?"],
+                false,
+                ["msg-id-1"],
+                null,
+                null),
+        ]);
+
+        _fakeApi.ReplyResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(null, null, null, null, "67890", "Submitted"),
+        ]);
+
+        var order = new OrderRequest
+        {
+            Conid = 265598,
+            Side = "BUY",
+            Quantity = 50,
+            OrderType = "LMT",
+            Price = 160.00m,
+            Tif = "GTC",
+        };
+
+        var result = await _sut.ModifyOrderAsync("DU1234567", "99999", order, TestContext.Current.CancellationToken);
+
+        result.OrderId.ShouldBe("67890");
+        result.OrderStatus.ShouldBe("Submitted");
+        _fakeApi.ReplyCallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task ModifyOrderAsync_ConvertsOrderRequestToWireModel()
+    {
+        _fakeApi.ModifyOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(null, null, null, null, "111", "PreSubmitted"),
+        ]);
+
+        var order = new OrderRequest
+        {
+            Conid = 265598,
+            Side = "SELL",
+            Quantity = 200,
+            OrderType = "LMT",
+            Price = 145.50m,
+            AuxPrice = 144.00m,
+            Tif = "GTC",
+            ManualIndicator = false,
+        };
+
+        await _sut.ModifyOrderAsync("DU1234567", "99999", order, TestContext.Current.CancellationToken);
+
+        var payload = _fakeApi.LastModifyOrderPayload;
+        payload.ShouldNotBeNull();
+        payload.Orders.Count.ShouldBe(1);
+
+        var wire = payload.Orders[0];
+        wire.Conid.ShouldBe(265598);
+        wire.Side.ShouldBe("SELL");
+        wire.Quantity.ShouldBe(200m);
+        wire.OrderType.ShouldBe("LMT");
+        wire.Price.ShouldBe(145.50m);
+        wire.AuxPrice.ShouldBe(144.00m);
+        wire.Tif.ShouldBe("GTC");
+        wire.ManualIndicator.ShouldBe(false);
+        _fakeApi.LastModifyOrderId.ShouldBe("99999");
+    }
+
+    [Fact]
+    public async Task ModifyOrderAsync_SerializesPerAccount()
+    {
+        var callOrder = new List<string>();
+        var semaphore1 = new SemaphoreSlim(0, 1);
+        var semaphore2 = new SemaphoreSlim(0, 1);
+
+        var api = new BlockingModifyOrderApi(callOrder, semaphore1, semaphore2);
+        var ops = new OrderOperations(api, NullLogger<OrderOperations>.Instance);
+
+        var order = new OrderRequest
+        {
+            Conid = 265598,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "MKT",
+        };
+
+        var task1 = ops.ModifyOrderAsync("ACCT1", "order-1", order, TestContext.Current.CancellationToken);
+        var task2 = ops.ModifyOrderAsync("ACCT1", "order-2", order, TestContext.Current.CancellationToken);
+
+        semaphore1.Release();
+        await task1;
+
+        semaphore2.Release();
+        await task2;
+
+        callOrder.Count.ShouldBe(2);
+    }
+
+    private class FakeOrderApi : IIbkrOrderApi
+    {
+        public Queue<List<OrderSubmissionResponse>> PlaceOrderResponses { get; } = new();
+        public Queue<List<OrderSubmissionResponse>> ModifyOrderResponses { get; } = new();
+        public Queue<List<OrderSubmissionResponse>> ReplyResponses { get; } = new();
+        public OrdersPayload? LastModifyOrderPayload { get; private set; }
+        public string? LastModifyOrderId { get; private set; }
+        public int ReplyCallCount { get; private set; }
+
+        public Task<List<OrderSubmissionResponse>> PlaceOrderAsync(
+            string accountId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
+            Task.FromResult(PlaceOrderResponses.Dequeue());
+
+        public Task<List<OrderSubmissionResponse>> ModifyOrderAsync(
+            string accountId, string orderId, OrdersPayload orders, CancellationToken cancellationToken = default)
+        {
+            LastModifyOrderPayload = orders;
+            LastModifyOrderId = orderId;
+            return Task.FromResult(ModifyOrderResponses.Dequeue());
+        }
+
+        public Task<List<OrderSubmissionResponse>> ReplyAsync(
+            string replyId, ReplyRequest request, CancellationToken cancellationToken = default)
+        {
+            ReplyCallCount++;
+            return Task.FromResult(ReplyResponses.Dequeue());
+        }
+
+        public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+
+        public Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+
+        public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+
+        public Task<WhatIfResponse> WhatIfOrderAsync(
+            string accountId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+
+        public Task<OrderStatus> GetOrderStatusAsync(
+            string orderId, CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+    }
+
+    private class BlockingModifyOrderApi : IIbkrOrderApi
+    {
+        private readonly List<string> _callOrder;
+        private readonly SemaphoreSlim _semaphore1;
+        private readonly SemaphoreSlim _semaphore2;
+        private int _callCount;
+
+        public BlockingModifyOrderApi(
+            List<string> callOrder,
+            SemaphoreSlim semaphore1,
+            SemaphoreSlim semaphore2)
+        {
+            _callOrder = callOrder;
+            _semaphore1 = semaphore1;
+            _semaphore2 = semaphore2;
+        }
+
+        public Task<List<OrderSubmissionResponse>> PlaceOrderAsync(
+            string accountId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+
+        public async Task<List<OrderSubmissionResponse>> ModifyOrderAsync(
+            string accountId, string orderId, OrdersPayload orders, CancellationToken cancellationToken = default)
+        {
+            var call = Interlocked.Increment(ref _callCount);
+            var semaphore = call == 1 ? _semaphore1 : _semaphore2;
+            await semaphore.WaitAsync(cancellationToken);
+            _callOrder.Add($"call-{call}");
+            return [new OrderSubmissionResponse(null, null, null, null, $"order-{call}", "Submitted")];
+        }
+
+        public Task<List<OrderSubmissionResponse>> ReplyAsync(
+            string replyId, ReplyRequest request, CancellationToken cancellationToken = default) =>
+            Task.FromResult<List<OrderSubmissionResponse>>([]);
+
+        public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+
+        public Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+
+        public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+
+        public Task<WhatIfResponse> WhatIfOrderAsync(
+            string accountId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+
+        public Task<OrderStatus> GetOrderStatusAsync(
+            string orderId, CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+    }
+}

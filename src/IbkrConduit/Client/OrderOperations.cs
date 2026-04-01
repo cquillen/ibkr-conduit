@@ -112,10 +112,47 @@ public partial class OrderOperations : IOrderOperations
     }
 
     /// <inheritdoc />
-    public Task<OrderResult> ModifyOrderAsync(
+    public async Task<OrderResult> ModifyOrderAsync(
         string accountId, string orderId, OrderRequest order,
-        CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Modify");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        activity?.SetTag(LogFields.OrderId, orderId);
+        activity?.SetTag(LogFields.Conid, order.Conid);
+        activity?.SetTag(LogFields.Side, order.Side);
+        activity?.SetTag(LogFields.OrderType, order.OrderType);
+
+        var semaphore = _accountLocks.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
+        await semaphore.WaitAsync(cancellationToken);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var wireModel = new OrderWireModel(
+                order.Conid,
+                order.Side,
+                order.Quantity,
+                order.OrderType,
+                order.Price,
+                order.AuxPrice,
+                order.Tif,
+                order.ManualIndicator);
+
+            var payload = new OrdersPayload([wireModel]);
+            var responses = await _orderApi.ModifyOrderAsync(accountId, orderId, payload, cancellationToken);
+            var result = await HandleQuestionReplyLoopAsync(responses, cancellationToken);
+
+            _submissionDuration.Record(sw.Elapsed.TotalMilliseconds);
+            _submissionCount.Add(1,
+                new KeyValuePair<string, object?>(LogFields.Side, order.Side),
+                new KeyValuePair<string, object?>(LogFields.OrderType, order.OrderType));
+            return result;
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
 
     /// <inheritdoc />
     public Task<WhatIfResponse> WhatIfOrderAsync(
