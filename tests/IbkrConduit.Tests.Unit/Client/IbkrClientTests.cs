@@ -154,6 +154,59 @@ public class IbkrClientTests
         public Task<ContractDetails> GetContractDetailsAsync(
             string conid, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
+
+        public Task<List<SecurityDefinitionInfo>> GetSecurityDefinitionInfoAsync(
+            string conid, string sectype, string month,
+            string? exchange = null, string? strike = null, string? right = null, string? issuerId = null,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<OptionStrikes> GetOptionStrikesAsync(
+            string conid, string sectype, string month,
+            string? exchange = null,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<TradingRules> GetTradingRulesAsync(
+            TradingRulesRequest request,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<SecurityDefinitionResponse> GetSecurityDefinitionsByConidAsync(
+            string conids,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<ExchangeConid>> GetAllConidsByExchangeAsync(
+            string exchange,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<Dictionary<string, List<FutureContract>>> GetFuturesBySymbolAsync(
+            string symbols,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<Dictionary<string, List<StockContract>>> GetStocksBySymbolAsync(
+            string symbols,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<TradingSchedule>> GetTradingScheduleAsync(
+            string assetClass, string symbol, string conid,
+            string? exchange = null, string? exchangeFilter = null,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<Dictionary<string, List<CurrencyPair>>> GetCurrencyPairsAsync(
+            string currency,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<ExchangeRateResponse> GetExchangeRateAsync(
+            string source, string target,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 
     private class FakeOrderOperations : IOrderOperations
