@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Orders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Orders;
@@ -459,12 +463,19 @@ public class OrderOperationsTests
             return Task.FromResult(ModifyOrderResponses.Dequeue());
         }
 
-        public Task<List<OrderSubmissionResponse>> ReplyAsync(
+        public Task<IApiResponse<string>> ReplyAsync(
             string replyId, ReplyRequest request, CancellationToken cancellationToken = default)
         {
             LastReplyRequest = request;
             ReplyCallCount++;
-            return Task.FromResult(ReplyResponses.Dequeue());
+            var items = ReplyResponses.Dequeue();
+            var json = JsonSerializer.Serialize(items);
+            var httpResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json),
+            };
+            IApiResponse<string> apiResponse = new ApiResponse<string>(httpResponse, json, new RefitSettings());
+            return Task.FromResult(apiResponse);
         }
 
         public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
@@ -523,7 +534,7 @@ public class OrderOperationsTests
             string accountId, string orderId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<List<OrderSubmissionResponse>> ReplyAsync(
+        public Task<IApiResponse<string>> ReplyAsync(
             string replyId, ReplyRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
@@ -576,9 +587,16 @@ public class OrderOperationsTests
             string accountId, string orderId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
             PlaceOrderAsync(accountId, orders, cancellationToken);
 
-        public Task<List<OrderSubmissionResponse>> ReplyAsync(
-            string replyId, ReplyRequest request, CancellationToken cancellationToken = default) =>
-            Task.FromResult<List<OrderSubmissionResponse>>([]);
+        public Task<IApiResponse<string>> ReplyAsync(
+            string replyId, ReplyRequest request, CancellationToken cancellationToken = default)
+        {
+            var httpResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]"),
+            };
+            IApiResponse<string> apiResponse = new ApiResponse<string>(httpResponse, "[]", new RefitSettings());
+            return Task.FromResult(apiResponse);
+        }
 
         public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Orders;
 using Microsoft.Extensions.Logging.Abstractions;
+using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Orders;
@@ -73,7 +74,7 @@ public class OrderOperationsStatusTests
             string accountId, string orderId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<List<OrderSubmissionResponse>> ReplyAsync(
+        public Task<IApiResponse<string>> ReplyAsync(
             string replyId, ReplyRequest request, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
