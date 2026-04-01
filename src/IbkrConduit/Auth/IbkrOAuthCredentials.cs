@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Security.Cryptography;
 
@@ -14,6 +15,7 @@ namespace IbkrConduit.Auth;
 /// <param name="SignaturePrivateKey">RSA private key for signing LST requests.</param>
 /// <param name="EncryptionPrivateKey">RSA private key for decrypting the access token secret.</param>
 /// <param name="DhPrime">Diffie-Hellman 2048-bit prime.</param>
+[ExcludeFromCodeCoverage]
 public record IbkrOAuthCredentials(
     string TenantId,
     string ConsumerKey,

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Xml.Linq;
 
 namespace IbkrConduit.Flex;
@@ -5,6 +6,7 @@ namespace IbkrConduit.Flex;
 /// <summary>
 /// Represents a trade record parsed from a Flex Query response.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public record FlexTrade
 {
     /// <summary>The account ID associated with the trade.</summary>
@@ -62,6 +64,7 @@ public record FlexTrade
 /// <summary>
 /// Represents an open position record parsed from a Flex Query response.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public record FlexPosition
 {
     /// <summary>The account ID associated with the position.</summary>

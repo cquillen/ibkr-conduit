@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
 namespace IbkrConduit.Session;
@@ -7,6 +8,7 @@ namespace IbkrConduit.Session;
 /// </summary>
 /// <param name="Publish">Whether to publish the session.</param>
 /// <param name="Compete">Whether to compete with existing sessions.</param>
+[ExcludeFromCodeCoverage]
 public record SsodhInitRequest(
     [property: JsonPropertyName("publish")] bool Publish,
     [property: JsonPropertyName("compete")] bool Compete);
@@ -17,6 +19,7 @@ public record SsodhInitRequest(
 /// <param name="Authenticated">Whether the session is authenticated.</param>
 /// <param name="Connected">Whether the session is connected to the backend.</param>
 /// <param name="Competing">Whether this session is competing with another.</param>
+[ExcludeFromCodeCoverage]
 public record SsodhInitResponse(
     [property: JsonPropertyName("authenticated")] bool Authenticated,
     [property: JsonPropertyName("connected")] bool Connected,
@@ -27,6 +30,7 @@ public record SsodhInitResponse(
 /// </summary>
 /// <param name="Session">The session identifier.</param>
 /// <param name="Iserver">Optional iserver status including authentication state.</param>
+[ExcludeFromCodeCoverage]
 public record TickleResponse(
     [property: JsonPropertyName("session")] string Session,
     [property: JsonPropertyName("iserver")] TickleIserverStatus? Iserver);
@@ -35,6 +39,7 @@ public record TickleResponse(
 /// Iserver status block within a tickle response.
 /// </summary>
 /// <param name="AuthStatus">Authentication status of the iserver connection.</param>
+[ExcludeFromCodeCoverage]
 public record TickleIserverStatus(
     [property: JsonPropertyName("authStatus")] TickleAuthStatus? AuthStatus);
 
@@ -44,6 +49,7 @@ public record TickleIserverStatus(
 /// <param name="Authenticated">Whether the session is authenticated.</param>
 /// <param name="Competing">Whether this session is competing with another.</param>
 /// <param name="Connected">Whether the session is connected to the backend.</param>
+[ExcludeFromCodeCoverage]
 public record TickleAuthStatus(
     [property: JsonPropertyName("authenticated")] bool Authenticated,
     [property: JsonPropertyName("competing")] bool Competing,
@@ -53,6 +59,7 @@ public record TickleAuthStatus(
 /// Request body for POST /iserver/questions/suppress.
 /// </summary>
 /// <param name="MessageIds">List of message IDs to suppress.</param>
+[ExcludeFromCodeCoverage]
 public record SuppressRequest(
     [property: JsonPropertyName("messageIds")] List<string> MessageIds);
 
@@ -60,6 +67,7 @@ public record SuppressRequest(
 /// Response from POST /iserver/questions/suppress.
 /// </summary>
 /// <param name="Status">Status of the suppression request.</param>
+[ExcludeFromCodeCoverage]
 public record SuppressResponse(
     [property: JsonPropertyName("status")] string Status);
 
@@ -67,5 +75,6 @@ public record SuppressResponse(
 /// Response from POST /logout.
 /// </summary>
 /// <param name="Confirmed">Whether the logout was confirmed by the server.</param>
+[ExcludeFromCodeCoverage]
 public record LogoutResponse(
     [property: JsonPropertyName("confirmed")] bool Confirmed);

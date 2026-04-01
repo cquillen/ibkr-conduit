@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
 namespace IbkrConduit.Orders;
@@ -5,6 +6,7 @@ namespace IbkrConduit.Orders;
 /// <summary>
 /// Order request built by the consumer.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public record OrderRequest
 {
     /// <summary>IBKR contract ID for the instrument.</summary>
@@ -40,6 +42,7 @@ public record OrderRequest
 /// </summary>
 /// <param name="OrderId">The IBKR order identifier.</param>
 /// <param name="OrderStatus">The status of the placed order.</param>
+[ExcludeFromCodeCoverage]
 public record OrderResult(string OrderId, string OrderStatus);
 
 /// <summary>
@@ -48,6 +51,7 @@ public record OrderResult(string OrderId, string OrderStatus);
 /// <param name="Message">The cancellation message.</param>
 /// <param name="OrderId">The cancelled order identifier.</param>
 /// <param name="Conid">The contract identifier of the cancelled order.</param>
+[ExcludeFromCodeCoverage]
 public record CancelOrderResponse(
     [property: JsonPropertyName("msg")] string Message,
     [property: JsonPropertyName("order_id")] string OrderId,
@@ -57,6 +61,7 @@ public record CancelOrderResponse(
 /// Wrapper for the orders array sent to IBKR.
 /// </summary>
 /// <param name="Orders">The list of orders to submit.</param>
+[ExcludeFromCodeCoverage]
 public record OrdersPayload(
     [property: JsonPropertyName("orders")] List<OrderWireModel> Orders);
 
@@ -71,6 +76,7 @@ public record OrdersPayload(
 /// <param name="AuxPrice">The auxiliary/stop price, if applicable.</param>
 /// <param name="Tif">Time in force (e.g., "DAY", "GTC").</param>
 /// <param name="ManualIndicator">Manual indicator for CME compliance, if applicable.</param>
+[ExcludeFromCodeCoverage]
 public record OrderWireModel(
     [property: JsonPropertyName("conid")] int Conid,
     [property: JsonPropertyName("side")] string Side,
@@ -90,6 +96,7 @@ public record OrderWireModel(
 /// <param name="MessageIds">Message IDs associated with the question.</param>
 /// <param name="OrderId">The order identifier, present on successful placement.</param>
 /// <param name="OrderStatus">The order status, present on successful placement.</param>
+[ExcludeFromCodeCoverage]
 public record OrderSubmissionResponse(
     [property: JsonPropertyName("id")] string? Id,
     [property: JsonPropertyName("message")] List<string>? Message,
@@ -102,6 +109,7 @@ public record OrderSubmissionResponse(
 /// Reply confirmation body sent to IBKR to confirm or reject an order question.
 /// </summary>
 /// <param name="Confirmed">Whether to confirm the question.</param>
+[ExcludeFromCodeCoverage]
 public record ReplyRequest(
     [property: JsonPropertyName("confirmed")] bool Confirmed);
 
@@ -109,6 +117,7 @@ public record ReplyRequest(
 /// Live orders response wrapper from the IBKR API.
 /// </summary>
 /// <param name="Orders">The list of live orders, if any.</param>
+[ExcludeFromCodeCoverage]
 public record OrdersResponse(
     [property: JsonPropertyName("orders")] List<LiveOrder>? Orders);
 
@@ -125,6 +134,7 @@ public record OrdersResponse(
 /// <param name="Status">The order status.</param>
 /// <param name="FilledQuantity">The filled quantity.</param>
 /// <param name="RemainingQuantity">The remaining quantity.</param>
+[ExcludeFromCodeCoverage]
 public record LiveOrder(
     [property: JsonPropertyName("orderId")] string OrderId,
     [property: JsonPropertyName("conid")] int Conid,
@@ -148,6 +158,7 @@ public record LiveOrder(
 /// <param name="Price">The execution price.</param>
 /// <param name="OrderRef">The order reference.</param>
 /// <param name="Submitter">The trade submitter.</param>
+[ExcludeFromCodeCoverage]
 public record Trade(
     [property: JsonPropertyName("execution_id")] string ExecutionId,
     [property: JsonPropertyName("conid")] int Conid,

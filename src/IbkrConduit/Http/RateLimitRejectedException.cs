@@ -1,10 +1,12 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace IbkrConduit.Http;
 
 /// <summary>
 /// Thrown when a rate limiter queue is full and cannot accept more requests.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public class RateLimitRejectedException : Exception
 {
     /// <summary>

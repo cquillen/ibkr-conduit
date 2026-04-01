@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 
 namespace IbkrConduit.Diagnostics;
@@ -7,6 +8,7 @@ namespace IbkrConduit.Diagnostics;
 /// Central diagnostics for the IbkrConduit library.
 /// Consumers subscribe via OpenTelemetry or any System.Diagnostics listener.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public static class IbkrConduitDiagnostics
 {
     /// <summary>The ActivitySource name for tracing.</summary>

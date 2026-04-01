@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace IbkrConduit.Session;
 
 /// <summary>
@@ -12,6 +14,7 @@ namespace IbkrConduit.Session;
 /// See docs/ibkr-suppressible-message-ids.md for full descriptions.
 /// Additional IDs may be discovered at runtime via /iserver/reply responses.
 /// </remarks>
+[ExcludeFromCodeCoverage]
 public static class SuppressibleMessages
 {
     /// <summary>The following order exceeds the price percentage limit.</summary>

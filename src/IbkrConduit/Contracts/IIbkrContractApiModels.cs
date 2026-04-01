@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
 namespace IbkrConduit.Contracts;
@@ -14,6 +15,7 @@ namespace IbkrConduit.Contracts;
 /// <param name="SecurityType">The security type (e.g., "STK", "OPT").</param>
 /// <param name="ListingExchange">The primary listing exchange.</param>
 /// <param name="Sections">Optional list of contract sections (e.g., for derivatives).</param>
+[ExcludeFromCodeCoverage]
 public record ContractSearchResult(
     [property: JsonPropertyName("conid")]
     [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
@@ -35,6 +37,7 @@ public record ContractSearchResult(
 /// <param name="Symbol">The symbol for this section, if different from the parent.</param>
 /// <param name="Exchange">The exchange for this section.</param>
 /// <param name="Conid">The contract ID for this section, if applicable.</param>
+[ExcludeFromCodeCoverage]
 public record ContractSection(
     [property: JsonPropertyName("secType")] string SecurityType,
     [property: JsonPropertyName("months")] string? Months,
@@ -55,6 +58,7 @@ public record ContractSection(
 /// <param name="Currency">The trading currency.</param>
 /// <param name="InstrumentType">The instrument type (e.g., "STK").</param>
 /// <param name="ValidExchanges">Comma-separated list of valid exchanges.</param>
+[ExcludeFromCodeCoverage]
 public record ContractDetails(
     [property: JsonPropertyName("con_id")]
     [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]

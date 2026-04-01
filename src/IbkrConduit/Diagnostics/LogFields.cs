@@ -1,8 +1,11 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace IbkrConduit.Diagnostics;
 
 /// <summary>
 /// Standard structured log field names used across all IbkrConduit components.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public static class LogFields
 {
     /// <summary>Tenant identifier for multi-tenant sessions.</summary>

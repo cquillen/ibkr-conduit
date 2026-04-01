@@ -1,8 +1,11 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace IbkrConduit.Flex;
 
 /// <summary>
 /// Exception thrown when a Flex Web Service query returns an error response.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public class FlexQueryException : Exception
 {
     /// <summary>

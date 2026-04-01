@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Portfolio;
 
@@ -7,6 +8,7 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// Portfolio operations that delegate to the underlying Refit API.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public class PortfolioOperations : IPortfolioOperations
 {
     private readonly IIbkrPortfolioApi _api;
