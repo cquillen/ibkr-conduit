@@ -20,6 +20,7 @@ internal sealed class FakeWebSocketAdapter : IWebSocketAdapter
     private readonly SemaphoreSlim _inboundSignal = new(0);
     private WebSocketState _state = WebSocketState.None;
     private bool _failOnConnect;
+    private int _sendCount;
 
     public WebSocketState State => _state;
 
@@ -31,6 +32,10 @@ internal sealed class FakeWebSocketAdapter : IWebSocketAdapter
 
     public Uri? ConnectedUri { get; private set; }
 
+    public int? FailSendAfterCount { get; set; }
+
+    public int ConnectCallCount { get; private set; }
+
     public bool FailOnConnect
     {
         set => _failOnConnect = value;
@@ -38,6 +43,8 @@ internal sealed class FakeWebSocketAdapter : IWebSocketAdapter
 
     public Task ConnectAsync(Uri uri, CancellationToken cancellationToken)
     {
+        ConnectCallCount++;
+
         if (_failOnConnect)
         {
             throw new WebSocketException("Simulated connection failure");
@@ -51,6 +58,13 @@ internal sealed class FakeWebSocketAdapter : IWebSocketAdapter
     public Task SendAsync(ReadOnlyMemory<byte> buffer, WebSocketMessageType messageType,
         bool endOfMessage, CancellationToken cancellationToken)
     {
+        _sendCount++;
+
+        if (FailSendAfterCount.HasValue && _sendCount > FailSendAfterCount.Value)
+        {
+            throw new WebSocketException("Simulated send failure");
+        }
+
         var text = Encoding.UTF8.GetString(buffer.Span);
         _sentMessages.Enqueue(text);
         return Task.CompletedTask;
