@@ -85,4 +85,54 @@ public interface IIbkrPortfolioApi
     [Post("/v1/api/pa/transactions")]
     Task<TransactionHistory> GetTransactionHistoryAsync(
         [Body] TransactionHistoryRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves consolidated allocation across multiple accounts.
+    /// </summary>
+    [Post("/v1/api/portfolio/allocation")]
+    Task<AccountAllocation> GetConsolidatedAllocationAsync(
+        [Body] ConsolidatedAllocationRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves combination (spread) positions for the specified account.
+    /// </summary>
+    [Get("/v1/api/portfolio/{accountId}/combo/positions")]
+    Task<List<ComboPosition>> GetComboPositionsAsync(
+        string accountId, [Query] bool? nocache = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves real-time positions (bypasses server cache) for the specified account.
+    /// </summary>
+    [Get("/v1/api/portfolio2/{accountId}/positions")]
+    Task<List<Position>> GetRealTimePositionsAsync(
+        string accountId, [Query] string? model = null,
+        [Query] string? sort = null, [Query] string? direction = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves sub-accounts for FA/IBroker users.
+    /// </summary>
+    [Get("/v1/api/portfolio/subaccounts")]
+    Task<List<SubAccount>> GetSubAccountsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves sub-accounts (paginated) for FA/IBroker users.
+    /// </summary>
+    [Get("/v1/api/portfolio/subaccounts2")]
+    Task<List<SubAccount>> GetSubAccountsPagedAsync(
+        [Query] int page = 0, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves performance data across all available time periods.
+    /// </summary>
+    [Post("/v1/api/pa/allperiods")]
+    Task<AllPeriodsPerformance> GetAllPeriodsPerformanceAsync(
+        [Body] AllPeriodsRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves P&amp;L partitioned by account and model.
+    /// </summary>
+    [Get("/v1/api/iserver/account/pnl/partitioned")]
+    Task<PartitionedPnl> GetPartitionedPnlAsync(CancellationToken cancellationToken = default);
 }

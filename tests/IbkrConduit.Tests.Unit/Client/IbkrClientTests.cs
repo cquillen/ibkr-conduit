@@ -143,6 +143,33 @@ public class IbkrClientTests
             List<string> conids, string currency, int? days = null,
             CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
+
+        public Task<AccountAllocation> GetConsolidatedAllocationAsync(List<string> accountIds,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<ComboPosition>> GetComboPositionsAsync(string accountId, bool? nocache = null,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<Position>> GetRealTimePositionsAsync(string accountId,
+            string? model = null, string? sort = null, string? direction = null,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<SubAccount>> GetSubAccountsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<SubAccount>> GetSubAccountsPagedAsync(int page = 0,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AllPeriodsPerformance> GetAllPeriodsPerformanceAsync(List<string> accountIds,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<PartitionedPnl> GetPartitionedPnlAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 
     private class FakeContractOperations : IContractOperations

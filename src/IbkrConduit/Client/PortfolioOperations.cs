@@ -120,4 +120,64 @@ public class PortfolioOperations : IPortfolioOperations
         return await _api.GetTransactionHistoryAsync(
             new TransactionHistoryRequest(accountIds, conids, currency, days), cancellationToken);
     }
+
+    /// <inheritdoc />
+    public async Task<AccountAllocation> GetConsolidatedAllocationAsync(List<string> accountIds,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetConsolidatedAllocation");
+        return await _api.GetConsolidatedAllocationAsync(
+            new ConsolidatedAllocationRequest(accountIds), cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<List<ComboPosition>> GetComboPositionsAsync(string accountId, bool? nocache = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetComboPositions");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.GetComboPositionsAsync(accountId, nocache, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<List<Position>> GetRealTimePositionsAsync(string accountId,
+        string? model = null, string? sort = null, string? direction = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetRealTimePositions");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.GetRealTimePositionsAsync(accountId, model, sort, direction, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<List<SubAccount>> GetSubAccountsAsync(CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetSubAccounts");
+        return await _api.GetSubAccountsAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<List<SubAccount>> GetSubAccountsPagedAsync(int page = 0,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetSubAccountsPaged");
+        activity?.SetTag("page", page);
+        return await _api.GetSubAccountsPagedAsync(page, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<AllPeriodsPerformance> GetAllPeriodsPerformanceAsync(List<string> accountIds,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAllPeriodsPerformance");
+        return await _api.GetAllPeriodsPerformanceAsync(
+            new AllPeriodsRequest(accountIds), cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<PartitionedPnl> GetPartitionedPnlAsync(CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPartitionedPnl");
+        return await _api.GetPartitionedPnlAsync(cancellationToken);
+    }
 }

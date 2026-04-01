@@ -187,6 +187,264 @@ public class PortfolioAccountsTests : IDisposable
         summary["totalcashvalue"].Amount.ShouldBe(55000.00m);
     }
 
+    [Fact]
+    public async Task GetConsolidatedAllocationAsync_WithMockedServer_ReturnsAllocation()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/allocation")
+                .UsingPost())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""
+                        {
+                            "assetClass": {
+                                "long": { "STK": 316441.23 },
+                                "short": { "OPT": -30.0 }
+                            },
+                            "sector": {
+                                "long": { "Technology": 237014.73 }
+                            },
+                            "group": {
+                                "long": { "Computers": 121222.53 }
+                            }
+                        }
+                        """));
+
+        var api = CreateRefitClient<IIbkrPortfolioApi>();
+
+        var result = await api.GetConsolidatedAllocationAsync(
+            new ConsolidatedAllocationRequest(["DU1234567"]),
+            TestContext.Current.CancellationToken);
+
+        result.ShouldNotBeNull();
+        result.AssetClass.ShouldNotBeNull();
+        result.AssetClass!["long"]["STK"].ShouldBe(316441.23m);
+        result.Sector.ShouldNotBeNull();
+        result.Sector!["long"]["Technology"].ShouldBe(237014.73m);
+    }
+
+    [Fact]
+    public async Task GetComboPositionsAsync_WithMockedServer_ReturnsComboPositions()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/DU1234567/combo/positions")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""
+                        [
+                            {
+                                "name": "CP.CP66a00d50",
+                                "description": "1*708474422-1*710225103",
+                                "legs": [
+                                    { "conid": "708474422", "ratio": 1 },
+                                    { "conid": "710225103", "ratio": -1 }
+                                ],
+                                "positions": []
+                            }
+                        ]
+                        """));
+
+        var api = CreateRefitClient<IIbkrPortfolioApi>();
+
+        var result = await api.GetComboPositionsAsync("DU1234567",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(1);
+        result[0].Name.ShouldBe("CP.CP66a00d50");
+        result[0].Legs.ShouldNotBeNull();
+        result[0].Legs!.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task GetRealTimePositionsAsync_WithMockedServer_ReturnsPositions()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio2/DU1234567/positions")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""
+                        [
+                            {
+                                "acctId": "DU1234567",
+                                "conid": 265598,
+                                "contractDesc": "SPY",
+                                "position": 100.0,
+                                "mktPrice": 450.25,
+                                "mktValue": 45025.00,
+                                "avgCost": 440.00,
+                                "avgPrice": 440.00,
+                                "realizedPnl": 0.0,
+                                "unrealizedPnl": 1025.00,
+                                "currency": "USD",
+                                "name": "SPDR S&P 500 ETF Trust",
+                                "assetClass": "STK",
+                                "sector": null,
+                                "ticker": "SPY",
+                                "multiplier": null,
+                                "isUS": true
+                            }
+                        ]
+                        """));
+
+        var api = CreateRefitClient<IIbkrPortfolioApi>();
+
+        var result = await api.GetRealTimePositionsAsync("DU1234567",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(1);
+        result[0].AccountId.ShouldBe("DU1234567");
+        result[0].Ticker.ShouldBe("SPY");
+    }
+
+    [Fact]
+    public async Task GetSubAccountsAsync_WithMockedServer_ReturnsSubAccounts()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/subaccounts")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""
+                        [
+                            {
+                                "id": "U1234567",
+                                "accountId": "U1234567",
+                                "accountTitle": "Paper Trading",
+                                "type": "INDIVIDUAL",
+                                "desc": "U1234567"
+                            }
+                        ]
+                        """));
+
+        var api = CreateRefitClient<IIbkrPortfolioApi>();
+
+        var result = await api.GetSubAccountsAsync(TestContext.Current.CancellationToken);
+
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(1);
+        result[0].Id.ShouldBe("U1234567");
+        result[0].AccountTitle.ShouldBe("Paper Trading");
+    }
+
+    [Fact]
+    public async Task GetSubAccountsPagedAsync_WithMockedServer_ReturnsSubAccounts()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/subaccounts2")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""
+                        [
+                            {
+                                "id": "U1234567",
+                                "accountId": "U1234567",
+                                "accountTitle": "Paper Trading",
+                                "type": "INDIVIDUAL",
+                                "desc": "U1234567"
+                            }
+                        ]
+                        """));
+
+        var api = CreateRefitClient<IIbkrPortfolioApi>();
+
+        var result = await api.GetSubAccountsPagedAsync(0, TestContext.Current.CancellationToken);
+
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(1);
+        result[0].Id.ShouldBe("U1234567");
+    }
+
+    [Fact]
+    public async Task GetAllPeriodsPerformanceAsync_WithMockedServer_ReturnsPerformance()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/pa/allperiods")
+                .UsingPost())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""
+                        {
+                            "currencyType": "base",
+                            "rc": 0,
+                            "view": ["U1234567"],
+                            "nd": 366,
+                            "id": "getPerformanceAllPeriods",
+                            "pm": "TWR"
+                        }
+                        """));
+
+        var api = CreateRefitClient<IIbkrPortfolioApi>();
+
+        var result = await api.GetAllPeriodsPerformanceAsync(
+            new AllPeriodsRequest(["U1234567"]),
+            TestContext.Current.CancellationToken);
+
+        result.ShouldNotBeNull();
+        result.CurrencyType.ShouldBe("base");
+        result.Rc.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task GetPartitionedPnlAsync_WithMockedServer_ReturnsPnl()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/pnl/partitioned")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""
+                        {
+                            "upnl": {
+                                "U1234567.Core": {
+                                    "rowType": 1,
+                                    "dpl": 15.7,
+                                    "nl": 10000.0,
+                                    "upl": 607.0,
+                                    "el": 10000.0,
+                                    "mv": 0.0
+                                }
+                            }
+                        }
+                        """));
+
+        var api = CreateRefitClient<IIbkrPortfolioApi>();
+
+        var result = await api.GetPartitionedPnlAsync(TestContext.Current.CancellationToken);
+
+        result.ShouldNotBeNull();
+        result.Upnl.ShouldNotBeNull();
+        result.Upnl!.ShouldContainKey("U1234567.Core");
+        result.Upnl["U1234567.Core"].Dpl.ShouldBe(15.7m);
+        result.Upnl["U1234567.Core"].Nl.ShouldBe(10000.0m);
+        result.Upnl["U1234567.Core"].Upl.ShouldBe(607.0m);
+    }
+
     public void Dispose()
     {
         _server.Dispose();

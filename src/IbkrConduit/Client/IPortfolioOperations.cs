@@ -98,4 +98,61 @@ public interface IPortfolioOperations
     Task<TransactionHistory> GetTransactionHistoryAsync(List<string> accountIds,
         List<string> conids, string currency, int? days = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves consolidated allocation across multiple accounts.
+    /// </summary>
+    /// <param name="accountIds">The account IDs to consolidate allocation for.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<AccountAllocation> GetConsolidatedAllocationAsync(List<string> accountIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves combination (spread) positions for the specified account.
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="nocache">Whether to bypass the server cache.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<List<ComboPosition>> GetComboPositionsAsync(string accountId, bool? nocache = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves real-time positions (bypasses server cache) for the specified account.
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="model">Optional model code.</param>
+    /// <param name="sort">Optional sort column.</param>
+    /// <param name="direction">Optional sort direction ("a" ascending, "d" descending).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<List<Position>> GetRealTimePositionsAsync(string accountId,
+        string? model = null, string? sort = null, string? direction = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves sub-accounts for FA/IBroker users.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<List<SubAccount>> GetSubAccountsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves sub-accounts (paginated) for FA/IBroker users.
+    /// </summary>
+    /// <param name="page">The page number (default 0).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<List<SubAccount>> GetSubAccountsPagedAsync(int page = 0,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves performance data across all available time periods.
+    /// </summary>
+    /// <param name="accountIds">The account IDs to query.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<AllPeriodsPerformance> GetAllPeriodsPerformanceAsync(List<string> accountIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves P&amp;L partitioned by account and model.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<PartitionedPnl> GetPartitionedPnlAsync(CancellationToken cancellationToken = default);
 }

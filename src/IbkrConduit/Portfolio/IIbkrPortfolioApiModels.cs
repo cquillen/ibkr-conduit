@@ -247,3 +247,137 @@ public record TransactionHistoryRequest(
     [property: JsonPropertyName("conids")] List<string> Conids,
     [property: JsonPropertyName("currency")] string Currency,
     [property: JsonPropertyName("days")] int? Days);
+
+/// <summary>
+/// Request body for the POST /portfolio/allocation endpoint (consolidated allocation).
+/// </summary>
+/// <param name="AccountIds">The account IDs to consolidate allocation for.</param>
+[ExcludeFromCodeCoverage]
+public record ConsolidatedAllocationRequest(
+    [property: JsonPropertyName("acctIds")] List<string> AccountIds);
+
+/// <summary>
+/// Request body for the POST /pa/allperiods endpoint.
+/// </summary>
+/// <param name="AccountIds">The account IDs to query all-period performance for.</param>
+[ExcludeFromCodeCoverage]
+public record AllPeriodsRequest(
+    [property: JsonPropertyName("acctIds")] List<string> AccountIds);
+
+/// <summary>
+/// Represents a combination (spread) position from the /portfolio/{accountId}/combo/positions endpoint.
+/// </summary>
+/// <param name="Name">Internal combo name (e.g., "CP.CP66a00d50").</param>
+/// <param name="Description">Ratio and leg conIds description (e.g., "1*708474422-1*710225103").</param>
+/// <param name="Legs">The legs composing the combination.</param>
+/// <param name="Positions">Position details for each leg.</param>
+[ExcludeFromCodeCoverage]
+public record ComboPosition(
+    [property: JsonPropertyName("name")] string? Name,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("legs")] List<ComboLeg>? Legs,
+    [property: JsonPropertyName("positions")] List<Position>? Positions)
+{
+    /// <summary>
+    /// Additional undocumented fields from the API response.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// Represents a single leg within a combination position.
+/// </summary>
+/// <param name="Conid">The contract identifier for this leg.</param>
+/// <param name="Ratio">The ratio (positive for long, negative for short).</param>
+[ExcludeFromCodeCoverage]
+public record ComboLeg(
+    [property: JsonPropertyName("conid")] string? Conid,
+    [property: JsonPropertyName("ratio")] int? Ratio)
+{
+    /// <summary>
+    /// Additional undocumented fields from the API response.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// Represents a sub-account from the /portfolio/subaccounts endpoint (FA/IBroker).
+/// </summary>
+/// <param name="Id">The sub-account identifier.</param>
+/// <param name="AccountId">The account ID string.</param>
+/// <param name="AccountTitle">The account title.</param>
+/// <param name="AccountType">The account type.</param>
+/// <param name="Description">The account description.</param>
+[ExcludeFromCodeCoverage]
+public record SubAccount(
+    [property: JsonPropertyName("id")] string? Id,
+    [property: JsonPropertyName("accountId")] string? AccountId,
+    [property: JsonPropertyName("accountTitle")] string? AccountTitle,
+    [property: JsonPropertyName("type")] string? AccountType,
+    [property: JsonPropertyName("desc")] string? Description)
+{
+    /// <summary>
+    /// Additional undocumented fields from the API response.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// Represents all-period performance data from the /pa/allperiods endpoint.
+/// </summary>
+/// <param name="CurrencyType">The currency type (e.g., "base").</param>
+/// <param name="Rc">Return code.</param>
+[ExcludeFromCodeCoverage]
+public record AllPeriodsPerformance(
+    [property: JsonPropertyName("currencyType")] string? CurrencyType,
+    [property: JsonPropertyName("rc")] int? Rc)
+{
+    /// <summary>
+    /// Additional undocumented fields from the API response.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// Represents partitioned P&amp;L data from the /iserver/account/pnl/partitioned endpoint.
+/// </summary>
+/// <param name="Upnl">Updated P&amp;L entries keyed by account/model (e.g., "U1234567.Core").</param>
+[ExcludeFromCodeCoverage]
+public record PartitionedPnl(
+    [property: JsonPropertyName("upnl")] Dictionary<string, PnlEntry>? Upnl)
+{
+    /// <summary>
+    /// Additional undocumented fields from the API response.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// Represents a single P&amp;L entry within a partitioned P&amp;L response.
+/// </summary>
+/// <param name="RowType">Positional value (1 for individual accounts).</param>
+/// <param name="Dpl">Daily P&amp;L.</param>
+/// <param name="Nl">Net liquidity.</param>
+/// <param name="Upl">Unrealized P&amp;L.</param>
+/// <param name="El">Excess liquidity.</param>
+/// <param name="Mv">Margin value.</param>
+[ExcludeFromCodeCoverage]
+public record PnlEntry(
+    [property: JsonPropertyName("rowType")] int? RowType,
+    [property: JsonPropertyName("dpl")] decimal? Dpl,
+    [property: JsonPropertyName("nl")] decimal? Nl,
+    [property: JsonPropertyName("upl")] decimal? Upl,
+    [property: JsonPropertyName("el")] decimal? El,
+    [property: JsonPropertyName("mv")] decimal? Mv)
+{
+    /// <summary>
+    /// Additional undocumented fields from the API response.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
