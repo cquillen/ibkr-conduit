@@ -39,12 +39,13 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly IbkrOAuthCredentials _credentials;
     private readonly ISessionLifecycleNotifier _notifier;
     private readonly ILogger<IbkrWebSocketClient> _logger;
+    private readonly Func<IWebSocketAdapter> _webSocketFactory;
     private readonly ConcurrentDictionary<string, List<ChannelWriter<JsonElement>>> _subscribers = new();
     private readonly List<string> _activeSubscriptions = [];
     private readonly SemaphoreSlim _connectLock = new(1, 1);
     private readonly object _subscriptionLock = new();
 
-    private ClientWebSocket? _webSocket;
+    private IWebSocketAdapter? _webSocket;
     private CancellationTokenSource? _heartbeatCts;
     private CancellationTokenSource? _messagePumpCts;
     private IDisposable? _notifierSubscription;
@@ -57,16 +58,19 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <param name="credentials">OAuth credentials containing the access token.</param>
     /// <param name="notifier">Session lifecycle notifier for reconnect on re-auth.</param>
     /// <param name="logger">Logger instance.</param>
+    /// <param name="webSocketFactory">Factory for creating WebSocket adapter instances.</param>
     public IbkrWebSocketClient(
         IIbkrSessionApi sessionApi,
         IbkrOAuthCredentials credentials,
         ISessionLifecycleNotifier notifier,
-        ILogger<IbkrWebSocketClient> logger)
+        ILogger<IbkrWebSocketClient> logger,
+        Func<IWebSocketAdapter> webSocketFactory)
     {
         _sessionApi = sessionApi;
         _credentials = credentials;
         _notifier = notifier;
         _logger = logger;
+        _webSocketFactory = webSocketFactory;
 
         IbkrConduitDiagnostics.Meter.CreateObservableGauge(
             "ibkr.conduit.websocket.connection_state",
@@ -177,12 +181,12 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         var tickleResponse = await _sessionApi.TickleAsync(cancellationToken);
 
         var uri = new Uri($"{_webSocketBaseUrl}?oauth_token={_credentials.AccessToken}");
-        var ws = new ClientWebSocket();
-        ws.Options.SetRequestHeader("Cookie", $"api={tickleResponse.Session}");
-        ws.Options.SetRequestHeader("User-Agent", "ClientPortalGW/1");
+        var ws = _webSocketFactory();
+        ws.SetRequestHeader("Cookie", $"api={tickleResponse.Session}");
+        ws.SetRequestHeader("User-Agent", "ClientPortalGW/1");
 
         // Use system proxy if configured (e.g., HTTPS_PROXY environment variable)
-        ws.Options.Proxy = System.Net.WebRequest.DefaultWebProxy;
+        ws.Proxy = System.Net.WebRequest.DefaultWebProxy;
 
         await ws.ConnectAsync(uri, cancellationToken);
         _webSocket = ws;
@@ -215,7 +219,11 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             }
         }
 
-        _webSocket?.Dispose();
+        if (_webSocket != null)
+        {
+            await _webSocket.DisposeAsync();
+        }
+
         _webSocket = null;
 
         _heartbeatCts?.Dispose();
@@ -275,11 +283,11 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                     try
                     {
                         using var ms = new MemoryStream();
-                        WebSocketReceiveResult result;
+                        ValueWebSocketReceiveResult result;
                         do
                         {
                             result = await _webSocket.ReceiveAsync(
-                                new ArraySegment<byte>(buffer), ct);
+                                buffer.AsMemory(), ct);
                             ms.Write(buffer, 0, result.Count);
                         }
                         while (!result.EndOfMessage);
@@ -427,7 +435,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         var bytes = Encoding.UTF8.GetBytes(message);
         await _webSocket.SendAsync(
-            new ArraySegment<byte>(bytes),
+            bytes.AsMemory(),
             WebSocketMessageType.Text,
             true,
             cancellationToken);
