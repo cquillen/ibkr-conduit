@@ -167,6 +167,131 @@ public class SessionLifecycleTests : IAsyncDisposable
         entries.ShouldContain(e => e.RequestMessage.Path!.Contains("logout"));
     }
 
+    [Fact]
+    public async Task ConcurrentUnauthorized_SingleReauthServesAllRequests()
+    {
+        // Arrange: ssodh/init always returns 200 and sets scenario state to "reauthed"
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/auth/ssodh/init")
+                .UsingPost())
+            .InScenario("concurrent-401")
+            .WillSetStateTo("reauthed")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"authenticated":true,"connected":true,"competing":false}"""));
+
+        SetupTickleEndpoint(authenticated: true);
+
+        // portfolio/accounts returns 401 in default scenario state
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .InScenario("concurrent-401")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        // portfolio/accounts returns 200 once state is "reauthed"
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .InScenario("concurrent-401")
+            .WhenStateIs("reauthed")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""[{"id":"DU1234567","accountTitle":"Paper Trading","type":"INDIVIDUAL"}]"""));
+
+        var tokenProvider = CreateFakeTokenProvider();
+        var sessionApi = CreateSessionApi(tokenProvider);
+        var options = new IbkrClientOptions();
+        var tickleTimerFactory = new TickleTimerFactory(NullLogger<TickleTimer>.Instance);
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+
+        await using var sessionManager = new SessionManager(
+            tokenProvider,
+            tickleTimerFactory,
+            sessionApi,
+            options,
+            notifier,
+            NullLogger<SessionManager>.Instance);
+
+        var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);
+
+        // Prime the session: one call triggers lazy init (ssodh/init sets state to "reauthed")
+        await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken);
+
+        // Reset scenarios so portfolio/accounts is back to returning 401
+        _server.ResetScenarios();
+
+        // Act: fire 3 parallel requests — all hit 401, reauth runs, all retries succeed
+        var ct = TestContext.Current.CancellationToken;
+        var tasks = new[]
+        {
+            portfolioApi.GetAccountsAsync(ct),
+            portfolioApi.GetAccountsAsync(ct),
+            portfolioApi.GetAccountsAsync(ct),
+        };
+        var results = await Task.WhenAll(tasks);
+
+        // Assert: all 3 calls returned valid account data
+        foreach (var result in results)
+        {
+            result.ShouldNotBeNull();
+            result.Count.ShouldBe(1);
+            result[0].Id.ShouldBe("DU1234567");
+        }
+
+        // ssodh/init should have been called once during init and at least once during reauth
+        var initCallCount = _server.LogEntries.Count(e => e.RequestMessage.Path!.Contains("ssodh/init"));
+        initCallCount.ShouldBeGreaterThanOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task PersistentUnauthorized_ReauthFailsToFix_ReturnsApiException()
+    {
+        // Arrange: ssodh/init succeeds (reauth technically completes)
+        SetupSsodhInitEndpoint();
+        SetupTickleEndpoint(authenticated: true);
+
+        // portfolio/accounts persistently returns 401 — reauth does not fix it
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        var tokenProvider = CreateFakeTokenProvider();
+        var sessionApi = CreateSessionApi(tokenProvider);
+        var options = new IbkrClientOptions();
+        var tickleTimerFactory = new TickleTimerFactory(NullLogger<TickleTimer>.Instance);
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+
+        await using var sessionManager = new SessionManager(
+            tokenProvider,
+            tickleTimerFactory,
+            sessionApi,
+            options,
+            notifier,
+            NullLogger<SessionManager>.Instance);
+
+        var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);
+
+        // Act & Assert: first call triggers init, hits 401, reauth runs, retry still 401 → ApiException
+        await Should.ThrowAsync<Refit.ApiException>(
+            async () => await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken));
+    }
+
     /// <summary>
     /// End-to-end test against a real IBKR paper account.
     /// Runs automatically when IBKR_CONSUMER_KEY environment variable is set.

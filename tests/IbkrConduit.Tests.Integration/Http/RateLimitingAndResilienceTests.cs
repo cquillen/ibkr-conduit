@@ -222,6 +222,28 @@ public class RateLimitingAndResilienceTests : IDisposable
     }
 
     [Fact]
+    public async Task PersistentServerError_ExhaustsRetriesAndReturnsFinalResponse()
+    {
+        // Always returns 503 — all 4 attempts (1 + 3 retries) will fail
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(503)
+                    .WithBody("Service Unavailable"));
+
+        using var client = CreatePipelinedClient(_globalLimiter, _endpointLimiters, _pipeline);
+        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+
+        // 1 original attempt + 3 retries = 4 total requests
+        _server.LogEntries.Count.ShouldBe(4);
+    }
+
+    [Fact]
     public async Task RateLimitQueueFull_ThrowsRateLimitRejectedException()
     {
         _server.Given(
