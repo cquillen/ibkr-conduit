@@ -31,7 +31,8 @@ internal sealed partial class FlexClient
     private static readonly int[] _pollDelaysMs = [1000, 2000, 3000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000];
     private const int _maxTotalWaitMs = 60000;
 
-    private readonly HttpClient _httpClient;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly string _clientName;
     private readonly string _flexToken;
     private readonly string _baseUrl;
     private readonly ILogger<FlexClient> _logger;
@@ -39,17 +40,18 @@ internal sealed partial class FlexClient
 
     /// <summary>
     /// Creates a new <see cref="FlexClient"/> instance.
+    /// A fresh <see cref="HttpClient"/> is created per request via the named client.
     /// </summary>
-    /// <param name="httpClient">The HTTP client to use for requests. If BaseAddress is set, it is used as the base URL.</param>
+    /// <param name="httpClientFactory">The factory for creating HTTP clients.</param>
+    /// <param name="clientName">The named client to request from the factory.</param>
     /// <param name="flexToken">The Flex Web Service access token.</param>
     /// <param name="logger">Logger for poll progress.</param>
-    public FlexClient(HttpClient httpClient, string flexToken, ILogger<FlexClient> logger)
+    public FlexClient(IHttpClientFactory httpClientFactory, string clientName, string flexToken, ILogger<FlexClient> logger)
     {
-        _httpClient = httpClient;
+        _httpClientFactory = httpClientFactory;
+        _clientName = clientName;
         _flexToken = flexToken;
-        _baseUrl = httpClient.BaseAddress != null
-            ? httpClient.BaseAddress.ToString().TrimEnd('/') + "/"
-            : _defaultBaseUrl;
+        _baseUrl = _defaultBaseUrl;
         _logger = logger;
     }
 
@@ -92,7 +94,8 @@ internal sealed partial class FlexClient
             url += $"&fd={fromDate}&td={toDate}";
         }
 
-        var response = await _httpClient.GetStringAsync(url, cancellationToken);
+        var httpClient = _httpClientFactory.CreateClient(_clientName);
+        var response = await httpClient.GetStringAsync(url, cancellationToken);
         var doc = XDocument.Parse(response);
         var root = doc.Root!;
 
@@ -120,6 +123,7 @@ internal sealed partial class FlexClient
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Flex.GetStatement");
         activity?.SetTag("reference_code", referenceCode);
 
+        var httpClient = _httpClientFactory.CreateClient(_clientName);
         var url = $"{_baseUrl}GetStatement?t={_flexToken}&q={referenceCode}&v=3";
         var totalWaited = 0;
         var attempt = 0;
@@ -133,7 +137,7 @@ internal sealed partial class FlexClient
 
             attempt++;
             _pollCount.Add(1);
-            var responseStr = await _httpClient.GetStringAsync(url, cancellationToken);
+            var responseStr = await httpClient.GetStringAsync(url, cancellationToken);
             var doc = XDocument.Parse(responseStr);
 
             if (!IsInProgress(doc))
@@ -152,7 +156,7 @@ internal sealed partial class FlexClient
 
         // One final attempt after all delays
         attempt++;
-        var finalResponseStr = await _httpClient.GetStringAsync(url, cancellationToken);
+        var finalResponseStr = await httpClient.GetStringAsync(url, cancellationToken);
         var finalDoc = XDocument.Parse(finalResponseStr);
 
         if (IsInProgress(finalDoc))

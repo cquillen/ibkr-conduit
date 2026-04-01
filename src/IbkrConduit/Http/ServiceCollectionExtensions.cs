@@ -144,25 +144,26 @@ public static class ServiceCollectionExtensions
             new StreamingOperations(
                 sp.GetRequiredService<IIbkrWebSocketClient>()));
 
-        // Flex Web Service (plain HTTP, no signing pipeline)
+        // Flex Web Service (plain HTTP via IHttpClientFactory, no signing pipeline)
         if (!string.IsNullOrEmpty(clientOptions.FlexToken))
         {
             var flexToken = clientOptions.FlexToken;
-            services.AddSingleton(sp =>
+            var flexClientName = $"IbkrConduit-Flex-{credentials.TenantId}";
+            services.AddHttpClient(flexClientName, c =>
             {
-                var handler = new HttpClientHandler
-                {
-                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-                    Proxy = System.Net.WebRequest.DefaultWebProxy,
-                    UseProxy = true,
-                };
-                var httpClient = new HttpClient(handler);
-                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("IbkrConduit/1.0");
-                return new FlexClient(
-                    httpClient,
-                    flexToken,
-                    sp.GetRequiredService<ILogger<FlexClient>>());
+                c.DefaultRequestHeaders.UserAgent.ParseAdd("IbkrConduit/1.0");
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
             });
+
+            services.AddSingleton(sp =>
+                new FlexClient(
+                    sp.GetRequiredService<IHttpClientFactory>(),
+                    flexClientName,
+                    flexToken,
+                    sp.GetRequiredService<ILogger<FlexClient>>()));
             services.AddSingleton<IFlexOperations>(sp =>
                 new FlexOperations(sp.GetRequiredService<FlexClient>()));
         }

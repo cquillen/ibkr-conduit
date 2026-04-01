@@ -140,8 +140,8 @@ public class FlexClientTests
 
     private static FlexClient CreateClient(HttpMessageHandler handler)
     {
-        var httpClient = new HttpClient(handler);
-        return new FlexClient(httpClient, "FAKE_TOKEN", NullLogger<FlexClient>.Instance);
+        var factory = new FakeHttpClientFactory(handler);
+        return new FlexClient(factory, "test-flex", "FAKE_TOKEN", NullLogger<FlexClient>.Instance);
     }
 
     private class FakeHttpHandler : HttpMessageHandler
@@ -165,5 +165,18 @@ public class FlexClientTests
                 Content = new StringContent(body, System.Text.Encoding.UTF8, "application/xml"),
             });
         }
+    }
+
+    private sealed class FakeHttpClientFactory : IHttpClientFactory
+    {
+        private readonly HttpMessageHandler _handler;
+
+        public FakeHttpClientFactory(HttpMessageHandler handler)
+        {
+            _handler = handler;
+        }
+
+        public HttpClient CreateClient(string name) =>
+            new HttpClient(_handler, disposeHandler: false);
     }
 }
