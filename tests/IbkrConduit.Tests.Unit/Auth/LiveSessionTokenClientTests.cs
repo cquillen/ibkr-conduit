@@ -146,6 +146,163 @@ public class LiveSessionTokenClientTests
             () => client.GetLiveSessionTokenAsync(creds, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task GetLiveSessionTokenAsync_Non2xxResponse_ThrowsHttpRequestException()
+    {
+        using var sigKey = RSA.Create(2048);
+        using var encKey = RSA.Create(2048);
+
+        var plaintextSecret = new byte[] { 0x01, 0x02 };
+        var encryptedSecret = encKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
+
+        var creds = new IbkrOAuthCredentials(
+            "tenant1", "TESTKEY01", "accesstok",
+            Convert.ToBase64String(encryptedSecret),
+            sigKey, encKey, new BigInteger(9931));
+
+        var handler = new FakeHttpHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        var factory = new FakeHttpClientFactory(handler, new Uri("https://api.ibkr.com/v1/api/"));
+        var client = new LiveSessionTokenClient(factory, "test-lst", NullLogger<LiveSessionTokenClient>.Instance);
+
+        await Should.ThrowAsync<HttpRequestException>(
+            () => client.GetLiveSessionTokenAsync(creds, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetLiveSessionTokenAsync_MalformedJson_ThrowsJsonException()
+    {
+        using var sigKey = RSA.Create(2048);
+        using var encKey = RSA.Create(2048);
+
+        var plaintextSecret = new byte[] { 0x01, 0x02 };
+        var encryptedSecret = encKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
+
+        var creds = new IbkrOAuthCredentials(
+            "tenant1", "TESTKEY01", "accesstok",
+            Convert.ToBase64String(encryptedSecret),
+            sigKey, encKey, new BigInteger(9931));
+
+        var handler = new FakeHttpHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("not json", Encoding.UTF8, "application/json"),
+            });
+
+        var factory = new FakeHttpClientFactory(handler, new Uri("https://api.ibkr.com/v1/api/"));
+        var client = new LiveSessionTokenClient(factory, "test-lst", NullLogger<LiveSessionTokenClient>.Instance);
+
+        await Should.ThrowAsync<JsonException>(
+            () => client.GetLiveSessionTokenAsync(creds, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetLiveSessionTokenAsync_MissingDhResponse_ThrowsKeyNotFoundException()
+    {
+        using var sigKey = RSA.Create(2048);
+        using var encKey = RSA.Create(2048);
+
+        var plaintextSecret = new byte[] { 0x01, 0x02 };
+        var encryptedSecret = encKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
+
+        var creds = new IbkrOAuthCredentials(
+            "tenant1", "TESTKEY01", "accesstok",
+            Convert.ToBase64String(encryptedSecret),
+            sigKey, encKey, new BigInteger(9931));
+
+        var handler = new FakeHttpHandler(_ =>
+        {
+            var responseBody = JsonSerializer.Serialize(new
+            {
+                live_session_token_signature = "aabbccdd",
+                live_session_token_expiration = DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeMilliseconds(),
+            });
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(responseBody, Encoding.UTF8, "application/json"),
+            };
+        });
+
+        var factory = new FakeHttpClientFactory(handler, new Uri("https://api.ibkr.com/v1/api/"));
+        var client = new LiveSessionTokenClient(factory, "test-lst", NullLogger<LiveSessionTokenClient>.Instance);
+
+        await Should.ThrowAsync<KeyNotFoundException>(
+            () => client.GetLiveSessionTokenAsync(creds, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetLiveSessionTokenAsync_MissingSignature_ThrowsKeyNotFoundException()
+    {
+        using var sigKey = RSA.Create(2048);
+        using var encKey = RSA.Create(2048);
+
+        var plaintextSecret = new byte[] { 0x01, 0x02 };
+        var encryptedSecret = encKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
+
+        var creds = new IbkrOAuthCredentials(
+            "tenant1", "TESTKEY01", "accesstok",
+            Convert.ToBase64String(encryptedSecret),
+            sigKey, encKey, new BigInteger(9931));
+
+        var handler = new FakeHttpHandler(_ =>
+        {
+            var responseBody = JsonSerializer.Serialize(new
+            {
+                diffie_hellman_response = BigInteger.ModPow(2, 42, 9931).ToString("x"),
+                live_session_token_expiration = DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeMilliseconds(),
+            });
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(responseBody, Encoding.UTF8, "application/json"),
+            };
+        });
+
+        var factory = new FakeHttpClientFactory(handler, new Uri("https://api.ibkr.com/v1/api/"));
+        var client = new LiveSessionTokenClient(factory, "test-lst", NullLogger<LiveSessionTokenClient>.Instance);
+
+        await Should.ThrowAsync<KeyNotFoundException>(
+            () => client.GetLiveSessionTokenAsync(creds, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetLiveSessionTokenAsync_InvalidHexDhResponse_ThrowsFormatException()
+    {
+        using var sigKey = RSA.Create(2048);
+        using var encKey = RSA.Create(2048);
+
+        var plaintextSecret = new byte[] { 0x01, 0x02 };
+        var encryptedSecret = encKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
+
+        var creds = new IbkrOAuthCredentials(
+            "tenant1", "TESTKEY01", "accesstok",
+            Convert.ToBase64String(encryptedSecret),
+            sigKey, encKey, new BigInteger(9931));
+
+        var handler = new FakeHttpHandler(_ =>
+        {
+            var responseBody = JsonSerializer.Serialize(new
+            {
+                diffie_hellman_response = "ZZZZ",
+                live_session_token_signature = "aabbccdd",
+                live_session_token_expiration = DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeMilliseconds(),
+            });
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(responseBody, Encoding.UTF8, "application/json"),
+            };
+        });
+
+        var factory = new FakeHttpClientFactory(handler, new Uri("https://api.ibkr.com/v1/api/"));
+        var client = new LiveSessionTokenClient(factory, "test-lst", NullLogger<LiveSessionTokenClient>.Instance);
+
+        await Should.ThrowAsync<FormatException>(
+            () => client.GetLiveSessionTokenAsync(creds, CancellationToken.None));
+    }
+
     private sealed class FakeHttpHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;
