@@ -131,6 +131,97 @@ public class RateLimitingAndResilienceTests : IDisposable
     }
 
     [Fact]
+    public async Task ForbiddenError403_NotRetried()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(403)
+                    .WithBody("Forbidden"));
+
+        using var client = CreatePipelinedClient(_globalLimiter, _endpointLimiters, _pipeline);
+        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        // Verify only one request was made (no retry)
+        _server.LogEntries.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task InternalServerError500_IsRetried()
+    {
+        // First request returns 500, second returns 200
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .InScenario("retry500")
+            .WillSetStateTo("retried")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(500)
+                    .WithBody("Internal Server Error"));
+
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .InScenario("retry500")
+            .WhenStateIs("retried")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""[{"id": "DU1111111"}]"""));
+
+        using var client = CreatePipelinedClient(_globalLimiter, _endpointLimiters, _pipeline);
+        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        body.ShouldContain("DU1111111");
+    }
+
+    [Fact]
+    public async Task BadGateway502_IsRetried()
+    {
+        // First request returns 502, second returns 200
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .InScenario("retry502")
+            .WillSetStateTo("retried")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(502)
+                    .WithBody("Bad Gateway"));
+
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .InScenario("retry502")
+            .WhenStateIs("retried")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""[{"id": "DU2222222"}]"""));
+
+        using var client = CreatePipelinedClient(_globalLimiter, _endpointLimiters, _pipeline);
+        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        body.ShouldContain("DU2222222");
+    }
+
+    [Fact]
     public async Task RateLimitQueueFull_ThrowsRateLimitRejectedException()
     {
         _server.Given(
