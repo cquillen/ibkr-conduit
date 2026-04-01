@@ -34,4 +34,19 @@ public interface IIbkrClient : IAsyncDisposable
     /// Flex Web Service operations (query execution, trade confirmations, activity statements).
     /// </summary>
     IFlexOperations Flex { get; }
+
+    /// <summary>
+    /// Account operations (iserver account switching, search, info).
+    /// </summary>
+    IAccountOperations Accounts { get; }
+
+    /// <summary>
+    /// Alert (MTA) operations (create, list, get, delete).
+    /// </summary>
+    IAlertOperations Alerts { get; }
+
+    /// <summary>
+    /// Watchlist operations (create, list, get, delete).
+    /// </summary>
+    IWatchlistOperations Watchlists { get; }
 }

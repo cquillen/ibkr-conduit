@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Threading.RateLimiting;
+using IbkrConduit.Accounts;
+using IbkrConduit.Alerts;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
@@ -12,6 +14,7 @@ using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
+using IbkrConduit.Watchlists;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Polly;
@@ -125,12 +128,18 @@ public static class ServiceCollectionExtensions
         RegisterConsumerRefitClient<IIbkrContractApi>(services, credentials);
         RegisterConsumerRefitClient<IIbkrOrderApi>(services, credentials);
         RegisterConsumerRefitClient<IIbkrMarketDataApi>(services, credentials);
+        RegisterConsumerRefitClient<IIbkrAccountApi>(services, credentials);
+        RegisterConsumerRefitClient<IIbkrAlertApi>(services, credentials);
+        RegisterConsumerRefitClient<IIbkrWatchlistApi>(services, credentials);
 
         // Operations implementations
         services.AddSingleton<IPortfolioOperations, PortfolioOperations>();
         services.AddSingleton<IContractOperations, ContractOperations>();
         services.AddSingleton<IOrderOperations, OrderOperations>();
         services.AddSingleton<IMarketDataOperations, MarketDataOperations>();
+        services.AddSingleton<IAccountOperations, AccountOperations>();
+        services.AddSingleton<IAlertOperations, AlertOperations>();
+        services.AddSingleton<IWatchlistOperations, WatchlistOperations>();
 
         // WebSocket streaming
         services.AddSingleton<IIbkrWebSocketClient>(sp =>

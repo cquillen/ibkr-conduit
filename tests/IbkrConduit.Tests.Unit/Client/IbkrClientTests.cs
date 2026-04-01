@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit.Accounts;
+using IbkrConduit.Alerts;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
 using IbkrConduit.Flex;
@@ -10,6 +12,7 @@ using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
+using IbkrConduit.Watchlists;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Client;
@@ -88,6 +91,9 @@ public class IbkrClientTests
         IMarketDataOperations? marketData = null,
         IStreamingOperations? streaming = null,
         IFlexOperations? flex = null,
+        IAccountOperations? accounts = null,
+        IAlertOperations? alerts = null,
+        IWatchlistOperations? watchlists = null,
         ISessionManager? sessionManager = null) =>
         new(
             portfolio ?? new FakePortfolioOperations(),
@@ -96,6 +102,9 @@ public class IbkrClientTests
             marketData ?? new FakeMarketDataOperations(),
             streaming ?? new FakeStreamingOperations(),
             flex ?? new FakeFlexOperations(),
+            accounts ?? new FakeAccountOperations(),
+            alerts ?? new FakeAlertOperations(),
+            watchlists ?? new FakeWatchlistOperations(),
             sessionManager ?? new FakeSessionManager());
 
     private class FakePortfolioOperations : IPortfolioOperations
@@ -329,6 +338,54 @@ public class IbkrClientTests
         public Task<FlexQueryResult> ExecuteQueryAsync(
             string queryId, string fromDate, string toDate,
             CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
+    private class FakeAccountOperations : IAccountOperations
+    {
+        public Task<IserverAccountsResponse> GetAccountsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<SwitchAccountResponse> SwitchAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<DynAccountResponse> SetDynAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<AccountSearchResult>> SearchAccountsAsync(string pattern, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<IserverAccountInfo> GetAccountInfoAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
+    private class FakeAlertOperations : IAlertOperations
+    {
+        public Task<CreateAlertResponse> CreateOrModifyAlertAsync(string accountId, CreateAlertRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<AlertSummary>> GetAlertsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AlertDetail> GetAlertDetailAsync(string alertId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<DeleteAlertResponse> DeleteAlertAsync(string accountId, string alertId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
+    private class FakeWatchlistOperations : IWatchlistOperations
+    {
+        public Task<CreateWatchlistResponse> CreateWatchlistAsync(CreateWatchlistRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<WatchlistSummary>> GetWatchlistsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<WatchlistDetail> GetWatchlistAsync(string id, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<DeleteWatchlistResponse> DeleteWatchlistAsync(string id, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 

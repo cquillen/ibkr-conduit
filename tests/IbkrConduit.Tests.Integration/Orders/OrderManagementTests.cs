@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit.Accounts;
+using IbkrConduit.Alerts;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
@@ -13,6 +15,7 @@ using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
+using IbkrConduit.Watchlists;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -255,7 +258,7 @@ public class OrderManagementTests : IDisposable
         var orders = new OrderOperations(orderApi, NullLogger<OrderOperations>.Instance);
         var sessionManager = new FakeSessionManager();
 
-        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), new FakeStreamingOperations(), new FakeFlexOperations(), sessionManager);
+        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), new FakeStreamingOperations(), new FakeFlexOperations(), new FakeAccountOperations(), new FakeAlertOperations(), new FakeWatchlistOperations(), sessionManager);
 
         var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
         accounts.Count.ShouldBe(1);
@@ -439,6 +442,54 @@ public class OrderManagementTests : IDisposable
         public Task<FlexQueryResult> ExecuteQueryAsync(
             string queryId, string fromDate, string toDate,
             CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
+    private class FakeAccountOperations : IAccountOperations
+    {
+        public Task<IserverAccountsResponse> GetAccountsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<SwitchAccountResponse> SwitchAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<DynAccountResponse> SetDynAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<AccountSearchResult>> SearchAccountsAsync(string pattern, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<IserverAccountInfo> GetAccountInfoAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
+    private class FakeAlertOperations : IAlertOperations
+    {
+        public Task<CreateAlertResponse> CreateOrModifyAlertAsync(string accountId, CreateAlertRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<AlertSummary>> GetAlertsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AlertDetail> GetAlertDetailAsync(string alertId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<DeleteAlertResponse> DeleteAlertAsync(string accountId, string alertId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
+    private class FakeWatchlistOperations : IWatchlistOperations
+    {
+        public Task<CreateWatchlistResponse> CreateWatchlistAsync(CreateWatchlistRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<WatchlistSummary>> GetWatchlistsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<WatchlistDetail> GetWatchlistAsync(string id, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<DeleteWatchlistResponse> DeleteWatchlistAsync(string id, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 
