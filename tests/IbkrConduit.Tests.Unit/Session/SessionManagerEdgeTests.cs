@@ -61,10 +61,11 @@ public class SessionManagerEdgeTests
 
         // Start initialization in background
         var initTask = Task.Run(
-            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken),
+            TestContext.Current.CancellationToken);
 
         // Give init a moment to start, then dispose
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
         await manager.DisposeAsync();
 
         // Init may throw OperationCanceledException or ObjectDisposedException,
