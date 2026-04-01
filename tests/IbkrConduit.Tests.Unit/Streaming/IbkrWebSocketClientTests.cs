@@ -204,6 +204,21 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
+    public async Task HeartbeatSendFailure_TriggersReconnect()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        // Any send after this will throw WebSocketException
+        _adapter.FailSendAfterCount = 0;
+
+        // Heartbeat fires every 10s; wait for tick + reconnect delay (1s) + margin
+        await Task.Delay(12_000, TestContext.Current.CancellationToken);
+
+        _adapter.ConnectCallCount.ShouldBeGreaterThanOrEqualTo(2);
+    }
+
+    [Fact]
     public async Task DisposeAsync_CalledTwice_DoesNotThrow()
     {
         var client = CreateClient();
