@@ -251,7 +251,7 @@ public record ExchangeConid(
 /// <param name="Conid">The IBKR contract identifier.</param>
 /// <param name="UnderlyingConid">The underlying contract identifier.</param>
 /// <param name="ExpirationDate">The expiration date as YYYYMMDD numeric value (e.g., 20261218). IBKR returns this as a JSON number.</param>
-/// <param name="LastTradingDay">The last trading day (YYYYMMDD).</param>
+/// <param name="LastTradingDay">The last trading day as YYYYMMDD numeric value. IBKR returns this as a JSON number.</param>
 [ExcludeFromCodeCoverage]
 public record FutureContract(
     [property: JsonPropertyName("symbol")] string Symbol,
@@ -264,7 +264,9 @@ public record FutureContract(
     [property: JsonPropertyName("expirationDate")]
     [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     long? ExpirationDate,
-    [property: JsonPropertyName("ltd")] string? LastTradingDay)
+    [property: JsonPropertyName("ltd")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    long? LastTradingDay)
 {
     /// <summary>
     /// Captures any additional JSON properties not mapped to named parameters.

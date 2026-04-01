@@ -39,7 +39,9 @@ public record Account(
 [ExcludeFromCodeCoverage]
 public record Position(
     [property: JsonPropertyName("acctId")] string AccountId,
-    [property: JsonPropertyName("conid")] int Conid,
+    [property: JsonPropertyName("conid")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    int Conid,
     [property: JsonPropertyName("contractDesc")] string ContractDescription,
     [property: JsonPropertyName("position")] decimal Quantity,
     [property: JsonPropertyName("mktPrice")] decimal MarketPrice,
