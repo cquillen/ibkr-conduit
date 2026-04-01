@@ -100,6 +100,103 @@ public class OAuthSigningHandlerTests
         sessionManager.EnsureInitCalled.ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task SendAsync_EnsureInitializedThrows_ExceptionPropagates()
+    {
+        var lstBytes = new byte[] { 0x01, 0x02, 0x03, 0x04 };
+        var provider = new FakeTokenProvider(new LiveSessionToken(
+            lstBytes, DateTimeOffset.UtcNow.AddHours(24)));
+
+        var sessionManager = new ThrowingSessionManager();
+
+        var innerHandler = new FakeInnerHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+
+        var signingHandler = new OAuthSigningHandler(
+            provider, "MYKEY", "mytoken", sessionManager)
+        {
+            InnerHandler = innerHandler,
+        };
+
+        using var httpClient = new HttpClient(signingHandler)
+        {
+            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
+        };
+
+        await Should.ThrowAsync<InvalidOperationException>(
+            () => httpClient.GetAsync("portfolio/accounts", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task SendAsync_ExistingUserAgent_NotReplaced()
+    {
+        var lstBytes = new byte[] { 0x01, 0x02, 0x03, 0x04 };
+        var provider = new FakeTokenProvider(new LiveSessionToken(
+            lstBytes, DateTimeOffset.UtcNow.AddHours(24)));
+
+        HttpRequestMessage? capturedRequest = null;
+        var innerHandler = new FakeInnerHandler(req =>
+        {
+            capturedRequest = req;
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+
+        var signingHandler = new OAuthSigningHandler(provider, "MYKEY", "mytoken")
+        {
+            InnerHandler = innerHandler,
+        };
+
+        using var httpClient = new HttpClient(signingHandler)
+        {
+            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "portfolio/accounts");
+        request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("CustomAgent", "2.0"));
+
+        await httpClient.SendAsync(request, TestContext.Current.CancellationToken);
+
+        capturedRequest.ShouldNotBeNull();
+        var userAgents = capturedRequest.Headers.UserAgent.ToList();
+        userAgents.Count.ShouldBe(1);
+        userAgents[0].Product!.Name.ShouldBe("CustomAgent");
+        userAgents[0].Product!.Version.ShouldBe("2.0");
+    }
+
+    [Fact]
+    public async Task SendAsync_InnerHandlerThrows_ExceptionPropagates()
+    {
+        var lstBytes = new byte[] { 0x01, 0x02, 0x03, 0x04 };
+        var provider = new FakeTokenProvider(new LiveSessionToken(
+            lstBytes, DateTimeOffset.UtcNow.AddHours(24)));
+
+        var innerHandler = new FakeInnerHandler(_ =>
+            throw new HttpRequestException("Simulated network failure"));
+
+        var signingHandler = new OAuthSigningHandler(provider, "MYKEY", "mytoken")
+        {
+            InnerHandler = innerHandler,
+        };
+
+        using var httpClient = new HttpClient(signingHandler)
+        {
+            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
+        };
+
+        await Should.ThrowAsync<HttpRequestException>(
+            () => httpClient.GetAsync("portfolio/accounts", TestContext.Current.CancellationToken));
+    }
+
+    private class ThrowingSessionManager : ISessionManager
+    {
+        public Task EnsureInitializedAsync(CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Session initialization failed");
+
+        public Task ReauthenticateAsync(CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
     private class FakeSessionManager : ISessionManager
     {
         public bool EnsureInitCalled { get; private set; }
