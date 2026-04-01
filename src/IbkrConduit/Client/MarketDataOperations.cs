@@ -127,6 +127,9 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
     public async Task<MarketDataSnapshot> GetRegulatorySnapshotAsync(int conid,
         CancellationToken cancellationToken = default)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.RegulatorySnapshot");
+        activity?.SetTag(LogFields.Conid, conid);
+
         LogRegulatorySnapshotWarning(conid);
 
         var raw = await _api.GetRegulatorySnapshotAsync(conid, cancellationToken);
@@ -135,28 +138,44 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
 
     /// <inheritdoc />
     public async Task<UnsubscribeResponse> UnsubscribeAsync(int conid,
-        CancellationToken cancellationToken = default) =>
-        await _api.UnsubscribeAsync(new UnsubscribeRequest(conid), cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.Unsubscribe");
+        activity?.SetTag(LogFields.Conid, conid);
+        return await _api.UnsubscribeAsync(new UnsubscribeRequest(conid), cancellationToken);
+    }
 
     /// <inheritdoc />
     public async Task<UnsubscribeAllResponse> UnsubscribeAllAsync(
-        CancellationToken cancellationToken = default) =>
-        await _api.UnsubscribeAllAsync(cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.UnsubscribeAll");
+        return await _api.UnsubscribeAllAsync(cancellationToken);
+    }
 
     /// <inheritdoc />
     public async Task<ScannerResponse> RunScannerAsync(ScannerRequest request,
-        CancellationToken cancellationToken = default) =>
-        await _api.RunScannerAsync(request, cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.RunScanner");
+        return await _api.RunScannerAsync(request, cancellationToken);
+    }
 
     /// <inheritdoc />
     public async Task<ScannerParameters> GetScannerParametersAsync(
-        CancellationToken cancellationToken = default) =>
-        await _api.GetScannerParametersAsync(cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.GetScannerParams");
+        return await _api.GetScannerParametersAsync(cancellationToken);
+    }
 
     /// <inheritdoc />
     public async Task<HmdsScannerResponse> RunHmdsScannerAsync(HmdsScannerRequest request,
-        CancellationToken cancellationToken = default) =>
-        await _api.RunHmdsScannerAsync(request, cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.RunHmdsScanner");
+        return await _api.RunHmdsScannerAsync(request, cancellationToken);
+    }
 
     /// <summary>
     /// Disposes the pre-flight memory cache.

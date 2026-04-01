@@ -75,6 +75,7 @@ public class ContractOperations : IContractOperations
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetSecDefsByConid");
+        activity?.SetTag(LogFields.Conid, conids);
         return await _api.GetSecurityDefinitionsByConidAsync(conids, cancellationToken);
     }
 
@@ -84,6 +85,7 @@ public class ContractOperations : IContractOperations
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetAllConidsByExchange");
+        activity?.SetTag("ibkr.exchange", exchange);
         return await _api.GetAllConidsByExchangeAsync(exchange, cancellationToken);
     }
 
@@ -125,6 +127,7 @@ public class ContractOperations : IContractOperations
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetCurrencyPairs");
+        activity?.SetTag("ibkr.currency", currency);
         return await _api.GetCurrencyPairsAsync(currency, cancellationToken);
     }
 
@@ -134,6 +137,8 @@ public class ContractOperations : IContractOperations
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetExchangeRate");
+        activity?.SetTag("ibkr.source_currency", source);
+        activity?.SetTag("ibkr.target_currency", target);
         return await _api.GetExchangeRateAsync(source, target, cancellationToken);
     }
 }
