@@ -98,12 +98,8 @@ public class LiveSessionTokenClientTests
             };
         });
 
-        using var httpClient = new HttpClient(handler)
-        {
-            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
-        };
-
-        var client = new LiveSessionTokenClient(httpClient, NullLogger<LiveSessionTokenClient>.Instance);
+        var factory = new FakeHttpClientFactory(handler, new Uri("https://api.ibkr.com/v1/api/"));
+        var client = new LiveSessionTokenClient(factory, "test-lst", NullLogger<LiveSessionTokenClient>.Instance);
 
         // === ACT ===
         var result = await client.GetLiveSessionTokenAsync(creds, CancellationToken.None);
@@ -143,12 +139,8 @@ public class LiveSessionTokenClientTests
             };
         });
 
-        using var httpClient = new HttpClient(handler)
-        {
-            BaseAddress = new Uri("https://api.ibkr.com/v1/api/"),
-        };
-
-        var client = new LiveSessionTokenClient(httpClient, NullLogger<LiveSessionTokenClient>.Instance);
+        var factory = new FakeHttpClientFactory(handler, new Uri("https://api.ibkr.com/v1/api/"));
+        var client = new LiveSessionTokenClient(factory, "test-lst", NullLogger<LiveSessionTokenClient>.Instance);
 
         await Should.ThrowAsync<CryptographicException>(
             () => client.GetLiveSessionTokenAsync(creds, CancellationToken.None));
@@ -166,5 +158,28 @@ public class LiveSessionTokenClientTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(_handler(request));
+    }
+
+    private sealed class FakeHttpClientFactory : IHttpClientFactory
+    {
+        private readonly HttpMessageHandler _handler;
+        private readonly Uri? _baseAddress;
+
+        public FakeHttpClientFactory(HttpMessageHandler handler, Uri? baseAddress = null)
+        {
+            _handler = handler;
+            _baseAddress = baseAddress;
+        }
+
+        public HttpClient CreateClient(string name)
+        {
+            var client = new HttpClient(_handler, disposeHandler: false);
+            if (_baseAddress != null)
+            {
+                client.BaseAddress = _baseAddress;
+            }
+
+            return client;
+        }
     }
 }

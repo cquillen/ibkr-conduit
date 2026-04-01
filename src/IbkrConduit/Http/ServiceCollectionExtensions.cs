@@ -42,19 +42,22 @@ public static class ServiceCollectionExtensions
     {
         var clientOptions = options ?? new IbkrClientOptions();
 
-        // LST client (plain HttpClient, not through Refit pipeline)
-        services.AddSingleton<ILiveSessionTokenClient>(sp =>
+        // LST client (plain HttpClient via IHttpClientFactory, not through Refit pipeline)
+        var lstClientName = $"IbkrConduit-LST-{credentials.TenantId}";
+        services.AddHttpClient(lstClientName, c =>
         {
-            var handler = new HttpClientHandler
-            {
-                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-            };
-            var httpClient = new HttpClient(handler)
-            {
-                BaseAddress = new Uri(_ibkrBaseUrl + "/v1/api/"),
-            };
-            return new LiveSessionTokenClient(httpClient, sp.GetRequiredService<ILogger<LiveSessionTokenClient>>());
+            c.BaseAddress = new Uri(_ibkrBaseUrl + "/v1/api/");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
         });
+
+        services.AddSingleton<ILiveSessionTokenClient>(sp =>
+            new LiveSessionTokenClient(
+                sp.GetRequiredService<IHttpClientFactory>(),
+                lstClientName,
+                sp.GetRequiredService<ILogger<LiveSessionTokenClient>>()));
 
         // Session token provider
         services.AddSingleton<ISessionTokenProvider>(sp =>

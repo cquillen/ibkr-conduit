@@ -18,16 +18,18 @@ public partial class LiveSessionTokenClient : ILiveSessionTokenClient
 {
     private const string _lstEndpoint = "oauth/live_session_token";
 
-    private readonly HttpClient _httpClient;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly string _clientName;
     private readonly ILogger<LiveSessionTokenClient> _logger;
 
     /// <summary>
-    /// Creates a new LST client using the provided HttpClient.
-    /// The HttpClient should have BaseAddress set to the IBKR API base URL.
+    /// Creates a new LST client using the provided <see cref="IHttpClientFactory"/>.
+    /// A fresh <see cref="HttpClient"/> is created per request via the named client.
     /// </summary>
-    public LiveSessionTokenClient(HttpClient httpClient, ILogger<LiveSessionTokenClient> logger)
+    public LiveSessionTokenClient(IHttpClientFactory httpClientFactory, string clientName, ILogger<LiveSessionTokenClient> logger)
     {
-        _httpClient = httpClient;
+        _httpClientFactory = httpClientFactory;
+        _clientName = clientName;
         _logger = logger;
     }
 
@@ -36,6 +38,7 @@ public partial class LiveSessionTokenClient : ILiveSessionTokenClient
         IbkrOAuthCredentials credentials, CancellationToken cancellationToken)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.OAuth.AcquireLst");
+        using var httpClient = _httpClientFactory.CreateClient(_clientName);
 
         LogAcquiringLst();
 
@@ -53,7 +56,7 @@ public partial class LiveSessionTokenClient : ILiveSessionTokenClient
         var headerBuilder = new OAuthHeaderBuilder(signer, baseStringBuilder);
 
         // 4. Build the full URL
-        var url = new Uri(_httpClient.BaseAddress!, _lstEndpoint).ToString();
+        var url = new Uri(httpClient.BaseAddress!, _lstEndpoint).ToString();
 
         // 5. Build Authorization header
         var extraParams = new Dictionary<string, string>
@@ -71,7 +74,7 @@ public partial class LiveSessionTokenClient : ILiveSessionTokenClient
         request.Headers.Connection.Add("keep-alive");
         request.Headers.UserAgent.Add(new ProductInfoHeaderValue("IbkrConduit", "1.0"));
 
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         // 7. Parse response
