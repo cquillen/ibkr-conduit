@@ -98,18 +98,8 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
             stocks.ShouldContainKey("AAPL");
 
             // Step 9: Get futures by symbol
-            // IBKR QUIRK: The /trsrv/futures endpoint returns expirationDate as a number
-            // instead of a string, causing deserialization failures. This is a known data
-            // type mismatch in the IBKR API response.
-            try
-            {
-                var futures = await client.Contracts.GetFuturesBySymbolAsync("ES", CT);
-                futures.ShouldNotBeEmpty("ES futures should not be empty");
-            }
-            catch (ApiException)
-            {
-                // IBKR QUIRK: Deserialization fails due to numeric expirationDate field.
-            }
+            var futures = await client.Contracts.GetFuturesBySymbolAsync("ES", CT);
+            futures.ShouldNotBeEmpty("ES futures should not be empty");
 
             // Step 10: Get all conids by exchange
             var exchangeConids = await client.Contracts.GetAllConidsByExchangeAsync("NASDAQ", CT);
