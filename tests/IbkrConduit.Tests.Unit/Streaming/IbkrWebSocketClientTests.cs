@@ -204,6 +204,44 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
+    public async Task DisposeAsync_CalledTwice_DoesNotThrow()
+    {
+        var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        await client.DisposeAsync();
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_CompletesSubscriberChannels()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (reader, _) = await client.SubscribeTopicAsync(
+            "smd+123+{}", "smd",
+            TestContext.Current.CancellationToken);
+
+        await client.DisposeAsync();
+
+        reader.Completion.IsCompleted.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SubscribeAfterDispose_ThrowsObjectDisposedException()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var client = CreateClient();
+        await client.ConnectAsync(ct);
+
+        await client.DisposeAsync();
+
+        await Should.ThrowAsync<ObjectDisposedException>(
+            () => client.SubscribeTopicAsync("smd+123+{}", "smd", ct));
+    }
+
+    [Fact]
     public async Task MalformedJson_DroppedWithoutCrash()
     {
         await using var client = CreateClient();
