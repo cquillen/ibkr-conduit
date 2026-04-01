@@ -178,9 +178,13 @@ public partial class OrderOperations : IOrderOperations
     }
 
     /// <inheritdoc />
-    public Task<OrderStatus> GetOrderStatusAsync(
-        string orderId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+    public async Task<OrderStatus> GetOrderStatusAsync(
+        string orderId, CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetStatus");
+        activity?.SetTag(LogFields.OrderId, orderId);
+        return await _orderApi.GetOrderStatusAsync(orderId, cancellationToken);
+    }
 
     private async Task<OrderResult> HandleQuestionReplyLoopAsync(
         List<OrderSubmissionResponse> responses, CancellationToken cancellationToken)
