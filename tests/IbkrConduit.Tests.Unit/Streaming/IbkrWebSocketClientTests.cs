@@ -203,6 +203,59 @@ public class IbkrWebSocketClientTests
         _adapter.ConnectedUri.ShouldNotBeNull();
     }
 
+    [Fact]
+    public async Task ServerCloseFrame_TriggersReconnect()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        // Allow message pump to start receiving
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+
+        _adapter.SignalClose();
+
+        // Reconnect has a 1000ms delay; give generous margin
+        await Task.Delay(3000, TestContext.Current.CancellationToken);
+
+        _adapter.ConnectCallCount.ShouldBeGreaterThanOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task ReconnectFailure_DoesNotCrash()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        // Allow message pump to start receiving
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+
+        _adapter.FailOnConnect = true;
+        _adapter.SignalClose();
+
+        // Reconnect has a 1000ms delay; give generous margin
+        await Task.Delay(3000, TestContext.Current.CancellationToken);
+
+        _adapter.State.ShouldNotBe(System.Net.WebSockets.WebSocketState.Open);
+    }
+
+    [Fact]
+    public async Task SessionRefreshAfterDispose_DoesNotReconnect()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var client = CreateClient();
+        await client.ConnectAsync(ct);
+
+        var count = _adapter.ConnectCallCount;
+
+        await client.DisposeAsync();
+
+        await _notifier.TriggerRefreshAsync(ct);
+
+        await Task.Delay(200, ct);
+
+        _adapter.ConnectCallCount.ShouldBe(count);
+    }
+
     private IbkrWebSocketClient CreateClient() =>
         new(
             _sessionApi,
