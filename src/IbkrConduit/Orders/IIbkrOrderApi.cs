@@ -16,9 +16,10 @@ public interface IIbkrOrderApi
 
     /// <summary>
     /// Replies to an order confirmation question with a confirmed/rejected answer.
+    /// Returns a raw string body because IBKR may return either a JSON array or a bare object.
     /// </summary>
     [Post("/v1/api/iserver/reply/{replyId}")]
-    Task<List<OrderSubmissionResponse>> ReplyAsync(
+    Task<IApiResponse<string>> ReplyAsync(
         string replyId, [Body] ReplyRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Text.Json;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Orders;
 using Microsoft.Extensions.Logging;
@@ -204,8 +205,16 @@ public partial class OrderOperations : IOrderOperations
                 var messageText = string.Join("; ", response.Message);
                 LogOrderQuestionAutoConfirmed(messageText);
 
-                var replyResponses = await _orderApi.ReplyAsync(
+                var replyApiResponse = await _orderApi.ReplyAsync(
                     response.Id, new ReplyRequest(true), cancellationToken);
+                if (!replyApiResponse.IsSuccessStatusCode)
+                {
+                    throw new InvalidOperationException(
+                        $"IBKR reply endpoint returned HTTP {(int)replyApiResponse.StatusCode}: {replyApiResponse.Error?.Content}");
+                }
+
+                LogReplyRawContent(replyApiResponse.Content ?? string.Empty);
+                var replyResponses = DeserializeReplyResponse(replyApiResponse.Content!);
                 response = replyResponses[0];
             }
             else
@@ -219,6 +228,40 @@ public partial class OrderOperations : IOrderOperations
             $"Order question/reply loop exceeded maximum of {_maxReplyIterations} iterations.");
     }
 
+    /// <summary>
+    /// Deserializes an IBKR reply response that may be either a JSON array or a bare JSON object.
+    /// </summary>
+    internal static List<OrderSubmissionResponse> DeserializeReplyResponse(string content)
+    {
+        var trimmed = content.AsSpan().Trim();
+        if (trimmed.Length == 0)
+        {
+            throw new InvalidOperationException(
+                "IBKR reply endpoint returned an empty response body.");
+        }
+
+        if (trimmed[0] == '[')
+        {
+            return JsonSerializer.Deserialize<List<OrderSubmissionResponse>>(trimmed)
+                ?? throw new InvalidOperationException(
+                    $"Failed to deserialize IBKR reply response as array: {content}");
+        }
+
+        if (trimmed[0] == '{')
+        {
+            var single = JsonSerializer.Deserialize<OrderSubmissionResponse>(trimmed)
+                ?? throw new InvalidOperationException(
+                    $"Failed to deserialize IBKR reply response as object: {content}");
+            return [single];
+        }
+
+        throw new InvalidOperationException(
+            $"IBKR reply endpoint returned unexpected content: {content}");
+    }
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "IBKR order question auto-confirmed: {Message}")]
     private partial void LogOrderQuestionAutoConfirmed(string message);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "IBKR reply raw content: {Content}")]
+    private partial void LogReplyRawContent(string content);
 }

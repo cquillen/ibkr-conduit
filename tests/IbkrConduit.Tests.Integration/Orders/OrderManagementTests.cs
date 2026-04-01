@@ -134,6 +134,61 @@ public class OrderManagementTests : IDisposable
     }
 
     [Fact]
+    public async Task PlaceOrderAsync_ReplyReturnsNonArray_DeserializesCorrectly()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/DU1234567/orders")
+                .UsingPost())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""
+                        [
+                            {
+                                "id": "reply-xyz",
+                                "message": ["Are you sure?"],
+                                "isSuppressed": false,
+                                "messageIds": ["msg-1"]
+                            }
+                        ]
+                        """));
+
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/reply/reply-xyz")
+                .UsingPost())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""
+                        {
+                            "order_id": "99999",
+                            "order_status": "Submitted"
+                        }
+                        """));
+
+        var api = CreateRefitClient<IIbkrOrderApi>();
+        var ops = new OrderOperations(api, NullLogger<OrderOperations>.Instance);
+
+        var order = new OrderRequest
+        {
+            Conid = 265598,
+            Side = "BUY",
+            Quantity = 10,
+            OrderType = "MKT",
+            Tif = "DAY",
+        };
+
+        var result = await ops.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
+
+        result.OrderId.ShouldBe("99999");
+        result.OrderStatus.ShouldBe("Submitted");
+    }
+
+    [Fact]
     public async Task CancelOrderAsync_ReturnsResult()
     {
         _server.Given(
