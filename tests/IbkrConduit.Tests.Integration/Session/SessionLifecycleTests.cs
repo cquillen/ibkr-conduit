@@ -170,7 +170,10 @@ public class SessionLifecycleTests : IAsyncDisposable
     [Fact]
     public async Task ConcurrentUnauthorized_SingleReauthServesAllRequests()
     {
-        // Arrange: ssodh/init always returns 200 and sets scenario state to "reauthed"
+        // Arrange: ssodh/init always returns 200 (scenario-free so ResetScenarios doesn't break it)
+        SetupSsodhInitEndpoint();
+
+        // Also register ssodh/init as a scenario trigger so it flips "concurrent-401" to "reauthed"
         _server.Given(
             Request.Create()
                 .WithPath("/v1/api/iserver/auth/ssodh/init")
