@@ -123,7 +123,7 @@ public class ContractOperationsTests
     {
         var expected = new Dictionary<string, List<FutureContract>>
         {
-            ["ES"] = new List<FutureContract> { new("ES", 495512551, 11004968, 20241220L, "20241220") },
+            ["ES"] = new List<FutureContract> { new("ES", 495512551, 11004968, 20241220L, 20241220L) },
         };
         _api.GetFuturesBySymbolAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
 
