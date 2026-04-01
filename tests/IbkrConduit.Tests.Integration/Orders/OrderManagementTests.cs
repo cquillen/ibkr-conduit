@@ -386,6 +386,30 @@ public class OrderManagementTests : IDisposable
         public Task<HistoricalDataResponse> GetHistoryAsync(int conid, string period, string bar,
             bool? outsideRth = null, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
+
+        public Task<MarketDataSnapshot> GetRegulatorySnapshotAsync(int conid,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<UnsubscribeResponse> UnsubscribeAsync(int conid,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<UnsubscribeAllResponse> UnsubscribeAllAsync(
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<ScannerResponse> RunScannerAsync(ScannerRequest request,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<ScannerParameters> GetScannerParametersAsync(
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<HmdsScannerResponse> RunHmdsScannerAsync(HmdsScannerRequest request,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 
     private class FakeStreamingOperations : IStreamingOperations

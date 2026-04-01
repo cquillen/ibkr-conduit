@@ -123,6 +123,41 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
         return result;
     }
 
+    /// <inheritdoc />
+    public async Task<MarketDataSnapshot> GetRegulatorySnapshotAsync(int conid,
+        CancellationToken cancellationToken = default)
+    {
+        LogRegulatorySnapshotWarning(conid);
+
+        var raw = await _api.GetRegulatorySnapshotAsync(conid, cancellationToken);
+        return MapSnapshot(raw);
+    }
+
+    /// <inheritdoc />
+    public async Task<UnsubscribeResponse> UnsubscribeAsync(int conid,
+        CancellationToken cancellationToken = default) =>
+        await _api.UnsubscribeAsync(new UnsubscribeRequest(conid), cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<UnsubscribeAllResponse> UnsubscribeAllAsync(
+        CancellationToken cancellationToken = default) =>
+        await _api.UnsubscribeAllAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<ScannerResponse> RunScannerAsync(ScannerRequest request,
+        CancellationToken cancellationToken = default) =>
+        await _api.RunScannerAsync(request, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<ScannerParameters> GetScannerParametersAsync(
+        CancellationToken cancellationToken = default) =>
+        await _api.GetScannerParametersAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<HmdsScannerResponse> RunHmdsScannerAsync(HmdsScannerRequest request,
+        CancellationToken cancellationToken = default) =>
+        await _api.RunHmdsScannerAsync(request, cancellationToken);
+
     /// <summary>
     /// Disposes the pre-flight memory cache.
     /// </summary>
@@ -238,4 +273,7 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Pre-flight needed for conids: {Conids}. Waiting {DelayMs}ms before retry.")]
     private partial void LogPreflightRetry(string conids, int delayMs);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Regulatory snapshot requested for conid {Conid}. This incurs a $0.01 USD fee per request.")]
+    private partial void LogRegulatorySnapshotWarning(int conid);
 }

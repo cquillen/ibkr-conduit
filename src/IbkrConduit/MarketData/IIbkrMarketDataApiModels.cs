@@ -175,3 +175,231 @@ public record HistoricalBar(
     [property: JsonPropertyName("l")] decimal Low,
     [property: JsonPropertyName("v")] decimal Volume,
     [property: JsonPropertyName("t")] long Timestamp);
+
+/// <summary>
+/// Request body for unsubscribing from a single contract's market data.
+/// </summary>
+/// <param name="Conid">The contract identifier to unsubscribe.</param>
+[ExcludeFromCodeCoverage]
+public record UnsubscribeRequest(
+    [property: JsonPropertyName("conid")] int Conid);
+
+/// <summary>
+/// Response from the unsubscribe endpoint.
+/// </summary>
+/// <param name="Success">Whether the unsubscribe request was successful.</param>
+[ExcludeFromCodeCoverage]
+public record UnsubscribeResponse(
+    [property: JsonPropertyName("success")] bool Success);
+
+/// <summary>
+/// Response from the unsubscribe-all endpoint.
+/// </summary>
+/// <param name="Unsubscribed">Whether all subscriptions were cancelled.</param>
+[ExcludeFromCodeCoverage]
+public record UnsubscribeAllResponse(
+    [property: JsonPropertyName("unsubscribed")] bool Unsubscribed);
+
+/// <summary>
+/// Request body for the iserver market scanner.
+/// </summary>
+/// <param name="Instrument">Instrument type (e.g., "STK", "ETF").</param>
+/// <param name="Type">Scanner type (e.g., "TOP_TRADE_COUNT", "TOP_PERC_GAIN").</param>
+/// <param name="Location">Location filter (e.g., "STK.US.MAJOR").</param>
+/// <param name="Filter">Optional array of filter criteria.</param>
+[ExcludeFromCodeCoverage]
+public record ScannerRequest(
+    [property: JsonPropertyName("instrument")] string Instrument,
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("location")] string Location,
+    [property: JsonPropertyName("filter")] List<ScannerFilter>? Filter);
+
+/// <summary>
+/// A single filter criterion for a scanner request.
+/// </summary>
+/// <param name="Code">The filter code (e.g., "priceAbove").</param>
+/// <param name="Value">The filter value.</param>
+[ExcludeFromCodeCoverage]
+public record ScannerFilter(
+    [property: JsonPropertyName("code")] string Code,
+    [property: JsonPropertyName("value")] int Value);
+
+/// <summary>
+/// Response from the iserver market scanner endpoint.
+/// </summary>
+/// <param name="Contracts">The list of matched contracts.</param>
+/// <param name="ScanDataColumnName">Column name for the scan data.</param>
+[ExcludeFromCodeCoverage]
+public record ScannerResponse(
+    [property: JsonPropertyName("contracts")] List<ScannerContract>? Contracts,
+    [property: JsonPropertyName("scan_data_column_name")] string? ScanDataColumnName);
+
+/// <summary>
+/// A single contract from a scanner result.
+/// </summary>
+/// <param name="ServerId">The contract's index in the scanner sort order.</param>
+/// <param name="Symbol">The contract's ticker symbol.</param>
+/// <param name="Conidex">The contract ID as a string.</param>
+/// <param name="ConId">The contract ID as an integer.</param>
+/// <param name="CompanyName">The company long name.</param>
+/// <param name="ContractDescription">The contract description or local symbol.</param>
+/// <param name="ListingExchange">The primary listing exchange.</param>
+/// <param name="SecType">The security type.</param>
+/// <param name="ScanData">The scan data value for this contract.</param>
+[ExcludeFromCodeCoverage]
+public record ScannerContract(
+    [property: JsonPropertyName("server_id")] string? ServerId,
+    [property: JsonPropertyName("symbol")] string? Symbol,
+    [property: JsonPropertyName("conidex")] string? Conidex,
+    [property: JsonPropertyName("con_id")] int? ConId,
+    [property: JsonPropertyName("company_name")] string? CompanyName,
+    [property: JsonPropertyName("contract_description_1")] string? ContractDescription,
+    [property: JsonPropertyName("listing_exchange")] string? ListingExchange,
+    [property: JsonPropertyName("sec_type")] string? SecType,
+    [property: JsonPropertyName("scan_data")] string? ScanData)
+{
+    /// <summary>
+    /// Additional fields not explicitly mapped.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// Request body for the HMDS market scanner.
+/// </summary>
+/// <param name="Instrument">Instrument type (e.g., "BOND", "STK").</param>
+/// <param name="Locations">Location filter (e.g., "BOND.US").</param>
+/// <param name="ScanCode">Scanner type code.</param>
+/// <param name="SecType">Security type.</param>
+/// <param name="MaxItems">Maximum number of items to return (default 250).</param>
+/// <param name="Filters">Array of filter objects.</param>
+[ExcludeFromCodeCoverage]
+public record HmdsScannerRequest(
+    [property: JsonPropertyName("instrument")] string Instrument,
+    [property: JsonPropertyName("locations")] string Locations,
+    [property: JsonPropertyName("scanCode")] string ScanCode,
+    [property: JsonPropertyName("secType")] string SecType,
+    [property: JsonPropertyName("maxItems")] int? MaxItems,
+    [property: JsonPropertyName("filters")] List<Dictionary<string, object>>? Filters);
+
+/// <summary>
+/// Response from the HMDS market scanner endpoint.
+/// </summary>
+/// <param name="Total">Total number of matching contracts.</param>
+/// <param name="Size">Number of contracts returned.</param>
+/// <param name="Offset">Offset in the result set.</param>
+/// <param name="ScanTime">Time the scan was performed.</param>
+/// <param name="Id">Scanner identifier.</param>
+/// <param name="Contracts">Wrapper containing the contract array.</param>
+[ExcludeFromCodeCoverage]
+public record HmdsScannerResponse(
+    [property: JsonPropertyName("total")] string? Total,
+    [property: JsonPropertyName("size")] string? Size,
+    [property: JsonPropertyName("offset")] string? Offset,
+    [property: JsonPropertyName("scanTime")] string? ScanTime,
+    [property: JsonPropertyName("id")] string? Id,
+    [property: JsonPropertyName("Contracts")] HmdsScannerContractWrapper? Contracts)
+{
+    /// <summary>
+    /// Additional fields not explicitly mapped.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// Wrapper for the HMDS scanner contract array.
+/// </summary>
+/// <param name="Contract">The list of scanned contracts.</param>
+[ExcludeFromCodeCoverage]
+public record HmdsScannerContractWrapper(
+    [property: JsonPropertyName("Contract")] List<HmdsScannerContract>? Contract);
+
+/// <summary>
+/// A single contract from the HMDS scanner result.
+/// </summary>
+/// <param name="InScanTime">The time the contract was scanned (UTC).</param>
+/// <param name="ContractId">The contract identifier.</param>
+[ExcludeFromCodeCoverage]
+public record HmdsScannerContract(
+    [property: JsonPropertyName("inScanTime")] string? InScanTime,
+    [property: JsonPropertyName("contractID")] string? ContractId)
+{
+    /// <summary>
+    /// Additional fields not explicitly mapped.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// Scanner parameters describing available scanner types, instruments, locations, and filters.
+/// </summary>
+/// <param name="ScanTypeList">Available scanner types.</param>
+/// <param name="InstrumentList">Available instrument types.</param>
+/// <param name="FilterList">Available filters.</param>
+/// <param name="LocationTree">Available location hierarchy.</param>
+[ExcludeFromCodeCoverage]
+public record ScannerParameters(
+    [property: JsonPropertyName("scan_type_list")] List<ScannerType>? ScanTypeList,
+    [property: JsonPropertyName("instrument_list")] List<ScannerInstrument>? InstrumentList,
+    [property: JsonPropertyName("filter_list")] List<ScannerFilterDefinition>? FilterList,
+    [property: JsonPropertyName("location_tree")] List<ScannerLocation>? LocationTree)
+{
+    /// <summary>
+    /// Additional fields not explicitly mapped.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// A scanner type definition.
+/// </summary>
+/// <param name="DisplayName">Human-readable name.</param>
+/// <param name="Code">Code value for scanner requests.</param>
+/// <param name="Instruments">Instruments this scanner type supports.</param>
+[ExcludeFromCodeCoverage]
+public record ScannerType(
+    [property: JsonPropertyName("display_name")] string? DisplayName,
+    [property: JsonPropertyName("code")] string? Code,
+    [property: JsonPropertyName("instruments")] List<string>? Instruments);
+
+/// <summary>
+/// A scanner instrument definition.
+/// </summary>
+/// <param name="DisplayName">Human-readable name.</param>
+/// <param name="Type">Code value for scanner requests.</param>
+/// <param name="Filters">Available filters for this instrument.</param>
+[ExcludeFromCodeCoverage]
+public record ScannerInstrument(
+    [property: JsonPropertyName("display_name")] string? DisplayName,
+    [property: JsonPropertyName("type")] string? Type,
+    [property: JsonPropertyName("filters")] List<string>? Filters);
+
+/// <summary>
+/// A scanner filter definition.
+/// </summary>
+/// <param name="Group">Filter group.</param>
+/// <param name="DisplayName">Human-readable name.</param>
+/// <param name="Code">Code value for scanner requests.</param>
+/// <param name="Type">Value type (e.g., range or single).</param>
+[ExcludeFromCodeCoverage]
+public record ScannerFilterDefinition(
+    [property: JsonPropertyName("group")] string? Group,
+    [property: JsonPropertyName("display_name")] string? DisplayName,
+    [property: JsonPropertyName("code")] string? Code,
+    [property: JsonPropertyName("type")] string? Type);
+
+/// <summary>
+/// A scanner location in the location tree.
+/// </summary>
+/// <param name="DisplayName">Human-readable name.</param>
+/// <param name="Type">Code value for scanner requests.</param>
+/// <param name="Locations">Child locations.</param>
+[ExcludeFromCodeCoverage]
+public record ScannerLocation(
+    [property: JsonPropertyName("display_name")] string? DisplayName,
+    [property: JsonPropertyName("type")] string? Type,
+    [property: JsonPropertyName("locations")] List<ScannerLocation>? Locations);
