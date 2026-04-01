@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Watchlists;
 
@@ -7,7 +6,6 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// Watchlist operations that delegate to the underlying Refit API.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public class WatchlistOperations : IWatchlistOperations
 {
     private readonly IIbkrWatchlistApi _api;
