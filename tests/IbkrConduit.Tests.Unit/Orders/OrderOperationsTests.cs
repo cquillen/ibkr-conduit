@@ -238,6 +238,147 @@ public class OrderOperationsTests
     }
 
     [Fact]
+    public async Task PlaceOrderAsync_EmptyMessageArray_EntersQuestionBranch()
+    {
+        _fakeApi.PlaceOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(
+                "reply-id-1",
+                [],
+                false,
+                null,
+                null,
+                null),
+        ]);
+
+        _fakeApi.ReplyResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(null, null, null, null, "55555", "Submitted"),
+        ]);
+
+        var order = new OrderRequest
+        {
+            Conid = 265598,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "MKT",
+        };
+
+        var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
+
+        result.OrderId.ShouldBe("55555");
+        _fakeApi.ReplyCallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task PlaceOrderAsync_OrderIdPresent_IgnoresMessageField()
+    {
+        _fakeApi.PlaceOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(
+                "reply-id-1",
+                ["Some question"],
+                false,
+                ["msg-id-1"],
+                "77777",
+                "PreSubmitted"),
+        ]);
+
+        var order = new OrderRequest
+        {
+            Conid = 265598,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "MKT",
+        };
+
+        var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
+
+        result.OrderId.ShouldBe("77777");
+        result.OrderStatus.ShouldBe("PreSubmitted");
+        _fakeApi.ReplyCallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task PlaceOrderAsync_ReplyThrows_ExceptionPropagates()
+    {
+        _fakeApi.PlaceOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(
+                "reply-id-1",
+                ["Question"],
+                false,
+                ["msg-id-1"],
+                null,
+                null),
+        ]);
+
+        // No reply enqueued — Dequeue will throw InvalidOperationException
+
+        var order = new OrderRequest
+        {
+            Conid = 265598,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "MKT",
+        };
+
+        await Should.ThrowAsync<InvalidOperationException>(
+            () => _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task PlaceOrderAsync_MessagePresentButIdNull_ThrowsInvalidOperation()
+    {
+        _fakeApi.PlaceOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(
+                null,
+                ["Some question"],
+                false,
+                ["msg-id-1"],
+                null,
+                null),
+        ]);
+
+        var order = new OrderRequest
+        {
+            Conid = 265598,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "MKT",
+        };
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(
+            () => _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("Unexpected");
+    }
+
+    [Fact]
+    public async Task PlaceOrderAsync_PreCancelledToken_ThrowsOperationCanceled()
+    {
+        _fakeApi.PlaceOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(null, null, null, null, "12345", "PreSubmitted"),
+        ]);
+
+        var order = new OrderRequest
+        {
+            Conid = 265598,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "MKT",
+        };
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => _sut.PlaceOrderAsync("DU1234567", order, cts.Token));
+    }
+
+    [Fact]
     public async Task CancelOrderAsync_DelegatesToApi()
     {
         _fakeApi.CancelResponse = new CancelOrderResponse("Order cancelled", "12345", 265598);
