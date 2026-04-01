@@ -4,9 +4,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Accounts;
 using IbkrConduit.Alerts;
+using IbkrConduit.Allocation;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
 using IbkrConduit.Flex;
+using IbkrConduit.Fyi;
 using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
@@ -94,6 +96,8 @@ public class IbkrClientTests
         IAccountOperations? accounts = null,
         IAlertOperations? alerts = null,
         IWatchlistOperations? watchlists = null,
+        IFyiOperations? notifications = null,
+        IAllocationOperations? allocations = null,
         ISessionManager? sessionManager = null) =>
         new(
             portfolio ?? new FakePortfolioOperations(),
@@ -105,6 +109,8 @@ public class IbkrClientTests
             accounts ?? new FakeAccountOperations(),
             alerts ?? new FakeAlertOperations(),
             watchlists ?? new FakeWatchlistOperations(),
+            notifications ?? new FakeFyiOperations(),
+            allocations ?? new FakeAllocationOperations(),
             sessionManager ?? new FakeSessionManager());
 
     private class FakePortfolioOperations : IPortfolioOperations
@@ -386,6 +392,72 @@ public class IbkrClientTests
             throw new NotImplementedException();
 
         public Task<DeleteWatchlistResponse> DeleteWatchlistAsync(string id, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
+    private class FakeFyiOperations : IFyiOperations
+    {
+        public Task<UnreadBulletinCountResponse> GetUnreadCountAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<FyiSettingItem>> GetSettingsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<FyiAcknowledgementResponse> UpdateSettingAsync(string typecode, bool enabled, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<FyiDisclaimerResponse> GetDisclaimerAsync(string typecode, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<FyiAcknowledgementResponse> MarkDisclaimerReadAsync(string typecode, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<FyiDeliveryOptionsResponse> GetDeliveryOptionsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<FyiAcknowledgementResponse> SetEmailDeliveryAsync(bool enabled, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<FyiAcknowledgementResponse> RegisterDeviceAsync(FyiDeviceRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task DeleteDeviceAsync(string deviceId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<FyiNotification>> GetNotificationsAsync(string? max = null, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<FyiNotification>> GetMoreNotificationsAsync(string id, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<FyiNotificationReadResponse> MarkNotificationReadAsync(string notificationId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
+    private class FakeAllocationOperations : IAllocationOperations
+    {
+        public Task<AllocationAccountsResponse> GetAccountsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AllocationGroupListResponse> GetGroupsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AllocationSuccessResponse> AddGroupAsync(AllocationGroupRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AllocationGroupDetail> GetGroupAsync(string name, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AllocationSuccessResponse> DeleteGroupAsync(string name, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AllocationSuccessResponse> ModifyGroupAsync(AllocationGroupRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AllocationPresetsResponse> GetPresetsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AllocationSuccessResponse> SetPresetsAsync(AllocationPresetsRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 

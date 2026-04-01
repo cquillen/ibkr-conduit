@@ -22,6 +22,8 @@ public class IbkrClient : IIbkrClient
     /// <param name="accounts">Account operations.</param>
     /// <param name="alerts">Alert operations.</param>
     /// <param name="watchlists">Watchlist operations.</param>
+    /// <param name="notifications">FYI notification operations.</param>
+    /// <param name="allocations">FA allocation operations.</param>
     /// <param name="sessionManager">The session manager for lifecycle management.</param>
     public IbkrClient(
         IPortfolioOperations portfolio,
@@ -33,6 +35,8 @@ public class IbkrClient : IIbkrClient
         IAccountOperations accounts,
         IAlertOperations alerts,
         IWatchlistOperations watchlists,
+        IFyiOperations notifications,
+        IAllocationOperations allocations,
         ISessionManager sessionManager)
     {
         Portfolio = portfolio;
@@ -44,6 +48,8 @@ public class IbkrClient : IIbkrClient
         Accounts = accounts;
         Alerts = alerts;
         Watchlists = watchlists;
+        Notifications = notifications;
+        Allocations = allocations;
         _sessionManager = sessionManager;
     }
 
@@ -73,6 +79,12 @@ public class IbkrClient : IIbkrClient
 
     /// <inheritdoc />
     public IWatchlistOperations Watchlists { get; }
+
+    /// <inheritdoc />
+    public IFyiOperations Notifications { get; }
+
+    /// <inheritdoc />
+    public IAllocationOperations Allocations { get; }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
