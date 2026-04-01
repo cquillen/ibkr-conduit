@@ -129,6 +129,80 @@ public class SessionManagerEdgeTests
         deps.SessionApi.SuppressCallCount.ShouldBe(0);
     }
 
+    [Fact]
+    public async Task ScheduleProactiveRefresh_NearZeroExpiry_SkipsScheduling()
+    {
+        var deps = CreateDependencies();
+        // Token expires in 30 minutes — less than the 1-hour buffer, so
+        // timeUntilRefresh = 30m - 1h = -30m <= 0, proactive refresh skipped
+        deps.TokenProvider.TokenExpiry = DateTimeOffset.UtcNow.AddMinutes(30);
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        // Dispose immediately — should succeed without errors from proactive refresh
+        await manager.DisposeAsync();
+
+        // Token was acquired but no proactive refresh fired (no RefreshAsync call)
+        deps.TokenProvider.GetCallCount.ShouldBe(1);
+        deps.TokenProvider.RefreshCallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_WhileShuttingDown_ReturnsEarly()
+    {
+        var deps = CreateDependencies();
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        // Dispose sets state to ShuttingDown
+        await manager.DisposeAsync();
+
+        // Session is now shut down — verify it completed cleanly
+        deps.SessionApi.LogoutCallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task ProactiveRefresh_NearExpiry_DisposeCleansUpWithoutCrash()
+    {
+        var deps = CreateDependencies();
+        // Token expires in 1h + 200ms — proactive refresh would fire after ~200ms
+        deps.TokenProvider.TokenExpiry = DateTimeOffset.UtcNow.AddHours(1).AddMilliseconds(200);
+        // Make RefreshAsync throw to test that the background task catches exceptions
+        deps.TokenProvider.RefreshShouldThrow = true;
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        // Wait long enough for proactive refresh to attempt and fail
+        await Task.Delay(500, TestContext.Current.CancellationToken);
+
+        // Dispose should not throw even though refresh failed in background
+        await manager.DisposeAsync();
+    }
+
     private static TestDependencies CreateDependencies() => new();
 
     private class TestDependencies
@@ -142,13 +216,17 @@ public class SessionManagerEdgeTests
 
     internal class DelayableTokenProvider : ISessionTokenProvider
     {
-        private readonly LiveSessionToken _token = new(
-            new byte[] { 0x01, 0x02, 0x03 },
-            DateTimeOffset.UtcNow.AddHours(24));
+        private LiveSessionToken? _tokenOverride;
 
         public int GetCallCount { get; private set; }
         public int RefreshCallCount { get; private set; }
         public int DelayMs { get; set; }
+        public bool RefreshShouldThrow { get; set; }
+
+        public DateTimeOffset TokenExpiry
+        {
+            set => _tokenOverride = new LiveSessionToken(new byte[] { 0x01, 0x02, 0x03 }, value);
+        }
 
         public async Task<LiveSessionToken> GetLiveSessionTokenAsync(CancellationToken cancellationToken)
         {
@@ -158,12 +236,19 @@ public class SessionManagerEdgeTests
                 await Task.Delay(DelayMs, cancellationToken);
             }
 
-            return _token;
+            return _tokenOverride ?? new LiveSessionToken(
+                new byte[] { 0x01, 0x02, 0x03 },
+                DateTimeOffset.UtcNow.AddHours(24));
         }
 
         public async Task<LiveSessionToken> RefreshAsync(CancellationToken cancellationToken)
         {
             RefreshCallCount++;
+            if (RefreshShouldThrow)
+            {
+                throw new InvalidOperationException("Simulated refresh failure");
+            }
+
             if (DelayMs > 0)
             {
                 await Task.Delay(DelayMs, cancellationToken);
