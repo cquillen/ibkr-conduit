@@ -25,7 +25,6 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario01_AccountDiscovery");
 
             // Step 1: Get accounts list — this triggers lazy session initialization
             var accountsResult = await client.Accounts.GetAccountsAsync(CT);
@@ -101,7 +100,6 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
             var resetResult = await sessionApi.ResetSuppressedQuestionsAsync(CT);
             resetResult.ShouldNotBeNull();
 
-            StopRecording();
         }
         finally
         {
@@ -116,7 +114,6 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario01_SearchNonExistent");
 
             // IBKR may return an empty list or throw for non-existent patterns.
             // We handle both cases.
@@ -132,7 +129,6 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
                 ((int)ex.StatusCode).ShouldBeGreaterThan(0);
             }
 
-            StopRecording();
         }
         finally
         {
@@ -147,7 +143,6 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario01_InvalidAccountInfo");
 
             // IBKR may return HTTP error or 200 with error body for invalid account IDs.
             try
@@ -165,7 +160,6 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for invalid account IDs.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -180,7 +174,6 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario01_InvalidSwitchAccount");
 
             // IBKR may return HTTP error or 200 with error body for invalid account IDs.
             try
@@ -196,7 +189,6 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for invalid account switch.
             }
 
-            StopRecording();
         }
         finally
         {

@@ -23,7 +23,6 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario05_PortfolioDeepDive");
 
             // Step 1: Get portfolio accounts
             var accounts = await client.Portfolio.GetAccountsAsync(CT);
@@ -150,7 +149,6 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
                 // (non-FA/IBroker) accounts instead of an empty list.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -165,7 +163,6 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario05_NonExistentConid");
 
             var accounts = await client.Portfolio.GetAccountsAsync(CT);
             accounts.ShouldNotBeEmpty();
@@ -185,7 +182,6 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
                 // in the portfolio instead of an empty list.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -200,7 +196,6 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario05_PageBeyondRange");
 
             var accounts = await client.Portfolio.GetAccountsAsync(CT);
             accounts.ShouldNotBeEmpty();
@@ -212,7 +207,6 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
             var positions = await client.Portfolio.GetPositionsAsync(accountId, 999, CT);
             positions.ShouldNotBeNull();
 
-            StopRecording();
         }
         finally
         {
@@ -227,7 +221,6 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario05_EmptyAccountList");
 
             // Empty account list should either return a valid (possibly empty) response
             // or throw an ApiException — both are acceptable.
@@ -243,7 +236,6 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
                 // given an empty account list instead of an empty response.
             }
 
-            StopRecording();
         }
         finally
         {

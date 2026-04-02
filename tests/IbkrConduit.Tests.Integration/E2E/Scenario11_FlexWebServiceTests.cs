@@ -36,22 +36,13 @@ public sealed class Scenario11_FlexWebServiceTests : E2eScenarioBase
         var client = CreateFlexClient();
         await using var provider = client.Provider;
 
-        try
-        {
-            StartRecording("Scenario11_FlexWebService_ExecuteQuery");
+        // Step 1: Execute query — handles send + poll internally
+        var result = await client.Client.Flex.ExecuteQueryAsync(queryId, CT);
 
-            // Step 1: Execute query — handles send + poll internally
-            var result = await client.Client.Flex.ExecuteQueryAsync(queryId, CT);
-
-            // Step 2: Verify the result contains the raw XML and FlexStatements
-            result.RawXml.ShouldNotBeNull("Flex query should return an XML document");
-            result.RawXml.Descendants("FlexStatements").ShouldNotBeEmpty(
-                "Flex query result should contain FlexStatements element");
-        }
-        finally
-        {
-            StopRecording();
-        }
+        // Step 2: Verify the result contains the raw XML and FlexStatements
+        result.RawXml.ShouldNotBeNull("Flex query should return an XML document");
+        result.RawXml.Descendants("FlexStatements").ShouldNotBeEmpty(
+            "Flex query result should contain FlexStatements element");
     }
 
     /// <summary>
@@ -63,20 +54,11 @@ public sealed class Scenario11_FlexWebServiceTests : E2eScenarioBase
         var client = CreateFlexClient();
         await using var provider = client.Provider;
 
-        try
-        {
-            StartRecording("Scenario11_FlexWebService_InvalidQueryId");
+        var ex = await Should.ThrowAsync<FlexQueryException>(
+            () => client.Client.Flex.ExecuteQueryAsync("999999", CT));
 
-            var ex = await Should.ThrowAsync<FlexQueryException>(
-                () => client.Client.Flex.ExecuteQueryAsync("999999", CT));
-
-            ex.ErrorCode.ShouldBeGreaterThan(0, "Error code should be a positive integer");
-            ex.Message.ShouldNotBeNullOrWhiteSpace("Error message should describe the failure");
-        }
-        finally
-        {
-            StopRecording();
-        }
+        ex.ErrorCode.ShouldBeGreaterThan(0, "Error code should be a positive integer");
+        ex.Message.ShouldNotBeNullOrWhiteSpace("Error message should describe the failure");
     }
 
     private (ServiceProvider Provider, IIbkrClient Client) CreateFlexClient()
@@ -89,17 +71,6 @@ public sealed class Scenario11_FlexWebServiceTests : E2eScenarioBase
         {
             FlexToken = flexToken,
         });
-
-        // Register recording infrastructure so Flex HTTP calls are captured
-        services.AddSingleton(_recordingContext);
-        if (string.Equals(
-                Environment.GetEnvironmentVariable("IBKR_RECORD_RESPONSES"),
-                "true", StringComparison.OrdinalIgnoreCase))
-        {
-            services.AddTransient<Microsoft.Extensions.Http.IHttpMessageHandlerBuilderFilter>(sp =>
-                new Recording.RecordingHandlerFilter(
-                    sp.GetRequiredService<Recording.RecordingContext>(), true));
-        }
 
         var provider = services.BuildServiceProvider();
         var ibkrClient = provider.GetRequiredService<IIbkrClient>();

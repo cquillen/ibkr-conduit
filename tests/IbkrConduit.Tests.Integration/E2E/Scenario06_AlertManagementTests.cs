@@ -27,7 +27,6 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario06_AlertManagement");
 
             // Step 1: Get account ID
             var accounts = await client.Portfolio.GetAccountsAsync(CT);
@@ -72,7 +71,6 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
             {
                 // IBKR QUIRK: Alert creation returns 403/503/500 on some paper account configurations.
                 // Skip the rest of the workflow — we cannot test CRUD without a successful create.
-                StopRecording();
                 return;
             }
 
@@ -114,7 +112,6 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for deleting a non-existent alert.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -153,7 +150,6 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario06_GetAlertDetail_NonExistent");
 
             try
             {
@@ -167,7 +163,6 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for non-existent alert IDs.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -182,7 +177,6 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario06_DeleteAlert_NonExistent");
 
             var accounts = await client.Portfolio.GetAccountsAsync(CT);
             var accountId = accounts[0].Id;
@@ -199,7 +193,6 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for non-existent alert IDs.
             }
 
-            StopRecording();
         }
         finally
         {

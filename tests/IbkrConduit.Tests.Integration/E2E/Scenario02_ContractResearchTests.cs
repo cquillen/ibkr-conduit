@@ -26,7 +26,6 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario02_ContractResearch");
 
             // Step 1: Search for AAPL
             var searchResults = await client.Contracts.SearchBySymbolAsync("AAPL", CT);
@@ -113,7 +112,6 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
             var exchangeRate = await client.Contracts.GetExchangeRateAsync("USD", "EUR", CT);
             exchangeRate.Rate.ShouldBeGreaterThan(0m, "USD/EUR rate should be positive");
 
-            StopRecording();
         }
         finally
         {
@@ -128,7 +126,6 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario02_SearchNonExistent");
 
             try
             {
@@ -142,7 +139,6 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
                 // error in Refit. This is acceptable — the symbol was not found.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -157,7 +153,6 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario02_InvalidConidDetails");
 
             try
             {
@@ -172,7 +167,6 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for invalid conid.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -187,7 +181,6 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario02_SameCurrencyRate");
 
             try
             {
@@ -202,7 +195,6 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
                 // IBKR may reject same-currency exchange rate requests.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -217,7 +209,6 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario02_InvalidConidTradingRules");
 
             try
             {
@@ -233,7 +224,6 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for invalid conid.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -248,7 +238,6 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario02_InvalidMonthStrikes");
 
             // Search for AAPL first to get a valid conid
             var searchResults = await client.Contracts.SearchBySymbolAsync("AAPL", CT);
@@ -270,7 +259,6 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for invalid month format.
             }
 
-            StopRecording();
         }
         finally
         {

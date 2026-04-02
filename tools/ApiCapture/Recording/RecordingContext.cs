@@ -1,6 +1,6 @@
 using System.Threading;
 
-namespace IbkrConduit.Tests.Integration.Recording;
+namespace ApiCapture.Recording;
 
 /// <summary>
 /// Thread-safe context for tracking the current recording scenario and step counter.

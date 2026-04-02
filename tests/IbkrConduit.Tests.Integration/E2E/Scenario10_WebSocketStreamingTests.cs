@@ -26,7 +26,6 @@ public sealed class Scenario10_WebSocketStreamingTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario10_WebSocketStreaming");
 
             // Step 1: Initialize session by getting accounts
             var accounts = await client.Portfolio.GetAccountsAsync(CT);
@@ -99,7 +98,6 @@ public sealed class Scenario10_WebSocketStreamingTests : E2eScenarioBase
                 // No data received within timeout.
             }
 
-            StopRecording();
 
             // Step 8: Dispose client (handles disconnect)
         }
@@ -116,7 +114,6 @@ public sealed class Scenario10_WebSocketStreamingTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario10_InvalidTopic");
 
             // Initialize session
             var accounts = await client.Portfolio.GetAccountsAsync(CT);
@@ -147,7 +144,6 @@ public sealed class Scenario10_WebSocketStreamingTests : E2eScenarioBase
                 // Expected: no data for invalid conid.
             }
 
-            StopRecording();
         }
         finally
         {

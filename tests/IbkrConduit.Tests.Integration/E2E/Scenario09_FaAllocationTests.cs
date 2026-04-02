@@ -29,7 +29,6 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario09_FaAllocation");
 
             // Step 1: Probe — get allocation accounts. Skip if FA not supported.
             AllocationAccountsResponse accounts;
@@ -40,7 +39,6 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
             catch (ApiException)
             {
                 // FA allocation is not supported on this account type (e.g., individual paper account).
-                StopRecording();
                 return;
             }
 
@@ -50,7 +48,6 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
             // We need at least one sub-account to create a group.
             if (accounts.Accounts.Count == 0)
             {
-                StopRecording();
                 return;
             }
 
@@ -116,7 +113,6 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
             deleteResponse.ShouldNotBeNull();
             deleteResponse.Success.ShouldBeTrue("Group deletion should succeed");
 
-            StopRecording();
         }
         finally
         {
@@ -172,7 +168,6 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario09_GetGroup_NonExistent");
 
             // Probe: skip if FA allocation is not supported
             try
@@ -181,7 +176,6 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
             }
             catch (ApiException)
             {
-                StopRecording();
                 return;
             }
 
@@ -197,7 +191,6 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for non-existent group names.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -212,7 +205,6 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario09_DeleteGroup_NonExistent");
 
             // Probe: skip if FA allocation is not supported
             try
@@ -221,7 +213,6 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
             }
             catch (ApiException)
             {
-                StopRecording();
                 return;
             }
 
@@ -237,7 +228,6 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for non-existent group names.
             }
 
-            StopRecording();
         }
         finally
         {

@@ -25,7 +25,6 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario03_MarketDataScanners");
 
             // Step 1: Search for SPY to get conid
             var searchResults = await client.Contracts.SearchBySymbolAsync("SPY", CT);
@@ -95,7 +94,6 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
             var unsubAllResult = await client.MarketData.UnsubscribeAllAsync(CT);
             unsubAllResult.ShouldNotBeNull("UnsubscribeAll response should not be null");
 
-            StopRecording();
         }
         finally
         {
@@ -120,7 +118,6 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario03_InvalidConidSnapshot");
 
             try
             {
@@ -136,7 +133,6 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for invalid conid.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -151,7 +147,6 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario03_InvalidPeriodHistory");
 
             // Search for SPY first to get a valid conid
             var searchResults = await client.Contracts.SearchBySymbolAsync("SPY", CT);
@@ -172,7 +167,6 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for invalid period format.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -187,7 +181,6 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario03_UnsubscribeNeverSubscribed");
 
             // Unsubscribing from a conid we never subscribed to should not crash.
             try
@@ -200,7 +193,6 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
                 // Some IBKR setups may return an error for unsubscribing unknown conids.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -215,7 +207,6 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario03_InvalidScannerType");
 
             try
             {
@@ -230,7 +221,6 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for invalid scan type.
             }
 
-            StopRecording();
         }
         finally
         {
