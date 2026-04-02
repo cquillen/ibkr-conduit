@@ -32,30 +32,4 @@ public class AccountOperations : IAccountOperations
         return await _api.SwitchAccountAsync(new SwitchAccountRequest(accountId), cancellationToken);
     }
 
-    /// <inheritdoc />
-    public async Task<DynAccountResponse> SetDynAccountAsync(string accountId,
-        CancellationToken cancellationToken = default)
-    {
-        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.SetDynAccount");
-        activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.SetDynAccountAsync(new DynAccountRequest(accountId), cancellationToken);
-    }
-
-    /// <inheritdoc />
-    public async Task<List<AccountSearchResult>> SearchAccountsAsync(string pattern,
-        CancellationToken cancellationToken = default)
-    {
-        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.SearchAccounts");
-        activity?.SetTag("pattern", pattern);
-        return await _api.SearchAccountsAsync(pattern, cancellationToken);
-    }
-
-    /// <inheritdoc />
-    public async Task<IserverAccountInfo> GetAccountInfoAsync(string accountId,
-        CancellationToken cancellationToken = default)
-    {
-        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccountInfo");
-        activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetAccountInfoAsync(accountId, cancellationToken);
-    }
 }

@@ -41,44 +41,4 @@ public class AccountOperationsTests
             TestContext.Current.CancellationToken);
     }
 
-    [Fact]
-    public async Task SetDynAccountAsync_DelegatesToApi()
-    {
-        var expected = new DynAccountResponse(true, "U789");
-        _api.SetDynAccountAsync(Arg.Any<DynAccountRequest>(), Arg.Any<CancellationToken>()).Returns(expected);
-
-        var result = await _sut.SetDynAccountAsync("U789", TestContext.Current.CancellationToken);
-
-        result.ShouldBeSameAs(expected);
-        await _api.Received(1).SetDynAccountAsync(
-            Arg.Is<DynAccountRequest>(r => r.AcctId == "U789"),
-            TestContext.Current.CancellationToken);
-    }
-
-    [Fact]
-    public async Task SearchAccountsAsync_DelegatesToApi()
-    {
-        var expected = new List<AccountSearchResult>
-        {
-            new("U123", "Test Account", "INDIVIDUAL"),
-        };
-        _api.SearchAccountsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
-
-        var result = await _sut.SearchAccountsAsync("U123", TestContext.Current.CancellationToken);
-
-        result.ShouldBeSameAs(expected);
-        await _api.Received(1).SearchAccountsAsync("U123", TestContext.Current.CancellationToken);
-    }
-
-    [Fact]
-    public async Task GetAccountInfoAsync_DelegatesToApi()
-    {
-        var expected = new IserverAccountInfo("U123", "Test Account", "INDIVIDUAL");
-        _api.GetAccountInfoAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
-
-        var result = await _sut.GetAccountInfoAsync("U123", TestContext.Current.CancellationToken);
-
-        result.ShouldBeSameAs(expected);
-        await _api.Received(1).GetAccountInfoAsync("U123", TestContext.Current.CancellationToken);
-    }
 }

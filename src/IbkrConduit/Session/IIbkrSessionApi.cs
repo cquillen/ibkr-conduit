@@ -46,16 +46,4 @@ public interface IIbkrSessionApi
     [Get("/v1/api/iserver/auth/status")]
     Task<AuthStatusResponse> GetAuthStatusAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Triggers reauthentication of the brokerage session.
-    /// </summary>
-    [Obsolete("Deprecated by IBKR. Prefer using /iserver/auth/ssodh/init instead.")]
-    [Post("/v1/api/iserver/reauthenticate")]
-    Task<ReauthenticateResponse> ReauthenticateAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Validates the current SSO session.
-    /// </summary>
-    [Get("/v1/api/sso/validate")]
-    Task<SsoValidateResponse> ValidateSsoAsync(CancellationToken cancellationToken = default);
 }
