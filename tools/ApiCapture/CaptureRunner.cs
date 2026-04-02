@@ -14,16 +14,22 @@ public static class CaptureRunner
     /// </summary>
     /// <param name="ctx">The initialized capture context.</param>
     /// <param name="entries">The endpoint entries to execute.</param>
+    /// <param name="delayMs">Delay in milliseconds between requests to respect rate limits. Default 1000ms.</param>
     /// <returns>A summary of results.</returns>
-    public static async Task<CaptureResult> RunAsync(CaptureContext ctx, IReadOnlyList<EndpointEntry> entries)
+    public static async Task<CaptureResult> RunAsync(
+        CaptureContext ctx, IReadOnlyList<EndpointEntry> entries, int delayMs = 1000)
     {
         var passed = 0;
         var failed = 0;
         var errors = 0;
+        var total = entries.Count;
+        var current = 0;
         string? currentCategory = null;
 
         foreach (var entry in entries)
         {
+            current++;
+
             // Switch recording scenario when category changes
             if (entry.Category != currentCategory)
             {
@@ -39,7 +45,7 @@ public static class CaptureRunner
 
             try
             {
-                Console.Write($"  {entry.Method.Method} {url} ");
+                Console.Write($"  [{current}/{total}] {entry.Method.Method} {url} ");
 
                 using var request = new HttpRequestMessage(entry.Method, url);
                 if (body is not null)
@@ -71,6 +77,12 @@ public static class CaptureRunner
 
                 // Delete the recording file on exception
                 DeleteLastRecording(ctx);
+            }
+
+            // Rate limit between requests
+            if (current < total && delayMs > 0)
+            {
+                await Task.Delay(delayMs);
             }
         }
 
