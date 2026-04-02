@@ -26,17 +26,7 @@ public static class AccountsCapture
             Console.WriteLine($"    -> ERROR: {ex.Message}");
         }
 
-        try
-        {
-            Console.WriteLine($"  GET /v1/api/iserver/account/{ctx.AccountId}");
-            var response = await ctx.CaptureClient.GetAsync($"/v1/api/iserver/account/{ctx.AccountId}");
-            Console.WriteLine($"    -> {(int)response.StatusCode}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"    -> ERROR: {ex.Message}");
-        }
-
+        // GET /iserver/account/{accountId} — endpoint does not exist in IBKR API (returns 404).
         // GET /iserver/account/search — DYNACCT-only, not supported.
         // POST /iserver/dynaccount — DYNACCT-only, not supported.
 
