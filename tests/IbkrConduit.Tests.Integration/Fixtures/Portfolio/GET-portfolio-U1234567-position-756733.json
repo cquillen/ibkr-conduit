@@ -16,13 +16,13 @@
         "conid": 756733,
         "contractDesc": "SPY",
         "position": 44.0,
-        "mktPrice": 655.7769165,
-        "mktValue": 28854.18,
+        "mktPrice": 656.25341795,
+        "mktValue": 28875.15,
         "currency": "USD",
         "avgCost": 652.47477275,
         "avgPrice": 652.47477275,
         "realizedPnl": 0.0,
-        "unrealizedPnl": 145.29,
+        "unrealizedPnl": 166.26,
         "exchs": null,
         "expiry": null,
         "putOrCall": null,
@@ -66,12 +66,12 @@
         "isUS": true,
         "isEventContract": false,
         "pageSize": 100,
-        "baseMktValue": 28854.18,
-        "baseMktPrice": 655.7769165,
+        "baseMktValue": 28875.15,
+        "baseMktPrice": 656.25341795,
         "baseAvgCost": 652.47477275,
         "baseAvgPrice": 652.47477275,
         "baseRealizedPnl": 0.0,
-        "baseUnrealizedPnl": 145.29
+        "baseUnrealizedPnl": 166.26
       }
     ]
   }
