@@ -37,16 +37,8 @@ public static class AccountsCapture
             Console.WriteLine($"    -> ERROR: {ex.Message}");
         }
 
-        try
-        {
-            Console.WriteLine($"  GET /v1/api/iserver/account/search/{ctx.AccountId}");
-            var response = await ctx.CaptureClient.GetAsync($"/v1/api/iserver/account/search/{ctx.AccountId}");
-            Console.WriteLine($"    -> {(int)response.StatusCode}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"    -> ERROR: {ex.Message}");
-        }
+        // GET /iserver/account/search — DYNACCT-only, not supported.
+        // POST /iserver/dynaccount — DYNACCT-only, not supported.
 
         try
         {
@@ -56,21 +48,6 @@ public static class AccountsCapture
                 System.Text.Encoding.UTF8,
                 "application/json");
             var response = await ctx.CaptureClient.PostAsync("/v1/api/iserver/account", switchContent);
-            Console.WriteLine($"    -> {(int)response.StatusCode}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"    -> ERROR: {ex.Message}");
-        }
-
-        try
-        {
-            Console.WriteLine("  POST /v1/api/iserver/dynaccount");
-            var dynaContent = new StringContent(
-                $$$"""{"acctId":"{{{ctx.AccountId}}}"}""",
-                System.Text.Encoding.UTF8,
-                "application/json");
-            var response = await ctx.CaptureClient.PostAsync("/v1/api/iserver/dynaccount", dynaContent);
             Console.WriteLine($"    -> {(int)response.StatusCode}");
         }
         catch (Exception ex)
