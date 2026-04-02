@@ -53,16 +53,8 @@ public static class SessionCapture
             Console.WriteLine($"    -> ERROR: {ex.Message}");
         }
 
-        try
-        {
-            Console.WriteLine("  GET /v1/api/sso/validate");
-            var response = await ctx.CaptureClient.GetAsync("/v1/api/sso/validate");
-            Console.WriteLine($"    -> {(int)response.StatusCode}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"    -> ERROR: {ex.Message}");
-        }
+        // GET /sso/validate is skipped — only works for portal and OAuth2 clients, not OAuth 1.0a.
+        // POST /iserver/reauthenticate is skipped — deprecated endpoint, returns 404.
 
         try
         {
@@ -84,18 +76,6 @@ public static class SessionCapture
             Console.WriteLine("  POST /v1/api/iserver/questions/suppress/reset");
             var resetContent = new StringContent(string.Empty);
             var response = await ctx.CaptureClient.PostAsync("/v1/api/iserver/questions/suppress/reset", resetContent);
-            Console.WriteLine($"    -> {(int)response.StatusCode}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"    -> ERROR: {ex.Message}");
-        }
-
-        try
-        {
-            Console.WriteLine("  POST /v1/api/iserver/reauthenticate");
-            var reauthContent = new StringContent(string.Empty);
-            var response = await ctx.CaptureClient.PostAsync("/v1/api/iserver/reauthenticate", reauthContent);
             Console.WriteLine($"    -> {(int)response.StatusCode}");
         }
         catch (Exception ex)
