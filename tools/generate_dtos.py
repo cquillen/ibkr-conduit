@@ -166,6 +166,9 @@ def parse_recording(file_path: Path) -> dict[str, Any] | None:
 
 FieldMap = dict[str, CSharpType]
 
+# Nested record info: maps field_name -> (child FieldMap, child nested dict, is_array)
+NestedMap = dict[str, tuple[FieldMap, "NestedMap", bool]]
+
 
 def merge_fields(existing: FieldMap, new_fields: FieldMap) -> FieldMap:
     """Merge new field observations into existing, widening types."""
@@ -186,12 +189,38 @@ def merge_fields(existing: FieldMap, new_fields: FieldMap) -> FieldMap:
     return merged
 
 
-def extract_fields(obj: dict[str, Any]) -> FieldMap:
-    """Extract field names and inferred types from a JSON object."""
+def merge_nested(existing: NestedMap, new_nested: NestedMap) -> NestedMap:
+    """Merge nested record observations, widening child fields."""
+    merged = dict(existing)
+    for name, (new_fields, new_children, new_is_array) in new_nested.items():
+        if name in merged:
+            old_fields, old_children, old_is_array = merged[name]
+            merged[name] = (
+                merge_fields(old_fields, new_fields),
+                merge_nested(old_children, new_children),
+                old_is_array or new_is_array,
+            )
+        else:
+            merged[name] = (new_fields, new_children, new_is_array)
+    return merged
+
+
+def extract_fields(obj: dict[str, Any]) -> tuple[FieldMap, NestedMap]:
+    """Extract field names, inferred types, and nested record info from a JSON object."""
     fields: FieldMap = {}
+    nested: NestedMap = {}
     for key, value in obj.items():
-        fields[key] = infer_type(value)
-    return fields
+        if isinstance(value, dict):
+            child_fields, child_nested = extract_fields(value)
+            fields[key] = CSharpType("__nested__")
+            nested[key] = (child_fields, child_nested, False)
+        elif isinstance(value, list) and value and isinstance(value[0], dict):
+            child_fields, child_nested = extract_fields(value[0])
+            fields[key] = CSharpType("__nested_list__")
+            nested[key] = (child_fields, child_nested, True)
+        else:
+            fields[key] = infer_type(value)
+    return fields, nested
 
 
 # ---------------------------------------------------------------------------
@@ -206,6 +235,7 @@ class EndpointInfo:
         self.method = method
         self.path = path
         self.fields: FieldMap = {}
+        self.nested: NestedMap = {}
         self.is_array = False
         self.sample_count = 0
 
@@ -219,11 +249,13 @@ class EndpointInfo:
             items = [body]
 
         for item in items:
-            new_fields = extract_fields(item)
+            new_fields, new_nested = extract_fields(item)
             if self.sample_count == 0 and not self.fields:
                 self.fields = new_fields
+                self.nested = new_nested
             else:
                 self.fields = merge_fields(self.fields, new_fields)
+                self.nested = merge_nested(self.nested, new_nested)
 
         self.sample_count += 1
 
@@ -463,6 +495,71 @@ def lookup_field_description(
 # ---------------------------------------------------------------------------
 
 
+def _generate_record_block(
+    record_name: str,
+    fields: FieldMap,
+    nested: NestedMap,
+    summary_lines: list[str],
+) -> list[str]:
+    """Generate lines for a single record block (no usings/namespace).
+
+    Also appends nested child record blocks after the closing brace.
+    Returns the list of C# source lines.
+    """
+    lines: list[str] = []
+    for sl in summary_lines:
+        lines.append(sl)
+    lines.append("[ExcludeFromCodeCoverage]")
+    lines.append(f"public sealed record {record_name}")
+    lines.append("{")
+
+    for field_name, field_type in fields.items():
+        prop_name = field_to_property_name(field_name)
+
+        # Resolve nested types
+        if field_type.base == "__nested__" and field_name in nested:
+            child_record_name = f"{record_name}{prop_name}"
+            type_str = child_record_name
+            if field_type.nullable:
+                type_str += "?"
+        elif field_type.base == "__nested_list__" and field_name in nested:
+            child_record_name = f"{record_name}{prop_name}"
+            type_str = f"List<{child_record_name}>"
+            if field_type.nullable:
+                type_str += "?"
+        else:
+            type_str = str(field_type)
+            is_value_type = field_type.base in ("bool", "long", "decimal")
+            if field_type.nullable and not is_value_type:
+                if not type_str.endswith("?"):
+                    type_str += "?"
+
+        lines.append(f"    [JsonPropertyName(\"{field_name}\")]")
+        lines.append(f"    public {type_str} {prop_name} {{ get; init; }}")
+        lines.append("")
+
+    lines.append("    [JsonExtensionData]")
+    lines.append("    public Dictionary<string, JsonElement>? ExtensionData { get; init; }")
+    lines.append("}")
+
+    # Emit nested child records
+    for field_name, (child_fields, child_nested, _is_array) in nested.items():
+        prop_name = field_to_property_name(field_name)
+        child_record_name = f"{record_name}{prop_name}"
+        lines.append("")
+        child_summary = [
+            "/// <summary>",
+            f"/// Nested object for the <c>{field_name}</c> field.",
+            "/// </summary>",
+        ]
+        child_lines = _generate_record_block(
+            child_record_name, child_fields, child_nested, child_summary,
+        )
+        lines.extend(child_lines)
+
+    return lines
+
+
 def generate_record(endpoint: EndpointInfo, doc_fields: dict[str, dict[str, str]] | None = None) -> tuple[str, str, str]:
     """Generate a C# record source file.
 
@@ -482,42 +579,38 @@ def generate_record(endpoint: EndpointInfo, doc_fields: dict[str, dict[str, str]
     lines.append("")
     lines.append(f"namespace {namespace};")
     lines.append("")
-    lines.append("/// <summary>")
-    lines.append(f"/// Response DTO for {endpoint.method} {endpoint.path}.")
+
+    summary = [
+        "/// <summary>",
+        f"/// Response DTO for {endpoint.method} {endpoint.path}.",
+    ]
     if endpoint.is_array:
-        lines.append("/// The wire response is a JSON array of these objects.")
-    lines.append("/// </summary>")
-    lines.append("[ExcludeFromCodeCoverage]")
-    lines.append(f"public sealed record {record_name}")
-    lines.append("{")
+        summary.append("/// The wire response is a JSON array of these objects.")
+    summary.append("/// </summary>")
 
+    # Inject API doc comments into fields before generating
     endpoint_key = f"{endpoint.method} {endpoint.path}"
-    for field_name, field_type in endpoint.fields.items():
-        prop_name = field_to_property_name(field_name)
-        type_str = str(field_type)
+    # We handle doc comments in a post-pass since _generate_record_block doesn't know about docs
+    # For now, generate without per-field doc comments from API docs in nested records
+    # but add them for the top-level record via a simple approach
 
-        # Reference types are inherently nullable via ?
-        # Value types need ? suffix (already handled by CSharpType)
-        is_value_type = field_type.base in ("bool", "long", "decimal")
-        if field_type.nullable and not is_value_type:
-            # Reference types: ensure trailing ?
-            if not type_str.endswith("?"):
-                type_str += "?"
+    record_lines = _generate_record_block(record_name, endpoint.fields, endpoint.nested, summary)
 
-        # Add XML doc comment from API docs if available
-        desc = None
-        if doc_fields:
-            desc = lookup_field_description(doc_fields, endpoint_key, field_name)
-        if desc:
-            lines.append(f"    /// <summary>{desc}.</summary>")
+    # Post-process: inject doc comments for top-level fields from API docs
+    if doc_fields:
+        processed: list[str] = []
+        for line in record_lines:
+            # Check if this is a JsonPropertyName line for a top-level field
+            m = re.match(r'^    \[JsonPropertyName\("([^"]+)"\)\]$', line)
+            if m:
+                field_name = m.group(1)
+                desc = lookup_field_description(doc_fields, endpoint_key, field_name)
+                if desc:
+                    processed.append(f"    /// <summary>{desc}.</summary>")
+            processed.append(line)
+        record_lines = processed
 
-        lines.append(f"    [JsonPropertyName(\"{field_name}\")]")
-        lines.append(f"    public {type_str} {prop_name} {{ get; init; }}")
-        lines.append("")
-
-    lines.append("    [JsonExtensionData]")
-    lines.append("    public Dictionary<string, JsonElement>? ExtensionData { get; init; }")
-    lines.append("}")
+    lines.extend(record_lines)
     lines.append("")
 
     source = "\n".join(lines)
