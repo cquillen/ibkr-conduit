@@ -1,0 +1,54 @@
+{
+  "Request": {
+    "Path": "/v1/api/portfolio2/U1234567/positions",
+    "Methods": [
+      "GET"
+    ]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": [
+      {
+        "position": 3.0,
+        "conid": "320227571",
+        "avgCost": 584.3133333333334,
+        "avgPrice": 584.3133333333334,
+        "currency": "USD",
+        "description": "QQQ",
+        "isLastToLoq": false,
+        "marketPrice": 584.72998046875,
+        "marketValue": 1754.18994140625,
+        "realizedPnl": 0.0,
+        "secType": "STK",
+        "timestamp": 1775160863,
+        "unrealizedPnl": 1.2499414062499454,
+        "assetClass": "STK",
+        "sector": null,
+        "group": null,
+        "model": ""
+      },
+      {
+        "position": 44.0,
+        "conid": "756733",
+        "avgCost": 652.4747727272727,
+        "avgPrice": 652.4747727272727,
+        "currency": "USD",
+        "description": "SPY",
+        "isLastToLoq": false,
+        "marketPrice": 655.7769165039062,
+        "marketValue": 28854.184326171875,
+        "realizedPnl": 0.0,
+        "secType": "STK",
+        "timestamp": 1775160863,
+        "unrealizedPnl": 145.29432617187558,
+        "assetClass": "STK",
+        "sector": null,
+        "group": null,
+        "model": ""
+      }
+    ]
+  }
+}

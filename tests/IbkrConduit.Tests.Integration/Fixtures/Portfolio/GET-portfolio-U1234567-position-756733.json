@@ -1,0 +1,78 @@
+{
+  "Request": {
+    "Path": "/v1/api/portfolio/U1234567/position/756733",
+    "Methods": [
+      "GET"
+    ]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": [
+      {
+        "acctId": "U1234567",
+        "conid": 756733,
+        "contractDesc": "SPY",
+        "position": 44.0,
+        "mktPrice": 655.7769165,
+        "mktValue": 28854.18,
+        "currency": "USD",
+        "avgCost": 652.47477275,
+        "avgPrice": 652.47477275,
+        "realizedPnl": 0.0,
+        "unrealizedPnl": 145.29,
+        "exchs": null,
+        "expiry": null,
+        "putOrCall": null,
+        "multiplier": 0.0,
+        "strike": "0",
+        "exerciseStyle": null,
+        "conExchMap": [],
+        "assetClass": "STK",
+        "undConid": 0,
+        "model": "",
+        "incrementRules": [
+          {
+            "lowerEdge": 0.0,
+            "increment": 0.01
+          }
+        ],
+        "displayRule": {
+          "magnification": 0,
+          "displayRuleStep": [
+            {
+              "decimalDigits": 2,
+              "lowerEdge": 0.0,
+              "wholeDigits": 4
+            }
+          ]
+        },
+        "time": 23,
+        "chineseName": "&#x9053;&#x5BCC;SPDR&#x6807;&#x666E;500 ETF&#x4FE1;&#x6258;",
+        "allExchanges": "AMEX,NYSE,CBOE,PHLX,CHX,ARCA,ISLAND,ISE,IDEAL,NASDAQQ,DRCTEDGE,BEX,BATS,NITEECN,EDGEA,CSFBALGO,TRADEWEB,PSX,BYX,ITG,PDQ,IBKRATS,CITADEL,NYSEDARK,MIAX,IBDARK,CITADELDP,NASDDARK,IEX,SUMMER,FINRA,LIQITG,UBSDARK,BTIG,VIRTU,JEFF,OPCO,DBK,JPMC,EDGX,JANE,FRACSHARE,RBCALGO,VIRTUDP,FOXRIVER,NITEEXST,PEARL,GSDARK,NITERTL,NYSENAT,IEXMID,HRT,FLOWTRADE,HRTDP,JANELP,PEAK6,CTDLZERO,HRTMID,JANEZERO,HRTEXST,IMCLP,LTSE,SOCGENDP,MEMX,INTELCROS,VIRTUBYIN,JUMPTRADE,NITEZERO,XTXEXST,XTXDP,XTXMID,COWENLP,BARCDP,JUMPLP,OLDMCLP,RBCCMALP,WALLBETH,IBEOS,JONES,GSLP,BLUEOCEAN,USIBSILP,OVERNIGHT,JANEMID,IBATSEOS,HRTZERO,VIRTUALGO,G1XLP,VIRTUMID,GLOBALXLP,CTDLMID,TPLUS0,JUMPMID,CLOSEOUT,T24X",
+        "listingExchange": "ARCA",
+        "countryCode": "US",
+        "name": "SS SPDR S&P 500 ETF TRUST-US",
+        "lastTradingDay": null,
+        "group": null,
+        "sector": null,
+        "sectorGroup": null,
+        "ticker": "SPY",
+        "type": "ETF",
+        "hasOptions": true,
+        "fullName": "SPY",
+        "isUS": true,
+        "isEventContract": false,
+        "pageSize": 100,
+        "baseMktValue": 28854.18,
+        "baseMktPrice": 655.7769165,
+        "baseAvgCost": 652.47477275,
+        "baseAvgPrice": 652.47477275,
+        "baseRealizedPnl": 0.0,
+        "baseUnrealizedPnl": 145.29
+      }
+    ]
+  }
+}
