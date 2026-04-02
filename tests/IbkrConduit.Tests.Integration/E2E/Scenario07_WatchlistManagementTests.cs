@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Net;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Watchlists;
 using Refit;
 using Shouldly;
@@ -94,18 +96,9 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
                 w => w.Id == watchlistId || w.Name == testId,
                 "Watchlist list should not contain the deleted watchlist");
 
-            // Step 7: Double-delete — verify IBKR behavior
-            try
-            {
-                var doubleDeleteResponse = await client.Watchlists.DeleteWatchlistAsync(watchlistId, CT);
-
-                // IBKR QUIRK: If we get here, the API returned 200 for deleting an already-deleted watchlist.
-                doubleDeleteResponse.ShouldNotBeNull();
-            }
-            catch (ApiException)
-            {
-                // Expected: IBKR returns an HTTP error for deleting a non-existent watchlist.
-            }
+            // Step 7: Double-delete — verify IBKR returns error
+            await Should.ThrowAsync<IbkrApiException>(
+                () => client.Watchlists.DeleteWatchlistAsync(watchlistId, CT));
 
             StopRecording();
         }
@@ -153,9 +146,9 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent watchlist ID.
                 detail.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for non-existent watchlist IDs.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();
@@ -182,9 +175,9 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent watchlist.
                 result.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for non-existent watchlist IDs.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();

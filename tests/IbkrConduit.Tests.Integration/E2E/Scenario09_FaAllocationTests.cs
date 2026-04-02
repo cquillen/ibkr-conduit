@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Net;
 using IbkrConduit.Allocation;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using Refit;
 using Shouldly;
 
@@ -192,9 +194,9 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent group.
                 detail.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for non-existent group names.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();
@@ -232,9 +234,9 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent group.
                 result.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for non-existent group names.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();

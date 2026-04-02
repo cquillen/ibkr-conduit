@@ -2,7 +2,9 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Net;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Fyi;
 using Refit;
 using Shouldly;
@@ -221,9 +223,9 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 // IBKR QUIRK: If we get here, the API returned 200 for an invalid typecode.
                 result.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for invalid typecodes.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();
@@ -250,9 +252,9 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 // IBKR QUIRK: If we get here, the API returned 200 for an invalid typecode.
                 result.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for invalid typecodes.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();
@@ -279,9 +281,9 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent notification ID.
                 result.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for non-existent notification IDs.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();
@@ -307,9 +309,9 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
 
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent device ID.
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for non-existent device IDs.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();
