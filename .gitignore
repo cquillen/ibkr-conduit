@@ -17,8 +17,9 @@ project.lock.json
 TestResults/
 coverage/
 
-# E2E response recordings (captured from real IBKR paper account)
+# API response recordings (captured from real IBKR paper account — contains PII)
 Recordings/
+recordings/
 
 # Visual Studio
 .vs/
