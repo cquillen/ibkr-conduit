@@ -28,9 +28,20 @@ services.AddIbkrClient(credentials, new IbkrClientOptions { FlexToken = flexToke
 await using var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<IIbkrClient>();
 
-// Execute the Flex Query to retrieve trades
-Console.WriteLine($"Executing Flex Query {flexQueryId}...");
-var result = await client.Flex.ExecuteQueryAsync(flexQueryId);
+// Execute the Flex Query to retrieve trades.
+// Usage: dotnet run GetTrades.cs                       (uses query template default period)
+//        dotnet run GetTrades.cs -- 20260301 20260402   (custom date range: fromDate toDate)
+IbkrConduit.Flex.FlexQueryResult result;
+if (args.Length >= 2)
+{
+    Console.WriteLine($"Executing Flex Query {flexQueryId} ({args[0]} to {args[1]})...");
+    result = await client.Flex.ExecuteQueryAsync(flexQueryId, args[0], args[1]);
+}
+else
+{
+    Console.WriteLine($"Executing Flex Query {flexQueryId} (default period)...");
+    result = await client.Flex.ExecuteQueryAsync(flexQueryId);
+}
 
 if (result.Trades.Count == 0)
 {
