@@ -302,10 +302,16 @@ public static class EndpointTable
         new("Orders", "GetLiveOrders_Success", HttpMethod.Get,
             "/v1/api/iserver/account/orders", 200),
 
-        // Place a limit order at $1.00 (won't fill)
+        // Place a limit order at $1.00 (won't fill) — captures replyId for confirmation
         new("Orders", "PlaceOrder_LimitSPY", HttpMethod.Post,
             "/v1/api/iserver/account/{accountId}/orders", 200,
             """{"orders":[{"conid":756733,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC"}]}""",
+            CaptureAs: "replyId", CaptureJsonPath: "$[0].id"),
+
+        // Confirm the order (reply to the confirmation question)
+        new("Orders", "ReplyConfirm_LimitSPY", HttpMethod.Post,
+            "/v1/api/iserver/reply/{replyId}", 200,
+            """{"confirmed":true}""",
             CaptureAs: "orderId", CaptureJsonPath: "$[0].order_id"),
 
         // WhatIf preview
@@ -317,7 +323,7 @@ public static class EndpointTable
         new("Orders", "GetOrderStatus_Placed", HttpMethod.Get,
             "/v1/api/iserver/account/order/status/{orderId}", 200),
 
-        // Get trades (may be empty)
+        // Get trades (may be empty if order hasn't filled)
         new("Orders", "GetTrades_Success", HttpMethod.Get,
             "/v1/api/iserver/account/trades", 200),
 
@@ -327,13 +333,13 @@ public static class EndpointTable
 
         // Orders — Failures
         new("Orders", "GetOrderStatus_NonExistent", HttpMethod.Get,
-            "/v1/api/iserver/account/order/status/000000000", 500),
+            "/v1/api/iserver/account/order/status/000000000", 400),
 
         new("Orders", "CancelOrder_NonExistent", HttpMethod.Delete,
-            "/v1/api/iserver/account/{accountId}/order/000000000", 500),
+            "/v1/api/iserver/account/{accountId}/order/000000000", 400),
 
         new("Orders", "WhatIfOrder_InvalidConid", HttpMethod.Post,
-            "/v1/api/iserver/account/{accountId}/orders/whatif", 500,
+            "/v1/api/iserver/account/{accountId}/orders/whatif", 400,
             """{"orders":[{"conid":0,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC"}]}"""),
     ];
 }
