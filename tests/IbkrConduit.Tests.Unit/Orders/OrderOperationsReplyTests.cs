@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using IbkrConduit.Client;
 using IbkrConduit.Orders;
+using OneOf;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Orders;
@@ -128,5 +129,34 @@ public class OrderOperationsReplyTests
             () => OrderOperations.DeserializeReplyResponse("not-json"));
 
         ex.Message.ShouldContain("unexpected content");
+    }
+
+    [Fact]
+    public void ClassifyResponse_OrderIdPresent_ReturnsOrderSubmitted()
+    {
+        var response = new OrderSubmissionResponse(null, null, null, null, "12345", "Submitted");
+        var result = OrderOperations.ClassifyResponse(response);
+        var submitted = result.AsT0;
+        submitted.OrderId.ShouldBe("12345");
+        submitted.OrderStatus.ShouldBe("Submitted");
+    }
+
+    [Fact]
+    public void ClassifyResponse_QuestionPresent_ReturnsOrderConfirmationRequired()
+    {
+        var response = new OrderSubmissionResponse(
+            "reply-1", ["Are you sure?"], false, ["o163"], null, null);
+        var result = OrderOperations.ClassifyResponse(response);
+        var confirmation = result.AsT1;
+        confirmation.ReplyId.ShouldBe("reply-1");
+        confirmation.Messages.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void ClassifyResponse_NeitherPresent_Throws()
+    {
+        var response = new OrderSubmissionResponse(null, null, null, null, null, null);
+        Should.Throw<InvalidOperationException>(
+            () => OrderOperations.ClassifyResponse(response));
     }
 }

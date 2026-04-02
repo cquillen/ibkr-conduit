@@ -39,14 +39,6 @@ public record OrderRequest
 }
 
 /// <summary>
-/// Successful order placement result.
-/// </summary>
-/// <param name="OrderId">The IBKR order identifier.</param>
-/// <param name="OrderStatus">The status of the placed order.</param>
-[ExcludeFromCodeCoverage]
-public record OrderResult(string OrderId, string OrderStatus);
-
-/// <summary>
 /// Order cancellation result from the IBKR API.
 /// </summary>
 /// <param name="Message">The cancellation message.</param>

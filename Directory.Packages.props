@@ -13,6 +13,8 @@
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
     <!-- Caching -->
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.5" />
+    <!-- Result types -->
+    <PackageVersion Include="OneOf" Version="3.0.271" />
     <!-- Resilience and rate limiting -->
     <PackageVersion Include="Polly.Core" Version="8.6.6" />
     <PackageVersion Include="System.Threading.RateLimiting" Version="10.0.5" />

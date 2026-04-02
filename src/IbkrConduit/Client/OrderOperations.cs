@@ -5,17 +5,16 @@ using System.Text.Json;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Orders;
 using Microsoft.Extensions.Logging;
+using OneOf;
 
 namespace IbkrConduit.Client;
 
 /// <summary>
-/// Order management operations with automatic question/reply handling.
+/// Order management operations with caller-controlled question/reply handling.
 /// Uses per-account semaphore serialization to prevent concurrent order submissions.
 /// </summary>
 public partial class OrderOperations : IOrderOperations
 {
-    private const int _maxReplyIterations = 20;
-
     private static readonly Histogram<double> _submissionDuration =
         IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.order.submission.duration", "ms");
 
@@ -44,7 +43,7 @@ public partial class OrderOperations : IOrderOperations
     }
 
     /// <inheritdoc />
-    public async Task<OrderResult> PlaceOrderAsync(
+    public async Task<OneOf<OrderSubmitted, OrderConfirmationRequired>> PlaceOrderAsync(
         string accountId, OrderRequest order, CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Place");
@@ -58,19 +57,9 @@ public partial class OrderOperations : IOrderOperations
         var sw = Stopwatch.StartNew();
         try
         {
-            var wireModel = new OrderWireModel(
-                order.Conid,
-                order.Side,
-                order.Quantity,
-                order.OrderType,
-                order.Price,
-                order.AuxPrice,
-                order.Tif,
-                order.ManualIndicator);
-
-            var payload = new OrdersPayload([wireModel]);
+            var payload = new OrdersPayload([ToWireModel(order)]);
             var responses = await _orderApi.PlaceOrderAsync(accountId, payload, cancellationToken);
-            var result = await HandleQuestionReplyLoopAsync(responses, cancellationToken);
+            var result = ClassifyResponse(responses[0]);
 
             _submissionDuration.Record(sw.Elapsed.TotalMilliseconds);
             _submissionCount.Add(1,
@@ -113,7 +102,7 @@ public partial class OrderOperations : IOrderOperations
     }
 
     /// <inheritdoc />
-    public async Task<OrderResult> ModifyOrderAsync(
+    public async Task<OneOf<OrderSubmitted, OrderConfirmationRequired>> ModifyOrderAsync(
         string accountId, string orderId, OrderRequest order,
         CancellationToken cancellationToken = default)
     {
@@ -129,19 +118,9 @@ public partial class OrderOperations : IOrderOperations
         var sw = Stopwatch.StartNew();
         try
         {
-            var wireModel = new OrderWireModel(
-                order.Conid,
-                order.Side,
-                order.Quantity,
-                order.OrderType,
-                order.Price,
-                order.AuxPrice,
-                order.Tif,
-                order.ManualIndicator);
-
-            var payload = new OrdersPayload([wireModel]);
+            var payload = new OrdersPayload([ToWireModel(order)]);
             var responses = await _orderApi.ModifyOrderAsync(accountId, orderId, payload, cancellationToken);
-            var result = await HandleQuestionReplyLoopAsync(responses, cancellationToken);
+            var result = ClassifyResponse(responses[0]);
 
             _submissionDuration.Record(sw.Elapsed.TotalMilliseconds);
             _submissionCount.Add(1,
@@ -156,6 +135,31 @@ public partial class OrderOperations : IOrderOperations
     }
 
     /// <inheritdoc />
+    public async Task<OneOf<OrderSubmitted, OrderConfirmationRequired>> ReplyAsync(
+        string replyId, bool confirmed, CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Reply");
+        activity?.SetTag("replyId", replyId);
+        activity?.SetTag("confirmed", confirmed);
+
+        _questionCount.Add(1);
+        LogReplyAttempt(replyId, confirmed);
+
+        var replyApiResponse = await _orderApi.ReplyAsync(
+            replyId, new ReplyRequest(confirmed), cancellationToken);
+
+        if (!replyApiResponse.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(
+                $"IBKR reply endpoint returned HTTP {(int)replyApiResponse.StatusCode}: {replyApiResponse.Error?.Content}");
+        }
+
+        LogReplyRawContent(replyApiResponse.Content ?? string.Empty);
+        var replyResponses = DeserializeReplyResponse(replyApiResponse.Content!);
+        return ClassifyResponse(replyResponses[0]);
+    }
+
+    /// <inheritdoc />
     public async Task<WhatIfResponse> WhatIfOrderAsync(
         string accountId, OrderRequest order,
         CancellationToken cancellationToken = default)
@@ -164,17 +168,7 @@ public partial class OrderOperations : IOrderOperations
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag(LogFields.Conid, order.Conid);
 
-        var wireModel = new OrderWireModel(
-            order.Conid,
-            order.Side,
-            order.Quantity,
-            order.OrderType,
-            order.Price,
-            order.AuxPrice,
-            order.Tif,
-            order.ManualIndicator);
-
-        var payload = new OrdersPayload([wireModel]);
+        var payload = new OrdersPayload([ToWireModel(order)]);
         return await _orderApi.WhatIfOrderAsync(accountId, payload, cancellationToken);
     }
 
@@ -187,45 +181,27 @@ public partial class OrderOperations : IOrderOperations
         return await _orderApi.GetOrderStatusAsync(orderId, cancellationToken);
     }
 
-    private async Task<OrderResult> HandleQuestionReplyLoopAsync(
-        List<OrderSubmissionResponse> responses, CancellationToken cancellationToken)
+    /// <summary>
+    /// Classifies an IBKR order submission response as either a confirmed order or a confirmation request.
+    /// </summary>
+    internal static OneOf<OrderSubmitted, OrderConfirmationRequired> ClassifyResponse(
+        OrderSubmissionResponse response)
     {
-        var response = responses[0];
-
-        for (var i = 0; i < _maxReplyIterations; i++)
+        if (response.OrderId is not null)
         {
-            if (response.OrderId is not null)
-            {
-                return new OrderResult(response.OrderId, response.OrderStatus ?? string.Empty);
-            }
+            return new OrderSubmitted(response.OrderId, response.OrderStatus ?? string.Empty);
+        }
 
-            if (response.Message is not null && response.Id is not null)
-            {
-                _questionCount.Add(1);
-                var messageText = string.Join("; ", response.Message);
-                LogOrderQuestionAutoConfirmed(messageText);
-
-                var replyApiResponse = await _orderApi.ReplyAsync(
-                    response.Id, new ReplyRequest(true), cancellationToken);
-                if (!replyApiResponse.IsSuccessStatusCode)
-                {
-                    throw new InvalidOperationException(
-                        $"IBKR reply endpoint returned HTTP {(int)replyApiResponse.StatusCode}: {replyApiResponse.Error?.Content}");
-                }
-
-                LogReplyRawContent(replyApiResponse.Content ?? string.Empty);
-                var replyResponses = DeserializeReplyResponse(replyApiResponse.Content!);
-                response = replyResponses[0];
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    "Unexpected order submission response: no order ID and no question message.");
-            }
+        if (response.Id is not null && response.Message is not null)
+        {
+            return new OrderConfirmationRequired(
+                response.Id,
+                response.Message.AsReadOnly(),
+                (response.MessageIds ?? []).AsReadOnly());
         }
 
         throw new InvalidOperationException(
-            $"Order question/reply loop exceeded maximum of {_maxReplyIterations} iterations.");
+            "Unexpected order submission response: no order ID and no question message.");
     }
 
     /// <summary>
@@ -259,8 +235,12 @@ public partial class OrderOperations : IOrderOperations
             $"IBKR reply endpoint returned unexpected content: {content}");
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "IBKR order question auto-confirmed: {Message}")]
-    private partial void LogOrderQuestionAutoConfirmed(string message);
+    private static OrderWireModel ToWireModel(OrderRequest order) =>
+        new(order.Conid, order.Side, order.Quantity, order.OrderType,
+            order.Price, order.AuxPrice, order.Tif, order.ManualIndicator);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Replying to IBKR order question {ReplyId} with confirmed={Confirmed}")]
+    private partial void LogReplyAttempt(string replyId, bool confirmed);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "IBKR reply raw content: {Content}")]
     private partial void LogReplyRawContent(string content);

@@ -15,6 +15,7 @@ using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
 using IbkrConduit.Watchlists;
+using OneOf;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Client;
@@ -253,9 +254,9 @@ public class IbkrClientTests
 
     private class FakeOrderOperations : IOrderOperations
     {
-        public Task<OrderResult> PlaceOrderAsync(
+        public Task<OneOf<OrderSubmitted, OrderConfirmationRequired>> PlaceOrderAsync(
             string accountId, OrderRequest order, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new OrderResult("1", "Submitted"));
+            Task.FromResult<OneOf<OrderSubmitted, OrderConfirmationRequired>>(new OrderSubmitted("1", "Submitted"));
 
         public Task<CancelOrderResponse> CancelOrderAsync(
             string accountId, string orderId, CancellationToken cancellationToken = default) =>
@@ -267,9 +268,13 @@ public class IbkrClientTests
         public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<Trade>());
 
-        public Task<OrderResult> ModifyOrderAsync(
+        public Task<OneOf<OrderSubmitted, OrderConfirmationRequired>> ModifyOrderAsync(
             string accountId, string orderId, OrderRequest order,
             CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<OneOf<OrderSubmitted, OrderConfirmationRequired>> ReplyAsync(
+            string replyId, bool confirmed, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
         public Task<WhatIfResponse> WhatIfOrderAsync(

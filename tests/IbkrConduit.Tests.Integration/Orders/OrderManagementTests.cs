@@ -20,6 +20,7 @@ using IbkrConduit.Streaming;
 using IbkrConduit.Watchlists;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using OneOf;
 using Shouldly;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
@@ -38,7 +39,7 @@ public class OrderManagementTests : IDisposable
     }
 
     [Fact]
-    public async Task PlaceOrderAsync_DirectConfirmation_ReturnsOrderResult()
+    public async Task PlaceOrderAsync_DirectConfirmation_ReturnsOrderSubmitted()
     {
         _server.Given(
             Request.Create()
@@ -71,12 +72,12 @@ public class OrderManagementTests : IDisposable
 
         var result = await ops.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
 
-        result.OrderId.ShouldBe("12345");
-        result.OrderStatus.ShouldBe("PreSubmitted");
+        result.AsT0.OrderId.ShouldBe("12345");
+        result.AsT0.OrderStatus.ShouldBe("PreSubmitted");
     }
 
     [Fact]
-    public async Task PlaceOrderAsync_WithQuestion_AutoConfirmsAndReturnsOrderResult()
+    public async Task PlaceOrderAsync_WithQuestionResponse_ReturnsOrderConfirmationRequired()
     {
         _server.Given(
             Request.Create()
@@ -97,23 +98,6 @@ public class OrderManagementTests : IDisposable
                         ]
                         """));
 
-        _server.Given(
-            Request.Create()
-                .WithPath("/v1/api/iserver/reply/reply-abc")
-                .UsingPost())
-            .RespondWith(
-                Response.Create()
-                    .WithStatusCode(200)
-                    .WithHeader("Content-Type", "application/json")
-                    .WithBody("""
-                        [
-                            {
-                                "order_id": "67890",
-                                "order_status": "Submitted"
-                            }
-                        ]
-                        """));
-
         var api = CreateRefitClient<IIbkrOrderApi>();
         var ops = new OrderOperations(api, NullLogger<OrderOperations>.Instance);
 
@@ -129,32 +113,15 @@ public class OrderManagementTests : IDisposable
 
         var result = await ops.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
 
-        result.OrderId.ShouldBe("67890");
-        result.OrderStatus.ShouldBe("Submitted");
+        var confirmation = result.AsT1;
+        confirmation.ReplyId.ShouldBe("reply-abc");
+        confirmation.Messages.ShouldContain("Are you sure you want to submit this order?");
+        confirmation.MessageIds.ShouldContain("o123");
     }
 
     [Fact]
-    public async Task PlaceOrderAsync_ReplyReturnsNonArray_DeserializesCorrectly()
+    public async Task ReplyAsync_ConfirmsAndReturnsOrderSubmitted()
     {
-        _server.Given(
-            Request.Create()
-                .WithPath("/v1/api/iserver/account/DU1234567/orders")
-                .UsingPost())
-            .RespondWith(
-                Response.Create()
-                    .WithStatusCode(200)
-                    .WithHeader("Content-Type", "application/json")
-                    .WithBody("""
-                        [
-                            {
-                                "id": "reply-xyz",
-                                "message": ["Are you sure?"],
-                                "isSuppressed": false,
-                                "messageIds": ["msg-1"]
-                            }
-                        ]
-                        """));
-
         _server.Given(
             Request.Create()
                 .WithPath("/v1/api/iserver/reply/reply-xyz")
@@ -173,19 +140,10 @@ public class OrderManagementTests : IDisposable
         var api = CreateRefitClient<IIbkrOrderApi>();
         var ops = new OrderOperations(api, NullLogger<OrderOperations>.Instance);
 
-        var order = new OrderRequest
-        {
-            Conid = 265598,
-            Side = "BUY",
-            Quantity = 10,
-            OrderType = "MKT",
-            Tif = "DAY",
-        };
+        var result = await ops.ReplyAsync("reply-xyz", true, TestContext.Current.CancellationToken);
 
-        var result = await ops.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
-
-        result.OrderId.ShouldBe("99999");
-        result.OrderStatus.ShouldBe("Submitted");
+        result.AsT0.OrderId.ShouldBe("99999");
+        result.AsT0.OrderStatus.ShouldBe("Submitted");
     }
 
     [Fact]
@@ -394,8 +352,10 @@ public class OrderManagementTests : IDisposable
 
         var result = await client.Orders.PlaceOrderAsync(accountId, order, TestContext.Current.CancellationToken);
 
-        result.ShouldNotBeNull();
-        result.OrderId.ShouldNotBeNullOrWhiteSpace();
+        // The result may be either a submitted order or a confirmation request
+        result.Switch(
+            submitted => submitted.OrderId.ShouldNotBeNullOrWhiteSpace(),
+            confirmation => confirmation.ReplyId.ShouldNotBeNullOrWhiteSpace());
     }
 
     public void Dispose()
