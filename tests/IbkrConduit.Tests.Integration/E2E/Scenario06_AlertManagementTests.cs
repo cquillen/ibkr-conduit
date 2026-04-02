@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using IbkrConduit.Alerts;
 using IbkrConduit.Client;
-using Refit;
+using IbkrConduit.Errors;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Integration.E2E;
@@ -66,9 +67,9 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
             {
                 createResponse = await client.Alerts.CreateOrModifyAlertAsync(accountId, createRequest, CT);
             }
-            catch (ApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.Forbidden
-                                              or System.Net.HttpStatusCode.ServiceUnavailable
-                                              or System.Net.HttpStatusCode.InternalServerError)
+            catch (IbkrApiException ex) when (ex.StatusCode is HttpStatusCode.Forbidden
+                                                  or HttpStatusCode.ServiceUnavailable
+                                                  or HttpStatusCode.InternalServerError)
             {
                 // IBKR QUIRK: Alert creation returns 403/503/500 on some paper account configurations.
                 // Skip the rest of the workflow — we cannot test CRUD without a successful create.
@@ -101,18 +102,9 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
             alertsAfterDelete.ShouldNotContain(a => a.AlertName == testId,
                 "Alert list should not contain the deleted alert");
 
-            // Step 8: Double-delete — verify IBKR behavior
-            try
-            {
-                var doubleDeleteResponse = await client.Alerts.DeleteAlertAsync(accountId, alertId, CT);
-
-                // IBKR QUIRK: If we get here, the API returned 200 for deleting an already-deleted alert.
-                doubleDeleteResponse.ShouldNotBeNull();
-            }
-            catch (ApiException)
-            {
-                // Expected: IBKR returns an HTTP error for deleting a non-existent alert.
-            }
+            // Step 8: Double-delete — verify IBKR returns an error for deleting already-deleted alert
+            await Should.ThrowAsync<IbkrApiException>(
+                () => client.Alerts.DeleteAlertAsync(accountId, alertId, CT));
 
             StopRecording();
         }
@@ -162,9 +154,10 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent alert ID.
                 detail.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for non-existent alert IDs.
+                // IBKR may return an error instead of a detail for non-existent alert IDs.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound, HttpStatusCode.InternalServerError);
             }
 
             StopRecording();
@@ -194,9 +187,10 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent alert.
                 result.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for non-existent alert IDs.
+                // IBKR may return an error instead of a result for non-existent alert IDs.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound, HttpStatusCode.InternalServerError);
             }
 
             StopRecording();

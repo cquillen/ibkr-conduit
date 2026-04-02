@@ -1,10 +1,11 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Orders;
-using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Integration.E2E;
@@ -94,8 +95,8 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                     : (await client.Orders.ReplyAsync(modifyResult.AsT1.ReplyId, true, CT)).AsT0;
                 modifySubmitted.OrderId.ShouldNotBeNullOrEmpty();
             }
-            catch (ApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.BadRequest
-                                              or System.Net.HttpStatusCode.InternalServerError)
+            catch (IbkrApiException ex) when (ex.StatusCode is HttpStatusCode.BadRequest
+                                                  or HttpStatusCode.InternalServerError)
             {
                 // IBKR QUIRK: Modify returns 400/500 on paper accounts — continue to cancel.
             }
@@ -104,18 +105,9 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
             var cancelResult = await client.Orders.CancelOrderAsync(accountId, orderId, CT);
             cancelResult.ShouldNotBeNull();
 
-            // Step 9: Double-cancel — verify IBKR behavior for cancelling already-cancelled order
-            try
-            {
-                var doubleCancelResult = await client.Orders.CancelOrderAsync(accountId, orderId, CT);
-
-                // IBKR QUIRK: If we get here, the API returned 200 for cancelling an already-cancelled order.
-                doubleCancelResult.ShouldNotBeNull();
-            }
-            catch (ApiException)
-            {
-                // Expected: IBKR returns an HTTP error for cancelling an already-cancelled order.
-            }
+            // Step 9: Double-cancel — verify IBKR returns an error for cancelling already-cancelled order
+            await Should.ThrowAsync<IbkrApiException>(
+                () => client.Orders.CancelOrderAsync(accountId, orderId, CT));
 
             // Step 10: Get trades — verify response shape (may be empty if order never filled)
             var trades = await client.Orders.GetTradesAsync(CT);
@@ -170,9 +162,10 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent order ID.
                 status.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for non-existent order IDs.
+                // IBKR may return an error instead of a status for non-existent order IDs.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound, HttpStatusCode.InternalServerError);
             }
 
             StopRecording();
@@ -203,9 +196,10 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent order.
                 result.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for non-existent order IDs.
+                // IBKR may return an error instead of a result for non-existent order IDs.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound, HttpStatusCode.InternalServerError);
             }
 
             StopRecording();
@@ -249,9 +243,10 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 // OneOf is a struct so always non-null; just verify we got a response
                 _ = result.IsT0 ? result.AsT0.OrderId : result.AsT1.ReplyId;
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for non-existent order IDs.
+                // IBKR may return an error instead of a result for non-existent order IDs.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound, HttpStatusCode.InternalServerError);
             }
 
             StopRecording();
@@ -295,9 +290,10 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                     result.Error.ShouldNotBeEmpty("What-if with invalid conid should report an error");
                 }
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for invalid conid.
+                // IBKR may return an error instead of a what-if result for invalid conid.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound, HttpStatusCode.InternalServerError);
             }
 
             StopRecording();
@@ -341,13 +337,11 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 // OneOf is a struct so always non-null; just verify we got a response
                 _ = result.IsT0 ? result.AsT0.OrderId : result.AsT1.ReplyId;
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR rejects zero-quantity orders with an HTTP error.
-            }
-            catch (InvalidOperationException)
-            {
-                // Expected: The library may throw for invalid order parameters.
+                // IBKR rejects zero-quantity orders — may be IbkrApiException (non-2xx)
+                // or IbkrOrderRejectedException (200 with error body, which is a subclass).
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound, HttpStatusCode.InternalServerError, HttpStatusCode.OK);
             }
 
             StopRecording();

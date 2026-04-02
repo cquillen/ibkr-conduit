@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using System.Threading.Tasks;
-using Refit;
+using IbkrConduit.Errors;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Integration.E2E;
@@ -87,7 +88,7 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
                 comboPositions.ShouldNotBeNull();
                 // Combo positions may be empty — that is expected for accounts without spreads.
             }
-            catch (ApiException)
+            catch (IbkrApiException)
             {
                 // IBKR QUIRK: Combo positions endpoint may return an HTTP error when
                 // the account has no combo/spread positions instead of an empty list.
@@ -111,7 +112,7 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
                     accountIds, new List<string>(), "USD", 7, CT);
                 transactions.ShouldNotBeNull();
             }
-            catch (Refit.ApiException)
+            catch (IbkrApiException)
             {
                 // IBKR QUIRK: Transaction history returns 400 on some paper accounts.
             }
@@ -131,7 +132,7 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
                 subAccounts.ShouldNotBeNull();
                 // Subaccounts may be empty for individual (non-FA) accounts — that is expected.
             }
-            catch (ApiException)
+            catch (IbkrApiException)
             {
                 // IBKR QUIRK: Subaccounts endpoint returns an HTTP error for individual
                 // (non-FA/IBroker) accounts instead of an empty list.
@@ -144,7 +145,7 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
                 subAccountsPaged.ShouldNotBeNull();
                 // Paged subaccounts may be empty for individual (non-FA) accounts.
             }
-            catch (ApiException)
+            catch (IbkrApiException)
             {
                 // IBKR QUIRK: Paged subaccounts endpoint returns an HTTP error for individual
                 // (non-FA/IBroker) accounts instead of an empty list.
@@ -179,10 +180,10 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
                 positions.ShouldNotBeNull();
                 positions.ShouldBeEmpty("Position for non-existent conid should be empty");
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // IBKR QUIRK: The API may return an HTTP error for a conid not held
-                // in the portfolio instead of an empty list.
+                // IBKR may return an error instead of an empty list for a conid not held.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound, HttpStatusCode.InternalServerError);
             }
 
             StopRecording();
@@ -230,17 +231,17 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
             StartRecording("Scenario05_EmptyAccountList");
 
             // Empty account list should either return a valid (possibly empty) response
-            // or throw an ApiException — both are acceptable.
+            // or throw an IbkrApiException — both are acceptable.
             try
             {
                 var performance = await client.Portfolio.GetAccountPerformanceAsync(
                     new List<string>(), "1M", CT);
                 performance.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // IBKR QUIRK: Performance endpoint may return an HTTP error when
-                // given an empty account list instead of an empty response.
+                // IBKR may return an error when given an empty account list.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound, HttpStatusCode.InternalServerError);
             }
 
             StopRecording();
