@@ -136,7 +136,35 @@ Run: `dotnet run --project tools/ApiCapture -- spike`
 
 Once the spike produces a valid recording, proceed to M2.
 
-### M2: Session, Accounts, Portfolio
+### M2: Auto-Generate DTOs Script
+
+Python script `tools/generate_dtos.py`:
+1. Read all recordings from `recordings/`
+2. Group by endpoint path
+3. For each endpoint, merge all response bodies to get the full field set
+4. Generate C# record definitions
+5. Output to `generated/` directory
+6. Run a diff against current `*Models.cs` files
+7. Produce a summary report of changes needed
+
+Build and test against the spike recording from M1. Validate that the generated DTO for `GET /portfolio/accounts` matches the actual response shape.
+
+The developer reviews the generated output and applies changes. Breaking changes to public APIs are acceptable (pre-release library).
+
+### M3: Auto-Generate WireMock Fixtures Script
+
+Python script `tools/generate_wiremock_fixtures.py`:
+1. Read all recordings from `recordings/`
+2. For each, produce a clean fixture JSON (strip metadata, keep request/response)
+3. Save to `tests/IbkrConduit.Tests.Integration/Fixtures/{module}/`
+4. Generate a `FixtureLoader` helper class
+5. Produce a migration guide showing which inline WireMock strings to replace
+
+Build and test against the spike recording from M1. Validate that the generated fixture for `GET /portfolio/accounts` is usable by a WireMock test.
+
+The developer updates integration tests to use fixture files. This also ensures WireMock tests use real IBKR response shapes instead of guessed ones.
+
+### M4: Capture — Session, Accounts, Portfolio
 
 Implement three module commands using the infrastructure proven in M1:
 
@@ -181,7 +209,9 @@ Implement three module commands using the infrastructure proven in M1:
 - At least one position (SPY is currently held)
 - No special setup needed
 
-### M3: Contracts, Market Data
+After capture, run `generate_dtos.py` and `generate_wiremock_fixtures.py` against the new recordings.
+
+### M5: Capture — Contracts, Market Data
 
 **Contracts** (12 endpoints):
 - `GET /iserver/secdef/search` (search "SPY", "AAPL", "QQQ")
@@ -211,7 +241,9 @@ Implement three module commands using the infrastructure proven in M1:
 - None for contracts
 - Market data snapshots may return delayed data outside RTH — capture during market hours if possible, but delayed data still shows the response shape
 
-### M4: Orders
+After capture, run generators against the new recordings.
+
+### M6: Capture — Orders
 
 **Orders** (8 endpoints):
 - `POST /iserver/account/{accountId}/orders` (place a limit order)
@@ -229,7 +261,9 @@ The capture app places a limit buy for SPY at $1.00 (won't fill), captures all o
 - Trading permissions for US equities
 - Sufficient buying power (paper accounts have this by default)
 
-### M5: Alerts, Watchlists, FYI, Allocation
+After capture, run generators against the new recordings.
+
+### M7: Capture — Alerts, Watchlists, FYI, Allocation
 
 **Alerts** (4 endpoints):
 - `POST /iserver/account/{accountId}/alert` (create price alert on SPY)
@@ -267,29 +301,7 @@ The capture app places a limit buy for SPY at $1.00 (won't fill), captures all o
 - FYI: notifications may be empty on paper accounts — capture whatever is there
 - Allocation: FA account required (skip on individual accounts)
 
-### M6: Auto-Generate DTOs
-
-Python script `tools/generate_dtos.py`:
-1. Read all recordings from `recordings/`
-2. Group by endpoint path
-3. For each endpoint, merge all response bodies to get the full field set
-4. Generate C# record definitions
-5. Output to `generated/` directory
-6. Run a diff against current `*Models.cs` files
-7. Produce a summary report of changes needed
-
-The developer reviews the generated output and applies changes. Breaking changes to public APIs are acceptable (pre-release library).
-
-### M7: Auto-Generate WireMock Fixtures
-
-Python script `tools/generate_wiremock_fixtures.py`:
-1. Read all recordings from `recordings/`
-2. For each, produce a clean fixture JSON (strip metadata, keep request/response)
-3. Save to `tests/IbkrConduit.Tests.Integration/Fixtures/{module}/`
-4. Generate a `FixtureLoader` helper class
-5. Produce a migration guide showing which inline WireMock strings to replace
-
-The developer updates integration tests to use fixture files. This also ensures WireMock tests use real IBKR response shapes instead of guessed ones.
+After capture, run generators against the new recordings.
 
 ## Files
 
