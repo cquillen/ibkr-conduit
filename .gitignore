@@ -49,3 +49,6 @@ Desktop.ini
 *.key
 appsettings.*.json
 .env
+
+# Generated intermediate outputs (DTO generator)
+generated/
