@@ -25,6 +25,11 @@ public sealed partial class RecordingDelegatingHandler : DelegatingHandler
     private readonly string _outputDirectory;
 
     /// <summary>
+    /// The file path of the last recording written, or null if no recording has been written yet.
+    /// </summary>
+    public string? LastWrittenPath { get; private set; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="RecordingDelegatingHandler"/> class.
     /// </summary>
     public RecordingDelegatingHandler(RecordingContext context, string outputDirectory)
@@ -102,6 +107,8 @@ public sealed partial class RecordingDelegatingHandler : DelegatingHandler
         var filePath = Path.Combine(scenarioDir, fileName);
         var json = JsonSerializer.Serialize(record, _jsonOptions);
         await File.WriteAllTextAsync(filePath, json, cancellationToken);
+
+        LastWrittenPath = filePath;
 
         return response;
     }

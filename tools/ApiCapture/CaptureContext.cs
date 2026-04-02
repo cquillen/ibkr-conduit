@@ -25,6 +25,11 @@ public sealed class CaptureContext : IAsyncDisposable
     public HttpClient CaptureClient { get; private set; } = null!;
 
     /// <summary>
+    /// The recording handler, exposed so callers can access <see cref="RecordingDelegatingHandler.LastWrittenPath"/>.
+    /// </summary>
+    public RecordingDelegatingHandler RecordingHandler { get; private set; } = null!;
+
+    /// <summary>
     /// The recording context that tracks scenario state and step counters.
     /// </summary>
     public RecordingContext Recording { get; } = new();
@@ -58,7 +63,7 @@ public sealed class CaptureContext : IAsyncDisposable
         // Build a raw HttpClient with recording + signing for captures
         var tokenProvider = _provider.GetRequiredService<ISessionTokenProvider>();
 
-        var recordingHandler = new RecordingDelegatingHandler(Recording, outputDirectory)
+        RecordingHandler = new RecordingDelegatingHandler(Recording, outputDirectory)
         {
             InnerHandler = new OAuthSigningHandler(
                 tokenProvider,
@@ -69,7 +74,7 @@ public sealed class CaptureContext : IAsyncDisposable
             },
         };
 
-        CaptureClient = new HttpClient(recordingHandler)
+        CaptureClient = new HttpClient(RecordingHandler)
         {
             BaseAddress = new Uri("https://api.ibkr.com"),
         };
