@@ -1,0 +1,62 @@
+{
+  "Request": {
+    "Path": "/v1/api/portfolio/U1234567/positions/0",
+    "Methods": [
+      "GET"
+    ]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": [
+      {
+        "acctId": "U1234567",
+        "conid": 320227571,
+        "contractDesc": "QQQ",
+        "position": 3.0,
+        "mktPrice": 584.72998045,
+        "mktValue": 1754.19,
+        "currency": "USD",
+        "avgCost": 584.31333335,
+        "avgPrice": 584.31333335,
+        "realizedPnl": 0.0,
+        "unrealizedPnl": 1.25,
+        "exchs": null,
+        "expiry": null,
+        "putOrCall": null,
+        "multiplier": null,
+        "strike": 0.0,
+        "exerciseStyle": null,
+        "conExchMap": [],
+        "assetClass": "STK",
+        "undConid": 0,
+        "model": ""
+      },
+      {
+        "acctId": "U1234567",
+        "conid": 756733,
+        "contractDesc": "SPY",
+        "position": 44.0,
+        "mktPrice": 655.7769165,
+        "mktValue": 28854.18,
+        "currency": "USD",
+        "avgCost": 652.47477275,
+        "avgPrice": 652.47477275,
+        "realizedPnl": 0.0,
+        "unrealizedPnl": 145.29,
+        "exchs": null,
+        "expiry": null,
+        "putOrCall": null,
+        "multiplier": null,
+        "strike": 0.0,
+        "exerciseStyle": null,
+        "conExchMap": [],
+        "assetClass": "STK",
+        "undConid": 0,
+        "model": ""
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/auth/status",
+    "Methods": [
+      "GET"
+    ]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": {
+      "authenticated": true,
+      "established": true,
+      "competing": false,
+      "connected": true,
+      "message": "",
+      "MAC": "06:05:9B:DE:2D:8B",
+      "serverInfo": {
+        "serverName": "JifN13002",
+        "serverVersion": "Build 10.44.1d, Mar 3, 2026 1:55:32 PM"
+      },
+      "hardware_info": "d12054d0|06:05:9B:DE:2D:8B",
+      "fail": ""
+    }
+  }
+}

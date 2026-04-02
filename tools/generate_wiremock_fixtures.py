@@ -75,6 +75,11 @@ def classify_module(path: str) -> str:
     return "Other"
 
 
+def sanitize_path(path: str) -> str:
+    """Replace real account IDs in a URL path with the sanitized placeholder."""
+    return ACCOUNT_ID_PATTERN.sub(SANITIZED_ACCOUNT_ID, path)
+
+
 def path_to_slug(path: str) -> str:
     """Convert an API path to a filename slug."""
     p = path
@@ -95,10 +100,15 @@ def sanitize_value(key: str, value):
     return value
 
 
+def sanitize_key(key: str) -> str:
+    """Sanitize account IDs that appear as JSON object keys."""
+    return ACCOUNT_ID_PATTERN.sub(SANITIZED_ACCOUNT_ID, key)
+
+
 def sanitize_json(obj, parent_key: str = ""):
     """Recursively sanitize PII from a JSON object."""
     if isinstance(obj, dict):
-        return {k: sanitize_json(sanitize_value(k, v), k) for k, v in obj.items()}
+        return {sanitize_key(k): sanitize_json(sanitize_value(k, v), k) for k, v in obj.items()}
     if isinstance(obj, list):
         return [sanitize_json(item, parent_key) for item in obj]
     # Also sanitize top-level string values that match account ID patterns
@@ -118,7 +128,7 @@ def process_recording(recording_path: Path) -> tuple[Path | None, str]:
 
     request = data["Request"]
     response = data["Response"]
-    api_path = request["Path"]
+    api_path = sanitize_path(request["Path"])
     methods = request.get("Methods", ["GET"])
     method = methods[0] if methods else "GET"
 
