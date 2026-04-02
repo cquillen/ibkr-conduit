@@ -21,6 +21,15 @@ switch (command)
     case "spike":
         await SpikeCapture.RunAsync(ctx);
         break;
+    case "session":
+        await SessionCapture.RunAsync(ctx);
+        break;
+    case "accounts":
+        await AccountsCapture.RunAsync(ctx);
+        break;
+    case "portfolio":
+        await PortfolioCapture.RunAsync(ctx);
+        break;
     default:
         Console.WriteLine($"Unknown command: {command}");
         PrintUsage();
@@ -35,4 +44,7 @@ static void PrintUsage()
     Console.WriteLine();
     Console.WriteLine("Commands:");
     Console.WriteLine("  spike       Validate pipeline with GET /portfolio/accounts");
+    Console.WriteLine("  session     Capture session/auth endpoints (7 calls)");
+    Console.WriteLine("  accounts    Capture account endpoints (5 calls)");
+    Console.WriteLine("  portfolio   Capture portfolio/PA endpoints (18 calls)");
 }
