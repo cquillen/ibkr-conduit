@@ -65,18 +65,12 @@ public static class CaptureRunner
                 {
                     Console.WriteLine($"-> {actualStatus} EXPECTED {entry.ExpectedStatus} [{entry.Name}]");
                     failed++;
-
-                    // Delete the recording file for mismatched status
-                    DeleteLastRecording(ctx);
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"-> ERROR: {ex.Message} [{entry.Name}]");
                 errors++;
-
-                // Delete the recording file on exception
-                DeleteLastRecording(ctx);
             }
 
             // Rate limit between requests
@@ -116,15 +110,6 @@ public static class CaptureRunner
 
     private static string ResolveTemplate(string template, CaptureContext ctx) =>
         template.Replace("{accountId}", ctx.AccountId);
-
-    private static void DeleteLastRecording(CaptureContext ctx)
-    {
-        var path = ctx.RecordingHandler.LastWrittenPath;
-        if (path is not null && File.Exists(path))
-        {
-            File.Delete(path);
-        }
-    }
 }
 
 /// <summary>
