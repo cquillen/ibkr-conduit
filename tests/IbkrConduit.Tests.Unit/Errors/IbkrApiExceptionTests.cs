@@ -71,6 +71,7 @@ public class IbkrApiExceptionTests
 
         ex.RejectionMessage.ShouldBe("insufficient funds");
         ex.StatusCode.ShouldBe(HttpStatusCode.OK);
+        ex.Message.ShouldContain("insufficient funds");
         ex.ShouldBeAssignableTo<IbkrApiException>();
     }
 

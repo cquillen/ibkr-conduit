@@ -18,6 +18,6 @@ public class IbkrOrderRejectedException : IbkrApiException
         string rejectionMessage, string? rawResponseBody, string? requestUri)
         : base(HttpStatusCode.OK, rejectionMessage, rawResponseBody, requestUri)
     {
-        RejectionMessage = rejectionMessage;
+        RejectionMessage = rejectionMessage ?? throw new ArgumentNullException(nameof(rejectionMessage));
     }
 }
