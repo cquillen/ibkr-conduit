@@ -6,6 +6,7 @@ using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Http;
 using IbkrConduit.Portfolio;
+using IbkrConduit.Tests.Integration.Fixtures;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using WireMock.RequestBuilders;
@@ -25,26 +26,17 @@ public class PortfolioAccountsTests : IDisposable
     }
 
     [Fact]
-    public async Task GetAccountsAsync_WithMockedServer_ReturnsAccountList()
+    public async Task GetAccountsAsync_WithFixture_DeserializesAllFields()
     {
         _server.Given(
             Request.Create()
                 .WithPath("/v1/api/portfolio/accounts")
-                .UsingGet()
-                .WithHeader("Authorization", "*"))
+                .UsingGet())
             .RespondWith(
                 Response.Create()
                     .WithStatusCode(200)
                     .WithHeader("Content-Type", "application/json")
-                    .WithBody("""
-                        [
-                            {
-                                "id": "DU1234567",
-                                "accountTitle": "Paper Trading",
-                                "type": "INDIVIDUAL"
-                            }
-                        ]
-                        """));
+                    .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts")));
 
         var api = CreateRefitClient<IIbkrPortfolioApi>();
 
@@ -52,8 +44,23 @@ public class PortfolioAccountsTests : IDisposable
 
         accounts.ShouldNotBeNull();
         accounts.Count.ShouldBe(1);
-        accounts[0].Id.ShouldBe("DU1234567");
-        accounts[0].AccountTitle.ShouldBe("Paper Trading");
+
+        var account = accounts[0];
+        account.Id.ShouldBe("U1234567");
+        account.AccountId.ShouldBe("U1234567");
+        account.AccountTitle.ShouldBe("Test User");
+        account.DisplayName.ShouldBe("Test User");
+        account.Type.ShouldBe("DEMO");
+        account.Currency.ShouldBe("USD");
+        account.TradingType.ShouldBe("STKNOPT");
+        account.BusinessType.ShouldBe("INDEPENDENT");
+        account.IbEntity.ShouldBe("IBLLC-US");
+        account.BrokerageAccess.ShouldBeTrue();
+        account.Faclient.ShouldBeFalse();
+        account.ClearingStatus.ShouldBe("O");
+        account.Parent.ShouldNotBeNull();
+        account.Parent!.IsMParent.ShouldBeFalse();
+        account.Parent!.IsMultiplex.ShouldBeFalse();
     }
 
     [Fact]
