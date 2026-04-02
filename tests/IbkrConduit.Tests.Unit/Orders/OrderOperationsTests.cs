@@ -294,10 +294,10 @@ public class OrderOperationsTests
     {
         _fakeApi.LiveOrdersResponse = new OrdersResponse(
         [
-            new LiveOrder("111", 265598, "AAPL", "BUY", 100, "LMT", 150.00m, "PreSubmitted", 0, 100),
+            new LiveOrder("111", 265598, "AAPL", "APPLE INC", "BUY", 100, "LMT", 150.00m, 150.00m, "PreSubmitted", 0, 100, "Bought 100 Limit, Day", "DAY"),
         ]);
 
-        var result = await _sut.GetLiveOrdersAsync(TestContext.Current.CancellationToken);
+        var result = await _sut.GetLiveOrdersAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         result.Count.ShouldBe(1);
         result[0].OrderId.ShouldBe("111");
@@ -308,7 +308,7 @@ public class OrderOperationsTests
     {
         _fakeApi.LiveOrdersResponse = new OrdersResponse(null);
 
-        var result = await _sut.GetLiveOrdersAsync(TestContext.Current.CancellationToken);
+        var result = await _sut.GetLiveOrdersAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         result.ShouldBeEmpty();
     }
@@ -377,7 +377,7 @@ public class OrderOperationsTests
         public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             Task.FromResult(CancelResponse!);
 
-        public Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+        public Task<OrdersResponse> GetLiveOrdersAsync(string? filters = null, bool? force = null, CancellationToken cancellationToken = default) =>
             Task.FromResult(LiveOrdersResponse);
 
         public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
@@ -437,7 +437,7 @@ public class OrderOperationsTests
         public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+        public Task<OrdersResponse> GetLiveOrdersAsync(string? filters = null, bool? force = null, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
         public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
@@ -497,7 +497,7 @@ public class OrderOperationsTests
         public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+        public Task<OrdersResponse> GetLiveOrdersAsync(string? filters = null, bool? force = null, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
         public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>

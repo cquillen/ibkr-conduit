@@ -22,9 +22,15 @@ public interface IOrderOperations
         string accountId, string orderId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Retrieves live orders for the current session.
+    /// Retrieves live orders (cancelled, filled, submitted) across sessions.
+    /// Note: IBKR requires two calls — the first primes the endpoint and may return empty results.
     /// </summary>
-    Task<List<LiveOrder>> GetLiveOrdersAsync(CancellationToken cancellationToken = default);
+    /// <param name="filters">Optional comma-separated status filters (e.g., "submitted", "filled", "cancelled").</param>
+    /// <param name="force">When true, clears cached order data and forces a fresh request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<List<LiveOrder>> GetLiveOrdersAsync(
+        string? filters = null, bool? force = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves completed trades for the current session.

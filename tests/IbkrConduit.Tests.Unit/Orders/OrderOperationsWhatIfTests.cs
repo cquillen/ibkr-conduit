@@ -101,7 +101,7 @@ public class OrderOperationsWhatIfTests
         public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+        public Task<OrdersResponse> GetLiveOrdersAsync(string? filters = null, bool? force = null, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
         public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>

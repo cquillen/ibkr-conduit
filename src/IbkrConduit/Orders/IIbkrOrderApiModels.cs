@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using IbkrConduit.Json;
 
 namespace IbkrConduit.Orders;
 
@@ -119,30 +120,52 @@ public record OrdersResponse(
     [property: JsonPropertyName("orders")] List<LiveOrder>? Orders);
 
 /// <summary>
-/// A live order in the current session.
+/// A live order from the IBKR API.
 /// </summary>
 /// <param name="OrderId">The order identifier.</param>
 /// <param name="Conid">The contract identifier.</param>
-/// <param name="Symbol">The ticker symbol.</param>
+/// <param name="Ticker">The ticker symbol.</param>
+/// <param name="CompanyName">The company name.</param>
 /// <param name="Side">The order side.</param>
-/// <param name="Quantity">The order quantity.</param>
+/// <param name="TotalSize">The total order size.</param>
 /// <param name="OrderType">The order type.</param>
 /// <param name="Price">The order price, if applicable.</param>
+/// <param name="AvgPrice">The average fill price.</param>
 /// <param name="Status">The order status.</param>
 /// <param name="FilledQuantity">The filled quantity.</param>
 /// <param name="RemainingQuantity">The remaining quantity.</param>
+/// <param name="OrderDescription">The order description (e.g., "Bought 1 Market, Day").</param>
+/// <param name="TimeInForce">The time in force.</param>
 [ExcludeFromCodeCoverage]
 public record LiveOrder(
-    [property: JsonPropertyName("orderId")] string OrderId,
-    [property: JsonPropertyName("conid")] int Conid,
-    [property: JsonPropertyName("symbol")] string Symbol,
+    [property: JsonPropertyName("orderId")]
+    [property: JsonConverter(typeof(FlexibleStringConverter))]
+    string OrderId,
+    [property: JsonPropertyName("conid")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    int Conid,
+    [property: JsonPropertyName("ticker")] string? Ticker,
+    [property: JsonPropertyName("companyName")] string? CompanyName,
     [property: JsonPropertyName("side")] string Side,
-    [property: JsonPropertyName("quantity")] decimal Quantity,
+    [property: JsonPropertyName("totalSize")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal TotalSize,
     [property: JsonPropertyName("orderType")] string OrderType,
-    [property: JsonPropertyName("price")] decimal? Price,
+    [property: JsonPropertyName("price")]
+    [property: JsonConverter(typeof(FlexibleDecimalConverter))]
+    decimal? Price,
+    [property: JsonPropertyName("avgPrice")]
+    [property: JsonConverter(typeof(FlexibleDecimalConverter))]
+    decimal? AvgPrice,
     [property: JsonPropertyName("status")] string Status,
-    [property: JsonPropertyName("filledQuantity")] decimal FilledQuantity,
-    [property: JsonPropertyName("remainingQuantity")] decimal RemainingQuantity);
+    [property: JsonPropertyName("filledQuantity")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal FilledQuantity,
+    [property: JsonPropertyName("remainingQuantity")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal RemainingQuantity,
+    [property: JsonPropertyName("orderDesc")] string? OrderDescription,
+    [property: JsonPropertyName("timeInForce")] string? TimeInForce);
 
 /// <summary>
 /// A completed trade from the IBKR API.

@@ -69,7 +69,7 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
             status.OrderId.ShouldBeGreaterThan(0);
 
             // Step 6: Get live orders — verify our order appears
-            var liveOrders = await client.Orders.GetLiveOrdersAsync(CT);
+            var liveOrders = await client.Orders.GetLiveOrdersAsync(cancellationToken: CT);
             liveOrders.ShouldNotBeNull();
 
             // Step 7: Modify order — change price to $1.01
@@ -130,9 +130,9 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
             {
                 if (!string.IsNullOrEmpty(accountId))
                 {
-                    var liveOrders = await client.Orders.GetLiveOrdersAsync(CT);
+                    var liveOrders = await client.Orders.GetLiveOrdersAsync(cancellationToken: CT);
                     foreach (var order in liveOrders.Where(o =>
-                                 o.Symbol == "SPY" && o.Price is not null && o.Price <= 1.10m))
+                                 o.Ticker == "SPY" && o.Price is not null && o.Price <= 1.10m))
                     {
                         try
                         {

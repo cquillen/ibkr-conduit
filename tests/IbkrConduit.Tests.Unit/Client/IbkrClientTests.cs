@@ -262,7 +262,7 @@ public class IbkrClientTests
             string accountId, string orderId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<List<LiveOrder>> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+        public Task<List<LiveOrder>> GetLiveOrdersAsync(string? filters = null, bool? force = null, CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<LiveOrder>());
 
         public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>

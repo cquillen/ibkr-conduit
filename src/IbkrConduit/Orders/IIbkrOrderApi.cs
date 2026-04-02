@@ -29,10 +29,14 @@ public interface IIbkrOrderApi
     Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Retrieves live orders for the current session.
+    /// Retrieves live orders (cancelled, filled, submitted) across sessions.
+    /// The first call in a session may return empty results; a second call returns data.
     /// </summary>
     [Get("/v1/api/iserver/account/orders")]
-    Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default);
+    Task<OrdersResponse> GetLiveOrdersAsync(
+        [Query] string? filters = null,
+        [Query] bool? force = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves completed trades for the current session.

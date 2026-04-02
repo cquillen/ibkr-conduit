@@ -86,10 +86,11 @@ public partial class OrderOperations : IOrderOperations
 
     /// <inheritdoc />
     public async Task<List<LiveOrder>> GetLiveOrdersAsync(
+        string? filters = null, bool? force = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetLiveOrders");
-        var response = await _orderApi.GetLiveOrdersAsync(cancellationToken);
+        var response = await _orderApi.GetLiveOrdersAsync(filters, force, cancellationToken);
         return response.Orders ?? [];
     }
 
