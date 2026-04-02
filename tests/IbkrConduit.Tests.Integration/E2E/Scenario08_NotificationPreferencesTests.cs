@@ -6,7 +6,6 @@ using System.Net;
 using IbkrConduit.Client;
 using IbkrConduit.Errors;
 using IbkrConduit.Fyi;
-using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Integration.E2E;
@@ -63,8 +62,8 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 disclaimer.ShouldNotBeNull();
                 disclaimer.FC.ShouldNotBeNullOrEmpty("Disclaimer should have a typecode");
             }
-            catch (ApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.NotFound
-                                              or System.Net.HttpStatusCode.BadRequest)
+            catch (IbkrApiException ex) when (ex.StatusCode is HttpStatusCode.NotFound
+                                              or HttpStatusCode.BadRequest)
             {
                 // IBKR QUIRK: Some typecodes may not have disclaimers.
             }
@@ -75,9 +74,9 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 var markResult = await client.Notifications.MarkDisclaimerReadAsync(toggledTypecode, CT);
                 markResult.ShouldNotBeNull();
             }
-            catch (ApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.NotFound
-                                              or System.Net.HttpStatusCode.BadRequest
-                                              or System.Net.HttpStatusCode.InternalServerError)
+            catch (IbkrApiException ex) when (ex.StatusCode is HttpStatusCode.NotFound
+                                              or HttpStatusCode.BadRequest
+                                              or HttpStatusCode.InternalServerError)
             {
                 // IBKR QUIRK: Marking disclaimer read may fail if no disclaimer exists for the typecode.
             }
@@ -107,7 +106,7 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 // If registration succeeded, capture the device ID for cleanup
                 registeredDeviceId = deviceRequest.DeviceId;
             }
-            catch (ApiException)
+            catch (IbkrApiException)
             {
                 // IBKR QUIRK: Device registration requires a real mobile device token.
                 // Synthetic tokens are expected to be rejected.
@@ -121,7 +120,7 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                     await client.Notifications.DeleteDeviceAsync(registeredDeviceId, CT);
                     registeredDeviceId = null;
                 }
-                catch (ApiException)
+                catch (IbkrApiException)
                 {
                     // IBKR QUIRK: Device delete may fail even after successful registration.
                 }
@@ -141,7 +140,7 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                         lastNotification.ID, CT);
                     moreNotifications.ShouldNotBeNull();
                 }
-                catch (ApiException)
+                catch (IbkrApiException)
                 {
                     // IBKR QUIRK: Pagination may return error if no more notifications exist.
                 }
@@ -154,7 +153,7 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                         firstNotification.ID, CT);
                     readResult.ShouldNotBeNull();
                 }
-                catch (ApiException)
+                catch (IbkrApiException)
                 {
                     // IBKR QUIRK: Marking notification as read may fail for already-read notifications.
                 }

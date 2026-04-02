@@ -7,7 +7,6 @@ using System.Net;
 using IbkrConduit.Client;
 using IbkrConduit.Errors;
 using IbkrConduit.Watchlists;
-using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Integration.E2E;
@@ -58,9 +57,9 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
             {
                 createResponse = await client.Watchlists.CreateWatchlistAsync(createRequest, CT);
             }
-            catch (ApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.ServiceUnavailable
-                                              or System.Net.HttpStatusCode.Forbidden
-                                              or System.Net.HttpStatusCode.InternalServerError)
+            catch (IbkrApiException ex) when (ex.StatusCode is HttpStatusCode.ServiceUnavailable
+                                              or HttpStatusCode.Forbidden
+                                              or HttpStatusCode.InternalServerError)
             {
                 // IBKR QUIRK: Watchlist creation returns 503/403/500 on some paper account configurations.
                 // Skip the rest of the workflow — we cannot test CRUD without a successful create.

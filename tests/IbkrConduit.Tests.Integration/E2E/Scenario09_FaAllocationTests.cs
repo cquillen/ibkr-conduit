@@ -7,7 +7,6 @@ using System.Net;
 using IbkrConduit.Allocation;
 using IbkrConduit.Client;
 using IbkrConduit.Errors;
-using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Integration.E2E;
@@ -39,7 +38,7 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
             {
                 accounts = await client.Allocations.GetAccountsAsync(CT);
             }
-            catch (ApiException)
+            catch (IbkrApiException)
             {
                 // FA allocation is not supported on this account type (e.g., individual paper account).
                 StopRecording();
@@ -181,7 +180,7 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
             {
                 await client.Allocations.GetAccountsAsync(CT);
             }
-            catch (ApiException)
+            catch (IbkrApiException)
             {
                 StopRecording();
                 return;
@@ -221,7 +220,7 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
             {
                 await client.Allocations.GetAccountsAsync(CT);
             }
-            catch (ApiException)
+            catch (IbkrApiException)
             {
                 StopRecording();
                 return;

@@ -5,7 +5,6 @@ using IbkrConduit.Client;
 using IbkrConduit.MarketData;
 using System.Net;
 using IbkrConduit.Errors;
-using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Integration.E2E;
@@ -70,7 +69,7 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
                     new ScannerRequest("STK", "TOP_TRADE_COUNT", "STK.US.MAJOR", null), CT);
                 scannerResult.Contracts.ShouldNotBeNull("Scanner contracts should not be null");
             }
-            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            catch (IbkrApiException ex) when (ex.StatusCode == HttpStatusCode.BadRequest)
             {
                 // IBKR QUIRK: /iserver/scanner/run returns 400 for some scan types on paper accounts.
             }
@@ -84,7 +83,7 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
                     new HmdsScannerRequest("STK", "STK.US.MAJOR", "TOP_PERC_GAIN", "STK", 10, null), CT);
                 hmdsScannerResult.ShouldNotBeNull("HMDS scanner response should not be null");
             }
-            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            catch (IbkrApiException ex) when (ex.StatusCode == HttpStatusCode.BadRequest)
             {
                 // IBKR QUIRK: HMDS scanner returns 400 on paper accounts for some scan codes.
             }

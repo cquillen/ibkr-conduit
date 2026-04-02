@@ -6,7 +6,6 @@ using IbkrConduit.Client;
 using IbkrConduit.Contracts;
 using System.Net;
 using IbkrConduit.Errors;
-using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Integration.E2E;
@@ -50,7 +49,7 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
                     new TradingRulesRequest(aaplConid, null, true, false, null), CT);
                 tradingRules.ShouldNotBeNull("Trading rules should not be null");
             }
-            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.InternalServerError)
+            catch (IbkrApiException ex) when (ex.StatusCode == HttpStatusCode.InternalServerError)
             {
                 // IBKR QUIRK: /iserver/contract/rules returns 500 intermittently on paper accounts.
             }
@@ -69,7 +68,7 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
                     "STK", "AAPL", aaplConid.ToString(), cancellationToken: CT);
                 schedules.ShouldNotBeEmpty("Trading schedule should not be empty");
             }
-            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            catch (IbkrApiException ex) when (ex.StatusCode == HttpStatusCode.BadRequest)
             {
                 // IBKR QUIRK: Trading schedule returns 400 intermittently on paper accounts.
             }
@@ -90,7 +89,7 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
                     aaplConid.ToString(), "OPT", nearestMonth, cancellationToken: CT);
                 secDefInfo.ShouldNotBeEmpty("Security definition info should not be empty");
             }
-            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            catch (IbkrApiException ex) when (ex.StatusCode == HttpStatusCode.BadRequest)
             {
                 // IBKR QUIRK: SecDef info returns 400 if month doesn't match available options.
             }

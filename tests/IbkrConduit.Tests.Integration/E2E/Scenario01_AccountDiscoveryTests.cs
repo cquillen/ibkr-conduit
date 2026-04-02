@@ -6,7 +6,6 @@ using IbkrConduit.Session;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using IbkrConduit.Errors;
-using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Integration.E2E;
@@ -44,7 +43,7 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
                 var ssoResult = await sessionApi.ValidateSsoAsync(CT);
                 ssoResult.Result.ShouldBeTrue("SSO validation should succeed");
             }
-            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            catch (IbkrApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
             {
                 // IBKR QUIRK: SSO validate returns 401 for OAuth sessions — skip assertion.
             }
@@ -62,7 +61,7 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
                 var searchResults = await client.Accounts.SearchAccountsAsync(accountId[..2], CT);
                 searchResults.ShouldNotBeEmpty("Search by account prefix should return results");
             }
-            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable)
+            catch (IbkrApiException ex) when (ex.StatusCode == HttpStatusCode.ServiceUnavailable)
             {
                 // IBKR QUIRK: Account search returns 503 on paper accounts.
             }
@@ -75,7 +74,7 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
                 var accountInfo = await client.Accounts.GetAccountInfoAsync(accountId, CT);
                 accountInfo.AccountId.ShouldBe(accountId);
             }
-            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            catch (IbkrApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
                 // IBKR QUIRK: Account info returns 404 for paper trading accounts.
             }
@@ -94,7 +93,7 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
                 var dynResult = await client.Accounts.SetDynAccountAsync(accountId, CT);
                 dynResult.ShouldNotBeNull();
             }
-            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.InternalServerError)
+            catch (IbkrApiException ex) when (ex.StatusCode == HttpStatusCode.InternalServerError)
             {
                 // IBKR QUIRK: DynAccount returns 500 on non-FA paper accounts.
             }
