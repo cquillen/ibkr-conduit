@@ -35,8 +35,9 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Registers the full IBKR API client pipeline including all Refit interfaces,
     /// operations implementations, and the unified <see cref="IIbkrClient"/> facade.
-    /// Consumer pipeline: Refit -> TokenRefreshHandler -> ResilienceHandler ->
-    /// GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler -> HttpClient.
+    /// Consumer pipeline: Refit -> TokenRefreshHandler -> ErrorNormalizationHandler ->
+    /// ResilienceHandler -> GlobalRateLimitingHandler -> EndpointRateLimitingHandler ->
+    /// OAuthSigningHandler -> HttpClient.
     /// Internal session pipeline: Refit -> ResilienceHandler -> GlobalRateLimitingHandler ->
     /// EndpointRateLimitingHandler -> OAuthSigningHandler -> HttpClient (no TokenRefreshHandler).
     /// </summary>
@@ -124,8 +125,8 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<ILogger<SessionManager>>()));
 
         // Consumer Refit clients (all go through the full pipeline):
-        //   TokenRefreshHandler -> ResilienceHandler -> GlobalRateLimitingHandler ->
-        //   EndpointRateLimitingHandler -> OAuthSigningHandler
+        //   TokenRefreshHandler -> ErrorNormalizationHandler -> ResilienceHandler ->
+        //   GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
         RegisterConsumerRefitClient<IIbkrPortfolioApi>(services, credentials);
         RegisterConsumerRefitClient<IIbkrContractApi>(services, credentials);
         RegisterConsumerRefitClient<IIbkrOrderApi>(services, credentials);
@@ -209,6 +210,8 @@ public static class ServiceCollectionExtensions
             .AddHttpMessageHandler(sp =>
                 new TokenRefreshHandler(
                     sp.GetRequiredService<ISessionManager>()))
+            .AddHttpMessageHandler(_ =>
+                new ErrorNormalizationHandler())
             .AddHttpMessageHandler(sp =>
                 new ResilienceHandler(
                     sp.GetRequiredService<ResiliencePipeline<HttpResponseMessage>>()))
