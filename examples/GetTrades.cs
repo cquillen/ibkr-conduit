@@ -7,41 +7,48 @@ using System.Globalization;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Http;
+using IbkrConduit.Session;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 // Load credentials from environment variables.
 // See tools/set-e2e-env.sh for the required variables.
+// Requires IBKR_FLEX_TOKEN and IBKR_FLEX_QUERY_ID to be set.
 using var credentials = OAuthCredentialsFactory.FromEnvironment();
+
+var flexToken = Environment.GetEnvironmentVariable("IBKR_FLEX_TOKEN")
+    ?? throw new InvalidOperationException("IBKR_FLEX_TOKEN environment variable is required.");
+var flexQueryId = Environment.GetEnvironmentVariable("IBKR_FLEX_QUERY_ID")
+    ?? throw new InvalidOperationException("IBKR_FLEX_QUERY_ID environment variable is required.");
 
 var services = new ServiceCollection();
 services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
-services.AddIbkrClient(credentials);
+services.AddIbkrClient(credentials, new IbkrClientOptions { FlexToken = flexToken });
 
 await using var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<IIbkrClient>();
 
-// Retrieve completed trades for the current session
-var trades = await client.Orders.GetTradesAsync();
+// Execute the Flex Query to retrieve trades
+Console.WriteLine($"Executing Flex Query {flexQueryId}...");
+var result = await client.Flex.ExecuteQueryAsync(flexQueryId);
 
-if (trades.Count == 0)
+if (result.Trades.Count == 0)
 {
-    Console.WriteLine("No trades in current session.");
+    Console.WriteLine("No trades found.");
     return;
 }
 
-Console.WriteLine($"{trades.Count} trade(s):");
+Console.WriteLine($"\n{result.Trades.Count} trade(s):");
 Console.WriteLine(
     string.Format(CultureInfo.InvariantCulture,
-        "{0,-14} {1,-6} {2,-6} {3,8} {4,12} {5,-10}",
-        "Execution ID", "Symbol", "Side", "Size", "Price", "Submitter"));
-Console.WriteLine(new string('-', 60));
+        "{0,-10} {1,-6} {2,-6} {3,8} {4,12} {5,12} {6,12}",
+        "Date", "Symbol", "Side", "Qty", "Price", "Proceeds", "Commission"));
+Console.WriteLine(new string('-', 70));
 
-foreach (var t in trades)
+foreach (var t in result.Trades)
 {
     Console.WriteLine(
         string.Format(CultureInfo.InvariantCulture,
-            "{0,-14} {1,-6} {2,-6} {3,8:N0} {4,12:N2} {5,-10}",
-            t.ExecutionId.Length > 14 ? t.ExecutionId[..14] : t.ExecutionId,
-            t.Symbol, t.Side, t.Size, t.Price, t.Submitter));
+            "{0,-10} {1,-6} {2,-6} {3,8:N0} {4,12:N2} {5,12:N2} {6,12:N2}",
+            t.TradeDate, t.Symbol, t.Side, t.Quantity, t.Price, t.Proceeds, t.Commission));
 }
