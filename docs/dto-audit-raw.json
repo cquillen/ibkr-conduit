@@ -1,0 +1,5354 @@
+{
+  "summary": {
+    "total_models": 127,
+    "total_endpoints_recorded": 70,
+    "total_findings": 380,
+    "by_type": {
+      "MISSING_IN_DTO": 293,
+      "NO_RECORDING": 33,
+      "UNMAPPED_MODEL": 54
+    }
+  },
+  "findings": [
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountAllocation",
+      "endpoint": "GET /v1/api/portfolio/{id}/allocation",
+      "field": "assetClass",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'long': {'STK': 14408.68, 'CASH': 987939.25}, 'short': {}}"
+      ],
+      "message": "Field 'assetClass' in API response but not in AccountAllocation"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountAllocation",
+      "endpoint": "GET /v1/api/portfolio/{id}/allocation",
+      "field": "group",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'long': {'Others': 14408.68}, 'short': {}}"
+      ],
+      "message": "Field 'group' in API response but not in AccountAllocation"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountAllocation",
+      "endpoint": "GET /v1/api/portfolio/{id}/allocation",
+      "field": "long",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'Others': 14408.68}"
+      ],
+      "message": "Field 'long' in API response but not in AccountAllocation"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountAllocation",
+      "endpoint": "GET /v1/api/portfolio/{id}/allocation",
+      "field": "sector",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'long': {'Others': 14408.68}, 'short': {}}"
+      ],
+      "message": "Field 'sector' in API response but not in AccountAllocation"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountAllocation",
+      "endpoint": "GET /v1/api/portfolio/{id}/allocation",
+      "field": "short",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{}"
+      ],
+      "message": "Field 'short' in API response but not in AccountAllocation"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountAllocation",
+      "endpoint": "POST /v1/api/portfolio/allocation",
+      "field": "assetClass",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'long': {'STK': 14408.68, 'CASH': 987939.25}, 'short': {}}"
+      ],
+      "message": "Field 'assetClass' in API response but not in AccountAllocation"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountAllocation",
+      "endpoint": "POST /v1/api/portfolio/allocation",
+      "field": "group",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'long': {'Others': 14408.68}, 'short': {}}"
+      ],
+      "message": "Field 'group' in API response but not in AccountAllocation"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountAllocation",
+      "endpoint": "POST /v1/api/portfolio/allocation",
+      "field": "long",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'Others': 14408.68}"
+      ],
+      "message": "Field 'long' in API response but not in AccountAllocation"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountAllocation",
+      "endpoint": "POST /v1/api/portfolio/allocation",
+      "field": "sector",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'long': {'Others': 14408.68}, 'short': {}}"
+      ],
+      "message": "Field 'sector' in API response but not in AccountAllocation"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountAllocation",
+      "endpoint": "POST /v1/api/portfolio/allocation",
+      "field": "short",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{}"
+      ],
+      "message": "Field 'short' in API response but not in AccountAllocation"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "PrepaidCrypto-P",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'PrepaidCrypto-P' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "PrepaidCrypto-Z",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'PrepaidCrypto-Z' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "accountAlias",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'accountAlias' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "accountId",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        ""
+      ],
+      "message": "Field 'accountId' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "accountStatus",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "1769922000000"
+      ],
+      "message": "Field 'accountStatus' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "accountTitle",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "Robert C Quillen"
+      ],
+      "message": "Field 'accountTitle' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "accountVan",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "DUO873728"
+      ],
+      "message": "Field 'accountVan' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "acctCustType",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "INDIVIDUAL"
+      ],
+      "message": "Field 'acctCustType' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "brokerageAccess",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'brokerageAccess' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "businessType",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "INDEPENDENT"
+      ],
+      "message": "Field 'businessType' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "category",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        ""
+      ],
+      "message": "Field 'category' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "clearingStatus",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "O"
+      ],
+      "message": "Field 'clearingStatus' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "covestor",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'covestor' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "currency",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "USD"
+      ],
+      "message": "Field 'currency' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "desc",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "DUO873728"
+      ],
+      "message": "Field 'desc' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "displayName",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "Robert C Quillen"
+      ],
+      "message": "Field 'displayName' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "faclient",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'faclient' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "ibEntity",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "IBLLC-US"
+      ],
+      "message": "Field 'ibEntity' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "id",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "DUO873728"
+      ],
+      "message": "Field 'id' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "isMChild",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'isMChild' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "isMParent",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'isMParent' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "isMultiplex",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'isMultiplex' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "mmc",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[]"
+      ],
+      "message": "Field 'mmc' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "noClientTrading",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'noClientTrading' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "parent",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'mmc': [], 'accountId': '', 'isMParent': False, 'isMChild': False, 'isMultiplex': False}"
+      ],
+      "message": "Field 'parent' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "trackVirtualFXPortfolio",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'trackVirtualFXPortfolio' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "tradingType",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "STKNOPT"
+      ],
+      "message": "Field 'tradingType' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountInfo",
+      "endpoint": "GET /v1/api/portfolio/{id}/meta",
+      "field": "type",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "DEMO"
+      ],
+      "message": "Field 'type' in API response but not in AccountInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountPerformance",
+      "endpoint": "POST /v1/api/pa/performance",
+      "field": "cps",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'freq': 'D', 'dates': ['20260302', '20260303', '20260304', '20260305', '20260306', '20260309', '202"
+      ],
+      "message": "Field 'cps' in API response but not in AccountPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountPerformance",
+      "endpoint": "POST /v1/api/pa/performance",
+      "field": "currencyType",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "base"
+      ],
+      "message": "Field 'currencyType' in API response but not in AccountPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountPerformance",
+      "endpoint": "POST /v1/api/pa/performance",
+      "field": "data",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[{'id': 'DUO873728', 'idType': 'acctid', 'startNAV': {'date': '20260227', 'val': 1002158.75}, 'start"
+      ],
+      "message": "Field 'data' in API response but not in AccountPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountPerformance",
+      "endpoint": "POST /v1/api/pa/performance",
+      "field": "dates",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['20260302', '20260303', '20260304', '20260305', '20260306', '20260309', '20260310', '20260311', '20"
+      ],
+      "message": "Field 'dates' in API response but not in AccountPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountPerformance",
+      "endpoint": "POST /v1/api/pa/performance",
+      "field": "freq",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "D"
+      ],
+      "message": "Field 'freq' in API response but not in AccountPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountPerformance",
+      "endpoint": "POST /v1/api/pa/performance",
+      "field": "id",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "getPerformanceData"
+      ],
+      "message": "Field 'id' in API response but not in AccountPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountPerformance",
+      "endpoint": "POST /v1/api/pa/performance",
+      "field": "included",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['DUO873728']"
+      ],
+      "message": "Field 'included' in API response but not in AccountPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountPerformance",
+      "endpoint": "POST /v1/api/pa/performance",
+      "field": "nav",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'freq': 'D', 'dates': ['20260302', '20260303', '20260304', '20260305', '20260306', '20260309', '202"
+      ],
+      "message": "Field 'nav' in API response but not in AccountPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountPerformance",
+      "endpoint": "POST /v1/api/pa/performance",
+      "field": "nd",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "31"
+      ],
+      "message": "Field 'nd' in API response but not in AccountPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountPerformance",
+      "endpoint": "POST /v1/api/pa/performance",
+      "field": "pm",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "TWR"
+      ],
+      "message": "Field 'pm' in API response but not in AccountPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AccountPerformance",
+      "endpoint": "POST /v1/api/pa/performance",
+      "field": "tpps",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'freq': 'M', 'dates': ['202603', '202604'], 'data': [{'id': 'DUO873728', 'idType': 'acctid', 'start"
+      ],
+      "message": "Field 'tpps' in API response but not in AccountPerformance"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "AlertDetail",
+      "endpoint": "GET /v1/api/iserver/account/alert/{id}",
+      "message": "No recorded response found for GET /v1/api/iserver/account/alert/{id}"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "1D",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'freq': 'D', 'startNAV': {'date': '20260331', 'val': 1004944.09}, 'dates': ['20260401'], 'nav': [10"
+      ],
+      "message": "Field '1D' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "1M",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'freq': 'D', 'startNAV': {'date': '20260227', 'val': 1002158.75}, 'dates': ['20260302', '20260303',"
+      ],
+      "message": "Field '1M' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "1Y",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'freq': 'D', 'startNAV': {'date': '20260130', 'val': 0.0}, 'dates': ['20260202', '20260203', '20260"
+      ],
+      "message": "Field '1Y' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "7D",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'freq': 'D', 'startNAV': {'date': '20260325', 'val': 1004408.05}, 'dates': ['20260326', '20260327',"
+      ],
+      "message": "Field '7D' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "DUO873728",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'1D': {'freq': 'D', 'startNAV': {'date': '20260331', 'val': 1004944.09}, 'dates': ['20260401'], 'na"
+      ],
+      "message": "Field 'DUO873728' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "MTD",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'freq': 'D', 'startNAV': {'date': '20260227', 'val': 1002158.75}, 'dates': ['20260302', '20260303',"
+      ],
+      "message": "Field 'MTD' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "YTD",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'freq': 'D', 'startNAV': {'date': '20260130', 'val': 0.0}, 'dates': ['20260202', '20260203', '20260"
+      ],
+      "message": "Field 'YTD' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "baseCurrency",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "USD"
+      ],
+      "message": "Field 'baseCurrency' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "currencyType",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "base"
+      ],
+      "message": "Field 'currencyType' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "end",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "20260401"
+      ],
+      "message": "Field 'end' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "id",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "getPerformanceAllPeriods"
+      ],
+      "message": "Field 'id' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "included",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['DUO873728']"
+      ],
+      "message": "Field 'included' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "lastSuccessfulUpdate",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "2026-04-01 23:46:49"
+      ],
+      "message": "Field 'lastSuccessfulUpdate' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "nd",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "59"
+      ],
+      "message": "Field 'nd' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "periods",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['1D', '7D', 'MTD', '1M', 'YTD', '1Y']"
+      ],
+      "message": "Field 'periods' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "pm",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "TWR"
+      ],
+      "message": "Field 'pm' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "start",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "20260202"
+      ],
+      "message": "Field 'start' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AllPeriodsPerformance",
+      "endpoint": "POST /v1/api/pa/allperiods",
+      "field": "view",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['DUO873728']"
+      ],
+      "message": "Field 'view' in API response but not in AllPeriodsPerformance"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "AllocationAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/account/allocation/accounts",
+      "message": "No recorded response found for GET /v1/api/iserver/account/allocation/accounts"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "AllocationGroupDetail",
+      "endpoint": "POST /v1/api/iserver/account/allocation/group/single",
+      "message": "No recorded response found for POST /v1/api/iserver/account/allocation/group/single"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "AllocationGroupListResponse",
+      "endpoint": "GET /v1/api/iserver/account/allocation/group",
+      "message": "No recorded response found for GET /v1/api/iserver/account/allocation/group"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "AllocationPresetsResponse",
+      "endpoint": "GET /v1/api/iserver/account/allocation/presets",
+      "message": "No recorded response found for GET /v1/api/iserver/account/allocation/presets"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "AllocationSuccessResponse",
+      "endpoint": "POST /v1/api/iserver/account/allocation/group",
+      "message": "No recorded response found for POST /v1/api/iserver/account/allocation/group"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "AllocationSuccessResponse",
+      "endpoint": "POST /v1/api/iserver/account/allocation/group/delete",
+      "message": "No recorded response found for POST /v1/api/iserver/account/allocation/group/delete"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "AllocationSuccessResponse",
+      "endpoint": "PUT /v1/api/iserver/account/allocation/group",
+      "message": "No recorded response found for PUT /v1/api/iserver/account/allocation/group"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "AllocationSuccessResponse",
+      "endpoint": "POST /v1/api/iserver/account/allocation/presets",
+      "message": "No recorded response found for POST /v1/api/iserver/account/allocation/presets"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AuthStatusResponse",
+      "endpoint": "GET /v1/api/iserver/auth/status",
+      "field": "MAC",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "06:05:9B:DE:2D:8B"
+      ],
+      "message": "Field 'MAC' in API response but not in AuthStatusResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AuthStatusResponse",
+      "endpoint": "GET /v1/api/iserver/auth/status",
+      "field": "authenticated",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'authenticated' in API response but not in AuthStatusResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AuthStatusResponse",
+      "endpoint": "GET /v1/api/iserver/auth/status",
+      "field": "competing",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'competing' in API response but not in AuthStatusResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AuthStatusResponse",
+      "endpoint": "GET /v1/api/iserver/auth/status",
+      "field": "connected",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'connected' in API response but not in AuthStatusResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AuthStatusResponse",
+      "endpoint": "GET /v1/api/iserver/auth/status",
+      "field": "established",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'established' in API response but not in AuthStatusResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AuthStatusResponse",
+      "endpoint": "GET /v1/api/iserver/auth/status",
+      "field": "fail",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        ""
+      ],
+      "message": "Field 'fail' in API response but not in AuthStatusResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AuthStatusResponse",
+      "endpoint": "GET /v1/api/iserver/auth/status",
+      "field": "hardware_info",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "d12054d0|06:05:9B:DE:2D:8B"
+      ],
+      "message": "Field 'hardware_info' in API response but not in AuthStatusResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AuthStatusResponse",
+      "endpoint": "GET /v1/api/iserver/auth/status",
+      "field": "message",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        ""
+      ],
+      "message": "Field 'message' in API response but not in AuthStatusResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AuthStatusResponse",
+      "endpoint": "GET /v1/api/iserver/auth/status",
+      "field": "serverInfo",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'serverName': 'JisfN6110', 'serverVersion': 'Build 10.44.1d, Mar 3, 2026 1:55:32 PM'}"
+      ],
+      "message": "Field 'serverInfo' in API response but not in AuthStatusResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AuthStatusResponse",
+      "endpoint": "GET /v1/api/iserver/auth/status",
+      "field": "serverName",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "JisfN6110"
+      ],
+      "message": "Field 'serverName' in API response but not in AuthStatusResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "AuthStatusResponse",
+      "endpoint": "GET /v1/api/iserver/auth/status",
+      "field": "serverVersion",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "Build 10.44.1d, Mar 3, 2026 1:55:32 PM"
+      ],
+      "message": "Field 'serverVersion' in API response but not in AuthStatusResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "CancelOrderResponse",
+      "endpoint": "DELETE /v1/api/iserver/account/{id}/order/{id}",
+      "field": "account",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'account' in API response but not in CancelOrderResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "CancelOrderResponse",
+      "endpoint": "DELETE /v1/api/iserver/account/{id}/order/{id}",
+      "field": "conid",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "-1"
+      ],
+      "message": "Field 'conid' in API response but not in CancelOrderResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "CancelOrderResponse",
+      "endpoint": "DELETE /v1/api/iserver/account/{id}/order/{id}",
+      "field": "msg",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "Request was submitted"
+      ],
+      "message": "Field 'msg' in API response but not in CancelOrderResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "CancelOrderResponse",
+      "endpoint": "DELETE /v1/api/iserver/account/{id}/order/{id}",
+      "field": "order_id",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "1020484121",
+        "1638707572",
+        "22239254"
+      ],
+      "message": "Field 'order_id' in API response but not in CancelOrderResponse"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "ContractDetails",
+      "endpoint": "GET /v1/api/iserver/contract/{id}/info",
+      "message": "No recorded response found for GET /v1/api/iserver/contract/{id}/info"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "CreateAlertResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/alert",
+      "message": "No recorded response found for POST /v1/api/iserver/account/{id}/alert"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "CreateWatchlistResponse",
+      "endpoint": "POST /v1/api/iserver/watchlist",
+      "message": "No recorded response found for POST /v1/api/iserver/watchlist"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "DeleteAlertResponse",
+      "endpoint": "DELETE /v1/api/iserver/account/{id}/alert/{id}",
+      "message": "No recorded response found for DELETE /v1/api/iserver/account/{id}/alert/{id}"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "DeleteWatchlistResponse",
+      "endpoint": "DELETE /v1/api/iserver/watchlist",
+      "message": "No recorded response found for DELETE /v1/api/iserver/watchlist"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "DynAccountResponse",
+      "endpoint": "POST /v1/api/iserver/dynaccount",
+      "message": "No recorded response found for POST /v1/api/iserver/dynaccount"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "ExchangeRateResponse",
+      "endpoint": "GET /v1/api/iserver/exchangerate",
+      "message": "No recorded response found for GET /v1/api/iserver/exchangerate"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "FyiAcknowledgementResponse",
+      "endpoint": "POST /v1/api/fyi/settings/{id}",
+      "message": "No recorded response found for POST /v1/api/fyi/settings/{id}"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "FyiAcknowledgementResponse",
+      "endpoint": "PUT /v1/api/fyi/disclaimer/{id}",
+      "message": "No recorded response found for PUT /v1/api/fyi/disclaimer/{id}"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "FyiAcknowledgementResponse",
+      "endpoint": "PUT /v1/api/fyi/deliveryoptions/email",
+      "message": "No recorded response found for PUT /v1/api/fyi/deliveryoptions/email"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiAcknowledgementResponse",
+      "endpoint": "POST /v1/api/fyi/deliveryoptions/device",
+      "field": "T",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "10"
+      ],
+      "message": "Field 'T' in API response but not in FyiAcknowledgementResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiAcknowledgementResponse",
+      "endpoint": "POST /v1/api/fyi/deliveryoptions/device",
+      "field": "V",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "1"
+      ],
+      "message": "Field 'V' in API response but not in FyiAcknowledgementResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiDeliveryOptionsResponse",
+      "endpoint": "GET /v1/api/fyi/deliveryoptions",
+      "field": "A",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "1"
+      ],
+      "message": "Field 'A' in API response but not in FyiDeliveryOptionsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiDeliveryOptionsResponse",
+      "endpoint": "GET /v1/api/fyi/deliveryoptions",
+      "field": "E",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[{'NM': 'E2E-TestDevice', 'I': 'E2E-4514bd9453aa4c64ad3776b8fca207b7', 'UI': 'E2E Test UI', 'A': 1}]"
+      ],
+      "message": "Field 'E' in API response but not in FyiDeliveryOptionsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiDeliveryOptionsResponse",
+      "endpoint": "GET /v1/api/fyi/deliveryoptions",
+      "field": "I",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "E2E-4514bd9453aa4c64ad3776b8fca207b7"
+      ],
+      "message": "Field 'I' in API response but not in FyiDeliveryOptionsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiDeliveryOptionsResponse",
+      "endpoint": "GET /v1/api/fyi/deliveryoptions",
+      "field": "M",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "1"
+      ],
+      "message": "Field 'M' in API response but not in FyiDeliveryOptionsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiDeliveryOptionsResponse",
+      "endpoint": "GET /v1/api/fyi/deliveryoptions",
+      "field": "NM",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "E2E-TestDevice"
+      ],
+      "message": "Field 'NM' in API response but not in FyiDeliveryOptionsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiDeliveryOptionsResponse",
+      "endpoint": "GET /v1/api/fyi/deliveryoptions",
+      "field": "UI",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "E2E Test UI"
+      ],
+      "message": "Field 'UI' in API response but not in FyiDeliveryOptionsResponse"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "FyiDisclaimerResponse",
+      "endpoint": "GET /v1/api/fyi/disclaimer/{id}",
+      "message": "No recorded response found for GET /v1/api/fyi/disclaimer/{id}"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiNotificationReadResponse",
+      "endpoint": "PUT /v1/api/fyi/notifications/{id}",
+      "field": "ID",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "0",
+        "2026040190532092"
+      ],
+      "message": "Field 'ID' in API response but not in FyiNotificationReadResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiNotificationReadResponse",
+      "endpoint": "PUT /v1/api/fyi/notifications/{id}",
+      "field": "P",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'R': 1, 'ID': '0'}",
+        "{'R': 1, 'ID': '2026040190532092'}"
+      ],
+      "message": "Field 'P' in API response but not in FyiNotificationReadResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiNotificationReadResponse",
+      "endpoint": "PUT /v1/api/fyi/notifications/{id}",
+      "field": "R",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "1"
+      ],
+      "message": "Field 'R' in API response but not in FyiNotificationReadResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiNotificationReadResponse",
+      "endpoint": "PUT /v1/api/fyi/notifications/{id}",
+      "field": "T",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "5"
+      ],
+      "message": "Field 'T' in API response but not in FyiNotificationReadResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "FyiNotificationReadResponse",
+      "endpoint": "PUT /v1/api/fyi/notifications/{id}",
+      "field": "V",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "1"
+      ],
+      "message": "Field 'V' in API response but not in FyiNotificationReadResponse"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "HistoricalDataResponse",
+      "endpoint": "GET /v1/api/iserver/marketdata/history",
+      "message": "No recorded response found for GET /v1/api/iserver/marketdata/history"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "HmdsScannerResponse",
+      "endpoint": "POST /v1/api/hmds/scanner",
+      "message": "No recorded response found for POST /v1/api/hmds/scanner"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "IserverAccountInfo",
+      "endpoint": "GET /v1/api/iserver/account/{id}",
+      "message": "No recorded response found for GET /v1/api/iserver/account/{id}"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "BOND",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['*']"
+      ],
+      "message": "Field 'BOND' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "CASH",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['*']"
+      ],
+      "message": "Field 'CASH' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "CFD",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['*']"
+      ],
+      "message": "Field 'CFD' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "CMDTY",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['*']"
+      ],
+      "message": "Field 'CMDTY' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "CRYPTO",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['*']"
+      ],
+      "message": "Field 'CRYPTO' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "DUO873728",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "DUO873728"
+      ],
+      "message": "Field 'DUO873728' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "FOP",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['2h', '1d', '2d', '1w', '1m']"
+      ],
+      "message": "Field 'FOP' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "FUND",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['*']"
+      ],
+      "message": "Field 'FUND' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "FUT",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['*']"
+      ],
+      "message": "Field 'FUT' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "IND",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['*']"
+      ],
+      "message": "Field 'IND' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "IOPT",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['*']"
+      ],
+      "message": "Field 'IOPT' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "OPT",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['2h', '1d', '2d', '1w', '1m']"
+      ],
+      "message": "Field 'OPT' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "PHYSS",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['*']"
+      ],
+      "message": "Field 'PHYSS' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "STK",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['*']"
+      ],
+      "message": "Field 'STK' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "WAR",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['*']"
+      ],
+      "message": "Field 'WAR' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "accounts",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['DUO873728']"
+      ],
+      "message": "Field 'accounts' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "acctProps",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'DUO873728': {'hasChildAccounts': False, 'supportsCashQty': True, 'liteUnderPro': False, 'noFXConv'"
+      ],
+      "message": "Field 'acctProps' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "aliases",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'DUO873728': 'DUO873728'}"
+      ],
+      "message": "Field 'aliases' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "allowCrypto",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'allowCrypto' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "allowDynAccount",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'allowDynAccount' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "allowEventContract",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'allowEventContract' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "allowEventTrading",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'allowEventTrading' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "allowFA",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'allowFA' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "allowFXConv",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'allowFXConv' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "allowFeatures",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'showGFIS': True, 'showEUCostReport': False, 'allowEventContract': True, 'allowFXConv': True, 'allo"
+      ],
+      "message": "Field 'allowFeatures' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "allowFinancialLens",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'allowFinancialLens' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "allowLiteUnderPro",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'allowLiteUnderPro' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "allowMTA",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'allowMTA' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "allowTypeAhead",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'allowTypeAhead' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "allowedAssetTypes",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "STK,CFD,OPT,FOP,WAR,FUT,BAG,PDC,CASH,IND,BOND,BILL,FUND,SLB,News,CMDTY,IOPT,ICU,ICS,PHYSS,CRYPTO"
+      ],
+      "message": "Field 'allowedAssetTypes' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "chartPeriods",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'STK': ['*'], 'CFD': ['*'], 'OPT': ['2h', '1d', '2d', '1w', '1m'], 'FOP': ['2h', '1d', '2d', '1w', "
+      ],
+      "message": "Field 'chartPeriods' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "debugPnl",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'debugPnl' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "groups",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[]"
+      ],
+      "message": "Field 'groups' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "isFT",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'isFT' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "isPaper",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'isPaper' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "liteUser",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'liteUser' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "profiles",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[]"
+      ],
+      "message": "Field 'profiles' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "research",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'research' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "restrictTradeSubscription",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'restrictTradeSubscription' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "selectedAccount",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "DUO873728"
+      ],
+      "message": "Field 'selectedAccount' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "serverInfo",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'serverName': 'JisfN6110', 'serverVersion': 'Build 10.44.1d, Mar 3, 2026 1:55:32 PM'}"
+      ],
+      "message": "Field 'serverInfo' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "serverName",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "JisfN6110"
+      ],
+      "message": "Field 'serverName' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "serverVersion",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "Build 10.44.1d, Mar 3, 2026 1:55:32 PM"
+      ],
+      "message": "Field 'serverVersion' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "sessionId",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "69cca1b8.000002ef"
+      ],
+      "message": "Field 'sessionId' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "showEUCostReport",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'showEUCostReport' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "showGFIS",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'showGFIS' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "showImpactDashboard",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'showImpactDashboard' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "showTaxOpt",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'showTaxOpt' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "showUkUserLabels",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'showUkUserLabels' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "showWebNews",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'showWebNews' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "sideBySide",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'sideBySide' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "IserverAccountsResponse",
+      "endpoint": "GET /v1/api/iserver/accounts",
+      "field": "snapshotRefreshTimeout",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "30"
+      ],
+      "message": "Field 'snapshotRefreshTimeout' in API response but not in IserverAccountsResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "LogoutResponse",
+      "endpoint": "POST /v1/api/logout",
+      "field": "status",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'status' in API response but not in LogoutResponse"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "MarketDataSnapshotRaw",
+      "endpoint": "GET /v1/api/md/regsnapshot",
+      "message": "No recorded response found for GET /v1/api/md/regsnapshot"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "OptionStrikes",
+      "endpoint": "GET /v1/api/iserver/secdef/strikes",
+      "message": "No recorded response found for GET /v1/api/iserver/secdef/strikes"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "account",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "DUO873728"
+      ],
+      "message": "Field 'account' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "alert_active",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "1"
+      ],
+      "message": "Field 'alert_active' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "all_or_none",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'all_or_none' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "allowed_duplicate_opposite",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'allowed_duplicate_opposite' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "available_chart_periods",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "#R|1"
+      ],
+      "message": "Field 'available_chart_periods' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "bg_color",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "#0000CC"
+      ],
+      "message": "Field 'bg_color' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "cannot_cancel_order",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'cannot_cancel_order' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "child_order_type",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "3"
+      ],
+      "message": "Field 'child_order_type' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "clearing_id",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "IB"
+      ],
+      "message": "Field 'clearing_id' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "clearing_name",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "IB"
+      ],
+      "message": "Field 'clearing_name' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "company_name",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "SS SPDR S&P 500 ETF TRUST-US"
+      ],
+      "message": "Field 'company_name' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "conid",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "756733"
+      ],
+      "message": "Field 'conid' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "conidex",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "756733"
+      ],
+      "message": "Field 'conidex' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "contract_description_1",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "SPY"
+      ],
+      "message": "Field 'contract_description_1' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "cum_fill",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "0.0"
+      ],
+      "message": "Field 'cum_fill' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "currency",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "USD"
+      ],
+      "message": "Field 'currency' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "deactivate_order",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'deactivate_order' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "editable_fields",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "\u001e"
+      ],
+      "message": "Field 'editable_fields' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "exit_strategy_chart_description",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "Buy 1 Limit 1.00, GTC"
+      ],
+      "message": "Field 'exit_strategy_chart_description' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "exit_strategy_display_price",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "1.00"
+      ],
+      "message": "Field 'exit_strategy_display_price' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "exit_strategy_tool_availability",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "1"
+      ],
+      "message": "Field 'exit_strategy_tool_availability' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "fg_color",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "#FFFFFF"
+      ],
+      "message": "Field 'fg_color' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "limit_price",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "1.00"
+      ],
+      "message": "Field 'limit_price' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "listing_exchange",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "ARCA"
+      ],
+      "message": "Field 'listing_exchange' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "option_acct",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "c"
+      ],
+      "message": "Field 'option_acct' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "order_ccp_status",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "0"
+      ],
+      "message": "Field 'order_ccp_status' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "order_clearing_account",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "DUO873728"
+      ],
+      "message": "Field 'order_clearing_account' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "order_description",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "Buy 1 Limit 1.00, GTC"
+      ],
+      "message": "Field 'order_description' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "order_description_with_contract",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "Buy 1 SPY Limit 1.00, GTC"
+      ],
+      "message": "Field 'order_description_with_contract' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "order_id",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "1020484121",
+        "1638707572",
+        "22239254"
+      ],
+      "message": "Field 'order_id' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "order_not_editable",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'order_not_editable' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "order_status",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "PreSubmitted"
+      ],
+      "message": "Field 'order_status' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "order_status_description",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "Order Submitted"
+      ],
+      "message": "Field 'order_status_description' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "order_time",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "260401231429",
+        "260401233606",
+        "260401234346"
+      ],
+      "message": "Field 'order_time' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "order_type",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "LIMIT"
+      ],
+      "message": "Field 'order_type' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "outside_rth",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'outside_rth' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "request_id",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "4852491",
+        "4865463",
+        "4871847"
+      ],
+      "message": "Field 'request_id' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "sec_type",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "STK"
+      ],
+      "message": "Field 'sec_type' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "server_id",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "476341",
+        "476595",
+        "476687"
+      ],
+      "message": "Field 'server_id' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "side",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "B"
+      ],
+      "message": "Field 'side' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "size",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "1.0"
+      ],
+      "message": "Field 'size' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "size_and_fills",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "0/1"
+      ],
+      "message": "Field 'size_and_fills' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "sub_type",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'sub_type' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "symbol",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "SPY"
+      ],
+      "message": "Field 'symbol' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "tif",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "GTC"
+      ],
+      "message": "Field 'tif' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "total_size",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "1.0"
+      ],
+      "message": "Field 'total_size' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrderStatus",
+      "endpoint": "GET /v1/api/iserver/account/order/status/{id}",
+      "field": "use_price_mgmt_algo",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'use_price_mgmt_algo' in API response but not in OrderStatus"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrdersResponse",
+      "endpoint": "GET /v1/api/iserver/account/orders",
+      "field": "orders",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[]"
+      ],
+      "message": "Field 'orders' in API response but not in OrdersResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "OrdersResponse",
+      "endpoint": "GET /v1/api/iserver/account/orders",
+      "field": "snapshot",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'snapshot' in API response but not in OrdersResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PartitionedPnl",
+      "endpoint": "GET /v1/api/iserver/account/pnl/partitioned",
+      "field": "upnl",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{}"
+      ],
+      "message": "Field 'upnl' in API response but not in PartitionedPnl"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "DUO873728",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[{'acctId': 'DUO873728', 'conid': 756733, 'contractDesc': 'SPY', 'position': 22.0, 'mktPrice': 654.9"
+      ],
+      "message": "Field 'DUO873728' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "DUO873728C",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[{'acctId': 'DUO873728C', 'conid': 756733, 'contractDesc': 'SPY', 'position': 22.0, 'mktPrice': 654."
+      ],
+      "message": "Field 'DUO873728C' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "acctId",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "DUO873728C"
+      ],
+      "message": "Field 'acctId' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "allExchanges",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "AMEX,NYSE,CBOE,PHLX,CHX,ARCA,ISLAND,ISE,IDEAL,NASDAQQ,DRCTEDGE,BEX,BATS,NITEECN,EDGEA,CSFBALGO,TRADE"
+      ],
+      "message": "Field 'allExchanges' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "assetClass",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "STK"
+      ],
+      "message": "Field 'assetClass' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "avgCost",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "654.18954545"
+      ],
+      "message": "Field 'avgCost' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "avgPrice",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "654.18954545"
+      ],
+      "message": "Field 'avgPrice' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "baseAvgCost",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "654.18954545"
+      ],
+      "message": "Field 'baseAvgCost' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "baseAvgPrice",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "654.18954545"
+      ],
+      "message": "Field 'baseAvgPrice' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "baseMktPrice",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "654.9400635"
+      ],
+      "message": "Field 'baseMktPrice' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "baseMktValue",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "14408.68"
+      ],
+      "message": "Field 'baseMktValue' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "baseRealizedPnl",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "0.0"
+      ],
+      "message": "Field 'baseRealizedPnl' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "baseUnrealizedPnl",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "16.51"
+      ],
+      "message": "Field 'baseUnrealizedPnl' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "chineseName",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "&#x9053;&#x5BCC;SPDR&#x6807;&#x666E;500 ETF&#x4FE1;&#x6258;"
+      ],
+      "message": "Field 'chineseName' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "conExchMap",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[]"
+      ],
+      "message": "Field 'conExchMap' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "conid",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "756733"
+      ],
+      "message": "Field 'conid' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "contractDesc",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "SPY"
+      ],
+      "message": "Field 'contractDesc' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "countryCode",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "US"
+      ],
+      "message": "Field 'countryCode' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "currency",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "USD"
+      ],
+      "message": "Field 'currency' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "displayRule",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'magnification': 0, 'displayRuleStep': [{'decimalDigits': 2, 'lowerEdge': 0.0, 'wholeDigits': 4}]}"
+      ],
+      "message": "Field 'displayRule' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "exchs",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'exchs' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "exerciseStyle",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'exerciseStyle' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "expiry",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'expiry' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "fullName",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "SPY"
+      ],
+      "message": "Field 'fullName' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "group",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'group' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "hasOptions",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'hasOptions' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "incrementRules",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[{'lowerEdge': 0.0, 'increment': 0.01}]"
+      ],
+      "message": "Field 'incrementRules' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "isEventContract",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'isEventContract' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "isUS",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'isUS' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "lastTradingDay",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'lastTradingDay' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "listingExchange",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "ARCA"
+      ],
+      "message": "Field 'listingExchange' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "mktPrice",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "654.9400635"
+      ],
+      "message": "Field 'mktPrice' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "mktValue",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "14408.68"
+      ],
+      "message": "Field 'mktValue' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "model",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        ""
+      ],
+      "message": "Field 'model' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "multiplier",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'multiplier' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "name",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "SS SPDR S&P 500 ETF TRUST-US"
+      ],
+      "message": "Field 'name' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "pageSize",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "100"
+      ],
+      "message": "Field 'pageSize' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "position",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "22.0"
+      ],
+      "message": "Field 'position' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "putOrCall",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'putOrCall' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "realizedPnl",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "0.0"
+      ],
+      "message": "Field 'realizedPnl' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "sector",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'sector' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "sectorGroup",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'sectorGroup' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "strike",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "0.0"
+      ],
+      "message": "Field 'strike' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "ticker",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "SPY"
+      ],
+      "message": "Field 'ticker' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "time",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "34"
+      ],
+      "message": "Field 'time' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "type",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "ETF"
+      ],
+      "message": "Field 'type' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "undConid",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "0"
+      ],
+      "message": "Field 'undConid' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "PositionContractInfo",
+      "endpoint": "GET /v1/api/portfolio/positions/{id}",
+      "field": "unrealizedPnl",
+      "observed_types": [
+        "number"
+      ],
+      "sample_values": [
+        "16.51"
+      ],
+      "message": "Field 'unrealizedPnl' in API response but not in PositionContractInfo"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "ReauthenticateResponse",
+      "endpoint": "POST /v1/api/iserver/reauthenticate",
+      "message": "No recorded response found for POST /v1/api/iserver/reauthenticate"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "ScannerParameters",
+      "endpoint": "GET /v1/api/iserver/scanner/params",
+      "field": "code",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "afterHoursChangeAbove",
+        "afterHoursChangeBelow"
+      ],
+      "message": "Field 'code' in API response but not in ScannerParameters"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "ScannerParameters",
+      "endpoint": "GET /v1/api/iserver/scanner/params",
+      "field": "display_name",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "US Stocks",
+        "US Equity ETFs"
+      ],
+      "message": "Field 'display_name' in API response but not in ScannerParameters"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "ScannerParameters",
+      "endpoint": "GET /v1/api/iserver/scanner/params",
+      "field": "filter_list",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[{'group': 'afterHoursChangeAbove', 'display_name': 'After-Hours Change Above', 'code': 'afterHoursC"
+      ],
+      "message": "Field 'filter_list' in API response but not in ScannerParameters"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "ScannerParameters",
+      "endpoint": "GET /v1/api/iserver/scanner/params",
+      "field": "filters",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['afterHoursChange', 'afterHoursChangePerc', 'avgOptVolume', 'avgPriceTarget', 'avgRating', 'avgAnal"
+      ],
+      "message": "Field 'filters' in API response but not in ScannerParameters"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "ScannerParameters",
+      "endpoint": "GET /v1/api/iserver/scanner/params",
+      "field": "group",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "afterHoursChangeAbove",
+        "afterHoursChangeBelow"
+      ],
+      "message": "Field 'group' in API response but not in ScannerParameters"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "ScannerParameters",
+      "endpoint": "GET /v1/api/iserver/scanner/params",
+      "field": "instrument_list",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[{'display_name': 'US Stocks', 'type': 'STK', 'filters': ['afterHoursChange', 'afterHoursChangePerc'"
+      ],
+      "message": "Field 'instrument_list' in API response but not in ScannerParameters"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "ScannerParameters",
+      "endpoint": "GET /v1/api/iserver/scanner/params",
+      "field": "instruments",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['STK', 'ETF.EQ.US', 'ETF.FI.US', 'FUT.US', 'IND.US', 'STOCK.NA', 'FUT.NA', 'SSF.NA', 'STOCK.EU', 'F"
+      ],
+      "message": "Field 'instruments' in API response but not in ScannerParameters"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "ScannerParameters",
+      "endpoint": "GET /v1/api/iserver/scanner/params",
+      "field": "location_tree",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[{'display_name': 'US Stocks', 'type': 'STK', 'locations': [{'display_name': 'Listed/NASDAQ', 'type'"
+      ],
+      "message": "Field 'location_tree' in API response but not in ScannerParameters"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "ScannerParameters",
+      "endpoint": "GET /v1/api/iserver/scanner/params",
+      "field": "locations",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[{'display_name': 'Listed/NASDAQ', 'type': 'STK.US.MAJOR', 'locations': []}, {'display_name': 'OTCMa",
+        "[{'display_name': 'Listed/NASDAQ', 'type': 'ETF.EQ.US.MAJOR', 'locations': []}]"
+      ],
+      "message": "Field 'locations' in API response but not in ScannerParameters"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "ScannerParameters",
+      "endpoint": "GET /v1/api/iserver/scanner/params",
+      "field": "scan_type_list",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "[{'display_name': 'Top % Gainers', 'code': 'TOP_PERC_GAIN', 'instruments': ['STK', 'ETF.EQ.US', 'ETF"
+      ],
+      "message": "Field 'scan_type_list' in API response but not in ScannerParameters"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "ScannerParameters",
+      "endpoint": "GET /v1/api/iserver/scanner/params",
+      "field": "type",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "STK",
+        "ETF.EQ.US"
+      ],
+      "message": "Field 'type' in API response but not in ScannerParameters"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "ScannerResponse",
+      "endpoint": "POST /v1/api/iserver/scanner/run",
+      "message": "No recorded response found for POST /v1/api/iserver/scanner/run"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "SecurityDefinitionResponse",
+      "endpoint": "GET /v1/api/trsrv/secdef",
+      "message": "No recorded response found for GET /v1/api/trsrv/secdef"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "SsoValidateResponse",
+      "endpoint": "GET /v1/api/sso/validate",
+      "message": "No recorded response found for GET /v1/api/sso/validate"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "SsodhInitResponse",
+      "endpoint": "POST /v1/api/iserver/auth/ssodh/init",
+      "field": "authenticated",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'authenticated' in API response but not in SsodhInitResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "SsodhInitResponse",
+      "endpoint": "POST /v1/api/iserver/auth/ssodh/init",
+      "field": "competing",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'competing' in API response but not in SsodhInitResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "SsodhInitResponse",
+      "endpoint": "POST /v1/api/iserver/auth/ssodh/init",
+      "field": "connected",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'connected' in API response but not in SsodhInitResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "SsodhInitResponse",
+      "endpoint": "POST /v1/api/iserver/auth/ssodh/init",
+      "field": "established",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "False"
+      ],
+      "message": "Field 'established' in API response but not in SsodhInitResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "SsodhInitResponse",
+      "endpoint": "POST /v1/api/iserver/auth/ssodh/init",
+      "field": "hardware_info",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "d12054d0|06:05:9B:DE:2D:8B"
+      ],
+      "message": "Field 'hardware_info' in API response but not in SsodhInitResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "SsodhInitResponse",
+      "endpoint": "POST /v1/api/iserver/auth/ssodh/init",
+      "field": "passed",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'passed' in API response but not in SsodhInitResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "SuppressResetResponse",
+      "endpoint": "POST /v1/api/iserver/questions/suppress/reset",
+      "field": "status",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "submitted"
+      ],
+      "message": "Field 'status' in API response but not in SuppressResetResponse"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "SuppressResponse",
+      "endpoint": "POST /v1/api/iserver/questions/suppress",
+      "message": "No recorded response found for POST /v1/api/iserver/questions/suppress"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "SwitchAccountResponse",
+      "endpoint": "POST /v1/api/iserver/account",
+      "field": "success",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "Account already set"
+      ],
+      "message": "Field 'success' in API response but not in SwitchAccountResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "TickleResponse",
+      "endpoint": "POST /v1/api/tickle",
+      "field": "authStatus",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'authenticated': True, 'established': True, 'competing': False, 'connected': True, 'message': '', '"
+      ],
+      "message": "Field 'authStatus' in API response but not in TickleResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "TickleResponse",
+      "endpoint": "POST /v1/api/tickle",
+      "field": "error",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "no bridge"
+      ],
+      "message": "Field 'error' in API response but not in TickleResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "TickleResponse",
+      "endpoint": "POST /v1/api/tickle",
+      "field": "hmds",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'error': 'no bridge'}"
+      ],
+      "message": "Field 'hmds' in API response but not in TickleResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "TickleResponse",
+      "endpoint": "POST /v1/api/tickle",
+      "field": "iserver",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'authStatus': {'authenticated': True, 'established': True, 'competing': False, 'connected': True, '"
+      ],
+      "message": "Field 'iserver' in API response but not in TickleResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "TickleResponse",
+      "endpoint": "POST /v1/api/tickle",
+      "field": "session",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "989e04604f5f8b267be926aa267119db",
+        "e98d648092a5c8112e4cbda7f00df7ba"
+      ],
+      "message": "Field 'session' in API response but not in TickleResponse"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "TradingRules",
+      "endpoint": "POST /v1/api/iserver/contract/rules",
+      "message": "No recorded response found for POST /v1/api/iserver/contract/rules"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "TransactionHistory",
+      "endpoint": "POST /v1/api/pa/transactions",
+      "message": "No recorded response found for POST /v1/api/pa/transactions"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "UnreadBulletinCountResponse",
+      "endpoint": "GET /v1/api/fyi/unreadnumber",
+      "field": "BN",
+      "observed_types": [
+        "integer"
+      ],
+      "sample_values": [
+        "0"
+      ],
+      "message": "Field 'BN' in API response but not in UnreadBulletinCountResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "UnsubscribeAllResponse",
+      "endpoint": "GET /v1/api/iserver/marketdata/unsubscribeall",
+      "field": "unsubscribed",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'unsubscribed' in API response but not in UnsubscribeAllResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "UnsubscribeResponse",
+      "endpoint": "POST /v1/api/iserver/marketdata/unsubscribe",
+      "field": "success",
+      "observed_types": [
+        "boolean"
+      ],
+      "sample_values": [
+        "True"
+      ],
+      "message": "Field 'success' in API response but not in UnsubscribeResponse"
+    },
+    {
+      "type": "NO_RECORDING",
+      "model": "WatchlistDetail",
+      "endpoint": "GET /v1/api/iserver/watchlist",
+      "message": "No recorded response found for GET /v1/api/iserver/watchlist"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "accruedInterest",
+      "observed_types": [
+        "null"
+      ],
+      "sample_values": [
+        "null"
+      ],
+      "message": "Field 'accruedInterest' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "action",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "order_submit_issue"
+      ],
+      "message": "Field 'action' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "after",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "23"
+      ],
+      "message": "Field 'after' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "amount",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "1 USD (1 Shares)"
+      ],
+      "message": "Field 'amount' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "change",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "1"
+      ],
+      "message": "Field 'change' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "commission",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "NA"
+      ],
+      "message": "Field 'commission' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "cqe",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'post_payload': {'snapshots': [{'balances': {'USD': '987939.28', 'BASE': '987939.28'}}], 'side': 'b"
+      ],
+      "message": "Field 'cqe' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "current",
+      "observed_types": [
+        "string(numeric)"
+      ],
+      "sample_values": [
+        "22"
+      ],
+      "message": "Field 'current' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "equity",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'current': '1,005,602', 'change': '163', 'after': '1,005,765'}"
+      ],
+      "message": "Field 'equity' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "error",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "Your account has a minimum of 15 orders working on either the buy or sell side for this particular c"
+      ],
+      "message": "Field 'error' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "errors",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['Your account has a minimum of 15 orders working on either the buy or sell side for this particular"
+      ],
+      "message": "Field 'errors' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "initial",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'current': '6,712', 'change': '164', 'after': '6,876'}"
+      ],
+      "message": "Field 'initial' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "maintenance",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'current': '6,712', 'change': '164', 'after': '6,876'}"
+      ],
+      "message": "Field 'maintenance' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "order_id",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "0226befd.00019ddb.69cca5e0.0001"
+      ],
+      "message": "Field 'order_id' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "position",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'current': '22', 'change': '1', 'after': '23'}"
+      ],
+      "message": "Field 'position' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "post_payload",
+      "observed_types": [
+        "object"
+      ],
+      "sample_values": [
+        "{'snapshots': [{'balances': {'USD': '987939.28', 'BASE': '987939.28'}}], 'side': 'b', 'rejections': "
+      ],
+      "message": "Field 'post_payload' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "request_method",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "POST"
+      ],
+      "message": "Field 'request_method' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "total",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "NA"
+      ],
+      "message": "Field 'total' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "warn",
+      "observed_types": [
+        "string"
+      ],
+      "sample_values": [
+        "If your order is not immediately executable, our systems may, depending on market conditions, reject"
+      ],
+      "message": "Field 'warn' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "MISSING_IN_DTO",
+      "model": "WhatIfResponse",
+      "endpoint": "POST /v1/api/iserver/account/{id}/orders/whatif",
+      "field": "warns",
+      "observed_types": [
+        "array"
+      ],
+      "sample_values": [
+        "['If your order is not immediately executable, our systems may, depending on market conditions, reje"
+      ],
+      "message": "Field 'warns' in API response but not in WhatIfResponse"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "Account",
+      "module": "Portfolio",
+      "message": "Account has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "AccountLedgerUpdate",
+      "module": "Streaming",
+      "message": "AccountLedgerUpdate has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "AccountSearchResult",
+      "module": "Accounts",
+      "message": "AccountSearchResult has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "AccountSummaryEntry",
+      "module": "Portfolio",
+      "message": "AccountSummaryEntry has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "AccountSummaryUpdate",
+      "module": "Streaming",
+      "message": "AccountSummaryUpdate has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "AlertCondition",
+      "module": "Alerts",
+      "message": "AlertCondition has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "AlertSummary",
+      "module": "Alerts",
+      "message": "AlertSummary has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "AllocationAccountData",
+      "module": "Allocation",
+      "message": "AllocationAccountData has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "AllocationAccountDataEntry",
+      "module": "Allocation",
+      "message": "AllocationAccountDataEntry has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "AllocationGroupAccount",
+      "module": "Allocation",
+      "message": "AllocationGroupAccount has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "AllocationGroupSummary",
+      "module": "Allocation",
+      "message": "AllocationGroupSummary has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "ComboLeg",
+      "module": "Portfolio",
+      "message": "ComboLeg has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "ComboPosition",
+      "module": "Portfolio",
+      "message": "ComboPosition has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "ContractSearchResult",
+      "module": "Contracts",
+      "message": "ContractSearchResult has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "ContractSection",
+      "module": "Contracts",
+      "message": "ContractSection has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "CurrencyPair",
+      "module": "Contracts",
+      "message": "CurrencyPair has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "ExchangeConid",
+      "module": "Contracts",
+      "message": "ExchangeConid has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "FutureContract",
+      "module": "Contracts",
+      "message": "FutureContract has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "FyiDeviceInfo",
+      "module": "Fyi",
+      "message": "FyiDeviceInfo has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "FyiNotification",
+      "module": "Fyi",
+      "message": "FyiNotification has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "FyiNotificationReadDetail",
+      "module": "Fyi",
+      "message": "FyiNotificationReadDetail has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "FyiSettingItem",
+      "module": "Fyi",
+      "message": "FyiSettingItem has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "HistoricalBar",
+      "module": "MarketData",
+      "message": "HistoricalBar has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "HmdsScannerContract",
+      "module": "MarketData",
+      "message": "HmdsScannerContract has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "HmdsScannerContractWrapper",
+      "module": "MarketData",
+      "message": "HmdsScannerContractWrapper has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "LedgerEntry",
+      "module": "Portfolio",
+      "message": "LedgerEntry has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "LiveOrder",
+      "module": "Orders",
+      "message": "LiveOrder has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "OrderSubmissionResponse",
+      "module": "Orders",
+      "message": "OrderSubmissionResponse has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "OrderUpdate",
+      "module": "Streaming",
+      "message": "OrderUpdate has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "PnlEntry",
+      "module": "Portfolio",
+      "message": "PnlEntry has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "PnlUpdate",
+      "module": "Streaming",
+      "message": "PnlUpdate has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "Position",
+      "module": "Portfolio",
+      "message": "Position has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "ScannerContract",
+      "module": "MarketData",
+      "message": "ScannerContract has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "ScannerFilter",
+      "module": "MarketData",
+      "message": "ScannerFilter has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "ScannerFilterDefinition",
+      "module": "MarketData",
+      "message": "ScannerFilterDefinition has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "ScannerInstrument",
+      "module": "MarketData",
+      "message": "ScannerInstrument has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "ScannerLocation",
+      "module": "MarketData",
+      "message": "ScannerLocation has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "ScannerType",
+      "module": "MarketData",
+      "message": "ScannerType has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "SecurityDefinition",
+      "module": "Contracts",
+      "message": "SecurityDefinition has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "SecurityDefinitionInfo",
+      "module": "Contracts",
+      "message": "SecurityDefinitionInfo has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "StockContract",
+      "module": "Contracts",
+      "message": "StockContract has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "StockContractDetail",
+      "module": "Contracts",
+      "message": "StockContractDetail has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "SubAccount",
+      "module": "Portfolio",
+      "message": "SubAccount has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "TickleAuthStatus",
+      "module": "Session",
+      "message": "TickleAuthStatus has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "TickleIserverStatus",
+      "module": "Session",
+      "message": "TickleIserverStatus has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "Trade",
+      "module": "Orders",
+      "message": "Trade has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "TradeTiming",
+      "module": "Contracts",
+      "message": "TradeTiming has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "TradingSchedule",
+      "module": "Contracts",
+      "message": "TradingSchedule has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "WatchlistDetailRow",
+      "module": "Watchlists",
+      "message": "WatchlistDetailRow has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "WatchlistRow",
+      "module": "Watchlists",
+      "message": "WatchlistRow has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "WatchlistSummary",
+      "module": "Watchlists",
+      "message": "WatchlistSummary has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "WhatIfAmount",
+      "module": "Orders",
+      "message": "WhatIfAmount has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "WhatIfEquity",
+      "module": "Orders",
+      "message": "WhatIfEquity has no Refit endpoint mapping"
+    },
+    {
+      "type": "UNMAPPED_MODEL",
+      "model": "WhatIfMargin",
+      "module": "Orders",
+      "message": "WhatIfMargin has no Refit endpoint mapping"
+    }
+  ],
+  "models": {
+    "CreateAlertRequest": {
+      "module": "Alerts",
+      "file": "src/IbkrConduit/Alerts/IIbkrAlertApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AlertCondition": {
+      "module": "Alerts",
+      "file": "src/IbkrConduit/Alerts/IIbkrAlertApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "CreateAlertResponse": {
+      "module": "Alerts",
+      "file": "src/IbkrConduit/Alerts/IIbkrAlertApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AlertSummary": {
+      "module": "Alerts",
+      "file": "src/IbkrConduit/Alerts/IIbkrAlertApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AlertDetail": {
+      "module": "Alerts",
+      "file": "src/IbkrConduit/Alerts/IIbkrAlertApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "DeleteAlertResponse": {
+      "module": "Alerts",
+      "file": "src/IbkrConduit/Alerts/IIbkrAlertApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "SsodhInitRequest": {
+      "module": "Session",
+      "file": "src/IbkrConduit/Session/IIbkrSessionApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "SsodhInitResponse": {
+      "module": "Session",
+      "file": "src/IbkrConduit/Session/IIbkrSessionApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "TickleResponse": {
+      "module": "Session",
+      "file": "src/IbkrConduit/Session/IIbkrSessionApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "TickleIserverStatus": {
+      "module": "Session",
+      "file": "src/IbkrConduit/Session/IIbkrSessionApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "TickleAuthStatus": {
+      "module": "Session",
+      "file": "src/IbkrConduit/Session/IIbkrSessionApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "SuppressRequest": {
+      "module": "Session",
+      "file": "src/IbkrConduit/Session/IIbkrSessionApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "SuppressResponse": {
+      "module": "Session",
+      "file": "src/IbkrConduit/Session/IIbkrSessionApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "LogoutResponse": {
+      "module": "Session",
+      "file": "src/IbkrConduit/Session/IIbkrSessionApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "SuppressResetResponse": {
+      "module": "Session",
+      "file": "src/IbkrConduit/Session/IIbkrSessionApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AuthStatusResponse": {
+      "module": "Session",
+      "file": "src/IbkrConduit/Session/IIbkrSessionApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ReauthenticateResponse": {
+      "module": "Session",
+      "file": "src/IbkrConduit/Session/IIbkrSessionApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "SsoValidateResponse": {
+      "module": "Session",
+      "file": "src/IbkrConduit/Session/IIbkrSessionApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "CreateWatchlistRequest": {
+      "module": "Watchlists",
+      "file": "src/IbkrConduit/Watchlists/IIbkrWatchlistApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "WatchlistRow": {
+      "module": "Watchlists",
+      "file": "src/IbkrConduit/Watchlists/IIbkrWatchlistApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "CreateWatchlistResponse": {
+      "module": "Watchlists",
+      "file": "src/IbkrConduit/Watchlists/IIbkrWatchlistApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "WatchlistSummary": {
+      "module": "Watchlists",
+      "file": "src/IbkrConduit/Watchlists/IIbkrWatchlistApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "WatchlistDetail": {
+      "module": "Watchlists",
+      "file": "src/IbkrConduit/Watchlists/IIbkrWatchlistApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "WatchlistDetailRow": {
+      "module": "Watchlists",
+      "file": "src/IbkrConduit/Watchlists/IIbkrWatchlistApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "DeleteWatchlistResponse": {
+      "module": "Watchlists",
+      "file": "src/IbkrConduit/Watchlists/IIbkrWatchlistApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "UnreadBulletinCountResponse": {
+      "module": "Fyi",
+      "file": "src/IbkrConduit/Fyi/IIbkrFyiApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "FyiSettingItem": {
+      "module": "Fyi",
+      "file": "src/IbkrConduit/Fyi/IIbkrFyiApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "FyiSettingUpdateRequest": {
+      "module": "Fyi",
+      "file": "src/IbkrConduit/Fyi/IIbkrFyiApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "FyiAcknowledgementResponse": {
+      "module": "Fyi",
+      "file": "src/IbkrConduit/Fyi/IIbkrFyiApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "FyiDisclaimerResponse": {
+      "module": "Fyi",
+      "file": "src/IbkrConduit/Fyi/IIbkrFyiApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "FyiDeviceInfo": {
+      "module": "Fyi",
+      "file": "src/IbkrConduit/Fyi/IIbkrFyiApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "FyiDeliveryOptionsResponse": {
+      "module": "Fyi",
+      "file": "src/IbkrConduit/Fyi/IIbkrFyiApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "FyiDeviceRequest": {
+      "module": "Fyi",
+      "file": "src/IbkrConduit/Fyi/IIbkrFyiApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "FyiNotification": {
+      "module": "Fyi",
+      "file": "src/IbkrConduit/Fyi/IIbkrFyiApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "FyiNotificationReadDetail": {
+      "module": "Fyi",
+      "file": "src/IbkrConduit/Fyi/IIbkrFyiApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "FyiNotificationReadResponse": {
+      "module": "Fyi",
+      "file": "src/IbkrConduit/Fyi/IIbkrFyiApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ContractSearchResult": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ContractSection": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ContractDetails": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "SecurityDefinitionInfo": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "OptionStrikes": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "TradingRulesRequest": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "TradingRules": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "SecurityDefinitionResponse": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "SecurityDefinition": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ExchangeConid": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "FutureContract": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "StockContract": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "StockContractDetail": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "TradingSchedule": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "TradeTiming": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "CurrencyPair": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ExchangeRateResponse": {
+      "module": "Contracts",
+      "file": "src/IbkrConduit/Contracts/IIbkrContractApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "MarketDataSnapshotRaw": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "HistoricalDataResponse": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "HistoricalBar": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "UnsubscribeRequest": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "UnsubscribeResponse": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "UnsubscribeAllResponse": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ScannerRequest": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ScannerFilter": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ScannerResponse": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ScannerContract": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "HmdsScannerRequest": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "HmdsScannerResponse": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "HmdsScannerContractWrapper": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "HmdsScannerContract": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ScannerParameters": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ScannerType": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ScannerInstrument": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ScannerFilterDefinition": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ScannerLocation": {
+      "module": "MarketData",
+      "file": "src/IbkrConduit/MarketData/IIbkrMarketDataApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "CancelOrderResponse": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "OrdersPayload": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "OrderWireModel": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "OrderSubmissionResponse": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ReplyRequest": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "OrdersResponse": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "LiveOrder": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "Trade": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "WhatIfResponse": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "WhatIfAmount": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "WhatIfEquity": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "WhatIfMargin": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "OrderStatus": {
+      "module": "Orders",
+      "file": "src/IbkrConduit/Orders/IIbkrOrderApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "IserverAccountsResponse": {
+      "module": "Accounts",
+      "file": "src/IbkrConduit/Accounts/IIbkrAccountApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "SwitchAccountRequest": {
+      "module": "Accounts",
+      "file": "src/IbkrConduit/Accounts/IIbkrAccountApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "SwitchAccountResponse": {
+      "module": "Accounts",
+      "file": "src/IbkrConduit/Accounts/IIbkrAccountApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "DynAccountRequest": {
+      "module": "Accounts",
+      "file": "src/IbkrConduit/Accounts/IIbkrAccountApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "DynAccountResponse": {
+      "module": "Accounts",
+      "file": "src/IbkrConduit/Accounts/IIbkrAccountApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AccountSearchResult": {
+      "module": "Accounts",
+      "file": "src/IbkrConduit/Accounts/IIbkrAccountApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "IserverAccountInfo": {
+      "module": "Accounts",
+      "file": "src/IbkrConduit/Accounts/IIbkrAccountApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllocationAccountDataEntry": {
+      "module": "Allocation",
+      "file": "src/IbkrConduit/Allocation/IIbkrAllocationApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllocationAccountData": {
+      "module": "Allocation",
+      "file": "src/IbkrConduit/Allocation/IIbkrAllocationApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllocationAccountsResponse": {
+      "module": "Allocation",
+      "file": "src/IbkrConduit/Allocation/IIbkrAllocationApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllocationGroupSummary": {
+      "module": "Allocation",
+      "file": "src/IbkrConduit/Allocation/IIbkrAllocationApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllocationGroupListResponse": {
+      "module": "Allocation",
+      "file": "src/IbkrConduit/Allocation/IIbkrAllocationApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllocationGroupAccount": {
+      "module": "Allocation",
+      "file": "src/IbkrConduit/Allocation/IIbkrAllocationApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllocationGroupDetail": {
+      "module": "Allocation",
+      "file": "src/IbkrConduit/Allocation/IIbkrAllocationApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllocationGroupRequest": {
+      "module": "Allocation",
+      "file": "src/IbkrConduit/Allocation/IIbkrAllocationApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllocationGroupNameRequest": {
+      "module": "Allocation",
+      "file": "src/IbkrConduit/Allocation/IIbkrAllocationApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllocationPresetsResponse": {
+      "module": "Allocation",
+      "file": "src/IbkrConduit/Allocation/IIbkrAllocationApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllocationPresetsRequest": {
+      "module": "Allocation",
+      "file": "src/IbkrConduit/Allocation/IIbkrAllocationApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllocationSuccessResponse": {
+      "module": "Allocation",
+      "file": "src/IbkrConduit/Allocation/IIbkrAllocationApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "Account": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "Position": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AccountSummaryEntry": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "LedgerEntry": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AccountInfo": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AccountAllocation": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "PositionContractInfo": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AccountPerformance": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "TransactionHistory": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "PerformanceRequest": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "TransactionHistoryRequest": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ConsolidatedAllocationRequest": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllPeriodsRequest": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ComboPosition": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "ComboLeg": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "SubAccount": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "AllPeriodsPerformance": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "PartitionedPnl": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "PnlEntry": {
+      "module": "Portfolio",
+      "file": "src/IbkrConduit/Portfolio/IIbkrPortfolioApiModels.cs",
+      "style": "positional",
+      "properties": {},
+      "property_count": 0
+    },
+    "OrderUpdate": {
+      "module": "Streaming",
+      "file": "src/IbkrConduit/Streaming/StreamingModels.cs",
+      "style": "class",
+      "properties": {
+        "orderId": {
+          "csharp_name": "OrderId",
+          "csharp_type": "string",
+          "has_number_handling": false,
+          "converter": null
+        }
+      },
+      "property_count": 1
+    },
+    "PnlUpdate": {
+      "module": "Streaming",
+      "file": "src/IbkrConduit/Streaming/StreamingModels.cs",
+      "style": "class",
+      "properties": {
+        "acctId": {
+          "csharp_name": "AccountId",
+          "csharp_type": "string",
+          "has_number_handling": false,
+          "converter": null
+        }
+      },
+      "property_count": 1
+    },
+    "AccountSummaryUpdate": {
+      "module": "Streaming",
+      "file": "src/IbkrConduit/Streaming/StreamingModels.cs",
+      "style": "class",
+      "properties": {
+        "acctId": {
+          "csharp_name": "AccountId",
+          "csharp_type": "string",
+          "has_number_handling": false,
+          "converter": null
+        }
+      },
+      "property_count": 1
+    },
+    "AccountLedgerUpdate": {
+      "module": "Streaming",
+      "file": "src/IbkrConduit/Streaming/StreamingModels.cs",
+      "style": "class",
+      "properties": {
+        "acctId": {
+          "csharp_name": "AccountId",
+          "csharp_type": "string",
+          "has_number_handling": false,
+          "converter": null
+        }
+      },
+      "property_count": 1
+    }
+  },
+  "recorded_endpoints": [
+    "DELETE /v1/api/iserver/account/{accountId}/order/{id}",
+    "GET /v1/api/fyi/deliveryoptions",
+    "GET /v1/api/fyi/disclaimer/BA",
+    "GET /v1/api/fyi/disclaimer/BR",
+    "GET /v1/api/fyi/disclaimer/CA",
+    "GET /v1/api/fyi/disclaimer/NONEXISTENT",
+    "GET /v1/api/fyi/notifications",
+    "GET /v1/api/fyi/notifications/more?id=2026040190532092",
+    "GET /v1/api/fyi/settings",
+    "GET /v1/api/fyi/unreadnumber",
+    "GET /v1/api/iserver/account/order/status/{id}",
+    "GET /v1/api/iserver/account/orders",
+    "GET /v1/api/iserver/account/pnl/partitioned",
+    "GET /v1/api/iserver/account/trades",
+    "GET /v1/api/iserver/accounts",
+    "GET /v1/api/iserver/auth/status",
+    "GET /v1/api/iserver/contract/265598/info",
+    "GET /v1/api/iserver/currency/pairs?currency=USD",
+    "GET /v1/api/iserver/exchangerate?source=USD&target=EUR",
+    "GET /v1/api/iserver/exchangerate?source=USD&target=USD",
+    "GET /v1/api/iserver/marketdata/history?conid=756733&period=5d&bar=1d",
+    "GET /v1/api/iserver/marketdata/history?conid=756733&period=INVALID_PERIOD&bar=1d",
+    "GET /v1/api/iserver/marketdata/snapshot?conids=0&fields=31",
+    "GET /v1/api/iserver/marketdata/snapshot?conids=756733&fields=31%2C84",
+    "GET /v1/api/iserver/marketdata/unsubscribeall",
+    "GET /v1/api/iserver/scanner/params",
+    "GET /v1/api/iserver/secdef/search?symbol=AAPL",
+    "GET /v1/api/iserver/secdef/search?symbol=SPY",
+    "GET /v1/api/iserver/secdef/search?symbol=ZZZZNOTREAL",
+    "GET /v1/api/iserver/secdef/strikes?conid=265598&sectype=OPT&month=202604",
+    "GET /v1/api/iserver/secdef/strikes?conid=265598&sectype=OPT&month=999999",
+    "GET /v1/api/portfolio/accounts",
+    "GET /v1/api/portfolio/positions/{id}",
+    "GET /v1/api/portfolio/subaccounts",
+    "GET /v1/api/portfolio/subaccounts2?page=0",
+    "GET /v1/api/portfolio/{accountId}/allocation",
+    "GET /v1/api/portfolio/{accountId}/combo/positions",
+    "GET /v1/api/portfolio/{accountId}/ledger",
+    "GET /v1/api/portfolio/{accountId}/meta",
+    "GET /v1/api/portfolio/{accountId}/position/{id}",
+    "GET /v1/api/portfolio/{accountId}/positions/{id}",
+    "GET /v1/api/portfolio/{accountId}/summary",
+    "GET /v1/api/portfolio2/{accountId}/positions",
+    "GET /v1/api/trsrv/all-conids?exchange=NASDAQ",
+    "GET /v1/api/trsrv/futures?symbols=ES",
+    "GET /v1/api/trsrv/secdef?conids=265598",
+    "GET /v1/api/trsrv/stocks?symbols=AAPL",
+    "POST /v1/api/fyi/deliveryoptions/device",
+    "POST /v1/api/fyi/settings/BA",
+    "POST /v1/api/fyi/settings/BR",
+    "POST /v1/api/fyi/settings/CA",
+    "POST /v1/api/fyi/settings/NONEXISTENT",
+    "POST /v1/api/iserver/account",
+    "POST /v1/api/iserver/account/{accountId}/orders",
+    "POST /v1/api/iserver/account/{accountId}/orders/whatif",
+    "POST /v1/api/iserver/auth/ssodh/init",
+    "POST /v1/api/iserver/marketdata/unsubscribe",
+    "POST /v1/api/iserver/questions/suppress/reset",
+    "POST /v1/api/logout",
+    "POST /v1/api/oauth/live_session_token",
+    "POST /v1/api/pa/allperiods",
+    "POST /v1/api/pa/performance",
+    "POST /v1/api/portfolio/allocation",
+    "POST /v1/api/portfolio/{accountId}/positions/invalidate",
+    "POST /v1/api/tickle",
+    "PUT /v1/api/fyi/deliveryoptions/email?enabled=false",
+    "PUT /v1/api/fyi/disclaimer/BA",
+    "PUT /v1/api/fyi/disclaimer/BR",
+    "PUT /v1/api/fyi/disclaimer/CA",
+    "PUT /v1/api/fyi/notifications/{id}"
+  ]
+}
