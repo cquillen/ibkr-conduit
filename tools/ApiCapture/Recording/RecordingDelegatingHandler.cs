@@ -78,13 +78,13 @@ public sealed partial class RecordingDelegatingHandler : DelegatingHandler
                 ["Path"] = sanitizedPath,
                 ["Methods"] = new[] { request.Method.Method },
                 ["Headers"] = requestHeaders.Count > 0 ? requestHeaders : null,
-                ["Body"] = requestBody,
+                ["Body"] = TryParseJson(requestBody),
             },
             ["Response"] = new Dictionary<string, object?>
             {
                 ["StatusCode"] = (int)response.StatusCode,
                 ["Headers"] = responseHeaders.Count > 0 ? responseHeaders : null,
-                ["Body"] = responseBody,
+                ["Body"] = TryParseJson(responseBody),
             },
             ["Metadata"] = new Dictionary<string, object?>
             {
@@ -104,6 +104,27 @@ public sealed partial class RecordingDelegatingHandler : DelegatingHandler
         await File.WriteAllTextAsync(filePath, json, cancellationToken);
 
         return response;
+    }
+
+    /// <summary>
+    /// Attempts to parse a string as JSON so it serializes as a structured value
+    /// rather than an escaped string. Falls back to the raw string for non-JSON content.
+    /// </summary>
+    private static object? TryParseJson(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return value;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<JsonElement>(value);
+        }
+        catch (JsonException)
+        {
+            return value;
+        }
     }
 
     private static string SanitizeUrl(string pathAndQuery)
