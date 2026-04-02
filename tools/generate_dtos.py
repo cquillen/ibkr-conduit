@@ -76,14 +76,7 @@ class CSharpType:
 
         pair = frozenset({a, b})
 
-        # int + long -> long
-        if pair == frozenset({"int", "long"}):
-            return CSharpType("long", nullable)
-        # int/long + decimal -> decimal
-        if pair <= frozenset({"int", "long", "decimal"}) and "decimal" in pair:
-            return CSharpType("decimal", nullable)
-        if pair == frozenset({"int", "decimal"}):
-            return CSharpType("decimal", nullable)
+        # long + decimal -> decimal
         if pair == frozenset({"long", "decimal"}):
             return CSharpType("decimal", nullable)
         # anything + string -> string
@@ -103,9 +96,7 @@ def infer_type(value: Any) -> CSharpType:
         return CSharpType("bool")
 
     if isinstance(value, int):
-        if abs(value) > INT_MAX:
-            return CSharpType("long")
-        return CSharpType("int")
+        return CSharpType("long")
 
     if isinstance(value, float):
         return CSharpType("decimal")
@@ -340,7 +331,7 @@ def generate_record(endpoint: EndpointInfo) -> tuple[str, str, str]:
 
         # Reference types are inherently nullable via ?
         # Value types need ? suffix (already handled by CSharpType)
-        is_value_type = field_type.base in ("bool", "int", "long", "decimal")
+        is_value_type = field_type.base in ("bool", "long", "decimal")
         if field_type.nullable and not is_value_type:
             # Reference types: ensure trailing ?
             if not type_str.endswith("?"):
