@@ -289,5 +289,51 @@ public static class EndpointTable
             "/v1/api/fyi/notifications/0", 200, ""),
         new("Fyi", "DeleteDevice_NonExistent", HttpMethod.Delete,
             "/v1/api/fyi/deliveryoptions/NONEXISTENT99", 404),
+
+        // ---------------------------------------------------------------
+        // Orders — Success (stateful: place -> status -> modify -> cancel)
+        // ---------------------------------------------------------------
+
+        // Prime the live orders endpoint (IBKR quirk: first call returns empty)
+        new("Orders", "GetLiveOrders_Prime", HttpMethod.Get,
+            "/v1/api/iserver/account/orders", 200),
+
+        // Wait and get actual orders
+        new("Orders", "GetLiveOrders_Success", HttpMethod.Get,
+            "/v1/api/iserver/account/orders", 200),
+
+        // Place a limit order at $1.00 (won't fill)
+        new("Orders", "PlaceOrder_LimitSPY", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/orders", 200,
+            """{"orders":[{"conid":756733,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC"}]}""",
+            CaptureAs: "orderId", CaptureJsonPath: "$[0].order_id"),
+
+        // WhatIf preview
+        new("Orders", "WhatIfOrder_SPY", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/orders/whatif", 200,
+            """{"orders":[{"conid":756733,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC"}]}"""),
+
+        // Get status of placed order
+        new("Orders", "GetOrderStatus_Placed", HttpMethod.Get,
+            "/v1/api/iserver/account/order/status/{orderId}", 200),
+
+        // Get trades (may be empty)
+        new("Orders", "GetTrades_Success", HttpMethod.Get,
+            "/v1/api/iserver/account/trades", 200),
+
+        // Cancel the placed order
+        new("Orders", "CancelOrder_Placed", HttpMethod.Delete,
+            "/v1/api/iserver/account/{accountId}/order/{orderId}", 200),
+
+        // Orders — Failures
+        new("Orders", "GetOrderStatus_NonExistent", HttpMethod.Get,
+            "/v1/api/iserver/account/order/status/000000000", 500),
+
+        new("Orders", "CancelOrder_NonExistent", HttpMethod.Delete,
+            "/v1/api/iserver/account/{accountId}/order/000000000", 500),
+
+        new("Orders", "WhatIfOrder_InvalidConid", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/orders/whatif", 500,
+            """{"orders":[{"conid":0,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC"}]}"""),
     ];
 }

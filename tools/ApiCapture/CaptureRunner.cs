@@ -1,4 +1,6 @@
 using System.Text;
+using System.Text.Json.Nodes;
+using Json.Path;
 
 namespace ApiCapture;
 
@@ -25,6 +27,7 @@ public static class CaptureRunner
         var total = entries.Count;
         var current = 0;
         string? currentCategory = null;
+        var variables = new Dictionary<string, string>();
 
         foreach (var entry in entries)
         {
@@ -38,9 +41,9 @@ public static class CaptureRunner
                 Console.WriteLine($"\n=== {currentCategory} ===\n");
             }
 
-            var url = ResolveTemplate(entry.UrlTemplate, ctx);
+            var url = ResolveTemplate(entry.UrlTemplate, ctx, variables);
             var body = entry.BodyTemplate is not null
-                ? ResolveTemplate(entry.BodyTemplate, ctx)
+                ? ResolveTemplate(entry.BodyTemplate, ctx, variables)
                 : null;
 
             try
@@ -60,6 +63,32 @@ public static class CaptureRunner
                 {
                     Console.WriteLine($"-> {actualStatus} OK");
                     passed++;
+
+                    if (entry.CaptureAs is not null && entry.CaptureJsonPath is not null)
+                    {
+                        var responseBody = await response.Content.ReadAsStringAsync();
+                        try
+                        {
+                            var node = JsonNode.Parse(responseBody);
+                            var path = JsonPath.Parse(entry.CaptureJsonPath);
+                            var result = path.Evaluate(node);
+                            var match = result.Matches.FirstOrDefault();
+                            if (match is not null)
+                            {
+                                var value = match.Value?.ToString() ?? string.Empty;
+                                variables[entry.CaptureAs] = value;
+                                Console.WriteLine($"    captured {entry.CaptureAs} = {value}");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"    capture MISS: no match for {entry.CaptureJsonPath}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"    capture ERROR: {ex.Message}");
+                        }
+                    }
                 }
                 else
                 {
@@ -108,8 +137,17 @@ public static class CaptureRunner
         return filtered.ToList();
     }
 
-    private static string ResolveTemplate(string template, CaptureContext ctx) =>
-        template.Replace("{accountId}", ctx.AccountId);
+    private static string ResolveTemplate(
+        string template, CaptureContext ctx, Dictionary<string, string> variables)
+    {
+        var resolved = template.Replace("{accountId}", ctx.AccountId);
+        foreach (var kvp in variables)
+        {
+            resolved = resolved.Replace($"{{{kvp.Key}}}", kvp.Value);
+        }
+
+        return resolved;
+    }
 }
 
 /// <summary>
