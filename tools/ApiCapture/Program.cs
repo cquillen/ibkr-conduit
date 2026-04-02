@@ -31,8 +31,9 @@ if (positionalArgs.Count == 0)
 var category = positionalArgs[0].ToLowerInvariant();
 var namePattern = positionalArgs.Count > 1 ? positionalArgs[1] : null;
 
+var runTimestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHHmmss", System.Globalization.CultureInfo.InvariantCulture);
 var outputDir = Path.GetFullPath(
-    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "recordings"));
+    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "recordings", runTimestamp));
 
 Console.WriteLine($"Output directory: {outputDir}");
 Console.WriteLine($"Rate limit delay: {delayMs}ms");
