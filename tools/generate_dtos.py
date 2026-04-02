@@ -263,9 +263,11 @@ def group_recordings(recordings_dir: Path) -> dict[str, EndpointInfo]:
 
 
 def to_pascal_case(s: str) -> str:
-    """Convert a string to PascalCase, handling hyphens, underscores, dots."""
-    parts = re.split(r"[-_.\s]+", s)
-    return "".join(part.capitalize() for part in parts if part)
+    """Convert a string to PascalCase, handling camelCase, snake_case, hyphens."""
+    import inflection
+    # Replace hyphens/dots with underscores so inflection can handle them
+    clean = s.replace("-", "_").replace(".", "_")
+    return inflection.camelize(clean)
 
 
 def endpoint_to_record_name(method: str, path: str) -> str:
