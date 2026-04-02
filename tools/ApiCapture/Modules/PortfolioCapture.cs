@@ -190,7 +190,7 @@ public static class PortfolioCapture
         {
             Console.WriteLine("  POST /v1/api/pa/transactions");
             var txnContent = new StringContent(
-                $$$"""{"acctIds":["{{{ctx.AccountId}}}"],"conids":[],"currency":"USD","days":30}""",
+                $$$"""{"acctIds":["{{{ctx.AccountId}}}"],"conids":["756733"],"currency":"USD","days":30}""",
                 System.Text.Encoding.UTF8,
                 "application/json");
             var response = await ctx.CaptureClient.PostAsync("/v1/api/pa/transactions", txnContent);
