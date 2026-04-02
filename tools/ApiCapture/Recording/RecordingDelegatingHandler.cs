@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace IbkrConduit.Tests.Integration.Recording;
+namespace ApiCapture.Recording;
 
 /// <summary>
 /// Delegating handler that records HTTP request/response pairs to WireMock-compatible
@@ -145,7 +145,7 @@ public sealed partial class RecordingDelegatingHandler : DelegatingHandler
         {
             slug = slug["/v1/api/".Length..];
         }
-        else if (slug.StartsWith("/", StringComparison.Ordinal))
+        else if (slug.StartsWith('/'))
         {
             slug = slug[1..];
         }

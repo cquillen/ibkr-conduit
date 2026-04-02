@@ -29,7 +29,6 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario08_NotificationPreferences");
 
             // Step 1: Get unread notification count
             var unreadCount = await client.Notifications.GetUnreadCountAsync(CT);
@@ -158,7 +157,6 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 }
             }
 
-            StopRecording();
         }
         finally
         {
@@ -212,7 +210,6 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario08_UpdateSetting_InvalidTypecode");
 
             try
             {
@@ -226,7 +223,6 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for invalid typecodes.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -241,7 +237,6 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario08_GetDisclaimer_InvalidTypecode");
 
             try
             {
@@ -255,7 +250,6 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for invalid typecodes.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -270,7 +264,6 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario08_MarkNotificationRead_NonExistent");
 
             try
             {
@@ -284,7 +277,6 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for non-existent notification IDs.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -299,7 +291,6 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario08_DeleteDevice_NonExistent");
 
             try
             {
@@ -312,7 +303,6 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for non-existent device IDs.
             }
 
-            StopRecording();
         }
         finally
         {

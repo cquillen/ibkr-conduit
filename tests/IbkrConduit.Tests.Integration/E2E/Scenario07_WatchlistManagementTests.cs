@@ -27,7 +27,6 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario07_WatchlistManagement");
 
             // Step 1: Search SPY and AAPL conids
             var spyResults = await client.Contracts.SearchBySymbolAsync("SPY", CT);
@@ -62,7 +61,6 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
             {
                 // IBKR QUIRK: Watchlist creation returns 503/403/500 on some paper account configurations.
                 // Skip the rest of the workflow — we cannot test CRUD without a successful create.
-                StopRecording();
                 return;
             }
 
@@ -107,7 +105,6 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for deleting a non-existent watchlist.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -144,7 +141,6 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario07_GetWatchlist_NonExistent");
 
             try
             {
@@ -158,7 +154,6 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for non-existent watchlist IDs.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -173,7 +168,6 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario07_DeleteWatchlist_NonExistent");
 
             try
             {
@@ -187,7 +181,6 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for non-existent watchlist IDs.
             }
 
-            StopRecording();
         }
         finally
         {

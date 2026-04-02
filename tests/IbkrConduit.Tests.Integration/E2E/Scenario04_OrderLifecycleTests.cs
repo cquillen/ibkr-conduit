@@ -26,7 +26,6 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario04_OrderLifecycle");
 
             // Step 1: Get account ID
             var accounts = await client.Portfolio.GetAccountsAsync(CT);
@@ -121,7 +120,6 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
             var trades = await client.Orders.GetTradesAsync(CT);
             trades.ShouldNotBeNull();
 
-            StopRecording();
         }
         finally
         {
@@ -161,7 +159,6 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario04_GetOrderStatus_NonExistent");
 
             try
             {
@@ -175,7 +172,6 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for non-existent order IDs.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -190,7 +186,6 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario04_CancelOrder_NonExistent");
 
             // Get a valid account ID for the cancel call
             var accounts = await client.Portfolio.GetAccountsAsync(CT);
@@ -208,7 +203,6 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for non-existent order IDs.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -223,7 +217,6 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario04_ModifyOrder_NonExistent");
 
             var accounts = await client.Portfolio.GetAccountsAsync(CT);
             var accountId = accounts[0].Id;
@@ -254,7 +247,6 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for non-existent order IDs.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -269,7 +261,6 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario04_WhatIf_InvalidConid");
 
             var accounts = await client.Portfolio.GetAccountsAsync(CT);
             var accountId = accounts[0].Id;
@@ -300,7 +291,6 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 // Expected: IBKR returns an HTTP error for invalid conid.
             }
 
-            StopRecording();
         }
         finally
         {
@@ -315,7 +305,6 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
 
         try
         {
-            StartRecording("Scenario04_PlaceOrder_ZeroQuantity");
 
             var accounts = await client.Portfolio.GetAccountsAsync(CT);
             var accountId = accounts[0].Id;
@@ -350,7 +339,6 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 // Expected: The library may throw for invalid order parameters.
             }
 
-            StopRecording();
         }
         finally
         {
