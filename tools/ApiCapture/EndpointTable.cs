@@ -100,11 +100,11 @@ public static class EndpointTable
             "/v1/api/pa/allperiods", 200,
             """{"acctIds":["{accountId}"]}"""),
 
-        // Portfolio — Pagination
-        new("Portfolio", "GetPositions_Page1_Empty", HttpMethod.Get,
-            "/v1/api/portfolio/{accountId}/positions/1", 200),
-        new("Portfolio", "GetPositions_Page999", HttpMethod.Get,
-            "/v1/api/portfolio/{accountId}/positions/999", 200),
+        // Portfolio — Pagination (sort param required for paging to work)
+        new("Portfolio", "GetPositions_Page0_Sorted", HttpMethod.Get,
+            "/v1/api/portfolio/{accountId}/positions/0?sort=position&direction=d", 200),
+        new("Portfolio", "GetPositions_Page999_Sorted_Empty", HttpMethod.Get,
+            "/v1/api/portfolio/{accountId}/positions/999?sort=position&direction=d", 200),
 
         // Portfolio — Failures: Invalid account (IBKR returns 401 for unknown accounts)
         new("Portfolio", "GetPositions_InvalidAccount", HttpMethod.Get,
