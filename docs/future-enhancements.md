@@ -97,3 +97,26 @@ Ideas that aren't worth building now but may be valuable later. Each entry shoul
 **Why deferred:** The IBKR documentation does not exhaustively list all possible summary field keys. Building constants from incomplete documentation risks missing fields or including incorrect names. Real API responses are needed to discover the full set of keys.
 
 **Trigger to build:** Observe real API responses to catalog all summary field keys, then create a `AccountSummaryFields` static class similar to `MarketDataFields`.
+
+---
+
+## Hand-Crafted WireMock Fixtures for Untriggerable Scenarios
+
+**What:** WireMock fixture files for API scenarios that can't be captured from the real API on demand. These would be hand-crafted based on observed behavior and API documentation, then used in integration tests.
+
+Scenarios to cover:
+
+- **429 Rate Limiting** — Response with `{"error":"rate limited"}` and `Retry-After` header. Validates resilience handler retries with backoff.
+- **401 Session Expiry** — Mid-session auth failure. Validates TokenRefreshHandler re-authenticates and retries.
+- **500 "Not ready"** — `{"error":"Not ready"}` from endpoints that need cache warm-up (e.g., combo/positions). Validates retry behavior.
+- **Competing Session** — Auth status returning `{"authenticated":false,"competing":true}`. Validates session recovery.
+- **Order Confirmation Flow** — Place order returning the confirmation shape `[{"id":"...","message":["warning"]}]` vs success `[{"order_id":"..."}]` vs rejection `{"error":"rejected"}`. Three distinct response shapes for the same endpoint.
+- **Pagination Edge Cases** — Positions page 0 with data vs page 999 returning empty results.
+- **Large Response Payloads** — Account summary with all 143 fields populated. Validates deserialization handles the full payload.
+- **Empty Collection Responses** — `[]` or `{"orders":[]}` when no data exists. Different from an error response.
+
+**Current behavior:** WireMock tests use minimal inline JSON or captured fixtures. Error scenarios use guessed response shapes.
+
+**Why deferred:** The capture tool can't trigger these conditions on demand. Hand-crafting requires careful analysis of recorded error responses and API documentation.
+
+**Trigger to build:** After the capture tool has populated fixtures for all success paths and capturable error paths. The hand-crafted fixtures fill the remaining gaps.
