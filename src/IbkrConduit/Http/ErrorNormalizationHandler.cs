@@ -14,7 +14,7 @@ internal class ErrorNormalizationHandler : DelegatingHandler
 {
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
-        PropertyNameCaseInsensitive = false,
+        PropertyNameCaseInsensitive = true,
     };
 
     /// <inheritdoc />
@@ -23,38 +23,38 @@ internal class ErrorNormalizationHandler : DelegatingHandler
     {
         var response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var path = request.RequestUri?.AbsolutePath;
-        var requestUriForException = path;
 
-        var body = response.Content is not null
-            ? await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false)
+        var originalContent = response.Content;
+        var contentType = originalContent?.Headers.ContentType;
+        var body = originalContent is not null
+            ? await originalContent.ReadAsStringAsync(cancellationToken).ConfigureAwait(false)
             : null;
-
-        var originalContentType = response.Content?.Headers.ContentType;
 
         if (!response.IsSuccessStatusCode)
         {
-            HandleNonSuccess(response.StatusCode, body, path, requestUriForException, response.Headers);
+            HandleNonSuccess(response.StatusCode, body, path, response.Headers);
         }
         else
         {
-            HandleSuccess(body, originalContentType, requestUriForException);
+            HandleSuccess(body, contentType, path);
         }
 
         // Re-buffer the body so downstream consumers can still read it
         if (body is not null)
         {
             response.Content = new StringContent(body, Encoding.UTF8);
-            if (originalContentType is not null)
+            if (contentType is not null)
             {
-                response.Content.Headers.ContentType = originalContentType;
+                response.Content.Headers.ContentType = contentType;
             }
+            originalContent?.Dispose();
         }
 
         return response;
     }
 
     private static void HandleNonSuccess(
-        HttpStatusCode statusCode, string? body, string? path, string? requestUri,
+        HttpStatusCode statusCode, string? body, string? path,
         HttpResponseHeaders responseHeaders)
     {
         var errorMessage = TryParseErrorMessage(body);
@@ -76,17 +76,17 @@ internal class ErrorNormalizationHandler : DelegatingHandler
                     }
                 }
 
-                throw new IbkrRateLimitException(retryAfter, errorMessage, body, requestUri);
+                throw new IbkrRateLimitException(retryAfter, errorMessage, body, path);
 
             case HttpStatusCode.Unauthorized:
                 throw new IbkrSessionException(
                     isCompeting: false, reason: errorMessage,
                     statusCode: HttpStatusCode.Unauthorized,
-                    errorMessage: errorMessage, rawResponseBody: body, requestUri: requestUri);
+                    errorMessage: errorMessage, rawResponseBody: body, requestUri: path);
 
             default:
                 var remapped = RemapStatusCode(statusCode, path);
-                throw new IbkrApiException(remapped, errorMessage, body, requestUri);
+                throw new IbkrApiException(remapped, errorMessage, body, path);
         }
     }
 

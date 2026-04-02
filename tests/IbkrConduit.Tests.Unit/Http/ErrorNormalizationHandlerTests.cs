@@ -240,6 +240,19 @@ public class ErrorNormalizationHandlerTests
     }
 
     [Fact]
+    public async Task ContentTypePreservedAfterInspection()
+    {
+        SetResponse(HttpStatusCode.OK,
+            """[{"id":"DU1234567"}]""",
+            "/v1/api/portfolio/accounts");
+
+        var response = await SendAsync();
+        var contentType = response.Content.Headers.ContentType;
+        contentType.ShouldNotBeNull();
+        contentType.MediaType.ShouldBe("application/json");
+    }
+
+    [Fact]
     public async Task BodyPreservedAfterInspection()
     {
         var body = """[{"id":"DU123"}]""";
