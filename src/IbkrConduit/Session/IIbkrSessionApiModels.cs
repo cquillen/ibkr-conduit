@@ -120,38 +120,3 @@ public record AuthStatusResponse(
     public Dictionary<string, JsonElement>? AdditionalData { get; init; }
 }
 
-/// <summary>
-/// Response from POST /iserver/reauthenticate.
-/// </summary>
-/// <param name="Message">Status message from the server.</param>
-[ExcludeFromCodeCoverage]
-public record ReauthenticateResponse(
-    [property: JsonPropertyName("message")] string? Message)
-{
-    /// <summary>
-    /// Additional undocumented fields from the API response.
-    /// </summary>
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
-}
-
-/// <summary>
-/// Response from GET /sso/validate.
-/// </summary>
-/// <param name="UserId">The authenticated user ID.</param>
-/// <param name="Expire">Expiration timestamp.</param>
-/// <param name="Result">Validation result indicator.</param>
-/// <param name="AuthTime">Time of authentication.</param>
-[ExcludeFromCodeCoverage]
-public record SsoValidateResponse(
-    [property: JsonPropertyName("USER_ID")] int UserId,
-    [property: JsonPropertyName("expire")] long Expire,
-    [property: JsonPropertyName("RESULT")] bool Result,
-    [property: JsonPropertyName("AUTH_TIME")] long AuthTime)
-{
-    /// <summary>
-    /// Additional undocumented fields from the API response.
-    /// </summary>
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
-}

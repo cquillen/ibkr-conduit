@@ -74,53 +74,6 @@ public class SessionNewEndpointTests : IDisposable
         result.Connected.ShouldBeTrue();
     }
 
-    [Fact]
-    public async Task ReauthenticateAsync_ReturnsMessage()
-    {
-        _server.Given(
-            Request.Create()
-                .WithPath("/v1/api/iserver/reauthenticate")
-                .UsingPost())
-            .RespondWith(
-                Response.Create()
-                    .WithStatusCode(200)
-                    .WithHeader("Content-Type", "application/json")
-                    .WithBody("""{"message":"triggered"}"""));
-
-        var api = CreateRefitClient<IIbkrSessionApi>();
-
-#pragma warning disable CS0618 // Obsolete member
-        var result = await api.ReauthenticateAsync(TestContext.Current.CancellationToken);
-#pragma warning restore CS0618
-
-        result.ShouldNotBeNull();
-        result.Message.ShouldBe("triggered");
-    }
-
-    [Fact]
-    public async Task ValidateSsoAsync_ReturnsSsoValidation()
-    {
-        _server.Given(
-            Request.Create()
-                .WithPath("/v1/api/sso/validate")
-                .UsingGet())
-            .RespondWith(
-                Response.Create()
-                    .WithStatusCode(200)
-                    .WithHeader("Content-Type", "application/json")
-                    .WithBody("""{"USER_ID":12345,"expire":1700000000,"RESULT":true,"AUTH_TIME":1699990000}"""));
-
-        var api = CreateRefitClient<IIbkrSessionApi>();
-
-        var result = await api.ValidateSsoAsync(TestContext.Current.CancellationToken);
-
-        result.ShouldNotBeNull();
-        result.UserId.ShouldBe(12345);
-        result.Expire.ShouldBe(1700000000);
-        result.Result.ShouldBeTrue();
-        result.AuthTime.ShouldBe(1699990000);
-    }
-
     public void Dispose()
     {
         _server.Dispose();

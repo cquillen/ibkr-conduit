@@ -360,14 +360,6 @@ public class IbkrClientTests
         public Task<SwitchAccountResponse> SwitchAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<DynAccountResponse> SetDynAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<List<AccountSearchResult>> SearchAccountsAsync(string pattern, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<IserverAccountInfo> GetAccountInfoAsync(string accountId, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
     }
 
     private class FakeAlertOperations : IAlertOperations
