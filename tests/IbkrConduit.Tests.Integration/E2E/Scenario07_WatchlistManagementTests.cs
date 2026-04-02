@@ -114,15 +114,15 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
                     {
                         await client.Watchlists.DeleteWatchlistAsync(wl.Id, CT);
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Cleanup best-effort
+                        TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Cleanup best-effort
+                TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
             }
 
             await DisposeAsync();

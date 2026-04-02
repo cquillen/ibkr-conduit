@@ -170,9 +170,9 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 {
                     await client.Notifications.UpdateSettingAsync(toggledTypecode, originalEnabled, CT);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Cleanup best-effort — IBKR may reject the restore if session expired
+                    TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
                 }
             }
 
@@ -183,9 +183,9 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 {
                     await client.Notifications.SetEmailDeliveryAsync(originalEmailEnabled.Value, CT);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Cleanup best-effort
+                    TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
                 }
             }
 
@@ -196,9 +196,9 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 {
                     await client.Notifications.DeleteDeviceAsync(registeredDeviceId, CT);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Cleanup best-effort
+                    TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
                 }
             }
 

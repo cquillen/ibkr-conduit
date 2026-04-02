@@ -122,16 +122,16 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
                         {
                             await client.Alerts.DeleteAlertAsync(accountId, alert.OrderId.ToString(), CT);
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // Cleanup best-effort
+                            TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
                         }
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Cleanup best-effort
+                TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
             }
 
             await DisposeAsync();

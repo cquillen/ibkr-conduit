@@ -130,16 +130,16 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                         {
                             await client.Orders.CancelOrderAsync(accountId, order.OrderId, CT);
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // Cleanup best-effort
+                            TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
                         }
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Cleanup best-effort
+                TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
             }
 
             await DisposeAsync();

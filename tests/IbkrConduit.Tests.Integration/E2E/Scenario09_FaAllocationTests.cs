@@ -132,15 +132,15 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
                     {
                         await client.Allocations.DeleteGroupAsync(group.Name, CT);
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Cleanup best-effort
+                        TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Cleanup best-effort
+                TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
             }
 
             // Restore original presets if we captured them
@@ -156,9 +156,9 @@ public sealed class Scenario09_FaAllocationTests : E2eScenarioBase
                         GroupProportionalAllocation: originalPresets.GroupProportionalAllocation);
                     await client.Allocations.SetPresetsAsync(restoreRequest, CT);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Cleanup best-effort
+                    TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
                 }
             }
 

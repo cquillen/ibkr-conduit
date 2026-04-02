@@ -105,9 +105,9 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
             {
                 await client.MarketData.UnsubscribeAllAsync(CT);
             }
-            catch
+            catch (Exception ex)
             {
-                // Best-effort cleanup — ignore errors during dispose.
+                TestContext.Current.TestOutputHelper?.WriteLine($"Cleanup failed: {ex.Message}");
             }
 
             await DisposeAsync();
