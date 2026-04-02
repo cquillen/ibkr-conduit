@@ -12,4 +12,8 @@
     <ProjectReference Include="../../src/IbkrConduit/IbkrConduit.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
