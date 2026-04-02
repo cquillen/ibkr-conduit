@@ -6,15 +6,142 @@ namespace IbkrConduit.Portfolio;
 
 /// <summary>
 /// Represents an IBKR account from the /portfolio/accounts endpoint.
+/// Generated from recorded API response — 24 fields matching actual wire format.
 /// </summary>
-/// <param name="Id">The account identifier (e.g., "U1234567").</param>
-/// <param name="AccountTitle">The account title/description.</param>
-/// <param name="Type">The account type (e.g., "INDIVIDUAL").</param>
 [ExcludeFromCodeCoverage]
-public record Account(
-    [property: JsonPropertyName("id")] string Id,
-    [property: JsonPropertyName("accountTitle")] string AccountTitle,
-    [property: JsonPropertyName("type")] string Type);
+public sealed record Account
+{
+    /// <summary>The account identifier (e.g., "U1234567").</summary>
+    [JsonPropertyName("id")]
+    public string Id { get; init; } = string.Empty;
+
+    /// <summary>The account identifier.</summary>
+    [JsonPropertyName("accountId")]
+    public string AccountId { get; init; } = string.Empty;
+
+    /// <summary>The account alias.</summary>
+    [JsonPropertyName("accountVan")]
+    public string AccountVan { get; init; } = string.Empty;
+
+    /// <summary>Title of the account.</summary>
+    [JsonPropertyName("accountTitle")]
+    public string AccountTitle { get; init; } = string.Empty;
+
+    /// <summary>Display name for the account holder.</summary>
+    [JsonPropertyName("displayName")]
+    public string DisplayName { get; init; } = string.Empty;
+
+    /// <summary>User customizable account alias.</summary>
+    [JsonPropertyName("accountAlias")]
+    public string? AccountAlias { get; init; }
+
+    /// <summary>When the account was opened in unix time.</summary>
+    [JsonPropertyName("accountStatus")]
+    public long AccountStatus { get; init; }
+
+    /// <summary>Base currency of the account.</summary>
+    [JsonPropertyName("currency")]
+    public string Currency { get; init; } = string.Empty;
+
+    /// <summary>Account type (e.g., "INDIVIDUAL", "DEMO").</summary>
+    [JsonPropertyName("type")]
+    public string Type { get; init; } = string.Empty;
+
+    /// <summary>Account trading structure.</summary>
+    [JsonPropertyName("tradingType")]
+    public string TradingType { get; init; } = string.Empty;
+
+    /// <summary>Returns the organizational structure of the account.</summary>
+    [JsonPropertyName("businessType")]
+    public string BusinessType { get; init; } = string.Empty;
+
+    /// <summary>Returns the entity of Interactive Brokers the account is tied to.</summary>
+    [JsonPropertyName("ibEntity")]
+    public string IbEntity { get; init; } = string.Empty;
+
+    /// <summary>If an account is a sub-account to a Financial Advisor.</summary>
+    [JsonPropertyName("faclient")]
+    public bool Faclient { get; init; }
+
+    /// <summary>Status of the account. O: Open; P or N: Pending; A: Abandoned; R: Rejected; C: Closed.</summary>
+    [JsonPropertyName("clearingStatus")]
+    public string ClearingStatus { get; init; } = string.Empty;
+
+    /// <summary>Is a Covestor Account.</summary>
+    [JsonPropertyName("covestor")]
+    public bool Covestor { get; init; }
+
+    /// <summary>Returns if the client account may trade.</summary>
+    [JsonPropertyName("noClientTrading")]
+    public bool NoClientTrading { get; init; }
+
+    /// <summary>Returns if the account is tracking Virtual FX or not.</summary>
+    [JsonPropertyName("trackVirtualFXPortfolio")]
+    public bool TrackVirtualFXPortfolio { get; init; }
+
+    /// <summary>Whether the account has brokerage access.</summary>
+    [JsonPropertyName("brokerageAccess")]
+    public bool BrokerageAccess { get; init; }
+
+    /// <summary>Prepaid crypto flag.</summary>
+    [JsonPropertyName("PrepaidCrypto-Z")]
+    public bool PrepaidCryptoZ { get; init; }
+
+    /// <summary>Prepaid crypto flag.</summary>
+    [JsonPropertyName("PrepaidCrypto-P")]
+    public bool PrepaidCryptoP { get; init; }
+
+    /// <summary>Account customer type (e.g., "INDIVIDUAL").</summary>
+    [JsonPropertyName("acctCustType")]
+    public string AcctCustType { get; init; } = string.Empty;
+
+    /// <summary>Category of the account.</summary>
+    [JsonPropertyName("category")]
+    public string Category { get; init; } = string.Empty;
+
+    /// <summary>Parent account reference for advisor/multiplex structures.</summary>
+    [JsonPropertyName("parent")]
+    public AccountParent? Parent { get; init; }
+
+    /// <summary>Returns an account description.</summary>
+    [JsonPropertyName("desc")]
+    public string Desc { get; init; } = string.Empty;
+
+    /// <summary>Additional unmapped properties from the API response.</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// Parent account reference within an Account object.
+/// </summary>
+[ExcludeFromCodeCoverage]
+public sealed record AccountParent
+{
+    /// <summary>Money Manager Client accounts.</summary>
+    [JsonPropertyName("mmc")]
+    public List<object>? Mmc { get; init; }
+
+    /// <summary>Account number for Money Manager Client.</summary>
+    [JsonPropertyName("accountId")]
+    public string AccountId { get; init; } = string.Empty;
+
+    /// <summary>Returns if this is a Multiplex Parent Account.</summary>
+    [JsonPropertyName("isMParent")]
+    public bool IsMParent { get; init; }
+
+    /// <summary>Returns if this is a Multiplex Child Account.</summary>
+    [JsonPropertyName("isMChild")]
+    public bool IsMChild { get; init; }
+
+    /// <summary>Is a Multiplex Account.</summary>
+    [JsonPropertyName("isMultiplex")]
+    public bool IsMultiplex { get; init; }
+
+    /// <summary>Additional unmapped properties from the API response.</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
 
 /// <summary>
 /// Represents a position in a portfolio account.
