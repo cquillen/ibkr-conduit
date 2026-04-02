@@ -1,0 +1,76 @@
+{
+  "Request": {
+    "Path": "/v1/api/pa/transactions",
+    "Methods": [
+      "POST"
+    ],
+    "Body": {
+      "acctIds": [
+        "U1234567"
+      ],
+      "conids": [
+        "756733"
+      ],
+      "currency": "USD",
+      "days": 30
+    }
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": {
+      "nd": 31,
+      "rpnl": {
+        "data": [],
+        "amt": "0.0"
+      },
+      "currency": "USD",
+      "from": 1772496000000,
+      "id": "getTransactions",
+      "to": 1775088000000,
+      "transactions": [
+        {
+          "cur": "USD",
+          "date": "Tue Mar 31 00:00:00 EDT 2026",
+          "rawDate": "20260331",
+          "fxRate": 1.0,
+          "pr": 645.155,
+          "qty": 4.0,
+          "acctid": "U1234567",
+          "amt": -2580.62,
+          "conid": 756733,
+          "type": "Buy",
+          "desc": "U1234567"
+        },
+        {
+          "cur": "USD",
+          "date": "Wed Apr 01 00:00:00 EDT 2026",
+          "rawDate": "20260401",
+          "fxRate": 1.0,
+          "pr": 654.975,
+          "qty": 18.0,
+          "acctid": "U1234567",
+          "amt": -11789.5499999999,
+          "conid": 756733,
+          "type": "Buy",
+          "desc": "U1234567"
+        },
+        {
+          "cur": "USD",
+          "date": "Thu Apr 02 00:00:00 EDT 2026",
+          "rawDate": "20260402",
+          "fxRate": 1.0,
+          "pr": 649.94181818,
+          "qty": 22.0,
+          "acctid": "U1234567",
+          "amt": -14298.72,
+          "conid": 756733,
+          "type": "Buy",
+          "desc": "U1234567"
+        }
+      ]
+    }
+  }
+}

@@ -13,20 +13,20 @@
     "Body": {
       "assetClass": {
         "long": {
-          "STK": 30608.37,
+          "STK": 30630.33,
           "CASH": 971869.6
         },
         "short": {}
       },
       "sector": {
         "long": {
-          "Others": 30608.37
+          "Others": 30630.33
         },
         "short": {}
       },
       "group": {
         "long": {
-          "Others": 30608.37
+          "Others": 30630.33
         },
         "short": {}
       }
