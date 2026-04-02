@@ -293,11 +293,177 @@ def field_to_property_name(field: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# API doc field descriptions
+# ---------------------------------------------------------------------------
+
+API_DOCS_PATH = Path(__file__).parent.parent / "docs" / "ibkr_api.md"
+
+
+def parse_api_doc_fields() -> dict[str, dict[str, str]]:
+    """Parse ibkr_api.md to extract field descriptions per endpoint.
+
+    Returns {normalized_endpoint: {field_name_lower: description}}.
+    Field names are lowercased for case-insensitive matching since the docs
+    sometimes use different casing than the actual API (e.g., faClient vs faclient).
+    """
+    if not API_DOCS_PATH.exists():
+        return {}
+
+    content = API_DOCS_PATH.read_text(encoding="utf-8")
+    lines = content.split("\n")
+
+    result: dict[str, dict[str, str]] = {}
+
+    # Find endpoint definitions: `METHOD /path`
+    backtick = "\x60"
+    endpoint_re = re.compile(
+        backtick + r"(GET|POST|PUT|DELETE)\s+(/[^" + backtick + r"]+?)\s*" + backtick,
+    )
+
+    # Field definition: **fieldName:** Type.\n  Description text
+    # Note: markdown bold wraps the colon: **id:** renders as bold "id:"
+    # So the pattern is **fieldName:** (colon inside the bold) or **fieldName**:
+    field_re = re.compile(
+        r"\*\*(\w+)(?::\*\*|\*\*:?)\s*"
+    )
+
+    i = 0
+    while i < len(lines):
+        match = endpoint_re.search(lines[i])
+        if not match:
+            i += 1
+            continue
+
+        method = match.group(1)
+        path = match.group(2)
+        norm_path = re.sub(r"\{\{?\s*\w+\s*\}?\}", "{id}", path)
+        endpoint_key = f"{method} {norm_path}"
+
+        # Scan forward to find "#### Response Object" section
+        j = i + 1
+        found_response = False
+        while j < min(i + 30, len(lines)):
+            if "Response Object" in lines[j] or "Response object" in lines[j]:
+                found_response = True
+                break
+            j += 1
+
+        if not found_response:
+            i += 1
+            continue
+
+        # Parse fields from the response section until we hit another section
+        fields: dict[str, str] = {}
+        k = j + 1
+        while k < min(j + 200, len(lines)):
+            line = lines[k].strip()
+
+            # Stop at next section or endpoint
+            if line.startswith("### ") or line.startswith("## "):
+                break
+            if endpoint_re.search(line):
+                break
+
+            # Match field definition
+            fm = field_re.match(line)
+            if fm:
+                field_name = fm.group(1)
+                # Skip non-field headings
+                if field_name.upper() in ("NOTE", "NOTES", "REQUEST", "RESPONSE",
+                                           "QUERY", "PATH", "BODY", "HEADERS"):
+                    k += 1
+                    continue
+
+                # Get description from remainder of this line and/or next line
+                remainder = line[fm.end():].strip()
+                # Strip type annotation (e.g., "String." or "int." or "bool.")
+                remainder = re.sub(
+                    r"^:?\s*(?:String|int|float|bool|boolean|Array|object|decimal|number)"
+                    r"[\s.]*",
+                    "", remainder, flags=re.IGNORECASE,
+                ).strip()
+
+                # If remainder is empty, check next line for description
+                if not remainder and k + 1 < len(lines):
+                    next_line = lines[k + 1].strip()
+                    if next_line and not next_line.startswith("**") and not next_line.startswith("```"):
+                        remainder = next_line
+
+                if remainder:
+                    # Clean up description
+                    remainder = remainder.strip().rstrip(".")
+                    # Strip stray braces/brackets from object/array type hints
+                    remainder = remainder.strip("{}[]")
+                    remainder = remainder.strip()
+                    # Skip if nothing meaningful left
+                    if not remainder or len(remainder) < 3:
+                        k += 1
+                        continue
+                    # Escape XML special chars for doc comments
+                    remainder = (remainder
+                                 .replace("&", "&amp;")
+                                 .replace("<", "&lt;")
+                                 .replace(">", "&gt;"))
+                    fields[field_name.lower()] = remainder
+
+            k += 1
+
+        if fields:
+            result[endpoint_key] = fields
+
+        i += 1
+
+    return result
+
+
+def lookup_field_description(
+    doc_fields: dict[str, dict[str, str]],
+    endpoint_key: str,
+    field_name: str,
+) -> str | None:
+    """Look up a field description from the parsed API docs.
+
+    Tries exact endpoint match first, then fuzzy matching by normalizing
+    placeholders. Field names are matched case-insensitively.
+    """
+    # Normalize the endpoint key the same way
+    method, path = endpoint_key.split(" ", 1)
+    norm = re.sub(r"/\{[^}]+\}", "/{id}", path)
+    norm_key = f"{method} {norm}"
+
+    # Try exact match
+    fields = doc_fields.get(norm_key)
+    if not fields:
+        # Try fuzzy: strip /v1/api prefix from our key
+        stripped = re.sub(r"^/v1/api", "", norm)
+        stripped_key = f"{method} {stripped}"
+        fields = doc_fields.get(stripped_key)
+
+    if not fields:
+        # Try matching just the path tail
+        for dk, dv in doc_fields.items():
+            dm, dp = dk.split(" ", 1)
+            if dm == method:
+                dp_norm = re.sub(r"/\{[^}]+\}", "/{id}", dp)
+                path_norm = re.sub(r"/\{[^}]+\}", "/{id}", path)
+                # Strip /v1/api from our path for comparison
+                path_clean = re.sub(r"^/v1/api", "", path_norm)
+                if dp_norm == path_clean:
+                    fields = dv
+                    break
+
+    if not fields:
+        return None
+
+    return fields.get(field_name.lower())
+
+
+# ---------------------------------------------------------------------------
 # C# code generation
 # ---------------------------------------------------------------------------
 
 
-def generate_record(endpoint: EndpointInfo) -> tuple[str, str, str]:
+def generate_record(endpoint: EndpointInfo, doc_fields: dict[str, dict[str, str]] | None = None) -> tuple[str, str, str]:
     """Generate a C# record source file.
 
     Returns (record_name, namespace, source_code).
@@ -325,6 +491,7 @@ def generate_record(endpoint: EndpointInfo) -> tuple[str, str, str]:
     lines.append(f"public sealed record {record_name}")
     lines.append("{")
 
+    endpoint_key = f"{endpoint.method} {endpoint.path}"
     for field_name, field_type in endpoint.fields.items():
         prop_name = field_to_property_name(field_name)
         type_str = str(field_type)
@@ -336,6 +503,13 @@ def generate_record(endpoint: EndpointInfo) -> tuple[str, str, str]:
             # Reference types: ensure trailing ?
             if not type_str.endswith("?"):
                 type_str += "?"
+
+        # Add XML doc comment from API docs if available
+        desc = None
+        if doc_fields:
+            desc = lookup_field_description(doc_fields, endpoint_key, field_name)
+        if desc:
+            lines.append(f"    /// <summary>{desc}.</summary>")
 
         lines.append(f"    [JsonPropertyName(\"{field_name}\")]")
         lines.append(f"    public {type_str} {prop_name} {{ get; init; }}")
@@ -355,13 +529,13 @@ def generate_record(endpoint: EndpointInfo) -> tuple[str, str, str]:
 # ---------------------------------------------------------------------------
 
 
-def write_generated(output_dir: Path, endpoints: dict[str, EndpointInfo]) -> list[tuple[str, str, int]]:
+def write_generated(output_dir: Path, endpoints: dict[str, EndpointInfo], doc_fields: dict[str, dict[str, str]] | None = None) -> list[tuple[str, str, int]]:
     """Generate and write C# files. Returns list of (endpoint_key, record_name, field_count)."""
     output_dir.mkdir(parents=True, exist_ok=True)
     results: list[tuple[str, str, int]] = []
 
     for key, endpoint in sorted(endpoints.items()):
-        record_name, namespace, source = generate_record(endpoint)
+        record_name, namespace, source = generate_record(endpoint, doc_fields)
         filename = f"{record_name}.generated.cs"
         out_path = output_dir / filename
         out_path.write_text(source, encoding="utf-8")
@@ -403,9 +577,17 @@ def main() -> int:
         print("No usable recordings found (200 OK with JSON body).")
         return 0
 
+    # Parse API docs for field descriptions
+    doc_fields = parse_api_doc_fields()
+    if doc_fields:
+        print(f"Loaded field descriptions for {len(doc_fields)} endpoint(s) from ibkr_api.md")
+    else:
+        print("No API docs found — generating without XML doc comments")
+    print()
+
     print("Generated DTOs:")
     print("-" * 60)
-    results = write_generated(output_dir, endpoints)
+    results = write_generated(output_dir, endpoints, doc_fields)
     print("-" * 60)
     print(f"Summary: {len(results)} record(s) generated from {sum(1 for _ in recordings_dir.rglob('*.json'))} recording(s).")
 
