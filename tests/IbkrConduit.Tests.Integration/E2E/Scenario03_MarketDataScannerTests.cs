@@ -3,6 +3,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.MarketData;
+using System.Net;
+using IbkrConduit.Errors;
 using Refit;
 using Shouldly;
 
@@ -130,10 +132,12 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
                 // IBKR QUIRK: The snapshot endpoint may return an empty list or a snapshot
                 // with no data for invalid conids rather than throwing an HTTP error.
                 // Either outcome is acceptable.
+                result.ShouldNotBeNull();
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for invalid conid.
+                // IBKR may return an HTTP error for invalid conid.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();
@@ -158,19 +162,9 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
             searchResults.ShouldNotBeEmpty();
             var spyConid = searchResults[0].Conid;
 
-            try
-            {
-                var result = await client.MarketData.GetHistoryAsync(
-                    spyConid, "INVALID_PERIOD", "1d", cancellationToken: CT);
-
-                // IBKR QUIRK: If we get here, the API returned 200 for an invalid period.
-                result.ShouldNotBeNull(
-                    "IBKR QUIRK: API returned 200 for invalid period instead of HTTP error");
-            }
-            catch (ApiException)
-            {
-                // Expected: IBKR returns an HTTP error for invalid period format.
-            }
+            await Should.ThrowAsync<IbkrApiException>(
+                () => client.MarketData.GetHistoryAsync(
+                    spyConid, "INVALID_PERIOD", "1d", cancellationToken: CT));
 
             StopRecording();
         }
@@ -195,9 +189,10 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
                 var result = await client.MarketData.UnsubscribeAsync(999999999, CT);
                 result.ShouldNotBeNull("Unsubscribe should return a response even for unknown conid");
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
                 // Some IBKR setups may return an error for unsubscribing unknown conids.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();
@@ -217,18 +212,9 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
         {
             StartRecording("Scenario03_InvalidScannerType");
 
-            try
-            {
-                var result = await client.MarketData.RunScannerAsync(
-                    new ScannerRequest("STK", "TOTALLY_INVALID_SCAN_TYPE", "STK.US.MAJOR", null), CT);
-
-                // IBKR QUIRK: If we get here, the API returned 200 for an invalid scan type.
-                // The contracts list may be null or empty.
-            }
-            catch (ApiException)
-            {
-                // Expected: IBKR returns an HTTP error for invalid scan type.
-            }
+            await Should.ThrowAsync<IbkrApiException>(
+                () => client.MarketData.RunScannerAsync(
+                    new ScannerRequest("STK", "TOTALLY_INVALID_SCAN_TYPE", "STK.US.MAJOR", null), CT));
 
             StopRecording();
         }

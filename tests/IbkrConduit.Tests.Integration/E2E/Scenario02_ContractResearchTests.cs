@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using System.Net;
+using IbkrConduit.Errors;
 using Refit;
 using Shouldly;
 
@@ -135,11 +137,11 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
                 var results = await client.Contracts.SearchBySymbolAsync("ZZZZNOTREAL", CT);
                 results.ShouldBeEmpty("Non-existent symbol should return empty results");
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // IBKR QUIRK: The symbol search endpoint returns a non-array JSON response
-                // (e.g., an error object) for non-existent symbols, causing a deserialization
-                // error in Refit. This is acceptable — the symbol was not found.
+                // IBKR QUIRK: The symbol search endpoint may return an error for
+                // non-existent symbols instead of an empty list.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();
@@ -159,18 +161,8 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
         {
             StartRecording("Scenario02_InvalidConidDetails");
 
-            try
-            {
-                var result = await client.Contracts.GetContractDetailsAsync("999999999", CT);
-
-                // IBKR QUIRK: If we get here, the API returned 200 for an invalid conid.
-                result.ShouldNotBeNull(
-                    "IBKR QUIRK: API returned 200 for invalid conid instead of HTTP error");
-            }
-            catch (ApiException)
-            {
-                // Expected: IBKR returns an HTTP error for invalid conid.
-            }
+            await Should.ThrowAsync<IbkrApiException>(
+                () => client.Contracts.GetContractDetailsAsync("999999999", CT));
 
             StopRecording();
         }
@@ -197,9 +189,10 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
                 result.Rate.ShouldBeGreaterThan(0m,
                     "Same-currency exchange rate should be positive");
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
                 // IBKR may reject same-currency exchange rate requests.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();
@@ -219,19 +212,9 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
         {
             StartRecording("Scenario02_InvalidConidTradingRules");
 
-            try
-            {
-                var result = await client.Contracts.GetTradingRulesAsync(
-                    new TradingRulesRequest(0, null, null, null, null), CT);
-
-                // IBKR QUIRK: If we get here, the API returned 200 for conid 0.
-                result.ShouldNotBeNull(
-                    "IBKR QUIRK: API returned 200 for invalid conid instead of HTTP error");
-            }
-            catch (ApiException)
-            {
-                // Expected: IBKR returns an HTTP error for invalid conid.
-            }
+            await Should.ThrowAsync<IbkrApiException>(
+                () => client.Contracts.GetTradingRulesAsync(
+                    new TradingRulesRequest(0, null, null, null, null), CT));
 
             StopRecording();
         }
@@ -265,9 +248,10 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
                 (result.Call.Count + result.Put.Count).ShouldBe(0,
                     "Invalid month should return empty strike lists");
             }
-            catch (ApiException)
+            catch (IbkrApiException ex)
             {
-                // Expected: IBKR returns an HTTP error for invalid month format.
+                // IBKR returns an HTTP error for invalid month format.
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
             }
 
             StopRecording();

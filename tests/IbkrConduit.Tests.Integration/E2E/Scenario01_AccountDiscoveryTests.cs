@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Session;
 using Microsoft.Extensions.DependencyInjection;
+using System.Net;
+using IbkrConduit.Errors;
 using Refit;
 using Shouldly;
 
@@ -125,11 +127,11 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
                 var results = await client.Accounts.SearchAccountsAsync("ZZZZZ", CT);
                 results.ShouldBeEmpty("Non-existent account pattern should return empty");
             }
-            catch (ApiException ex)
+            catch (IbkrApiException ex)
             {
                 // IBKR QUIRK: Some account endpoints return HTTP errors for no-match
                 // instead of an empty list. This is acceptable behavior.
-                ((int)ex.StatusCode).ShouldBeGreaterThan(0);
+                ex.StatusCode.ShouldBeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound, HttpStatusCode.ServiceUnavailable);
             }
 
             StopRecording();
@@ -149,21 +151,9 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
         {
             StartRecording("Scenario01_InvalidAccountInfo");
 
-            // IBKR may return HTTP error or 200 with error body for invalid account IDs.
-            try
-            {
-                var result = await client.Accounts.GetAccountInfoAsync("INVALID999", CT);
-
-                // IBKR QUIRK: If we get here, the API returned 200 with some response
-                // for an invalid account ID. Document this behavior.
-                // The response may have a null/empty AccountId or contain an error indicator.
-                result.ShouldNotBeNull(
-                    "IBKR QUIRK: API returned 200 for invalid account ID instead of HTTP error");
-            }
-            catch (ApiException)
-            {
-                // Expected: IBKR returns an HTTP error for invalid account IDs.
-            }
+            // IBKR should return an error for invalid account IDs.
+            await Should.ThrowAsync<IbkrApiException>(
+                () => client.Accounts.GetAccountInfoAsync("INVALID999", CT));
 
             StopRecording();
         }
@@ -182,19 +172,9 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
         {
             StartRecording("Scenario01_InvalidSwitchAccount");
 
-            // IBKR may return HTTP error or 200 with error body for invalid account IDs.
-            try
-            {
-                var result = await client.Accounts.SwitchAccountAsync("INVALID999", CT);
-
-                // IBKR QUIRK: If we get here, the API returned 200 for an invalid account ID.
-                result.Set.ShouldBeFalse(
-                    "IBKR QUIRK: API returned 200 for invalid account switch — Set should be false");
-            }
-            catch (ApiException)
-            {
-                // Expected: IBKR returns an HTTP error for invalid account switch.
-            }
+            // IBKR should return an error for invalid account switch.
+            await Should.ThrowAsync<IbkrApiException>(
+                () => client.Accounts.SwitchAccountAsync("INVALID999", CT));
 
             StopRecording();
         }
