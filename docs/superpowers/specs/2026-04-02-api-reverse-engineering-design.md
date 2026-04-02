@@ -81,7 +81,7 @@ A Python script (`tools/generate_dtos.py`) reads all recordings and generates C#
    - `[JsonPropertyName("...")]` for every field
    - C# types map directly from observed JSON types — no converters, no `JsonNumberHandling`:
      - JSON number (integer) → `int` or `long`
-     - JSON number (decimal) → `decimal`
+     - JSON number (fractional) → `decimal` (never `float` or `double` — this is financial data)
      - JSON string → `string`
      - JSON boolean → `bool`
      - JSON null → make the type nullable (`int?`, `string?`, etc.)
