@@ -56,9 +56,12 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
 
             // Step 4: Place order (far below market, won't fill)
             var placeResult = await client.Orders.PlaceOrderAsync(accountId, orderRequest, CT);
-            placeResult.ShouldNotBeNull();
-            placeResult.OrderId.ShouldNotBeNullOrEmpty("Placed order should have an OrderId");
-            var orderId = placeResult.OrderId;
+            // Handle confirmation flow if IBKR asks for confirmation
+            var submitted = placeResult.IsT0
+                ? placeResult.AsT0
+                : (await client.Orders.ReplyAsync(placeResult.AsT1.ReplyId, true, CT)).AsT0;
+            submitted.OrderId.ShouldNotBeNullOrEmpty("Placed order should have an OrderId");
+            var orderId = submitted.OrderId;
 
             // Step 5: Get order status
             var status = await client.Orders.GetOrderStatusAsync(orderId, CT);
@@ -86,8 +89,10 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
             try
             {
                 var modifyResult = await client.Orders.ModifyOrderAsync(accountId, orderId, modifiedOrder, CT);
-                modifyResult.ShouldNotBeNull();
-                modifyResult.OrderId.ShouldNotBeNullOrEmpty();
+                var modifySubmitted = modifyResult.IsT0
+                    ? modifyResult.AsT0
+                    : (await client.Orders.ReplyAsync(modifyResult.AsT1.ReplyId, true, CT)).AsT0;
+                modifySubmitted.OrderId.ShouldNotBeNullOrEmpty();
             }
             catch (ApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.BadRequest
                                               or System.Net.HttpStatusCode.InternalServerError)
@@ -241,7 +246,8 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 var result = await client.Orders.ModifyOrderAsync(accountId, "000000000", order, CT);
 
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent order.
-                result.ShouldNotBeNull();
+                // OneOf is a struct so always non-null; just verify we got a response
+                _ = result.IsT0 ? result.AsT0.OrderId : result.AsT1.ReplyId;
             }
             catch (ApiException)
             {
@@ -332,7 +338,8 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 var result = await client.Orders.PlaceOrderAsync(accountId, order, CT);
 
                 // IBKR QUIRK: If we get here, the API accepted a zero-quantity order.
-                result.ShouldNotBeNull();
+                // OneOf is a struct so always non-null; just verify we got a response
+                _ = result.IsT0 ? result.AsT0.OrderId : result.AsT1.ReplyId;
             }
             catch (ApiException)
             {

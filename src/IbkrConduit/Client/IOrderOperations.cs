@@ -1,4 +1,5 @@
 using IbkrConduit.Orders;
+using OneOf;
 
 namespace IbkrConduit.Client;
 
@@ -8,10 +9,10 @@ namespace IbkrConduit.Client;
 public interface IOrderOperations
 {
     /// <summary>
-    /// Places an order for the specified account. Automatically confirms any
-    /// follow-up questions from IBKR by replying with confirmed=true.
+    /// Places an order for the specified account. Returns either a confirmed submission
+    /// or a confirmation-required response that the caller must handle via <see cref="ReplyAsync"/>.
     /// </summary>
-    Task<OrderResult> PlaceOrderAsync(
+    Task<OneOf<OrderSubmitted, OrderConfirmationRequired>> PlaceOrderAsync(
         string accountId, OrderRequest order, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -31,12 +32,19 @@ public interface IOrderOperations
     Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Modifies an existing order. Automatically confirms any
-    /// follow-up questions from IBKR by replying with confirmed=true.
+    /// Modifies an existing order. Returns either a confirmed submission
+    /// or a confirmation-required response that the caller must handle via <see cref="ReplyAsync"/>.
     /// </summary>
-    Task<OrderResult> ModifyOrderAsync(
+    Task<OneOf<OrderSubmitted, OrderConfirmationRequired>> ModifyOrderAsync(
         string accountId, string orderId, OrderRequest order,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Replies to an order confirmation question. Returns either a confirmed submission
+    /// or another confirmation-required response (IBKR can chain confirmations).
+    /// </summary>
+    Task<OneOf<OrderSubmitted, OrderConfirmationRequired>> ReplyAsync(
+        string replyId, bool confirmed, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Previews the commission and margin impact of an order without placing it.

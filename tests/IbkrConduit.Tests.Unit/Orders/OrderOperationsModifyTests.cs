@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Orders;
 using Microsoft.Extensions.Logging.Abstractions;
+using OneOf;
 using Refit;
 using Shouldly;
 
@@ -23,7 +24,7 @@ public class OrderOperationsModifyTests
     }
 
     [Fact]
-    public async Task ModifyOrderAsync_DirectConfirmation_ReturnsOrderResult()
+    public async Task ModifyOrderAsync_DirectConfirmation_ReturnsOrderSubmitted()
     {
         _fakeApi.ModifyOrderResponses.Enqueue(
         [
@@ -42,12 +43,12 @@ public class OrderOperationsModifyTests
 
         var result = await _sut.ModifyOrderAsync("DU1234567", "99999", order, TestContext.Current.CancellationToken);
 
-        result.OrderId.ShouldBe("12345");
-        result.OrderStatus.ShouldBe("PreSubmitted");
+        result.AsT0.OrderId.ShouldBe("12345");
+        result.AsT0.OrderStatus.ShouldBe("PreSubmitted");
     }
 
     [Fact]
-    public async Task ModifyOrderAsync_WithQuestion_AutoConfirmsAndReturnsOrderResult()
+    public async Task ModifyOrderAsync_WithQuestionResponse_ReturnsOrderConfirmationRequired()
     {
         _fakeApi.ModifyOrderResponses.Enqueue(
         [
@@ -58,11 +59,6 @@ public class OrderOperationsModifyTests
                 ["msg-id-1"],
                 null,
                 null),
-        ]);
-
-        _fakeApi.ReplyResponses.Enqueue(
-        [
-            new OrderSubmissionResponse(null, null, null, null, "67890", "Submitted"),
         ]);
 
         var order = new OrderRequest
@@ -77,9 +73,10 @@ public class OrderOperationsModifyTests
 
         var result = await _sut.ModifyOrderAsync("DU1234567", "99999", order, TestContext.Current.CancellationToken);
 
-        result.OrderId.ShouldBe("67890");
-        result.OrderStatus.ShouldBe("Submitted");
-        _fakeApi.ReplyCallCount.ShouldBe(1);
+        var confirmation = result.AsT1;
+        confirmation.ReplyId.ShouldBe("reply-id-1");
+        confirmation.Messages.ShouldContain("Are you sure you want to modify this order?");
+        confirmation.MessageIds.ShouldContain("msg-id-1");
     }
 
     [Fact]

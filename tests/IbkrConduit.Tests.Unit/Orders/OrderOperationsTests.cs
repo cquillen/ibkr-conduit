@@ -9,6 +9,7 @@ using IbkrConduit.Client;
 using IbkrConduit.Orders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using OneOf;
 using Refit;
 using Shouldly;
 
@@ -25,7 +26,7 @@ public class OrderOperationsTests
     }
 
     [Fact]
-    public async Task PlaceOrderAsync_DirectConfirmation_ReturnsOrderResult()
+    public async Task PlaceOrderAsync_DirectConfirmation_ReturnsOrderSubmitted()
     {
         _fakeApi.PlaceOrderResponses.Enqueue(
         [
@@ -43,12 +44,12 @@ public class OrderOperationsTests
 
         var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
 
-        result.OrderId.ShouldBe("12345");
-        result.OrderStatus.ShouldBe("PreSubmitted");
+        result.AsT0.OrderId.ShouldBe("12345");
+        result.AsT0.OrderStatus.ShouldBe("PreSubmitted");
     }
 
     [Fact]
-    public async Task PlaceOrderAsync_WithQuestion_AutoConfirmsAndReturnsOrderResult()
+    public async Task PlaceOrderAsync_WithQuestionResponse_ReturnsOrderConfirmationRequired()
     {
         _fakeApi.PlaceOrderResponses.Enqueue(
         [
@@ -59,11 +60,6 @@ public class OrderOperationsTests
                 ["msg-id-1"],
                 null,
                 null),
-        ]);
-
-        _fakeApi.ReplyResponses.Enqueue(
-        [
-            new OrderSubmissionResponse(null, null, null, null, "67890", "Submitted"),
         ]);
 
         var order = new OrderRequest
@@ -77,77 +73,10 @@ public class OrderOperationsTests
         };
 
         var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
-
-        result.OrderId.ShouldBe("67890");
-        result.OrderStatus.ShouldBe("Submitted");
-        _fakeApi.ReplyCallCount.ShouldBe(1);
-        _fakeApi.LastReplyRequest!.Confirmed.ShouldBeTrue();
-    }
-
-    [Fact]
-    public async Task PlaceOrderAsync_MultipleQuestions_ConfirmsAllAndReturnsOrderResult()
-    {
-        _fakeApi.PlaceOrderResponses.Enqueue(
-        [
-            new OrderSubmissionResponse(
-                "reply-1", ["Question 1"], false, ["msg-1"], null, null),
-        ]);
-
-        _fakeApi.ReplyResponses.Enqueue(
-        [
-            new OrderSubmissionResponse(
-                "reply-2", ["Question 2"], false, ["msg-2"], null, null),
-        ]);
-
-        _fakeApi.ReplyResponses.Enqueue(
-        [
-            new OrderSubmissionResponse(null, null, null, null, "99999", "Filled"),
-        ]);
-
-        var order = new OrderRequest
-        {
-            Conid = 265598,
-            Side = "SELL",
-            Quantity = 10,
-            OrderType = "MKT",
-        };
-
-        var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
-
-        result.OrderId.ShouldBe("99999");
-        _fakeApi.ReplyCallCount.ShouldBe(2);
-    }
-
-    [Fact]
-    public async Task PlaceOrderAsync_ExceedsMaxIterations_ThrowsInvalidOperationException()
-    {
-        _fakeApi.PlaceOrderResponses.Enqueue(
-        [
-            new OrderSubmissionResponse(
-                "reply-1", ["Question"], false, ["msg-1"], null, null),
-        ]);
-
-        for (var i = 0; i < 25; i++)
-        {
-            _fakeApi.ReplyResponses.Enqueue(
-            [
-                new OrderSubmissionResponse(
-                    $"reply-{i + 2}", ["Another question"], false, [$"msg-{i + 2}"], null, null),
-            ]);
-        }
-
-        var order = new OrderRequest
-        {
-            Conid = 265598,
-            Side = "BUY",
-            Quantity = 1,
-            OrderType = "MKT",
-        };
-
-        var ex = await Should.ThrowAsync<InvalidOperationException>(
-            () => _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken));
-
-        ex.Message.ShouldContain("exceeded maximum");
+        var confirmation = result.AsT1;
+        confirmation.ReplyId.ShouldBe("reply-id-1");
+        confirmation.Messages.ShouldContain("Are you sure you want to submit this order?");
+        confirmation.MessageIds.ShouldContain("msg-id-1");
     }
 
     [Fact]
@@ -242,7 +171,7 @@ public class OrderOperationsTests
     }
 
     [Fact]
-    public async Task PlaceOrderAsync_EmptyMessageArray_EntersQuestionBranch()
+    public async Task PlaceOrderAsync_EmptyMessageArray_ReturnsOrderConfirmationRequired()
     {
         _fakeApi.PlaceOrderResponses.Enqueue(
         [
@@ -255,11 +184,6 @@ public class OrderOperationsTests
                 null),
         ]);
 
-        _fakeApi.ReplyResponses.Enqueue(
-        [
-            new OrderSubmissionResponse(null, null, null, null, "55555", "Submitted"),
-        ]);
-
         var order = new OrderRequest
         {
             Conid = 265598,
@@ -270,8 +194,9 @@ public class OrderOperationsTests
 
         var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
 
-        result.OrderId.ShouldBe("55555");
-        _fakeApi.ReplyCallCount.ShouldBe(1);
+        var confirmation = result.AsT1;
+        confirmation.ReplyId.ShouldBe("reply-id-1");
+        confirmation.Messages.ShouldBeEmpty();
     }
 
     [Fact]
@@ -298,37 +223,8 @@ public class OrderOperationsTests
 
         var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
 
-        result.OrderId.ShouldBe("77777");
-        result.OrderStatus.ShouldBe("PreSubmitted");
-        _fakeApi.ReplyCallCount.ShouldBe(0);
-    }
-
-    [Fact]
-    public async Task PlaceOrderAsync_ReplyThrows_ExceptionPropagates()
-    {
-        _fakeApi.PlaceOrderResponses.Enqueue(
-        [
-            new OrderSubmissionResponse(
-                "reply-id-1",
-                ["Question"],
-                false,
-                ["msg-id-1"],
-                null,
-                null),
-        ]);
-
-        // No reply enqueued — Dequeue will throw InvalidOperationException
-
-        var order = new OrderRequest
-        {
-            Conid = 265598,
-            Side = "BUY",
-            Quantity = 1,
-            OrderType = "MKT",
-        };
-
-        await Should.ThrowAsync<InvalidOperationException>(
-            () => _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken));
+        result.AsT0.OrderId.ShouldBe("77777");
+        result.AsT0.OrderStatus.ShouldBe("PreSubmitted");
     }
 
     [Fact]
@@ -513,8 +409,8 @@ public class OrderOperationsTests
 
         var results = await Task.WhenAll(task1, task2);
 
-        results[0].OrderId.ShouldBe("order-ACCT1");
-        results[1].OrderId.ShouldBe("order-ACCT2");
+        results[0].AsT0.OrderId.ShouldBe("order-ACCT1");
+        results[1].AsT0.OrderId.ShouldBe("order-ACCT2");
     }
 
     private class ParallelVerifyingOrderApi : IIbkrOrderApi
