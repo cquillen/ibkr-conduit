@@ -77,16 +77,24 @@ A Python script (`tools/generate_dtos.py`) reads all recordings and generates C#
 1. Parse each recording's response body JSON
 2. For each endpoint, infer the response shape (field names, types)
 3. Merge multiple recordings of the same endpoint to get the full field set (some fields are null in one response but populated in another)
-4. Generate a C# positional record with:
+4. Generate a C# positional record that matches the wire format exactly:
    - `[JsonPropertyName("...")]` for every field
-   - `[JsonNumberHandling(AllowReadingFromString)]` where string-encoded numbers are observed
-   - `[JsonConverter(typeof(FlexibleStringConverter))]` where numbers appear for string-typed fields
-   - `[JsonConverter(typeof(FlexibleDecimalConverter))]` where empty strings appear for decimal fields
+   - C# types map directly from observed JSON types — no converters, no `JsonNumberHandling`:
+     - JSON number (integer) → `int` or `long`
+     - JSON number (decimal) → `decimal`
+     - JSON string → `string`
+     - JSON boolean → `bool`
+     - JSON null → make the type nullable (`int?`, `string?`, etc.)
+     - JSON array → `List<T>`
+     - JSON object → nested record
+   - No `FlexibleStringConverter`, `FlexibleDecimalConverter`, or `JsonNumberHandling` — the DTO is a faithful representation of the wire format
    - `[ExcludeFromCodeCoverage]` on all generated records
    - `[JsonExtensionData]` on records with object bodies (for future-proofing)
 5. Output as `.cs` files that can be diffed against current models
 
 The script does NOT auto-overwrite. It generates to a staging directory (`generated/`), then the developer reviews and copies.
+
+**Note:** Semantic type conversions (e.g., making `orderId` a `string` for URL paths when IBKR sends it as a number) may be added in a later pass. The first pass prioritizes correctness over ergonomics.
 
 ### WireMock Fixture Generation
 
