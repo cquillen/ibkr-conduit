@@ -361,13 +361,14 @@ public class IbkrWebSocketClientTests
     {
         public Task<SsodhInitResponse> InitializeBrokerageSessionAsync(
             SsodhInitRequest request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new SsodhInitResponse(true, true, false));
+            Task.FromResult(new SsodhInitResponse(true, true, false, true, null, null, null, null));
 
         public Task<TickleResponse> TickleAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new TickleResponse(
                 Session: "fake-session-id",
+                Hmds: null,
                 Iserver: new TickleIserverStatus(
-                    AuthStatus: new TickleAuthStatus(true, false, true))));
+                    AuthStatus: new TickleAuthStatus(true, false, true, true, null, null, null, null))));
 
         public Task<SuppressResponse> SuppressQuestionsAsync(
             SuppressRequest request, CancellationToken cancellationToken = default) =>
@@ -380,7 +381,7 @@ public class IbkrWebSocketClientTests
             Task.FromResult(new SuppressResetResponse(Status: "submitted"));
 
         public Task<AuthStatusResponse> GetAuthStatusAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AuthStatusResponse(true, false, true, null, null, null));
+            Task.FromResult(new AuthStatusResponse(true, false, true, true, null, null, null, null, null, null));
 
     }
 
