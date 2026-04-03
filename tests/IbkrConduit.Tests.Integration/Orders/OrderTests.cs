@@ -159,6 +159,75 @@ public class OrderTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task Reply_401Recovery_ReauthenticatesAndRetries()
+    {
+        // PlaceOrder returns confirmation (no 401 here)
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/*/orders")
+                .UsingPost())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "POST-place-order-confirmation")));
+
+        // First reply call returns 401 (token expired between place and reply)
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/reply/*")
+                .UsingPost())
+            .InScenario("reply-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        // After re-auth, second reply call succeeds
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/reply/*")
+                .UsingPost())
+            .InScenario("reply-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "POST-reply-submitted")));
+
+        var order = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "LMT",
+            Price = 1.00m,
+            Tif = "GTC",
+        };
+
+        // Place order — gets confirmation
+        var placeResult = await _client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken);
+        placeResult.IsT1.ShouldBeTrue();
+        var confirmation = placeResult.AsT1;
+
+        // Reply — first call 401s, re-auth, retry succeeds
+        var replyResult = await _client.Orders.ReplyAsync(
+            confirmation.ReplyId, true, TestContext.Current.CancellationToken);
+
+        replyResult.IsT0.ShouldBeTrue("Expected OrderSubmitted after 401 recovery on reply");
+        replyResult.AsT0.OrderId.ShouldBe("987654321");
+
+        // Verify re-authentication occurred
+        _server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/oauth/live_session_token").UsingPost())
+            .Count.ShouldBeGreaterThanOrEqualTo(2,
+                "LST handshake should have been called at least twice (initial + re-auth)");
+    }
+
+    [Fact]
     public async Task PlaceOrder_401Recovery_ReauthenticatesAndRetries()
     {
         // First call returns 401
