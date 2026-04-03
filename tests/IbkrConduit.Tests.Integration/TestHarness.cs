@@ -72,6 +72,17 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody("""{"authenticated":true,"competing":false,"connected":true,"passed":true,"established":true}"""));
 
+        // Stub tickle (sent every 60s to keep session alive — prevents flaky tests on slow runs)
+        Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/tickle")
+                .UsingPost())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"session":"abc123","ssoExpires":0,"collission":false,"userId":0,"iserver":{"authStatus":{"authenticated":true,"competing":false,"connected":true}}}"""));
+
         // Build the full DI pipeline pointing at WireMock
         var services = new ServiceCollection();
         services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
