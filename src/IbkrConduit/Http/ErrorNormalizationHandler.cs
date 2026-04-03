@@ -79,10 +79,9 @@ internal class ErrorNormalizationHandler : DelegatingHandler
                 throw new IbkrRateLimitException(retryAfter, errorMessage, body, path);
 
             case HttpStatusCode.Unauthorized:
-                throw new IbkrSessionException(
-                    isCompeting: false, reason: errorMessage,
-                    statusCode: HttpStatusCode.Unauthorized,
-                    errorMessage: errorMessage, rawResponseBody: body, requestUri: path);
+                // Let 401 pass through — TokenRefreshHandler (upstream) handles
+                // re-authentication and retry. Throwing here would prevent retry.
+                return;
 
             default:
                 var remapped = RemapStatusCode(statusCode, path);

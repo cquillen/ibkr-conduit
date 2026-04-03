@@ -140,14 +140,16 @@ public class ErrorNormalizationHandlerTests
     }
 
     [Fact]
-    public async Task NonSuccess_401_ThrowsSessionException()
+    public async Task NonSuccess_401_PassesThrough()
     {
+        // 401 passes through ErrorNormalizationHandler so TokenRefreshHandler
+        // (upstream) can intercept it and trigger re-authentication.
         SetResponse(HttpStatusCode.Unauthorized, """{"error":"unauthorized"}""",
             "/v1/api/test");
 
-        var ex = await Should.ThrowAsync<IbkrSessionException>(SendAsync());
+        var response = await SendAsync();
 
-        ex.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]

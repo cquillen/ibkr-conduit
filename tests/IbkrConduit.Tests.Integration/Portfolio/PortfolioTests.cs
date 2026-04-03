@@ -120,6 +120,54 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             .Count.ShouldBeGreaterThan(0, "Session init should have been called");
     }
 
+    [Fact]
+    public async Task GetAccounts_401Recovery_ReauthenticatesAndRetries()
+    {
+        // First call to portfolio/accounts returns 401 (token expired)
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .InScenario("401-recovery")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        // After re-auth, second call succeeds
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/accounts")
+                .UsingGet())
+            .InScenario("401-recovery")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts")));
+
+        // The call should succeed — TokenRefreshHandler triggers re-auth on 401, then retries
+        var accounts = await _client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
+
+        accounts.ShouldNotBeEmpty();
+        accounts[0].Id.ShouldBe("U1234567");
+
+        // Verify re-authentication occurred: LST should have been acquired at least twice
+        // (once during InitializeAsync setup, once during 401 recovery)
+        var lstCalls = _server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/oauth/live_session_token").UsingPost());
+        lstCalls.Count.ShouldBeGreaterThanOrEqualTo(2,
+            "LST handshake should have been called at least twice (initial + re-auth)");
+
+        // Session init should also have been called at least twice
+        var initCalls = _server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/auth/ssodh/init").UsingPost());
+        initCalls.Count.ShouldBeGreaterThanOrEqualTo(2,
+            "Session init should have been called at least twice (initial + re-auth)");
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_provider is not null)
