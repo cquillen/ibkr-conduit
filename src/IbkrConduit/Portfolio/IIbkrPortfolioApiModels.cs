@@ -163,12 +163,16 @@ public sealed record AccountParent
 /// <param name="Ticker">The ticker symbol.</param>
 /// <param name="Multiplier">The contract multiplier, if applicable.</param>
 /// <param name="IsUs">Whether the instrument is US-listed.</param>
+/// <param name="ExerciseStyle">The exercise style for options (e.g., "A" for American, "E" for European).</param>
+/// <param name="ConExchMap">List of exchange mappings for the contract.</param>
+/// <param name="UndConid">The underlying contract identifier (0 if not applicable).</param>
+/// <param name="Model">The model code (empty string if not applicable).</param>
 [ExcludeFromCodeCoverage]
 public record Position(
     [property: JsonPropertyName("acctId")] string AccountId,
     [property: JsonPropertyName("conid")]
     [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
-    int Conid,
+    long Conid,
     [property: JsonPropertyName("contractDesc")] string ContractDescription,
     [property: JsonPropertyName("position")] decimal Quantity,
     [property: JsonPropertyName("mktPrice")] decimal MarketPrice,
@@ -183,7 +187,11 @@ public record Position(
     [property: JsonPropertyName("sector")] string? Sector,
     [property: JsonPropertyName("ticker")] string Ticker,
     [property: JsonPropertyName("multiplier")] decimal? Multiplier,
-    [property: JsonPropertyName("isUS")] bool? IsUs)
+    [property: JsonPropertyName("isUS")] bool? IsUs,
+    [property: JsonPropertyName("exerciseStyle")] string? ExerciseStyle = null,
+    [property: JsonPropertyName("conExchMap")] List<string>? ConExchMap = null,
+    [property: JsonPropertyName("undConid")] long UndConid = 0,
+    [property: JsonPropertyName("model")] string? Model = null)
 {
     /// <summary>
     /// Additional undocumented fields from the API response.
@@ -201,13 +209,15 @@ public record Position(
 /// <param name="IsNull">Whether the value is null/unavailable.</param>
 /// <param name="Timestamp">Unix timestamp of the value.</param>
 /// <param name="Value">String representation of the value.</param>
+/// <param name="Severity">Severity level indicator (0 = normal).</param>
 [ExcludeFromCodeCoverage]
 public record AccountSummaryEntry(
     [property: JsonPropertyName("amount")] decimal? Amount,
     [property: JsonPropertyName("currency")] string? Currency,
     [property: JsonPropertyName("isNull")] bool IsNull,
     [property: JsonPropertyName("timestamp")] long? Timestamp,
-    [property: JsonPropertyName("value")] string? Value)
+    [property: JsonPropertyName("value")] string? Value,
+    [property: JsonPropertyName("severity")] int Severity = 0)
 {
     /// <summary>
     /// Additional undocumented fields from the API response.
@@ -219,27 +229,72 @@ public record AccountSummaryEntry(
 /// <summary>
 /// Represents a ledger entry for a currency in the account.
 /// Keys in the parent dictionary are currency codes like "USD", "EUR", "BASE".
+/// Generated from recorded API response — 30 fields matching actual wire format.
 /// </summary>
-/// <param name="CashBalance">Cash balance in this currency.</param>
-/// <param name="NetLiquidationValue">Net liquidation value in this currency.</param>
+/// <param name="CommodityMarketValue">Market value of commodity positions.</param>
+/// <param name="FutureMarketValue">Market value of futures positions.</param>
 /// <param name="SettledCash">Settled cash amount.</param>
 /// <param name="ExchangeRate">Exchange rate to base currency.</param>
-/// <param name="StockMarketValue">Market value of stock positions.</param>
+/// <param name="SessionId">Session identifier.</param>
+/// <param name="CashBalance">Cash balance in this currency.</param>
 /// <param name="CorporateBondsMarketValue">Market value of corporate bonds.</param>
 /// <param name="WarrantsMarketValue">Market value of warrants.</param>
-/// <param name="FutureMarketValue">Market value of futures positions.</param>
-/// <param name="CommodityMarketValue">Market value of commodity positions.</param>
+/// <param name="NetLiquidationValue">Net liquidation value in this currency.</param>
+/// <param name="Interest">Accrued interest.</param>
+/// <param name="UnrealizedPnl">Unrealized profit and loss.</param>
+/// <param name="StockMarketValue">Market value of stock positions.</param>
+/// <param name="MoneyFunds">Money market fund value.</param>
+/// <param name="Currency">The currency code.</param>
+/// <param name="RealizedPnl">Realized profit and loss.</param>
+/// <param name="Funds">Fund value.</param>
+/// <param name="AcctCode">The account code.</param>
+/// <param name="IssuerOptionsMarketValue">Market value of issuer options.</param>
+/// <param name="Key">Ledger key identifier.</param>
+/// <param name="Timestamp">Unix timestamp of the ledger entry.</param>
+/// <param name="Severity">Severity level indicator.</param>
+/// <param name="StockOptionMarketValue">Market value of stock options.</param>
+/// <param name="FuturesOnlyPnl">Futures-only profit and loss.</param>
+/// <param name="TBondsMarketValue">Market value of treasury bonds.</param>
+/// <param name="FutureOptionMarketValue">Market value of future options.</param>
+/// <param name="CashBalanceFxSegment">Cash balance in FX segment.</param>
+/// <param name="SecondKey">Secondary key (typically currency code).</param>
+/// <param name="TBillsMarketValue">Market value of treasury bills.</param>
+/// <param name="EndOfBundle">End-of-bundle indicator.</param>
+/// <param name="Dividends">Dividend income.</param>
+/// <param name="CryptocurrencyValue">Cryptocurrency position value.</param>
 [ExcludeFromCodeCoverage]
 public record LedgerEntry(
-    [property: JsonPropertyName("cashbalance")] decimal CashBalance,
-    [property: JsonPropertyName("netliquidationvalue")] decimal NetLiquidationValue,
+    [property: JsonPropertyName("commoditymarketvalue")] decimal CommodityMarketValue,
+    [property: JsonPropertyName("futuremarketvalue")] decimal FutureMarketValue,
     [property: JsonPropertyName("settledcash")] decimal SettledCash,
     [property: JsonPropertyName("exchangerate")] decimal ExchangeRate,
-    [property: JsonPropertyName("stockmarketvalue")] decimal StockMarketValue,
+    [property: JsonPropertyName("sessionid")] int SessionId,
+    [property: JsonPropertyName("cashbalance")] decimal CashBalance,
     [property: JsonPropertyName("corporatebondsmarketvalue")] decimal CorporateBondsMarketValue,
     [property: JsonPropertyName("warrantsmarketvalue")] decimal WarrantsMarketValue,
-    [property: JsonPropertyName("futuremarketvalue")] decimal FutureMarketValue,
-    [property: JsonPropertyName("commoditymarketvalue")] decimal CommodityMarketValue)
+    [property: JsonPropertyName("netliquidationvalue")] decimal NetLiquidationValue,
+    [property: JsonPropertyName("interest")] decimal Interest,
+    [property: JsonPropertyName("unrealizedpnl")] decimal UnrealizedPnl,
+    [property: JsonPropertyName("stockmarketvalue")] decimal StockMarketValue,
+    [property: JsonPropertyName("moneyfunds")] decimal MoneyFunds,
+    [property: JsonPropertyName("currency")] string? Currency,
+    [property: JsonPropertyName("realizedpnl")] decimal RealizedPnl,
+    [property: JsonPropertyName("funds")] decimal Funds,
+    [property: JsonPropertyName("acctcode")] string? AcctCode,
+    [property: JsonPropertyName("issueroptionsmarketvalue")] decimal IssuerOptionsMarketValue,
+    [property: JsonPropertyName("key")] string? Key,
+    [property: JsonPropertyName("timestamp")] long Timestamp,
+    [property: JsonPropertyName("severity")] int Severity,
+    [property: JsonPropertyName("stockoptionmarketvalue")] decimal StockOptionMarketValue,
+    [property: JsonPropertyName("futuresonlypnl")] decimal FuturesOnlyPnl,
+    [property: JsonPropertyName("tbondsmarketvalue")] decimal TBondsMarketValue,
+    [property: JsonPropertyName("futureoptionmarketvalue")] decimal FutureOptionMarketValue,
+    [property: JsonPropertyName("cashbalancefxsegment")] decimal CashBalanceFxSegment,
+    [property: JsonPropertyName("secondkey")] string? SecondKey,
+    [property: JsonPropertyName("tbillsmarketvalue")] decimal TBillsMarketValue,
+    [property: JsonPropertyName("endofbundle")] int EndOfBundle,
+    [property: JsonPropertyName("dividends")] decimal Dividends,
+    [property: JsonPropertyName("cryptocurrencyvalue")] decimal CryptocurrencyValue)
 {
     /// <summary>
     /// Additional undocumented fields from the API response.

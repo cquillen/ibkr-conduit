@@ -54,7 +54,19 @@ public class PortfolioOperationsTests
     {
         _fakeApi.LedgerResponse = new Dictionary<string, LedgerEntry>
         {
-            ["USD"] = new LedgerEntry(50000m, 100000m, 48000m, 1.0m, 50000m, 0m, 0m, 0m, 0m),
+            ["USD"] = new LedgerEntry(
+                CommodityMarketValue: 0m, FutureMarketValue: 0m, SettledCash: 48000m,
+                ExchangeRate: 1.0m, SessionId: 1, CashBalance: 50000m,
+                CorporateBondsMarketValue: 0m, WarrantsMarketValue: 0m,
+                NetLiquidationValue: 100000m, Interest: 0m, UnrealizedPnl: 0m,
+                StockMarketValue: 50000m, MoneyFunds: 0m, Currency: "USD",
+                RealizedPnl: 0m, Funds: 0m, AcctCode: "DU123",
+                IssuerOptionsMarketValue: 0m, Key: "LedgerList",
+                Timestamp: 1702334859, Severity: 0, StockOptionMarketValue: 0m,
+                FuturesOnlyPnl: 0m, TBondsMarketValue: 0m,
+                FutureOptionMarketValue: 0m, CashBalanceFxSegment: 0m,
+                SecondKey: "USD", TBillsMarketValue: 0m,
+                EndOfBundle: 1, Dividends: 0m, CryptocurrencyValue: 0m),
         };
 
         var result = await _sut.GetLedgerAsync("DU123", TestContext.Current.CancellationToken);
