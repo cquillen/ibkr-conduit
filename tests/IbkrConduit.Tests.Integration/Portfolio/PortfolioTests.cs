@@ -35,11 +35,13 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
         MockLstServer.Register(_server, credentials);
 
         // Stub ssodh/init (session initialization)
-        // Expect: Authorization header with HMAC-SHA256 + JSON body with publish/compete
+        // Expect: correct consumer key, access token, HMAC-SHA256, and JSON body
         _server.Given(
             Request.Create()
                 .WithPath("/v1/api/iserver/auth/ssodh/init")
                 .UsingPost()
+                .WithHeader("Authorization", $"*oauth_consumer_key=\"{TestCredentials.ConsumerKey}\"*")
+                .WithHeader("Authorization", $"*oauth_token=\"{TestCredentials.AccessToken}\"*")
                 .WithHeader("Authorization", "*HMAC-SHA256*")
                 .WithBody(b => b != null && b.Contains("publish")))
             .RespondWith(
@@ -65,11 +67,13 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task GetAccounts_ReturnsAllFields()
     {
-        // Expect: Authorization header with HMAC-SHA256 signature
+        // Expect: correct consumer key, access token, and HMAC-SHA256
         _server.Given(
             Request.Create()
                 .WithPath("/v1/api/portfolio/accounts")
                 .UsingGet()
+                .WithHeader("Authorization", $"*oauth_consumer_key=\"{TestCredentials.ConsumerKey}\"*")
+                .WithHeader("Authorization", $"*oauth_token=\"{TestCredentials.AccessToken}\"*")
                 .WithHeader("Authorization", "*HMAC-SHA256*"))
             .RespondWith(
                 Response.Create()
@@ -99,6 +103,14 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
         account.Parent.ShouldNotBeNull();
         account.Parent!.IsMParent.ShouldBeFalse();
         account.Parent!.IsMultiplex.ShouldBeFalse();
+
+        // Verify the full handshake occurred
+        _server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/oauth/live_session_token").UsingPost())
+            .Count.ShouldBeGreaterThan(0, "Live Session Token handshake should have been called");
+        _server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/auth/ssodh/init").UsingPost())
+            .Count.ShouldBeGreaterThan(0, "Session init should have been called");
     }
 
     public async ValueTask DisposeAsync()
