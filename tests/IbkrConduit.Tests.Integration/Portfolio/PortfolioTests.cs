@@ -35,10 +35,13 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
         MockLstServer.Register(_server, credentials);
 
         // Stub ssodh/init (session initialization)
+        // Expect: Authorization header with HMAC-SHA256 + JSON body with publish/compete
         _server.Given(
             Request.Create()
                 .WithPath("/v1/api/iserver/auth/ssodh/init")
-                .UsingPost())
+                .UsingPost()
+                .WithHeader("Authorization", "*HMAC-SHA256*")
+                .WithBody(b => b != null && b.Contains("publish")))
             .RespondWith(
                 Response.Create()
                     .WithStatusCode(200)
@@ -62,17 +65,19 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task GetAccounts_ReturnsAllFields()
     {
+        // Expect: Authorization header with HMAC-SHA256 signature
         _server.Given(
             Request.Create()
                 .WithPath("/v1/api/portfolio/accounts")
-                .UsingGet())
+                .UsingGet()
+                .WithHeader("Authorization", "*HMAC-SHA256*"))
             .RespondWith(
                 Response.Create()
                     .WithStatusCode(200)
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts")));
 
-        var accounts = await _client.Portfolio.GetAccountsAsync();
+        var accounts = await _client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
 
         accounts.ShouldNotBeEmpty();
         var account = accounts[0];
