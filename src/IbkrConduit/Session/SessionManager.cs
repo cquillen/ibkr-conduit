@@ -241,7 +241,7 @@ internal sealed partial class SessionManager : ISessionManager
 
         CancelProactiveRefresh();
 
-        var timeUntilRefresh = _currentLst.Expiry - DateTimeOffset.UtcNow - TimeSpan.FromHours(1);
+        var timeUntilRefresh = _currentLst.Expiry - DateTimeOffset.UtcNow - _options.ProactiveRefreshMargin;
         if (timeUntilRefresh <= TimeSpan.Zero)
         {
             return;

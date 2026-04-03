@@ -27,7 +27,15 @@ public static class MockLstServer
     /// The handler performs the server side of the DH exchange using the
     /// same crypto as <see cref="OAuthCrypto"/>.
     /// </summary>
-    public static void Register(WireMockServer server, IbkrOAuthCredentials credentials)
+    /// <summary>
+    /// Registers the LST endpoint handler on the given WireMock server.
+    /// The handler performs the server side of the DH exchange using the
+    /// same crypto as <see cref="OAuthCrypto"/>.
+    /// </summary>
+    /// <param name="server">WireMock server to register on.</param>
+    /// <param name="credentials">Synthetic credentials for the exchange.</param>
+    /// <param name="tokenExpiryHours">How many hours until the LST expires. Default 24.</param>
+    public static void Register(WireMockServer server, IbkrOAuthCredentials credentials, double tokenExpiryHours = 24)
     {
         var decryptedSecret = OAuthCrypto.DecryptAccessTokenSecret(
             credentials.EncryptionPrivateKey, credentials.EncryptedAccessTokenSecret);
@@ -41,13 +49,14 @@ public static class MockLstServer
                 .WithHeader("Authorization", $"*oauth_token=\"{credentials.AccessToken}\"*"))
             .RespondWith(
                 Response.Create()
-                    .WithCallback(request => HandleLstRequest(request, credentials, decryptedSecret)));
+                    .WithCallback(request => HandleLstRequest(request, credentials, decryptedSecret, tokenExpiryHours)));
     }
 
     private static WireMock.ResponseMessage HandleLstRequest(
         WireMock.IRequestMessage request,
         IbkrOAuthCredentials credentials,
-        byte[] decryptedSecret)
+        byte[] decryptedSecret,
+        double tokenExpiryHours)
     {
         var authHeader = request.Headers?["Authorization"]?.FirstOrDefault() ?? "";
 
@@ -67,7 +76,7 @@ public static class MockLstServer
         var lstBytes = DeriveLiveSessionToken(clientPublicKey, serverPrivateKey, credentials.DhPrime, decryptedSecret);
 
         var signatureHex = ComputeLstSignature(lstBytes, credentials.ConsumerKey);
-        var responseBody = BuildResponseBody(serverPublicKey, signatureHex);
+        var responseBody = BuildResponseBody(serverPublicKey, signatureHex, tokenExpiryHours);
 
         return CreateJsonResponse(200, responseBody);
     }
@@ -120,10 +129,10 @@ public static class MockLstServer
     }
 #pragma warning restore CA5350
 
-    private static string BuildResponseBody(BigInteger serverPublicKey, string signatureHex)
+    private static string BuildResponseBody(BigInteger serverPublicKey, string signatureHex, double expiryHours)
     {
         var serverDhHex = serverPublicKey.ToString("x", CultureInfo.InvariantCulture);
-        var expiration = DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeMilliseconds();
+        var expiration = DateTimeOffset.UtcNow.AddHours(expiryHours).ToUnixTimeMilliseconds();
 
         return JsonSerializer.Serialize(new
         {
