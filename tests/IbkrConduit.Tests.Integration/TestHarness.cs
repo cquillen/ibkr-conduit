@@ -45,14 +45,21 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
     /// </summary>
     /// <param name="options">Optional client options overrides (e.g., TickleIntervalSeconds).</param>
     /// <param name="tokenExpiryHours">How many hours until the mock LST expires. Default 24.</param>
-    public static Task<TestHarness> CreateAsync(IbkrClientOptions? options = null, double tokenExpiryHours = 24)
+    /// <param name="configureServices">Optional callback to customize the DI container before building (e.g., replace resilience pipeline).</param>
+    public static Task<TestHarness> CreateAsync(
+        IbkrClientOptions? options = null,
+        double tokenExpiryHours = 24,
+        Action<IServiceCollection>? configureServices = null)
     {
         var harness = new TestHarness();
-        harness.Initialize(options, tokenExpiryHours);
+        harness.Initialize(options, tokenExpiryHours, configureServices);
         return Task.FromResult(harness);
     }
 
-    private void Initialize(IbkrClientOptions? options = null, double tokenExpiryHours = 24)
+    private void Initialize(
+        IbkrClientOptions? options = null,
+        double tokenExpiryHours = 24,
+        Action<IServiceCollection>? configureServices = null)
     {
         _credentials = TestCredentials.Create();
 
@@ -104,6 +111,9 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
         {
             BaseUrl = Server.Url!,
         });
+
+        // Allow test-specific DI overrides (e.g., zero-delay resilience pipeline)
+        configureServices?.Invoke(services);
 
         _provider = services.BuildServiceProvider();
         Client = _provider.GetRequiredService<IIbkrClient>();
