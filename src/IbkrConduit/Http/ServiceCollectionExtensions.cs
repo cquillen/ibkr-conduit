@@ -47,12 +47,13 @@ public static class ServiceCollectionExtensions
         IbkrClientOptions? options = null)
     {
         var clientOptions = options ?? new IbkrClientOptions();
+        var baseUrl = clientOptions.BaseUrl ?? _ibkrBaseUrl;
 
         // LST client (plain HttpClient via IHttpClientFactory, not through Refit pipeline)
         var lstClientName = $"IbkrConduit-LST-{credentials.TenantId}";
         services.AddHttpClient(lstClientName, c =>
         {
-            c.BaseAddress = new Uri(_ibkrBaseUrl + "/v1/api/");
+            c.BaseAddress = new Uri(baseUrl + "/v1/api/");
         })
         .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
@@ -91,7 +92,7 @@ public static class ServiceCollectionExtensions
         // Internal session API client:
         //   ResilienceHandler -> GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
         services.AddRefitClient<IIbkrSessionApi>()
-            .ConfigureHttpClient(c => c.BaseAddress = new Uri(_ibkrBaseUrl))
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri(baseUrl))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             {
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
@@ -127,15 +128,15 @@ public static class ServiceCollectionExtensions
         // Consumer Refit clients (all go through the full pipeline):
         //   TokenRefreshHandler -> ErrorNormalizationHandler -> ResilienceHandler ->
         //   GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
-        RegisterConsumerRefitClient<IIbkrPortfolioApi>(services, credentials);
-        RegisterConsumerRefitClient<IIbkrContractApi>(services, credentials);
-        RegisterConsumerRefitClient<IIbkrOrderApi>(services, credentials);
-        RegisterConsumerRefitClient<IIbkrMarketDataApi>(services, credentials);
-        RegisterConsumerRefitClient<IIbkrAccountApi>(services, credentials);
-        RegisterConsumerRefitClient<IIbkrAlertApi>(services, credentials);
-        RegisterConsumerRefitClient<IIbkrWatchlistApi>(services, credentials);
-        RegisterConsumerRefitClient<IIbkrFyiApi>(services, credentials);
-        RegisterConsumerRefitClient<IIbkrAllocationApi>(services, credentials);
+        RegisterConsumerRefitClient<IIbkrPortfolioApi>(services, credentials, baseUrl);
+        RegisterConsumerRefitClient<IIbkrContractApi>(services, credentials, baseUrl);
+        RegisterConsumerRefitClient<IIbkrOrderApi>(services, credentials, baseUrl);
+        RegisterConsumerRefitClient<IIbkrMarketDataApi>(services, credentials, baseUrl);
+        RegisterConsumerRefitClient<IIbkrAccountApi>(services, credentials, baseUrl);
+        RegisterConsumerRefitClient<IIbkrAlertApi>(services, credentials, baseUrl);
+        RegisterConsumerRefitClient<IIbkrWatchlistApi>(services, credentials, baseUrl);
+        RegisterConsumerRefitClient<IIbkrFyiApi>(services, credentials, baseUrl);
+        RegisterConsumerRefitClient<IIbkrAllocationApi>(services, credentials, baseUrl);
 
         // Operations implementations
         services.AddSingleton<IPortfolioOperations, PortfolioOperations>();
@@ -199,10 +200,11 @@ public static class ServiceCollectionExtensions
     /// </summary>
     private static void RegisterConsumerRefitClient<TApi>(
         IServiceCollection services,
-        IbkrOAuthCredentials credentials) where TApi : class
+        IbkrOAuthCredentials credentials,
+        string baseUrl) where TApi : class
     {
         services.AddRefitClient<TApi>()
-            .ConfigureHttpClient(c => c.BaseAddress = new Uri(_ibkrBaseUrl))
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri(baseUrl))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             {
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
