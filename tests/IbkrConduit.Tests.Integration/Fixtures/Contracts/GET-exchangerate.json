@@ -1,0 +1,10 @@
+{
+  "Request": { "Path": "/v1/api/iserver/exchangerate", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "rate": 0.86656614
+    }
+  }
+}

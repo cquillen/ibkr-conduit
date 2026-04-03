@@ -362,16 +362,14 @@ public record TradeTiming(
 /// </summary>
 /// <param name="Symbol">The currency pair symbol (e.g., "EUR.USD").</param>
 /// <param name="Conid">The IBKR contract identifier.</param>
-/// <param name="SecurityType">The security type (e.g., "CASH").</param>
-/// <param name="Exchange">The exchange.</param>
+/// <param name="CcyPair">The target currency code (e.g., "EUR", "CHF").</param>
 [ExcludeFromCodeCoverage]
 public record CurrencyPair(
     [property: JsonPropertyName("symbol")] string Symbol,
     [property: JsonPropertyName("conid")]
     [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     int Conid,
-    [property: JsonPropertyName("secType")] string SecurityType,
-    [property: JsonPropertyName("exchange")] string Exchange)
+    [property: JsonPropertyName("ccyPair")] string? CcyPair)
 {
     /// <summary>
     /// Captures any additional JSON properties not mapped to named parameters.

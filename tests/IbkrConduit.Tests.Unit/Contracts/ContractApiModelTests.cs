@@ -276,8 +276,7 @@ public class ContractApiModelTests
             {
                 "symbol": "EUR.USD",
                 "conid": 12087792,
-                "secType": "CASH",
-                "exchange": "IDEALPRO"
+                "ccyPair": "EUR"
             }
             """;
 
@@ -286,8 +285,7 @@ public class ContractApiModelTests
         result.ShouldNotBeNull();
         result.Symbol.ShouldBe("EUR.USD");
         result.Conid.ShouldBe(12087792);
-        result.SecurityType.ShouldBe("CASH");
-        result.Exchange.ShouldBe("IDEALPRO");
+        result.CcyPair.ShouldBe("EUR");
     }
 
     [Fact]

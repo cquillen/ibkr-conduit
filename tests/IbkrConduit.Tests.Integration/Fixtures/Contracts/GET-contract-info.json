@@ -1,0 +1,34 @@
+{
+  "Request": { "Path": "/v1/api/iserver/contract/756733/info", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "cfi_code": "",
+      "symbol": "SPY",
+      "cusip": null,
+      "expiry_full": null,
+      "con_id": 756733,
+      "maturity_date": null,
+      "instrument_type": "STK",
+      "has_related_contracts": true,
+      "trading_class": "SPY",
+      "valid_exchanges": "SMART,AMEX,NYSE,CBOE,ARCA,NASDAQ",
+      "allow_sell_long": false,
+      "is_zero_commission_security": false,
+      "local_symbol": "SPY",
+      "contract_clarification_type": null,
+      "classifier": null,
+      "currency": "USD",
+      "text": null,
+      "underlying_con_id": 0,
+      "r_t_h": true,
+      "multiplier": null,
+      "underlying_issuer": null,
+      "contract_month": null,
+      "company_name": "SPDR S&P 500 ETF TRUST",
+      "smart_available": true,
+      "exchange": "SMART"
+    }
+  }
+}

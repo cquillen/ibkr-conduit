@@ -1,0 +1,11 @@
+{
+  "Request": { "Path": "/v1/api/iserver/secdef/strikes", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "call": [50.0, 100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 650.0, 700.0, 800.0, 900.0, 1000.0],
+      "put": [50.0, 100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 650.0, 700.0, 800.0, 900.0, 1000.0]
+    }
+  }
+}

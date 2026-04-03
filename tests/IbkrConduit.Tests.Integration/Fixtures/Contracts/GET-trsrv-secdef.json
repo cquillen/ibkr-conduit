@@ -1,0 +1,34 @@
+{
+  "Request": { "Path": "/v1/api/trsrv/secdef", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "secdef": [
+        {
+          "conid": 756733,
+          "currency": "USD",
+          "name": "SPDR S&P 500 ETF TRUST",
+          "assetClass": "STK",
+          "expiry": null,
+          "lastTradingDay": null,
+          "group": null,
+          "putOrCall": null,
+          "sector": null,
+          "sectorGroup": null,
+          "strike": "0",
+          "ticker": "SPY",
+          "undConid": 0,
+          "multiplier": 0.0,
+          "type": "ETF",
+          "hasOptions": true,
+          "fullName": "SPY",
+          "isUS": true,
+          "isEventContract": false,
+          "listingExchange": "ARCA",
+          "countryCode": "US"
+        }
+      ]
+    }
+  }
+}

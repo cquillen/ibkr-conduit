@@ -1,0 +1,29 @@
+{
+  "Request": { "Path": "/v1/api/trsrv/futures", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "ES": [
+        {
+          "symbol": "ES",
+          "conid": 515416632,
+          "underlyingConid": 11004968,
+          "expirationDate": 20261218,
+          "ltd": 20261217,
+          "shortFuturesCutOff": 20261217,
+          "longFuturesCutOff": 20261217
+        },
+        {
+          "symbol": "ES",
+          "conid": 649180678,
+          "underlyingConid": 11004968,
+          "expirationDate": 20260618,
+          "ltd": 20260618,
+          "shortFuturesCutOff": 20260618,
+          "longFuturesCutOff": 20260618
+        }
+      ]
+    }
+  }
+}
