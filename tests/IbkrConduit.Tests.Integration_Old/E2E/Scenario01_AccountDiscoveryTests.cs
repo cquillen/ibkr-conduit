@@ -68,8 +68,8 @@ public sealed class Scenario01_AccountDiscoveryTests : E2eScenarioBase
                 var result = await client.Accounts.SwitchAccountAsync("INVALID999", CT);
 
                 // IBKR QUIRK: If we get here, the API returned 200 for an invalid account ID.
-                result.Set.ShouldBeFalse(
-                    "IBKR QUIRK: API returned 200 for invalid account switch — Set should be false");
+                result.Success.ShouldNotBeNull(
+                    "IBKR QUIRK: API returned 200 for invalid account switch — Success should contain a message");
             }
             catch (ApiException)
             {

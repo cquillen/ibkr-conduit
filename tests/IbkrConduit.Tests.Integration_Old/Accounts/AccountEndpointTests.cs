@@ -60,7 +60,7 @@ public class AccountEndpointTests : IDisposable
                 Response.Create()
                     .WithStatusCode(200)
                     .WithHeader("Content-Type", "application/json")
-                    .WithBody("""{"set":true,"selectedAccount":"DU7654321"}"""));
+                    .WithBody("""{"success":"Account already set"}"""));
 
         var api = CreateRefitClient<IIbkrAccountApi>();
 
@@ -68,8 +68,7 @@ public class AccountEndpointTests : IDisposable
             new SwitchAccountRequest("DU7654321"), TestContext.Current.CancellationToken);
 
         result.ShouldNotBeNull();
-        result.Set.ShouldBeTrue();
-        result.SelectedAccount.ShouldBe("DU7654321");
+        result.Success.ShouldNotBeNull();
     }
 
     public void Dispose()

@@ -30,7 +30,7 @@ public class AccountOperationsTests
     [Fact]
     public async Task SwitchAccountAsync_DelegatesToApi()
     {
-        var expected = new SwitchAccountResponse(true, "U456");
+        var expected = new SwitchAccountResponse("Account already set");
         _api.SwitchAccountAsync(Arg.Any<SwitchAccountRequest>(), Arg.Any<CancellationToken>()).Returns(expected);
 
         var result = await _sut.SwitchAccountAsync("U456", TestContext.Current.CancellationToken);
