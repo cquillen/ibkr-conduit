@@ -83,7 +83,7 @@ internal sealed class TokenRefreshHandler : DelegatingHandler
             retryResponse.Dispose();
             throw new IbkrSessionException(
                 false,
-                "Re-authentication succeeded but request still unauthorized — credentials may be invalidated",
+                null,
                 HttpStatusCode.Unauthorized,
                 "Re-authentication succeeded but request still unauthorized — credentials may be invalidated",
                 null,

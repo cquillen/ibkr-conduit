@@ -134,6 +134,41 @@ public class TokenRefreshHandlerTests
     }
 
     [Fact]
+    public async Task SendAsync_ReauthThrows_WrapsInSessionException()
+    {
+        var sessionManager = new FakeSessionManager
+        {
+            ThrowOnReauth = new InvalidOperationException("DH exchange failed"),
+        };
+        var callCount = 0;
+        var innerHandler = new FakeInnerHandler(_ =>
+        {
+            callCount++;
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        });
+
+        var handler = new TokenRefreshHandler(sessionManager)
+        {
+            InnerHandler = innerHandler,
+        };
+
+        using var client = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://api.ibkr.com"),
+        };
+
+        var ex = await Should.ThrowAsync<IbkrSessionException>(
+            client.GetAsync("/v1/api/portfolio/accounts", TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("Re-authentication failed");
+        ex.InnerException.ShouldNotBeNull();
+        ex.InnerException.ShouldBeOfType<InvalidOperationException>();
+        ex.InnerException!.Message.ShouldBe("DH exchange failed");
+        callCount.ShouldBe(1); // only original call, no retry after failed re-auth
+        sessionManager.ReauthCallCount.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task SendAsync_WithRequestBody_RetryPreservesBody()
     {
         var sessionManager = new FakeSessionManager();
@@ -173,6 +208,7 @@ public class TokenRefreshHandlerTests
     private class FakeSessionManager : ISessionManager
     {
         public int ReauthCallCount { get; private set; }
+        public Exception? ThrowOnReauth { get; init; }
 
         public Task EnsureInitializedAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
@@ -180,6 +216,11 @@ public class TokenRefreshHandlerTests
         public Task ReauthenticateAsync(CancellationToken cancellationToken)
         {
             ReauthCallCount++;
+            if (ThrowOnReauth != null)
+            {
+                throw ThrowOnReauth;
+            }
+
             return Task.CompletedTask;
         }
 
