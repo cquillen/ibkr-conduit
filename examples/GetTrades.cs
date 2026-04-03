@@ -23,7 +23,11 @@ var flexQueryId = Environment.GetEnvironmentVariable("IBKR_FLEX_QUERY_ID")
 
 var services = new ServiceCollection();
 services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
-services.AddIbkrClient(credentials, new IbkrClientOptions { FlexToken = flexToken });
+services.AddIbkrClient(opts =>
+{
+    opts.Credentials = credentials;
+    opts.FlexToken = flexToken;
+});
 
 await using var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<IIbkrClient>();

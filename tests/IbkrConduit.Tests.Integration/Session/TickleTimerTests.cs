@@ -17,9 +17,9 @@ public class TickleTimerTests : IAsyncLifetime, IDisposable
 
     public async ValueTask InitializeAsync()
     {
-        _harness = await TestHarness.CreateAsync(new IbkrClientOptions
+        _harness = await TestHarness.CreateAsync(opts =>
         {
-            TickleIntervalSeconds = 5,
+            opts.TickleIntervalSeconds = 5;
         });
     }
 

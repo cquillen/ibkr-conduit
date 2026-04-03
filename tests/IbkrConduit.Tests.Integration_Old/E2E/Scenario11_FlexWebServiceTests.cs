@@ -67,9 +67,10 @@ public sealed class Scenario11_FlexWebServiceTests : E2eScenarioBase
         using var creds = OAuthCredentialsFactory.FromEnvironment();
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddIbkrClient(creds, new IbkrClientOptions
+        services.AddIbkrClient(opts =>
         {
-            FlexToken = flexToken,
+            opts.Credentials = creds;
+            opts.FlexToken = flexToken;
         });
 
         var provider = services.BuildServiceProvider();

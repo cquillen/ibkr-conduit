@@ -28,7 +28,7 @@ public abstract class E2eScenarioBase : IAsyncDisposable
         _credentials = OAuthCredentialsFactory.FromEnvironment();
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddIbkrClient(_credentials);
+        services.AddIbkrClient(opts => opts.Credentials = _credentials);
 
         _provider = services.BuildServiceProvider();
         var client = _provider.GetRequiredService<IIbkrClient>();

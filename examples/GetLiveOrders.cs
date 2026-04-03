@@ -16,7 +16,7 @@ using var credentials = OAuthCredentialsFactory.FromEnvironment();
 
 var services = new ServiceCollection();
 services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
-services.AddIbkrClient(credentials);
+services.AddIbkrClient(opts => opts.Credentials = credentials);
 
 await using var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<IIbkrClient>();
