@@ -38,4 +38,10 @@ public record IbkrClientOptions
     /// URL for integration testing.
     /// </summary>
     public string? BaseUrl { get; init; }
+
+    /// <summary>
+    /// Interval in seconds between tickle requests to keep the session alive.
+    /// Default is 60. Reduce for integration testing.
+    /// </summary>
+    public int TickleIntervalSeconds { get; init; } = 60;
 }
