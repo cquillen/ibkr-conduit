@@ -35,7 +35,6 @@ public static class MockLstServer
     /// </summary>
     public static void Register(WireMockServer server, IbkrOAuthCredentials credentials)
     {
-        // Decrypt the access token secret (server knows this)
         var decryptedSecret = OAuthCrypto.DecryptAccessTokenSecret(
             credentials.EncryptionPrivateKey, credentials.EncryptedAccessTokenSecret);
 
@@ -48,87 +47,113 @@ public static class MockLstServer
                 .WithHeader("Authorization", $"*oauth_token=\"{credentials.AccessToken}\"*"))
             .RespondWith(
                 Response.Create()
-                    .WithCallback(request =>
-                    {
-                        // 1. Validate and extract OAuth parameters from Authorization header
-                        var authHeader = request.Headers?["Authorization"]?.FirstOrDefault() ?? "";
-
-                        // Validate required OAuth parameters and extract DH challenge
-                        var requiredParams = new[]
-                        {
-                            "oauth_consumer_key", "oauth_token", "oauth_signature_method",
-                            "oauth_nonce", "oauth_timestamp", "oauth_signature",
-                            "diffie_hellman_challenge",
-                        };
-                        var extracted = requiredParams.ToDictionary(
-                            p => p, p => ExtractOAuthParam(authHeader, p));
-
-                        var missing = extracted
-                            .Where(kv => string.IsNullOrEmpty(kv.Value))
-                            .Select(kv => kv.Key)
-                            .ToList();
-
-                        if (extracted["oauth_signature_method"] != "RSA-SHA256")
-                        {
-                            missing.Add("oauth_signature_method (expected RSA-SHA256)");
-                        }
-
-                        if (missing.Count > 0)
-                        {
-                            return CreateErrorResponse(400,
-                                "missing or invalid OAuth parameters: " + string.Join(", ", missing));
-                        }
-
-                        var clientDhHex = extracted["diffie_hellman_challenge"];
-
-                        var clientPublicKey = BigInteger.Parse(
-                            "0" + clientDhHex, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-
-                        // 2. Generate server's DH key pair (same prime as client)
-                        var (serverPrivateKey, serverPublicKey) = OAuthCrypto.GenerateDhKeyPair(credentials.DhPrime);
-
-                        // 3. Compute shared secret (same result as client will compute)
-                        var sharedSecretBytes = OAuthCrypto.DeriveDhSharedSecret(
-                            clientPublicKey, serverPrivateKey, credentials.DhPrime);
-
-                        // 4. Derive the Live Session Token
-                        var lstBytes = OAuthCrypto.DeriveLiveSessionToken(sharedSecretBytes, decryptedSecret);
-                        LastDerivedLst = lstBytes;
-
-                        // 5. Compute the LST validation signature
-                        // signature = HMAC-SHA1(key=lstBytes, data=UTF8(consumerKey))
-#pragma warning disable CA5350 // IBKR protocol requires HMAC-SHA1
-                        using var hmac = new HMACSHA1(lstBytes);
-#pragma warning restore CA5350
-                        var sigBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(credentials.ConsumerKey));
-                        var signatureHex = Convert.ToHexString(sigBytes).ToLowerInvariant();
-
-                        // 6. Build response
-                        var serverDhHex = serverPublicKey.ToString("x", CultureInfo.InvariantCulture);
-                        var expiration = DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeMilliseconds();
-
-                        var responseBody = JsonSerializer.Serialize(new
-                        {
-                            diffie_hellman_response = serverDhHex,
-                            live_session_token_signature = signatureHex,
-                            live_session_token_expiration = expiration,
-                        });
-
-                        return new WireMock.ResponseMessage
-                        {
-                            StatusCode = 200,
-                            BodyData = new WireMock.Util.BodyData
-                            {
-                                BodyAsString = responseBody,
-                                DetectedBodyType = BodyType.String,
-                            },
-                            Headers = new Dictionary<string, WireMockList<string>>
-                            {
-                                ["Content-Type"] = new WireMockList<string>("application/json"),
-                            },
-                        };
-                    }));
+                    .WithCallback(request => HandleLstRequest(request, credentials, decryptedSecret)));
     }
+
+    private static WireMock.ResponseMessage HandleLstRequest(
+        WireMock.IRequestMessage request,
+        IbkrOAuthCredentials credentials,
+        byte[] decryptedSecret)
+    {
+        var authHeader = request.Headers?["Authorization"]?.FirstOrDefault() ?? "";
+
+        var validationError = ValidateOAuthParams(authHeader);
+        if (validationError is not null)
+        {
+            return validationError;
+        }
+
+        var clientDhHex = ExtractOAuthParam(authHeader, "diffie_hellman_challenge")!;
+        var clientPublicKey = BigInteger.Parse(
+            "0" + clientDhHex, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+
+        // Generate server DH key pair — must use same pair for both derivation and response
+        var (serverPrivateKey, serverPublicKey) = OAuthCrypto.GenerateDhKeyPair(credentials.DhPrime);
+
+        var lstBytes = DeriveLiveSessionToken(clientPublicKey, serverPrivateKey, credentials.DhPrime, decryptedSecret);
+        LastDerivedLst = lstBytes;
+
+        var signatureHex = ComputeLstSignature(lstBytes, credentials.ConsumerKey);
+        var responseBody = BuildResponseBody(serverPublicKey, signatureHex);
+
+        return CreateJsonResponse(200, responseBody);
+    }
+
+    private static WireMock.ResponseMessage? ValidateOAuthParams(string authHeader)
+    {
+        var requiredParams = new[]
+        {
+            "oauth_consumer_key", "oauth_token", "oauth_signature_method",
+            "oauth_nonce", "oauth_timestamp", "oauth_signature",
+            "diffie_hellman_challenge",
+        };
+
+        var extracted = requiredParams.ToDictionary(
+            p => p, p => ExtractOAuthParam(authHeader, p));
+
+        var missing = extracted
+            .Where(kv => string.IsNullOrEmpty(kv.Value))
+            .Select(kv => kv.Key)
+            .ToList();
+
+        if (extracted["oauth_signature_method"] != "RSA-SHA256")
+        {
+            missing.Add("oauth_signature_method (expected RSA-SHA256)");
+        }
+
+        if (missing.Count > 0)
+        {
+            return CreateErrorResponse(400,
+                "missing or invalid OAuth parameters: " + string.Join(", ", missing));
+        }
+
+        return null;
+    }
+
+    private static byte[] DeriveLiveSessionToken(
+        BigInteger clientPublicKey, BigInteger serverPrivateKey,
+        BigInteger dhPrime, byte[] decryptedSecret)
+    {
+        var sharedSecretBytes = OAuthCrypto.DeriveDhSharedSecret(clientPublicKey, serverPrivateKey, dhPrime);
+        return OAuthCrypto.DeriveLiveSessionToken(sharedSecretBytes, decryptedSecret);
+    }
+
+#pragma warning disable CA5350 // IBKR protocol requires HMAC-SHA1
+    private static string ComputeLstSignature(byte[] lstBytes, string consumerKey)
+    {
+        using var hmac = new HMACSHA1(lstBytes);
+        var sigBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(consumerKey));
+        return Convert.ToHexString(sigBytes).ToLowerInvariant();
+    }
+#pragma warning restore CA5350
+
+    private static string BuildResponseBody(BigInteger serverPublicKey, string signatureHex)
+    {
+        var serverDhHex = serverPublicKey.ToString("x", CultureInfo.InvariantCulture);
+        var expiration = DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeMilliseconds();
+
+        return JsonSerializer.Serialize(new
+        {
+            diffie_hellman_response = serverDhHex,
+            live_session_token_signature = signatureHex,
+            live_session_token_expiration = expiration,
+        });
+    }
+
+    private static WireMock.ResponseMessage CreateJsonResponse(int statusCode, string body) =>
+        new()
+        {
+            StatusCode = statusCode,
+            BodyData = new WireMock.Util.BodyData
+            {
+                BodyAsString = body,
+                DetectedBodyType = BodyType.String,
+            },
+            Headers = new Dictionary<string, WireMockList<string>>
+            {
+                ["Content-Type"] = new WireMockList<string>("application/json"),
+            },
+        };
 
     private static WireMock.ResponseMessage CreateErrorResponse(int statusCode, string error) =>
         new()
@@ -143,7 +168,6 @@ public static class MockLstServer
 
     private static string? ExtractOAuthParam(string authHeader, string paramName)
     {
-        // OAuth header format: OAuth realm="...", param1="value1", param2="value2"
         var pattern = $@"{paramName}=""([^""]+)""";
         var match = Regex.Match(authHeader, pattern);
         if (match.Success)
