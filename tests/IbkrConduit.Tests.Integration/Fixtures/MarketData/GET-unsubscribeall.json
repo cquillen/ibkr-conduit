@@ -1,0 +1,10 @@
+{
+  "Request": { "Path": "/v1/api/iserver/marketdata/unsubscribeall", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "unsubscribed": true
+    }
+  }
+}

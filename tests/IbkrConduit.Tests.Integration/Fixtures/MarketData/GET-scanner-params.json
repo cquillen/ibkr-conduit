@@ -1,0 +1,45 @@
+{
+  "Request": { "Path": "/v1/api/iserver/scanner/params", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "scan_type_list": [
+        {
+          "display_name": "Top % Gainers",
+          "code": "TOP_PERC_GAIN",
+          "instruments": ["STK", "ETF.EQ.US", "FUT.US"]
+        },
+        {
+          "display_name": "Top % Losers",
+          "code": "TOP_PERC_LOSE",
+          "instruments": ["STK", "ETF.EQ.US"]
+        }
+      ],
+      "instrument_list": [
+        {
+          "display_name": "US Stocks",
+          "type": "STK",
+          "filters": ["priceAbove", "priceBelow", "changePercAbove"]
+        }
+      ],
+      "filter_list": [
+        {
+          "group": "Price",
+          "display_name": "Price Greater Than",
+          "code": "priceAbove",
+          "type": "range"
+        }
+      ],
+      "location_tree": [
+        {
+          "display_name": "US Stocks",
+          "type": "STK.US",
+          "locations": [
+            { "display_name": "US Major", "type": "STK.US.MAJOR", "locations": null }
+          ]
+        }
+      ]
+    }
+  }
+}

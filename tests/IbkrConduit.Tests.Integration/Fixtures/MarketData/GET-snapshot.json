@@ -1,0 +1,26 @@
+{
+  "Request": { "Path": "/v1/api/iserver/marketdata/snapshot", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "conidEx": "756733",
+        "conid": 756733,
+        "_updated": 1775169600000,
+        "server_id": "6571225",
+        "6509": "S",
+        "31": "655.89",
+        "84": "655.88",
+        "86": "655.90",
+        "85": "100",
+        "88": "200",
+        "87": "50000000",
+        "70": "658.20",
+        "71": "645.11",
+        "82": "3.50",
+        "83": "0.54%"
+      }
+    ]
+  }
+}
