@@ -8,8 +8,8 @@ namespace IbkrConduit.Tests.Integration.Session;
 
 /// <summary>
 /// Validates that the tickle timer fires repeatedly to keep the session alive.
-/// Tagged as "Slow" — does not run by default.
-/// Run explicitly: dotnet test --filter "Category=Slow"
+/// Tagged as "Slow" — excluded from CI via --filter-not-trait "Category=Slow".
+/// Run explicitly: dotnet test -- --filter-trait "Category=Slow"
 /// </summary>
 public class TickleTimerTests : IAsyncLifetime, IDisposable
 {
