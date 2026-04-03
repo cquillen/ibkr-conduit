@@ -31,4 +31,11 @@ public record IbkrClientOptions
     /// Required for Flex operations. If null, Flex operations will throw.
     /// </summary>
     public string? FlexToken { get; init; }
+
+    /// <summary>
+    /// Override the base URL for all IBKR API requests.
+    /// Default is <c>https://api.ibkr.com</c>. Set this to a WireMock server
+    /// URL for integration testing.
+    /// </summary>
+    public string? BaseUrl { get; init; }
 }
