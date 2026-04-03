@@ -120,3 +120,15 @@ Scenarios to cover:
 **Why deferred:** The capture tool can't trigger these conditions on demand. Hand-crafting requires careful analysis of recorded error responses and API documentation.
 
 **Trigger to build:** After the capture tool has populated fixtures for all success paths and capturable error paths. The hand-crafted fixtures fill the remaining gaps.
+
+---
+
+## Refactor ServiceCollectionExtensions
+
+**What:** Break up `ServiceCollectionExtensions.cs` which has grown into a monolith handling LST client setup, session token provider, rate limiter creation, resilience pipeline, session API pipeline, all consumer Refit client registrations, operations registrations, WebSocket, Flex, and the unified facade. Split into focused registration methods or separate extension classes by concern.
+
+**Current behavior:** Single 290+ line file with one large `AddIbkrClient` method that does everything. Hard to navigate, hard to modify one concern without reading the whole file.
+
+**Why deferred:** It works correctly and the structure is stable. Refactoring it risks introducing registration order bugs. Better to do when the API surface is settled.
+
+**Trigger to build:** When adding new features or pipelines becomes difficult due to the file size, or when the base URL override pattern (added for testing) needs to evolve into something more configurable.
