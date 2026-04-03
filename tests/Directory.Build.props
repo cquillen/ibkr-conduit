@@ -8,7 +8,8 @@
     <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
     <!-- CA1707: Identifiers should not contain underscores — test methods use Snake_Case by convention -->
-    <NoWarn>$(NoWarn);CA1707</NoWarn>
+    <!-- CS8632: Nullable annotation used outside #nullable context — global Nullable=enable is set but Roslyn still warns in some files -->
+    <NoWarn>$(NoWarn);CA1707;CS8632</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
