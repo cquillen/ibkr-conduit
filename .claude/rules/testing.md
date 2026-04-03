@@ -9,6 +9,8 @@ globs: "tests/**"
 - Test naming convention: `MethodName_Scenario_ExpectedResult`
 - Unit tests (`Tests.Unit`): no network calls, no file I/O, mock all external dependencies
 - Integration tests (`Tests.Integration`): use WireMock.Net for HTTP mocking, no real IBKR connectivity required
+- Integration tests use the full DI stack via `AddIbkrClient` with `IbkrClientOptions.BaseUrl` pointed at WireMock — no fakes, no mocked services
+- Every integration-tested endpoint MUST include a 401 recovery test that verifies: first call returns 401, TokenRefreshHandler triggers re-auth (new LST + ssodh/init), original request is retried and succeeds
 - Each test should test one behavior — keep tests focused and independent
 - E2E tests use `[EnvironmentFact("IBKR_CONSUMER_KEY")]` — runs when env var is set, skips when missing
 - E2E tests MUST use the DI pipeline exactly as a real consumer would — no manual `HttpClient` wiring, no `RestService.For<>`, no direct `SessionManager` instantiation:
