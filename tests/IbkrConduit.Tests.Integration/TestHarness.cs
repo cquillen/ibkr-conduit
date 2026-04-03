@@ -136,6 +136,13 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
         StubAuthenticated(HttpMethod.Post, path, responseBody);
 
     /// <summary>
+    /// Resolves a service from the DI container. Use for accessing internal services
+    /// like <see cref="IIbkrSessionApi"/> or <see cref="ISessionManager"/> in tests.
+    /// </summary>
+    public T GetRequiredService<T>() where T : notnull =>
+        _provider!.GetRequiredService<T>();
+
+    /// <summary>
     /// Verifies that the full auth handshake occurred (LST + ssodh/init).
     /// </summary>
     public void VerifyHandshakeOccurred()
