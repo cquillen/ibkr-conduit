@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Http;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
@@ -256,7 +257,7 @@ public class SessionLifecycleTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task PersistentUnauthorized_ReauthFailsToFix_ReturnsApiException()
+    public async Task PersistentUnauthorized_ReauthFailsToFix_ThrowsSessionException()
     {
         // Arrange: ssodh/init succeeds (reauth technically completes)
         SetupSsodhInitEndpoint();
@@ -288,9 +289,11 @@ public class SessionLifecycleTests : IAsyncDisposable
 
         var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);
 
-        // Act & Assert: first call triggers init, hits 401, reauth runs, retry still 401 → ApiException
-        await Should.ThrowAsync<Refit.ApiException>(
+        // Act & Assert: first call triggers init, hits 401, reauth runs, retry still 401 → IbkrSessionException
+        var ex = await Should.ThrowAsync<IbkrSessionException>(
             async () => await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("Re-authentication succeeded but request still unauthorized");
     }
 
     /// <summary>

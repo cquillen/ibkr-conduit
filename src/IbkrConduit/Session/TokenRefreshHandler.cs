@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Diagnostics;
+using IbkrConduit.Errors;
 
 namespace IbkrConduit.Session;
 
@@ -57,7 +58,16 @@ internal sealed class TokenRefreshHandler : DelegatingHandler
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.TokenRefreshRetry");
         activity?.SetTag("original_status_code", (int)response.StatusCode);
 
-        await _sessionManager.ReauthenticateAsync(cancellationToken);
+        try
+        {
+            await _sessionManager.ReauthenticateAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            response.Dispose();
+            throw new IbkrSessionException(
+                "Re-authentication failed — credentials may be invalidated", ex);
+        }
 
         // Clone the request for retry
         using var retryRequest = CloneRequest(request, bufferedContent, contentType);
@@ -65,7 +75,22 @@ internal sealed class TokenRefreshHandler : DelegatingHandler
         // Dispose the original 401 response
         response.Dispose();
 
-        return await base.SendAsync(retryRequest, cancellationToken);
+        var retryResponse = await base.SendAsync(retryRequest, cancellationToken);
+
+        // If retry also returns 401, credentials are fundamentally invalid — do not loop
+        if (retryResponse.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            retryResponse.Dispose();
+            throw new IbkrSessionException(
+                false,
+                "Re-authentication succeeded but request still unauthorized — credentials may be invalidated",
+                HttpStatusCode.Unauthorized,
+                "Re-authentication succeeded but request still unauthorized — credentials may be invalidated",
+                null,
+                request.RequestUri?.AbsolutePath);
+        }
+
+        return retryResponse;
     }
 
     private static HttpRequestMessage CloneRequest(
