@@ -27,14 +27,15 @@ public class AccountApiModelTests
     [Fact]
     public void IserverAccountsResponse_Deserializes_WithExtensionData()
     {
-        var json = """{"accounts":["DU1"],"selectedAccount":"DU1","serverInfo":"v123","aliases":{"DU1":"My Account"}}""";
+        var json = """{"accounts":["DU1"],"selectedAccount":"DU1","serverInfo":"v123","aliases":{"DU1":"My Account"},"unknownField":42}""";
 
         var response = JsonSerializer.Deserialize<IserverAccountsResponse>(json);
 
         response.ShouldNotBeNull();
+        response.ServerInfo.ShouldNotBeNull();
+        response.Aliases.ShouldNotBeNull();
         response.AdditionalData.ShouldNotBeNull();
-        response.AdditionalData.ShouldContainKey("serverInfo");
-        response.AdditionalData.ShouldContainKey("aliases");
+        response.AdditionalData.ShouldContainKey("unknownField");
     }
 
     [Fact]
@@ -50,13 +51,12 @@ public class AccountApiModelTests
     [Fact]
     public void SwitchAccountResponse_Deserializes_FromJsonCorrectly()
     {
-        var json = """{"set":true,"selectedAccount":"DU1234567"}""";
+        var json = """{"success":"Account already set"}""";
 
         var response = JsonSerializer.Deserialize<SwitchAccountResponse>(json);
 
         response.ShouldNotBeNull();
-        response.Set.ShouldBeTrue();
-        response.SelectedAccount.ShouldBe("DU1234567");
+        response.Success.ShouldBe("Account already set");
     }
 
 }
