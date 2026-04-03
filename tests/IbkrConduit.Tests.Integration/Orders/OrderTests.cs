@@ -158,6 +158,61 @@ public class OrderTests : IAsyncLifetime, IDisposable
             .Count.ShouldBe(1, "Reply endpoint should have been called exactly once");
     }
 
+    [Fact]
+    public async Task PlaceOrder_401Recovery_ReauthenticatesAndRetries()
+    {
+        // First call returns 401
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/*/orders")
+                .UsingPost())
+            .InScenario("order-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        // After re-auth, second call succeeds with direct submission
+        _server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/*/orders")
+                .UsingPost())
+            .InScenario("order-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "POST-place-order-submitted")));
+
+        var order = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "LMT",
+            Price = 1.00m,
+            Tif = "GTC",
+        };
+
+        var result = await _client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken);
+
+        result.IsT0.ShouldBeTrue("Expected OrderSubmitted after 401 recovery");
+        result.AsT0.OrderId.ShouldBe("123456789");
+
+        // Verify re-authentication occurred
+        _server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/oauth/live_session_token").UsingPost())
+            .Count.ShouldBeGreaterThanOrEqualTo(2,
+                "LST handshake should have been called at least twice (initial + re-auth)");
+        _server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/auth/ssodh/init").UsingPost())
+            .Count.ShouldBeGreaterThanOrEqualTo(2,
+                "Session init should have been called at least twice (initial + re-auth)");
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_provider is not null)
