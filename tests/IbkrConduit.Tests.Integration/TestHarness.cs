@@ -7,9 +7,9 @@ using IbkrConduit.Http;
 using IbkrConduit.Session;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Shouldly;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
-using Shouldly;
 using WireMock.Server;
 
 namespace IbkrConduit.Tests.Integration;
