@@ -1,0 +1,14 @@
+{
+  "Request": { "Path": "/v1/api/trsrv/all-conids", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      { "ticker": "ADI", "conid": 4157, "exchange": "NMS" },
+      { "ticker": "AEP", "conid": 4211, "exchange": "NMS" },
+      { "ticker": "HON", "conid": 4350, "exchange": "NMS" },
+      { "ticker": "AMD", "conid": 4391, "exchange": "NMS" },
+      { "ticker": "ADP", "conid": 4661, "exchange": "NMS" }
+    ]
+  }
+}

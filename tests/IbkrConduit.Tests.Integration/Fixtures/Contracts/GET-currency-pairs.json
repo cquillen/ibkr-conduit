@@ -1,0 +1,16 @@
+{
+  "Request": { "Path": "/v1/api/iserver/currency/pairs", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "USD": [
+        { "symbol": "USD.CHF", "conid": 12087820, "ccyPair": "CHF" },
+        { "symbol": "EUR.USD", "conid": 12087792, "ccyPair": "EUR" },
+        { "symbol": "GBP.USD", "conid": 12087797, "ccyPair": "GBP" },
+        { "symbol": "USD.JPY", "conid": 15016059, "ccyPair": "JPY" },
+        { "symbol": "USD.CAD", "conid": 15016062, "ccyPair": "CAD" }
+      ]
+    }
+  }
+}

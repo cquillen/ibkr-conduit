@@ -1,0 +1,29 @@
+{
+  "Request": { "Path": "/v1/api/trsrv/stocks", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "AAPL": [
+        {
+          "name": "APPLE INC",
+          "chineseName": "Apple Inc",
+          "assetClass": "STK",
+          "contracts": [
+            { "conid": 265598, "exchange": "NASDAQ", "isUS": true },
+            { "conid": 38708077, "exchange": "MEXI", "isUS": false },
+            { "conid": 273982664, "exchange": "EBS", "isUS": false }
+          ]
+        },
+        {
+          "name": "APPLE INC-CDR",
+          "chineseName": "Apple CDR",
+          "assetClass": "STK",
+          "contracts": [
+            { "conid": 532640894, "exchange": "TSE", "isUS": false }
+          ]
+        }
+      ]
+    }
+  }
+}

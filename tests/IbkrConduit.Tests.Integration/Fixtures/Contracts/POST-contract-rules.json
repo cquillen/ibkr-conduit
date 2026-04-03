@@ -1,0 +1,25 @@
+{
+  "Request": { "Path": "/v1/api/iserver/contract/rules", "Methods": ["POST"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "algoEligible": true,
+      "allOrNoneEligible": true,
+      "costReport": false,
+      "canTradeAcctIds": ["U1234567"],
+      "error": null,
+      "orderTypes": ["limit", "midprice", "market", "stop", "stop_limit"],
+      "defaultSize": 100,
+      "cashSize": 0.0,
+      "sizeIncrement": 40,
+      "cashCcy": "USD",
+      "limitPrice": 655.94,
+      "stopprice": 655.94,
+      "increment": 0.01,
+      "incrementDigits": 2,
+      "hasSecondary": true,
+      "negativeCapable": false
+    }
+  }
+}

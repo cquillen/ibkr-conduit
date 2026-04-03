@@ -1,0 +1,42 @@
+{
+  "Request": { "Path": "/v1/api/iserver/secdef/search", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "conid": "756733",
+        "companyHeader": "SPDR S&P 500 ETF TRUST - ARCA",
+        "companyName": "SPDR S&P 500 ETF TRUST",
+        "symbol": "SPY",
+        "description": "ARCA",
+        "restricted": null,
+        "sections": [
+          { "secType": "STK" },
+          {
+            "secType": "OPT",
+            "months": "APR26;MAY26;JUN26",
+            "exchange": "SMART;AMEX;CBOE"
+          },
+          {
+            "secType": "CFD",
+            "exchange": "SMART",
+            "conid": "134770228"
+          },
+          { "secType": "BAG" }
+        ]
+      },
+      {
+        "conid": "38709152",
+        "companyHeader": "SPDR S&P 500 ETF TRUST - MEXI",
+        "companyName": "SPDR S&P 500 ETF TRUST",
+        "symbol": "SPY",
+        "description": "MEXI",
+        "restricted": null,
+        "sections": [
+          { "secType": "STK", "exchange": "MEXI;" }
+        ]
+      }
+    ]
+  }
+}

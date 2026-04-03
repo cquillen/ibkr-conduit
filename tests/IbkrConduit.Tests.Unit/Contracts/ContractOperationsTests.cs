@@ -172,7 +172,7 @@ public class ContractOperationsTests
     {
         var expected = new Dictionary<string, List<CurrencyPair>>
         {
-            ["EUR"] = new List<CurrencyPair> { new("EUR.USD", 12087792, "CASH", "IDEALPRO") },
+            ["EUR"] = new List<CurrencyPair> { new("EUR.USD", 12087792, "EUR") },
         };
         _api.GetCurrencyPairsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
 
