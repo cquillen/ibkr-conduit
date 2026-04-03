@@ -417,14 +417,15 @@ public class SessionManagerTests
         {
             InitCallCount++;
             LastInitRequest = request;
-            return Task.FromResult(new SsodhInitResponse(Authenticated: true, Connected: true, Competing: false));
+            return Task.FromResult(new SsodhInitResponse(Authenticated: true, Connected: true, Competing: false, Established: true, Message: null, Mac: null, ServerInfo: null, HardwareInfo: null));
         }
 
         public Task<TickleResponse> TickleAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new TickleResponse(
                 Session: string.Empty,
+                Hmds: null,
                 Iserver: new TickleIserverStatus(
-                    AuthStatus: new TickleAuthStatus(Authenticated: true, Competing: false, Connected: true))));
+                    AuthStatus: new TickleAuthStatus(Authenticated: true, Competing: false, Connected: true, Established: true, Message: null, Mac: null, ServerInfo: null, HardwareInfo: null))));
 
         public Task<SuppressResponse> SuppressQuestionsAsync(SuppressRequest request, CancellationToken cancellationToken = default)
         {
@@ -448,7 +449,7 @@ public class SessionManagerTests
             Task.FromResult(new SuppressResetResponse(Status: "submitted"));
 
         public Task<AuthStatusResponse> GetAuthStatusAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AuthStatusResponse(true, false, true, null, null, null));
+            Task.FromResult(new AuthStatusResponse(true, false, true, true, null, null, null, null, null, null));
 
     }
 }
