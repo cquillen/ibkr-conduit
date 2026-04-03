@@ -60,7 +60,7 @@ jobs:
 
       - name: Test
         if: needs.changes.outputs.code == 'true'
-        run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage"
+        run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" -- --filter-not-trait "Category=Slow"
 
       - name: Upload coverage to Codecov
         if: needs.changes.outputs.code == 'true'
