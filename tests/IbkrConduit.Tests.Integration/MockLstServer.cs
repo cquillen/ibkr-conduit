@@ -42,7 +42,10 @@ public static class MockLstServer
         server.Given(
             Request.Create()
                 .WithPath("/v1/api/oauth/live_session_token")
-                .UsingPost())
+                .UsingPost()
+                .WithHeader("Authorization", "*RSA-SHA256*")
+                .WithHeader("Authorization", $"*oauth_consumer_key=\"{credentials.ConsumerKey}\"*")
+                .WithHeader("Authorization", $"*oauth_token=\"{credentials.AccessToken}\"*"))
             .RespondWith(
                 Response.Create()
                     .WithCallback(request =>
@@ -50,42 +53,33 @@ public static class MockLstServer
                         // 1. Validate and extract OAuth parameters from Authorization header
                         var authHeader = request.Headers?["Authorization"]?.FirstOrDefault() ?? "";
 
-                        // Validate required OAuth parameters are present
-                        var consumerKey = ExtractOAuthParam(authHeader, "oauth_consumer_key");
-                        var token = ExtractOAuthParam(authHeader, "oauth_token");
-                        var sigMethod = ExtractOAuthParam(authHeader, "oauth_signature_method");
-                        var nonce = ExtractOAuthParam(authHeader, "oauth_nonce");
-                        var timestamp = ExtractOAuthParam(authHeader, "oauth_timestamp");
-                        var signature = ExtractOAuthParam(authHeader, "oauth_signature");
-                        var clientDhHex = ExtractOAuthParam(authHeader, "diffie_hellman_challenge");
-
-                        if (string.IsNullOrEmpty(consumerKey) ||
-                            string.IsNullOrEmpty(token) ||
-                            sigMethod != "RSA-SHA256" ||
-                            string.IsNullOrEmpty(nonce) ||
-                            string.IsNullOrEmpty(timestamp) ||
-                            string.IsNullOrEmpty(signature) ||
-                            string.IsNullOrEmpty(clientDhHex))
+                        // Validate required OAuth parameters and extract DH challenge
+                        var requiredParams = new[]
                         {
-                            var missing = new List<string>();
-                            if (string.IsNullOrEmpty(consumerKey)) { missing.Add("oauth_consumer_key"); }
-                            if (string.IsNullOrEmpty(token)) { missing.Add("oauth_token"); }
-                            if (sigMethod != "RSA-SHA256") { missing.Add("oauth_signature_method=RSA-SHA256"); }
-                            if (string.IsNullOrEmpty(nonce)) { missing.Add("oauth_nonce"); }
-                            if (string.IsNullOrEmpty(timestamp)) { missing.Add("oauth_timestamp"); }
-                            if (string.IsNullOrEmpty(signature)) { missing.Add("oauth_signature"); }
-                            if (string.IsNullOrEmpty(clientDhHex)) { missing.Add("diffie_hellman_challenge"); }
+                            "oauth_consumer_key", "oauth_token", "oauth_signature_method",
+                            "oauth_nonce", "oauth_timestamp", "oauth_signature",
+                            "diffie_hellman_challenge",
+                        };
+                        var extracted = requiredParams.ToDictionary(
+                            p => p, p => ExtractOAuthParam(authHeader, p));
 
-                            return new WireMock.ResponseMessage
-                            {
-                                StatusCode = 400,
-                                BodyData = new WireMock.Util.BodyData
-                                {
-                                    BodyAsString = $$$"""{"error":"missing or invalid OAuth parameters: {{{string.Join(", ", missing)}}}"}""",
-                                    DetectedBodyType = BodyType.String,
-                                },
-                            };
+                        var missing = extracted
+                            .Where(kv => string.IsNullOrEmpty(kv.Value))
+                            .Select(kv => kv.Key)
+                            .ToList();
+
+                        if (extracted["oauth_signature_method"] != "RSA-SHA256")
+                        {
+                            missing.Add("oauth_signature_method (expected RSA-SHA256)");
                         }
+
+                        if (missing.Count > 0)
+                        {
+                            return CreateErrorResponse(400,
+                                "missing or invalid OAuth parameters: " + string.Join(", ", missing));
+                        }
+
+                        var clientDhHex = extracted["diffie_hellman_challenge"];
 
                         var clientPublicKey = BigInteger.Parse(
                             "0" + clientDhHex, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
@@ -135,6 +129,17 @@ public static class MockLstServer
                         };
                     }));
     }
+
+    private static WireMock.ResponseMessage CreateErrorResponse(int statusCode, string error) =>
+        new()
+        {
+            StatusCode = statusCode,
+            BodyData = new WireMock.Util.BodyData
+            {
+                BodyAsString = JsonSerializer.Serialize(new { error }),
+                DetectedBodyType = BodyType.String,
+            },
+        };
 
     private static string? ExtractOAuthParam(string authHeader, string paramName)
     {
