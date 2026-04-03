@@ -1,0 +1,36 @@
+{
+  "Request": { "Path": "/v1/api/pa/allperiods", "Methods": ["POST"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "pm": "TWR",
+      "nd": 60,
+      "id": "getPerformanceAllPeriods",
+      "currencyType": "base",
+      "view": ["U1234567"],
+      "included": ["U1234567"],
+      "U1234567": {
+        "1D": {
+          "freq": "D",
+          "startNAV": { "date": "20260401", "val": 1005037.01 },
+          "dates": ["20260402"],
+          "nav": [1005168.74035],
+          "cps": [1.3107e-4]
+        },
+        "7D": {
+          "freq": "D",
+          "startNAV": { "date": "20260326", "val": 1004494.6 },
+          "dates": ["20260327", "20260330"],
+          "nav": [1004581.15, 1004840.8],
+          "cps": [8.616e-5, 3.4465e-4]
+        },
+        "baseCurrency": "USD",
+        "start": "20260202",
+        "end": "20260402",
+        "periods": ["1D", "7D"],
+        "lastSuccessfulUpdate": "2026-04-02 22:40:19"
+      }
+    }
+  }
+}

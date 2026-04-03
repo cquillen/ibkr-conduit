@@ -1,0 +1,42 @@
+{
+  "Request": { "Path": "/v1/api/portfolio/U1234567/position/756733", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "acctId": "U1234567",
+        "conid": 756733,
+        "contractDesc": "SPY",
+        "position": 44.0,
+        "mktPrice": 655.8945923,
+        "mktValue": 28859.36,
+        "currency": "USD",
+        "avgCost": 652.47477275,
+        "avgPrice": 652.47477275,
+        "realizedPnl": 0.0,
+        "unrealizedPnl": 150.47,
+        "exchs": null,
+        "expiry": null,
+        "putOrCall": null,
+        "multiplier": 0.0,
+        "strike": "0",
+        "exerciseStyle": null,
+        "conExchMap": [],
+        "assetClass": "STK",
+        "undConid": 0,
+        "model": "",
+        "ticker": "SPY",
+        "name": "SPDR S&P 500 ETF TRUST",
+        "isUS": true,
+        "isEventContract": false,
+        "fullName": "SPY",
+        "listingExchange": "ARCA",
+        "countryCode": "US",
+        "type": "ETF",
+        "hasOptions": true,
+        "pageSize": 100
+      }
+    ]
+  }
+}

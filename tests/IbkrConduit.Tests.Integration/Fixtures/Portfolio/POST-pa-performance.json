@@ -1,0 +1,57 @@
+{
+  "Request": { "Path": "/v1/api/pa/performance", "Methods": ["POST"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "currencyType": "base",
+      "pm": "TWR",
+      "nd": 32,
+      "id": "getPerformanceData",
+      "included": ["U1234567"],
+      "cps": {
+        "freq": "D",
+        "dates": ["20260302", "20260303", "20260304"],
+        "data": [
+          {
+            "id": "U1234567",
+            "idType": "acctid",
+            "start": "20260302",
+            "end": "20260402",
+            "returns": [2.5849e-4, 3.4466e-4, 4.3082e-4],
+            "baseCurrency": "USD"
+          }
+        ]
+      },
+      "tpps": {
+        "freq": "M",
+        "dates": ["202603", "202604"],
+        "data": [
+          {
+            "id": "U1234567",
+            "idType": "acctid",
+            "start": "20260302",
+            "end": "20260402",
+            "returns": [0.00277934, 2.2355e-4],
+            "baseCurrency": "USD"
+          }
+        ]
+      },
+      "nav": {
+        "freq": "D",
+        "dates": ["20260302", "20260303", "20260304"],
+        "data": [
+          {
+            "id": "U1234567",
+            "idType": "acctid",
+            "startNAV": { "date": "20260227", "val": 1002158.75 },
+            "start": "20260302",
+            "end": "20260402",
+            "navs": [1002417.8, 1002504.15, 1002590.5],
+            "baseCurrency": "USD"
+          }
+        ]
+      }
+    }
+  }
+}

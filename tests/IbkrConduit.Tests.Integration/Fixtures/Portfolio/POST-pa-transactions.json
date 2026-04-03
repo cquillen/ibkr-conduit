@@ -1,0 +1,46 @@
+{
+  "Request": { "Path": "/v1/api/pa/transactions", "Methods": ["POST"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "nd": 31,
+      "rpnl": {
+        "data": [],
+        "amt": "0.0"
+      },
+      "currency": "USD",
+      "from": 1772496000000,
+      "id": "getTransactions",
+      "to": 1775088000000,
+      "transactions": [
+        {
+          "cur": "USD",
+          "date": "Tue Mar 31 00:00:00 EDT 2026",
+          "rawDate": "20260331",
+          "fxRate": 1.0,
+          "pr": 645.155,
+          "qty": 4.0,
+          "acctid": "U1234567",
+          "amt": -2580.62,
+          "conid": 756733,
+          "type": "Buy",
+          "desc": "SPDR S&P 500 ETF TRUST"
+        },
+        {
+          "cur": "USD",
+          "date": "Wed Apr 01 00:00:00 EDT 2026",
+          "rawDate": "20260401",
+          "fxRate": 1.0,
+          "pr": 654.975,
+          "qty": 18.0,
+          "acctid": "U1234567",
+          "amt": -11789.55,
+          "conid": 756733,
+          "type": "Buy",
+          "desc": "SPDR S&P 500 ETF TRUST"
+        }
+      ]
+    }
+  }
+}
