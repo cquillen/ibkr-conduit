@@ -43,14 +43,15 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
     /// Creates and initializes a test harness with synthetic credentials,
     /// LST handshake, session init, and the full DI pipeline.
     /// </summary>
-    public static Task<TestHarness> CreateAsync()
+    /// <param name="options">Optional client options overrides (e.g., TickleIntervalSeconds).</param>
+    public static Task<TestHarness> CreateAsync(IbkrClientOptions? options = null)
     {
         var harness = new TestHarness();
-        harness.Initialize();
+        harness.Initialize(options);
         return Task.FromResult(harness);
     }
 
-    private void Initialize()
+    private void Initialize(IbkrClientOptions? options = null)
     {
         _credentials = TestCredentials.Create();
 
@@ -86,7 +87,8 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
         // Build the full DI pipeline pointing at WireMock
         var services = new ServiceCollection();
         services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
-        services.AddIbkrClient(_credentials, new IbkrClientOptions
+        var clientOptions = options ?? new IbkrClientOptions();
+        services.AddIbkrClient(_credentials, clientOptions with
         {
             BaseUrl = Server.Url!,
         });

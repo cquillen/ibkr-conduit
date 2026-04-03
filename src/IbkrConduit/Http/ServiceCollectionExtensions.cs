@@ -78,7 +78,8 @@ public static class ServiceCollectionExtensions
         // Tickle timer factory
         services.AddSingleton<ITickleTimerFactory>(sp =>
             new TickleTimerFactory(
-                sp.GetRequiredService<ILogger<TickleTimer>>()));
+                sp.GetRequiredService<ILogger<TickleTimer>>(),
+                clientOptions.TickleIntervalSeconds));
 
         // Rate limiting and resilience singletons (shared across pipelines)
         var globalRateLimiter = CreateGlobalRateLimiter();

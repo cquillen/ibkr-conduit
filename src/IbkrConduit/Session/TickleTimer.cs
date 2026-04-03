@@ -147,16 +147,18 @@ internal sealed partial class TickleTimer : ITickleTimer
 internal sealed class TickleTimerFactory : ITickleTimerFactory
 {
     private readonly ILogger<TickleTimer> _logger;
+    private readonly int _intervalSeconds;
 
     /// <summary>
-    /// Creates a new factory with the given logger.
+    /// Creates a new factory with the given logger and interval.
     /// </summary>
-    public TickleTimerFactory(ILogger<TickleTimer> logger)
+    public TickleTimerFactory(ILogger<TickleTimer> logger, int intervalSeconds = 60)
     {
         _logger = logger;
+        _intervalSeconds = intervalSeconds;
     }
 
     /// <inheritdoc />
     public ITickleTimer Create(IIbkrSessionApi sessionApi, Func<CancellationToken, Task> onFailure) =>
-        new TickleTimer(sessionApi, onFailure, _logger);
+        new TickleTimer(sessionApi, onFailure, _logger, _intervalSeconds);
 }
