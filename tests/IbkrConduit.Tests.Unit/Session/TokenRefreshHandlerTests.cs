@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit.Errors;
 using IbkrConduit.Session;
 using Shouldly;
 
@@ -104,7 +105,7 @@ public class TokenRefreshHandlerTests
     }
 
     [Fact]
-    public async Task SendAsync_401OnRetry_ReturnsSecond401()
+    public async Task SendAsync_401OnRetry_ThrowsSessionException()
     {
         var sessionManager = new FakeSessionManager();
         var callCount = 0;
@@ -124,9 +125,10 @@ public class TokenRefreshHandlerTests
             BaseAddress = new Uri("https://api.ibkr.com"),
         };
 
-        var response = await client.GetAsync("/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+        var ex = await Should.ThrowAsync<IbkrSessionException>(
+            client.GetAsync("/v1/api/portfolio/accounts", TestContext.Current.CancellationToken));
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        ex.Message.ShouldContain("Re-authentication succeeded but request still unauthorized");
         callCount.ShouldBe(2); // original + one retry
         sessionManager.ReauthCallCount.ShouldBe(1); // only one re-auth
     }

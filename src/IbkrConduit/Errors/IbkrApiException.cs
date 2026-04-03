@@ -32,4 +32,17 @@ public class IbkrApiException : Exception
         RawResponseBody = rawResponseBody;
         RequestUri = requestUri;
     }
+
+    /// <summary>
+    /// Creates a new <see cref="IbkrApiException"/> with an inner exception.
+    /// </summary>
+    public IbkrApiException(
+        HttpStatusCode statusCode, string? errorMessage, Exception innerException)
+        : base(errorMessage ?? $"IBKR API returned {(int)statusCode}", innerException)
+    {
+        StatusCode = statusCode;
+        ErrorMessage = errorMessage;
+        RawResponseBody = null;
+        RequestUri = null;
+    }
 }

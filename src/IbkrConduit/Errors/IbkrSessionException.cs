@@ -24,4 +24,14 @@ public class IbkrSessionException : IbkrApiException
         IsCompeting = isCompeting;
         Reason = reason;
     }
+
+    /// <summary>
+    /// Creates a new <see cref="IbkrSessionException"/> wrapping a re-authentication failure.
+    /// </summary>
+    public IbkrSessionException(string message, Exception innerException)
+        : base(HttpStatusCode.Unauthorized, message, innerException)
+    {
+        IsCompeting = false;
+        Reason = message;
+    }
 }
