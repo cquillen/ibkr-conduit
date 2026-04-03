@@ -1,87 +1,29 @@
 using System;
 using System.Threading.Tasks;
-using IbkrConduit.Client;
-using IbkrConduit.Http;
-using IbkrConduit.Session;
 using IbkrConduit.Tests.Integration.Fixtures;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Shouldly;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
-using WireMock.Server;
 
 namespace IbkrConduit.Tests.Integration.Portfolio;
 
 public class PortfolioTests : IAsyncLifetime, IDisposable
 {
-    private readonly WireMockServer _server;
-    private ServiceProvider? _provider;
-    private IbkrConduit.Auth.IbkrOAuthCredentials? _credentials;
-    private IIbkrClient _client = null!;
-
-    public PortfolioTests()
-    {
-        _server = WireMockServer.Start();
-    }
+    private TestHarness _harness = null!;
 
     public async ValueTask InitializeAsync()
     {
-        // Create synthetic credentials (disposed in Dispose)
-        _credentials = TestCredentials.Create();
-        var credentials = _credentials;
-
-        // Register the LST handshake handler (server-side DH exchange)
-        MockLstServer.Register(_server, credentials);
-
-        // Stub ssodh/init (session initialization)
-        // Expect: correct consumer key, access token, HMAC-SHA256, and JSON body
-        _server.Given(
-            Request.Create()
-                .WithPath("/v1/api/iserver/auth/ssodh/init")
-                .UsingPost()
-                .WithHeader("Authorization", $"*oauth_consumer_key=\"{TestCredentials.ConsumerKey}\"*")
-                .WithHeader("Authorization", $"*oauth_token=\"{TestCredentials.AccessToken}\"*")
-                .WithHeader("Authorization", "*HMAC-SHA256*")
-                .WithBody(b => b != null && b.Contains("publish")))
-            .RespondWith(
-                Response.Create()
-                    .WithStatusCode(200)
-                    .WithHeader("Content-Type", "application/json")
-                    .WithBody("""{"authenticated":true,"competing":false,"connected":true,"passed":true,"established":true}"""));
-
-        // Build the full DI pipeline pointing at WireMock
-        var services = new ServiceCollection();
-        services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
-        services.AddIbkrClient(credentials, new IbkrClientOptions
-        {
-            BaseUrl = _server.Url!,
-        });
-
-        _provider = services.BuildServiceProvider();
-        _client = _provider.GetRequiredService<IIbkrClient>();
-
-        await Task.CompletedTask;
+        _harness = await TestHarness.CreateAsync();
     }
 
     [Fact]
     public async Task GetAccounts_ReturnsAllFields()
     {
-        // Expect: correct consumer key, access token, and HMAC-SHA256
-        _server.Given(
-            Request.Create()
-                .WithPath("/v1/api/portfolio/accounts")
-                .UsingGet()
-                .WithHeader("Authorization", $"*oauth_consumer_key=\"{TestCredentials.ConsumerKey}\"*")
-                .WithHeader("Authorization", $"*oauth_token=\"{TestCredentials.AccessToken}\"*")
-                .WithHeader("Authorization", "*HMAC-SHA256*"))
-            .RespondWith(
-                Response.Create()
-                    .WithStatusCode(200)
-                    .WithHeader("Content-Type", "application/json")
-                    .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts")));
+        _harness.StubAuthenticatedGet(
+            "/v1/api/portfolio/accounts",
+            FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts"));
 
-        var accounts = await _client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = await _harness.Client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
 
         accounts.ShouldNotBeEmpty();
         var account = accounts[0];
@@ -104,27 +46,15 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
         account.Parent!.IsMParent.ShouldBeFalse();
         account.Parent!.IsMultiplex.ShouldBeFalse();
 
-        // Verify User-Agent header was sent on all requests (IBKR's Akamai CDN returns 403 without it)
-        foreach (var entry in _server.LogEntries)
-        {
-            entry.RequestMessage.Headers.ShouldContainKey("User-Agent",
-                $"Request to {entry.RequestMessage.Path} missing User-Agent header");
-        }
-
-        // Verify the full handshake occurred
-        _server.FindLogEntries(
-            Request.Create().WithPath("/v1/api/oauth/live_session_token").UsingPost())
-            .Count.ShouldBeGreaterThan(0, "Live Session Token handshake should have been called");
-        _server.FindLogEntries(
-            Request.Create().WithPath("/v1/api/iserver/auth/ssodh/init").UsingPost())
-            .Count.ShouldBeGreaterThan(0, "Session init should have been called");
+        _harness.VerifyUserAgentOnAllRequests();
+        _harness.VerifyHandshakeOccurred();
     }
 
     [Fact]
     public async Task GetAccounts_401Recovery_ReauthenticatesAndRetries()
     {
-        // First call to portfolio/accounts returns 401 (token expired)
-        _server.Given(
+        // First call returns 401
+        _harness.Server.Given(
             Request.Create()
                 .WithPath("/v1/api/portfolio/accounts")
                 .UsingGet())
@@ -136,7 +66,7 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
                     .WithBody("Unauthorized"));
 
         // After re-auth, second call succeeds
-        _server.Given(
+        _harness.Server.Given(
             Request.Create()
                 .WithPath("/v1/api/portfolio/accounts")
                 .UsingGet())
@@ -148,38 +78,22 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts")));
 
-        // The call should succeed — TokenRefreshHandler triggers re-auth on 401, then retries
-        var accounts = await _client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = await _harness.Client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
 
         accounts.ShouldNotBeEmpty();
         accounts[0].Id.ShouldBe("U1234567");
 
-        // Verify re-authentication occurred: LST should have been acquired at least twice
-        // (once during InitializeAsync setup, once during 401 recovery)
-        var lstCalls = _server.FindLogEntries(
-            Request.Create().WithPath("/v1/api/oauth/live_session_token").UsingPost());
-        lstCalls.Count.ShouldBeGreaterThanOrEqualTo(2,
-            "LST handshake should have been called at least twice (initial + re-auth)");
-
-        // Session init should also have been called at least twice
-        var initCalls = _server.FindLogEntries(
-            Request.Create().WithPath("/v1/api/iserver/auth/ssodh/init").UsingPost());
-        initCalls.Count.ShouldBeGreaterThanOrEqualTo(2,
-            "Session init should have been called at least twice (initial + re-auth)");
+        _harness.VerifyReauthenticationOccurred();
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (_provider is not null)
-        {
-            await _provider.DisposeAsync();
-        }
+        await _harness.DisposeAsync();
     }
 
     public void Dispose()
     {
-        _server.Dispose();
-        _credentials?.Dispose();
+        _harness.Dispose();
         GC.SuppressFinalize(this);
     }
 }
