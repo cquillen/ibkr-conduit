@@ -1,0 +1,19 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/reply/test-reply-id-001",
+    "Methods": ["POST"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": [
+      {
+        "order_id": "987654321",
+        "order_status": "PreSubmitted",
+        "encrypt_message": "1"
+      }
+    ]
+  }
+}

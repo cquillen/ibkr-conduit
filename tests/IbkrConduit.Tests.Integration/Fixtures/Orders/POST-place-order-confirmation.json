@@ -1,0 +1,28 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/account/U1234567/orders",
+    "Methods": ["POST"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": [
+      {
+        "id": "test-reply-id-001",
+        "message": [
+          "You are submitting an order without market data. We strongly recommend against this as it may result in erroneous and unexpected trades.\nAre you sure you want to submit this order?"
+        ],
+        "isSuppressed": false,
+        "messageIds": [
+          "o354"
+        ],
+        "messageOptions": [
+          "Yes",
+          "No"
+        ]
+      }
+    ]
+  }
+}
