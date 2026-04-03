@@ -1,0 +1,46 @@
+{
+  "Request": { "Path": "/v1/api/iserver/scanner/run", "Methods": ["POST"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "contracts": [
+        {
+          "server_id": "0",
+          "column_name": "Chg%",
+          "symbol": "GV",
+          "conidex": "706149062",
+          "con_id": 706149062,
+          "available_chart_periods": "#R|1",
+          "company_name": "VISIONARY HOLDINGS INC",
+          "contract_description_1": "GV",
+          "listing_exchange": "NASDAQ.SCM",
+          "sec_type": "STK"
+        },
+        {
+          "server_id": "1",
+          "symbol": "SKYQ",
+          "conidex": "863831941",
+          "con_id": 863831941,
+          "available_chart_periods": "#R|1",
+          "company_name": "SKY QUARRY INC",
+          "contract_description_1": "SKYQ",
+          "listing_exchange": "NASDAQ.SCM",
+          "sec_type": "STK"
+        },
+        {
+          "server_id": "2",
+          "symbol": "TMDE",
+          "conidex": "777715198",
+          "con_id": 777715198,
+          "available_chart_periods": "#R|1",
+          "company_name": "TMD ENERGY LTD",
+          "contract_description_1": "TMDE",
+          "listing_exchange": "AMEX",
+          "sec_type": "STK"
+        }
+      ],
+      "scan_data_column_name": "Chg%"
+    }
+  }
+}

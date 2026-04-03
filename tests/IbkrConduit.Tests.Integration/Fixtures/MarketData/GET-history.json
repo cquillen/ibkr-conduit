@@ -1,0 +1,32 @@
+{
+  "Request": { "Path": "/v1/api/iserver/marketdata/history", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "serverId": "6571225",
+      "symbol": "SPY",
+      "text": "SPDR S&P 500 ETF TRUST",
+      "priceFactor": 100,
+      "startTime": "20260402-13:30:00",
+      "high": "65820/26572.9/67",
+      "low": "64511/7122.825/10",
+      "timePeriod": "1d",
+      "barLength": 60,
+      "mdAvailability": "S",
+      "mktDataDelay": 0,
+      "outsideRth": false,
+      "tradingDayDuration": 390,
+      "volumeFactor": 40,
+      "priceDisplayRule": 1,
+      "priceDisplayValue": "2",
+      "negativeCapable": false,
+      "messageVersion": 2,
+      "data": [
+        { "o": 646.42, "c": 646.86, "h": 647.47, "l": 646.38, "v": 17219.125, "t": 1775136600000 },
+        { "o": 646.85, "c": 647.37, "h": 647.44, "l": 646.69, "v": 6730.7, "t": 1775136660000 },
+        { "o": 647.35, "c": 646.63, "h": 647.39, "l": 646.57, "v": 7782.55, "t": 1775136720000 }
+      ]
+    }
+  }
+}
