@@ -1,0 +1,13 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/questions/suppress/reset",
+    "Methods": ["POST"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "status": "submitted"
+    }
+  }
+}
