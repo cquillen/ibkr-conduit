@@ -1,0 +1,31 @@
+{
+  "Request": { "Path": "/v1/api/iserver/account/U1234567/orders/whatif", "Methods": ["POST"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "amount": {
+        "amount": "1 USD (1 Shares)",
+        "commission": "0.01 USD",
+        "total": "1.01 USD"
+      },
+      "equity": {
+        "current": "1,006,413",
+        "change": "163",
+        "after": "1,006,576"
+      },
+      "initial": {
+        "current": "8,637",
+        "change": "164",
+        "after": "8,801"
+      },
+      "maintenance": {
+        "current": "8,637",
+        "change": "164",
+        "after": "8,801"
+      },
+      "warn": "The following order \"BUY 1 SPY LMT 1.00\" price exceeds...",
+      "error": null
+    }
+  }
+}
