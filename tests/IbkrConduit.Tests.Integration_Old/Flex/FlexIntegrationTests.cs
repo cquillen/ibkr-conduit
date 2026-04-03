@@ -207,9 +207,10 @@ public class FlexIntegrationTests : IDisposable
         using var creds = IbkrConduit.Auth.OAuthCredentialsFactory.FromEnvironment();
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
         services.AddLogging();
-        services.AddIbkrClient(creds, new IbkrConduit.Session.IbkrClientOptions
+        services.AddIbkrClient(opts =>
         {
-            FlexToken = flexToken,
+            opts.Credentials = creds;
+            opts.FlexToken = flexToken;
         });
 
         await using var provider = services.BuildServiceProvider();

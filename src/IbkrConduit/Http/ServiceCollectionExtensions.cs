@@ -43,10 +43,14 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddIbkrClient(
         this IServiceCollection services,
-        IbkrOAuthCredentials credentials,
-        IbkrClientOptions? options = null)
+        Action<IbkrClientOptions> configure)
     {
-        var clientOptions = options ?? new IbkrClientOptions();
+        var clientOptions = new IbkrClientOptions();
+        configure(clientOptions);
+
+        ArgumentNullException.ThrowIfNull(clientOptions.Credentials, "IbkrClientOptions.Credentials");
+
+        var credentials = clientOptions.Credentials;
         var baseUrl = clientOptions.BaseUrl ?? _ibkrBaseUrl;
 
         // LST client (plain HttpClient via IHttpClientFactory, not through Refit pipeline)

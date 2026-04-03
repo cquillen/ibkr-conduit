@@ -12,7 +12,11 @@ Console.WriteLine($"Consumer key: {creds.ConsumerKey}");
 // Wire up via DI — the way a real consumer would
 var services = new ServiceCollection();
 services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
-services.AddIbkrClient(creds, new IbkrClientOptions { Compete = true });
+services.AddIbkrClient(opts =>
+{
+    opts.Credentials = creds;
+    opts.Compete = true;
+});
 
 await using var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<IIbkrClient>();

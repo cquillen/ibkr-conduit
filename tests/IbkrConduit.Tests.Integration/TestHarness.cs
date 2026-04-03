@@ -39,25 +39,21 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
     /// Creates and initializes a test harness with synthetic credentials,
     /// LST handshake, session init, and the full DI pipeline.
     /// </summary>
-    /// <summary>
-    /// Creates and initializes a test harness with synthetic credentials,
-    /// LST handshake, session init, and the full DI pipeline.
-    /// </summary>
-    /// <param name="options">Optional client options overrides (e.g., TickleIntervalSeconds).</param>
+    /// <param name="configureOptions">Optional callback to customize client options (e.g., TickleIntervalSeconds).</param>
     /// <param name="tokenExpiryHours">How many hours until the mock LST expires. Default 24.</param>
     /// <param name="configureServices">Optional callback to customize the DI container before building (e.g., replace resilience pipeline).</param>
     public static Task<TestHarness> CreateAsync(
-        IbkrClientOptions? options = null,
+        Action<IbkrClientOptions>? configureOptions = null,
         double tokenExpiryHours = 24,
         Action<IServiceCollection>? configureServices = null)
     {
         var harness = new TestHarness();
-        harness.Initialize(options, tokenExpiryHours, configureServices);
+        harness.Initialize(configureOptions, tokenExpiryHours, configureServices);
         return Task.FromResult(harness);
     }
 
     private void Initialize(
-        IbkrClientOptions? options = null,
+        Action<IbkrClientOptions>? configureOptions = null,
         double tokenExpiryHours = 24,
         Action<IServiceCollection>? configureServices = null)
     {
@@ -106,10 +102,11 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
         // Build the full DI pipeline pointing at WireMock
         var services = new ServiceCollection();
         services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
-        var clientOptions = options ?? new IbkrClientOptions();
-        services.AddIbkrClient(_credentials, clientOptions with
+        services.AddIbkrClient(opts =>
         {
-            BaseUrl = Server.Url!,
+            opts.Credentials = _credentials;
+            opts.BaseUrl = Server.Url!;
+            configureOptions?.Invoke(opts);
         });
 
         // Allow test-specific DI overrides (e.g., zero-delay resilience pipeline)

@@ -50,7 +50,7 @@ public sealed class CaptureContext : IAsyncDisposable
 
         var services = new ServiceCollection();
         services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
-        services.AddIbkrClient(_credentials);
+        services.AddIbkrClient(opts => opts.Credentials = _credentials);
         _provider = services.BuildServiceProvider();
 
         // Use the library client to init session and discover account

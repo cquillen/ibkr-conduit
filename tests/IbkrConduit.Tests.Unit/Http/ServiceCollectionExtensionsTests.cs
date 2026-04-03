@@ -26,7 +26,7 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         var creds = CreateTestCredentials();
 
-        services.AddIbkrClient(creds);
+        services.AddIbkrClient(opts => opts.Credentials = creds);
 
         var provider = services.BuildServiceProvider();
 
@@ -41,9 +41,12 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         var creds = CreateTestCredentials();
-        var options = new IbkrClientOptions { Compete = false };
 
-        services.AddIbkrClient(creds, options);
+        services.AddIbkrClient(opts =>
+        {
+            opts.Credentials = creds;
+            opts.Compete = false;
+        });
 
         var provider = services.BuildServiceProvider();
 
@@ -58,7 +61,7 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         var creds = CreateTestCredentials();
 
-        services.AddIbkrClient(creds);
+        services.AddIbkrClient(opts => opts.Credentials = creds);
 
         var provider = services.BuildServiceProvider();
 
@@ -76,7 +79,7 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         var creds = CreateTestCredentials();
 
-        services.AddIbkrClient(creds);
+        services.AddIbkrClient(opts => opts.Credentials = creds);
 
         var provider = services.BuildServiceProvider();
 
