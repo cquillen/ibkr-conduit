@@ -104,6 +104,13 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
         account.Parent!.IsMParent.ShouldBeFalse();
         account.Parent!.IsMultiplex.ShouldBeFalse();
 
+        // Verify User-Agent header was sent on all requests (IBKR's Akamai CDN returns 403 without it)
+        foreach (var entry in _server.LogEntries)
+        {
+            entry.RequestMessage.Headers.ShouldContainKey("User-Agent",
+                $"Request to {entry.RequestMessage.Path} missing User-Agent header");
+        }
+
         // Verify the full handshake occurred
         _server.FindLogEntries(
             Request.Create().WithPath("/v1/api/oauth/live_session_token").UsingPost())
