@@ -44,4 +44,10 @@ public record IbkrClientOptions
     /// Default is 60. Reduce for integration testing.
     /// </summary>
     public int TickleIntervalSeconds { get; init; } = 60;
+
+    /// <summary>
+    /// How long before token expiry to trigger a proactive refresh.
+    /// Default is 1 hour. Reduce for integration testing.
+    /// </summary>
+    public TimeSpan ProactiveRefreshMargin { get; init; } = TimeSpan.FromHours(1);
 }

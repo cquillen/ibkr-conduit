@@ -44,19 +44,20 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
     /// LST handshake, session init, and the full DI pipeline.
     /// </summary>
     /// <param name="options">Optional client options overrides (e.g., TickleIntervalSeconds).</param>
-    public static Task<TestHarness> CreateAsync(IbkrClientOptions? options = null)
+    /// <param name="tokenExpiryHours">How many hours until the mock LST expires. Default 24.</param>
+    public static Task<TestHarness> CreateAsync(IbkrClientOptions? options = null, double tokenExpiryHours = 24)
     {
         var harness = new TestHarness();
-        harness.Initialize(options);
+        harness.Initialize(options, tokenExpiryHours);
         return Task.FromResult(harness);
     }
 
-    private void Initialize(IbkrClientOptions? options = null)
+    private void Initialize(IbkrClientOptions? options = null, double tokenExpiryHours = 24)
     {
         _credentials = TestCredentials.Create();
 
         // Register the server-side DH exchange for LST acquisition
-        MockLstServer.Register(Server, _credentials);
+        MockLstServer.Register(Server, _credentials, tokenExpiryHours);
 
         // Stub session initialization
         Server.Given(
@@ -72,6 +73,17 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
                     .WithStatusCode(200)
                     .WithHeader("Content-Type", "application/json")
                     .WithBody("""{"authenticated":true,"competing":false,"connected":true,"passed":true,"established":true}"""));
+
+        // Stub logout (called during dispose — prevents error noise in test output)
+        Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/logout")
+                .UsingPost())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"confirmed":true}"""));
 
         // Stub tickle (sent every 60s to keep session alive — prevents flaky tests on slow runs)
         Server.Given(
