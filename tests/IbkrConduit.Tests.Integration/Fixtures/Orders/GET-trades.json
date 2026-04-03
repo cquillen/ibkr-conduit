@@ -1,0 +1,19 @@
+{
+  "Request": { "Path": "/v1/api/iserver/account/trades", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "execution_id": "00018fae.67890abc.01.01",
+        "conid": 756733,
+        "symbol": "SPY",
+        "side": "BOT",
+        "size": 1.0,
+        "price": 647.09,
+        "order_ref": "Order123",
+        "submitter": "U1234567"
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "Request": { "Path": "/v1/api/iserver/account/orders", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "orders": [
+        {
+          "acct": "U1234567",
+          "conidex": "756733",
+          "conid": 756733,
+          "account": "U1234567",
+          "orderId": 473740665,
+          "cashCcy": "USD",
+          "sizeAndFills": "1",
+          "orderDesc": "Bought 1 SPY Market, Day",
+          "description1": "SPY",
+          "ticker": "SPY",
+          "secType": "STK",
+          "listingExchange": "ARCA",
+          "remainingQuantity": 0.0,
+          "filledQuantity": 1.0,
+          "totalSize": 1.0,
+          "companyName": "SS SPDR S&P 500 ETF TRUST-US",
+          "status": "Filled",
+          "order_ccp_status": "Filled",
+          "avgPrice": "647.09",
+          "origOrderType": "MARKET",
+          "supportsTaxOpt": "1",
+          "lastExecutionTime": "260401234047",
+          "orderType": "Market",
+          "bgColor": "#FFFFFF",
+          "fgColor": "#000000",
+          "isEventTrading": "0",
+          "price": "",
+          "timeInForce": "CLOSE",
+          "lastExecutionTime_r": 1775086847000,
+          "side": "BUY"
+        }
+      ],
+      "snapshot": false
+    }
+  }
+}
