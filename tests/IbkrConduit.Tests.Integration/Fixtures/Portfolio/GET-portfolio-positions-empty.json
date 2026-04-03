@@ -1,0 +1,8 @@
+{
+  "Request": { "Path": "/v1/api/portfolio/U1234567/positions/999", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": []
+  }
+}

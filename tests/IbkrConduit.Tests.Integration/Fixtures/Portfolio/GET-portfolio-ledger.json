@@ -1,0 +1,39 @@
+{
+  "Request": { "Path": "/v1/api/portfolio/U1234567/ledger", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "USD": {
+        "commoditymarketvalue": 0.0, "futuremarketvalue": 0.0, "settledcash": 971869.6,
+        "exchangerate": 1, "sessionid": 1, "cashbalance": 971869.6,
+        "corporatebondsmarketvalue": 0.0, "warrantsmarketvalue": 0.0,
+        "netliquidationvalue": 1005165.5, "interest": 2682.45,
+        "unrealizedpnl": 151.57, "stockmarketvalue": 30613.4,
+        "moneyfunds": 0.0, "currency": "USD", "realizedpnl": 0.0,
+        "funds": 0.0, "acctcode": "U1234567",
+        "issueroptionsmarketvalue": 0.0, "key": "LedgerList",
+        "timestamp": 1775169606, "severity": 0, "stockoptionmarketvalue": 0.0,
+        "futuresonlypnl": 0.0, "tbondsmarketvalue": 0.0,
+        "futureoptionmarketvalue": 0.0, "cashbalancefxsegment": 0.0,
+        "secondkey": "USD", "tbillsmarketvalue": 0.0,
+        "endofbundle": 1, "dividends": 0.0, "cryptocurrencyvalue": 0.0
+      },
+      "BASE": {
+        "commoditymarketvalue": 0.0, "futuremarketvalue": 0.0, "settledcash": 971869.6,
+        "exchangerate": 1, "sessionid": 1, "cashbalance": 971869.6,
+        "corporatebondsmarketvalue": 0.0, "warrantsmarketvalue": 0.0,
+        "netliquidationvalue": 1005165.5, "interest": 2682.45,
+        "unrealizedpnl": 151.57, "stockmarketvalue": 30613.4,
+        "moneyfunds": 0.0, "currency": "BASE", "realizedpnl": 0.0,
+        "funds": 0.0, "acctcode": "U1234567",
+        "issueroptionsmarketvalue": 0.0, "key": "LedgerList",
+        "timestamp": 1775169606, "severity": 0, "stockoptionmarketvalue": 0.0,
+        "futuresonlypnl": 0.0, "tbondsmarketvalue": 0.0,
+        "futureoptionmarketvalue": 0.0, "cashbalancefxsegment": 0.0,
+        "secondkey": "BASE", "tbillsmarketvalue": 0.0,
+        "endofbundle": 1, "dividends": 0.0, "cryptocurrencyvalue": 0.0
+      }
+    }
+  }
+}
