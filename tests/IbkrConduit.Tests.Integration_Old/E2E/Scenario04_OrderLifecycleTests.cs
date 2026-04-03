@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
@@ -130,11 +131,11 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 {
                     var liveOrders = await client.Orders.GetLiveOrdersAsync(CT);
                     foreach (var order in liveOrders.Where(o =>
-                                 o.Symbol == "SPY" && o.Price is not null && o.Price <= 1.10m))
+                                 o.Ticker == "SPY"))
                     {
                         try
                         {
-                            await client.Orders.CancelOrderAsync(accountId, order.OrderId, CT);
+                            await client.Orders.CancelOrderAsync(accountId, order.OrderId.ToString(CultureInfo.InvariantCulture), CT);
                         }
                         catch
                         {

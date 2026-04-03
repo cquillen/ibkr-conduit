@@ -294,13 +294,13 @@ public class OrderOperationsTests
     {
         _fakeApi.LiveOrdersResponse = new OrdersResponse(
         [
-            new LiveOrder("111", 265598, "AAPL", "BUY", 100, "LMT", 150.00m, "PreSubmitted", 0, 100),
+            new LiveOrder("DU1234567", 265598, "265598", 111, "AAPL", "STK", "NASDAQ", "BUY", "PreSubmitted", "PreSubmitted", "LMT", 0, 100, 100, "APPLE INC", null, "DAY", null),
         ]);
 
         var result = await _sut.GetLiveOrdersAsync(TestContext.Current.CancellationToken);
 
         result.Count.ShouldBe(1);
-        result[0].OrderId.ShouldBe("111");
+        result[0].OrderId.ShouldBe(111);
     }
 
     [Fact]

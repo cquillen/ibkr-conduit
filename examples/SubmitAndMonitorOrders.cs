@@ -102,7 +102,7 @@ else
 {
     foreach (var o in liveOrders)
     {
-        Console.WriteLine($"  {o.OrderId} {o.Symbol} {o.Side} {o.Quantity:N0} {o.OrderType} — {o.Status}");
+        Console.WriteLine($"  {o.OrderId} {o.Ticker} {o.Side} {o.TotalSize:N0} {o.OrderType} — {o.Status}");
     }
 }
 

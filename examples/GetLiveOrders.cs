@@ -42,6 +42,6 @@ foreach (var o in orders)
     Console.WriteLine(
         string.Format(CultureInfo.InvariantCulture,
             "{0,-12} {1,-6} {2,-6} {3,8:N0} {4,10} {5,-12} {6,10:N0} {7,10:N0}",
-            o.OrderId, o.Symbol, o.Side, o.Quantity, o.OrderType, o.Status,
+            o.OrderId, o.Ticker, o.Side, o.TotalSize, o.OrderType, o.Status,
             o.FilledQuantity, o.RemainingQuantity));
 }

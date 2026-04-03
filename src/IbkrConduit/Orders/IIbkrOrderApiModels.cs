@@ -118,31 +118,63 @@ public record ReplyRequest(
 public record OrdersResponse(
     [property: JsonPropertyName("orders")] List<LiveOrder>? Orders);
 
+#pragma warning disable CA1711 // ConidEx is the IBKR API field name — suffix is not a .NET type convention issue
 /// <summary>
 /// A live order in the current session.
 /// </summary>
-/// <param name="OrderId">The order identifier.</param>
+/// <param name="Account">The account identifier.</param>
 /// <param name="Conid">The contract identifier.</param>
-/// <param name="Symbol">The ticker symbol.</param>
+/// <param name="ConidEx">The extended contract identifier string.</param>
+/// <param name="OrderId">The order identifier.</param>
+/// <param name="Ticker">The ticker symbol.</param>
+/// <param name="SecType">The security type (e.g., "STK", "OPT").</param>
+/// <param name="ListingExchange">The listing exchange.</param>
 /// <param name="Side">The order side.</param>
-/// <param name="Quantity">The order quantity.</param>
-/// <param name="OrderType">The order type.</param>
-/// <param name="Price">The order price, if applicable.</param>
 /// <param name="Status">The order status.</param>
+/// <param name="OrderCcpStatus">The CCP order status.</param>
+/// <param name="OrderType">The order type.</param>
 /// <param name="FilledQuantity">The filled quantity.</param>
 /// <param name="RemainingQuantity">The remaining quantity.</param>
+/// <param name="TotalSize">The total order size.</param>
+/// <param name="CompanyName">The company name.</param>
+/// <param name="AvgPrice">The average fill price as a string.</param>
+/// <param name="TimeInForce">The time in force.</param>
+/// <param name="OrderDescription">The order description.</param>
 [ExcludeFromCodeCoverage]
 public record LiveOrder(
-    [property: JsonPropertyName("orderId")] string OrderId,
-    [property: JsonPropertyName("conid")] int Conid,
-    [property: JsonPropertyName("symbol")] string Symbol,
+    [property: JsonPropertyName("account")] string? Account,
+    [property: JsonPropertyName("conid")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    int Conid,
+    [property: JsonPropertyName("conidex")] string? ConidEx,
+    [property: JsonPropertyName("orderId")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    int OrderId,
+    [property: JsonPropertyName("ticker")] string? Ticker,
+    [property: JsonPropertyName("secType")] string? SecType,
+    [property: JsonPropertyName("listingExchange")] string? ListingExchange,
     [property: JsonPropertyName("side")] string Side,
-    [property: JsonPropertyName("quantity")] decimal Quantity,
-    [property: JsonPropertyName("orderType")] string OrderType,
-    [property: JsonPropertyName("price")] decimal? Price,
     [property: JsonPropertyName("status")] string Status,
-    [property: JsonPropertyName("filledQuantity")] decimal FilledQuantity,
-    [property: JsonPropertyName("remainingQuantity")] decimal RemainingQuantity);
+    [property: JsonPropertyName("order_ccp_status")] string? OrderCcpStatus,
+    [property: JsonPropertyName("orderType")] string? OrderType,
+    [property: JsonPropertyName("filledQuantity")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal FilledQuantity,
+    [property: JsonPropertyName("remainingQuantity")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal RemainingQuantity,
+    [property: JsonPropertyName("totalSize")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal TotalSize,
+    [property: JsonPropertyName("companyName")] string? CompanyName,
+    [property: JsonPropertyName("avgPrice")] string? AvgPrice,
+    [property: JsonPropertyName("timeInForce")] string? TimeInForce,
+    [property: JsonPropertyName("orderDesc")] string? OrderDescription)
+{
+    /// <summary>Additional unmapped properties from the API response.</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
 
 /// <summary>
 /// A completed trade from the IBKR API.
@@ -240,7 +272,6 @@ public record WhatIfMargin(
     public Dictionary<string, JsonElement>? AdditionalData { get; init; }
 }
 
-#pragma warning disable CA1711 // ConidEx is the IBKR API field name — suffix is not a .NET type convention issue
 /// <summary>
 /// Detailed status for a single order from the IBKR API.
 /// </summary>
