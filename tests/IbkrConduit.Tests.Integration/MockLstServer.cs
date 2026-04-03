@@ -23,12 +23,6 @@ namespace IbkrConduit.Tests.Integration;
 public static class MockLstServer
 {
     /// <summary>
-    /// The Live Session Token bytes derived during the most recent handshake.
-    /// Subsequent API request stubs can use this to validate HMAC-SHA256 signatures.
-    /// </summary>
-    public static byte[]? LastDerivedLst { get; private set; }
-
-    /// <summary>
     /// Registers the LST endpoint handler on the given WireMock server.
     /// The handler performs the server side of the DH exchange using the
     /// same crypto as <see cref="OAuthCrypto"/>.
@@ -71,7 +65,6 @@ public static class MockLstServer
         var (serverPrivateKey, serverPublicKey) = OAuthCrypto.GenerateDhKeyPair(credentials.DhPrime);
 
         var lstBytes = DeriveLiveSessionToken(clientPublicKey, serverPrivateKey, credentials.DhPrime, decryptedSecret);
-        LastDerivedLst = lstBytes;
 
         var signatureHex = ComputeLstSignature(lstBytes, credentials.ConsumerKey);
         var responseBody = BuildResponseBody(serverPublicKey, signatureHex);

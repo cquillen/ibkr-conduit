@@ -1,4 +1,5 @@
 using System;
+using System.Net.Http;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
@@ -38,14 +39,18 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
     /// Creates and initializes a test harness with synthetic credentials,
     /// LST handshake, session init, and the full DI pipeline.
     /// </summary>
-    public static async Task<TestHarness> CreateAsync()
+    /// <summary>
+    /// Creates and initializes a test harness with synthetic credentials,
+    /// LST handshake, session init, and the full DI pipeline.
+    /// </summary>
+    public static Task<TestHarness> CreateAsync()
     {
         var harness = new TestHarness();
-        await harness.InitializeAsync();
-        return harness;
+        harness.Initialize();
+        return Task.FromResult(harness);
     }
 
-    private async Task InitializeAsync()
+    private void Initialize()
     {
         _credentials = TestCredentials.Create();
 
@@ -77,19 +82,17 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
 
         _provider = services.BuildServiceProvider();
         Client = _provider.GetRequiredService<IIbkrClient>();
-
-        await Task.CompletedTask;
     }
 
     /// <summary>
     /// Registers a WireMock stub that requires the standard OAuth Authorization header
     /// with the correct consumer key, access token, and HMAC-SHA256 signature method.
     /// </summary>
-    public void StubAuthenticatedGet(string path, string responseBody) =>
+    public void StubAuthenticated(HttpMethod method, string path, string responseBody) =>
         Server.Given(
             Request.Create()
                 .WithPath(path)
-                .UsingGet()
+                .UsingMethod(method.Method)
                 .WithHeader("Authorization", $"*oauth_consumer_key=\"{TestCredentials.ConsumerKey}\"*")
                 .WithHeader("Authorization", $"*oauth_token=\"{TestCredentials.AccessToken}\"*")
                 .WithHeader("Authorization", "*HMAC-SHA256*"))
@@ -99,23 +102,13 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(responseBody));
 
-    /// <summary>
-    /// Registers a WireMock stub that requires the standard OAuth Authorization header
-    /// with the correct consumer key, access token, and HMAC-SHA256 signature method.
-    /// </summary>
+    /// <summary>Shorthand for <see cref="StubAuthenticated"/> with GET.</summary>
+    public void StubAuthenticatedGet(string path, string responseBody) =>
+        StubAuthenticated(HttpMethod.Get, path, responseBody);
+
+    /// <summary>Shorthand for <see cref="StubAuthenticated"/> with POST.</summary>
     public void StubAuthenticatedPost(string path, string responseBody) =>
-        Server.Given(
-            Request.Create()
-                .WithPath(path)
-                .UsingPost()
-                .WithHeader("Authorization", $"*oauth_consumer_key=\"{TestCredentials.ConsumerKey}\"*")
-                .WithHeader("Authorization", $"*oauth_token=\"{TestCredentials.AccessToken}\"*")
-                .WithHeader("Authorization", "*HMAC-SHA256*"))
-            .RespondWith(
-                Response.Create()
-                    .WithStatusCode(200)
-                    .WithHeader("Content-Type", "application/json")
-                    .WithBody(responseBody));
+        StubAuthenticated(HttpMethod.Post, path, responseBody);
 
     /// <summary>
     /// Verifies that the full auth handshake occurred (LST + ssodh/init).
@@ -164,11 +157,15 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
         {
             await _provider.DisposeAsync();
         }
+
+        Server.Dispose();
+        _credentials?.Dispose();
     }
 
     /// <inheritdoc />
     public void Dispose()
     {
+        _provider?.Dispose();
         Server.Dispose();
         _credentials?.Dispose();
         GC.SuppressFinalize(this);

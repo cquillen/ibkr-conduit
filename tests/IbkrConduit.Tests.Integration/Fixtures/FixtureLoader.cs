@@ -22,7 +22,7 @@ public static class FixtureLoader
     {
         var path = Path.Combine(_fixturesDir, module, $"{name}.json");
         var json = File.ReadAllText(path);
-        var doc = System.Text.Json.JsonDocument.Parse(json);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
         var body = doc.RootElement.GetProperty("Response").GetProperty("Body");
         return body.GetRawText();
     }
