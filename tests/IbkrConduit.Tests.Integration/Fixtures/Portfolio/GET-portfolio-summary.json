@@ -1,0 +1,14 @@
+{
+  "Request": { "Path": "/v1/api/portfolio/U1234567/summary", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "accountcode": { "amount": 0.0, "currency": null, "isNull": false, "timestamp": 1775169606, "value": "U1234567", "severity": 0 },
+      "netliquidation": { "amount": 1005165.5, "currency": "USD", "isNull": false, "timestamp": 1775169606, "value": "1005165.5", "severity": 0 },
+      "buyingpower": { "amount": 3984328.97, "currency": "USD", "isNull": false, "timestamp": 1775169606, "value": "3984328.97", "severity": 0 },
+      "totalcashvalue": { "amount": 971869.6, "currency": "USD", "isNull": false, "timestamp": 1775169606, "value": "971869.6", "severity": 0 },
+      "initmarginreq": { "amount": 15276.38, "currency": "USD", "isNull": false, "timestamp": 1775169606, "value": "15276.38", "severity": 0 }
+    }
+  }
+}
