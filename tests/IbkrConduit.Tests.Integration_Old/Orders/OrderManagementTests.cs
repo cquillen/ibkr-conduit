@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Accounts;
 using IbkrConduit.Alerts;
-using IbkrConduit.Allocation;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
@@ -273,7 +272,7 @@ public class OrderManagementTests : IDisposable
         var orders = new OrderOperations(orderApi, NullLogger<OrderOperations>.Instance);
         var sessionManager = new FakeSessionManager();
 
-        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), new FakeStreamingOperations(), new FakeFlexOperations(), new FakeAccountOperations(), new FakeAlertOperations(), new FakeWatchlistOperations(), new FakeFyiOperations(), new FakeAllocationOperations(), sessionManager);
+        var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), new FakeStreamingOperations(), new FakeFlexOperations(), new FakeAccountOperations(), new FakeAlertOperations(), new FakeWatchlistOperations(), new FakeFyiOperations(), sessionManager);
 
         var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
         accounts.Count.ShouldBe(1);
@@ -552,33 +551,6 @@ public class OrderManagementTests : IDisposable
             throw new NotImplementedException();
 
         public Task<FyiNotificationReadResponse> MarkNotificationReadAsync(string notificationId, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-    }
-
-    private class FakeAllocationOperations : IAllocationOperations
-    {
-        public Task<AllocationAccountsResponse> GetAccountsAsync(CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationGroupListResponse> GetGroupsAsync(CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationSuccessResponse> AddGroupAsync(AllocationGroupRequest request, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationGroupDetail> GetGroupAsync(string name, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationSuccessResponse> DeleteGroupAsync(string name, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationSuccessResponse> ModifyGroupAsync(AllocationGroupRequest request, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationPresetsResponse> GetPresetsAsync(CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationSuccessResponse> SetPresetsAsync(AllocationPresetsRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 
