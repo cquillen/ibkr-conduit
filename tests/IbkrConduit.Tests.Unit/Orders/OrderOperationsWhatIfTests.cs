@@ -5,6 +5,9 @@ using IbkrConduit.Client;
 using IbkrConduit.Orders;
 using Microsoft.Extensions.Logging.Abstractions;
 using Refit;
+using IbkrConduit.Session;
+using IbkrConduit.Tests.Unit.TestHelpers;
+using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Orders;
@@ -16,7 +19,7 @@ public class OrderOperationsWhatIfTests
 
     public OrderOperationsWhatIfTests()
     {
-        _sut = new OrderOperations(_fakeApi, NullLogger<OrderOperations>.Instance);
+        _sut = new OrderOperations(_fakeApi, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance);
     }
 
     [Fact]
@@ -42,14 +45,14 @@ public class OrderOperationsWhatIfTests
 
         var result = await _sut.WhatIfOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
 
-        result.Amount.ShouldNotBeNull();
-        result.Amount.Commission.ShouldBe("1.50");
-        result.Equity.ShouldNotBeNull();
-        result.Equity.Current.ShouldBe("100000.00");
-        result.Initial.ShouldNotBeNull();
-        result.Initial.After.ShouldBe("8000.00");
-        result.Maintenance.ShouldNotBeNull();
-        result.Maintenance.After.ShouldBe("6500.00");
+        result.Value.Amount.ShouldNotBeNull();
+        result.Value.Amount.Commission.ShouldBe("1.50");
+        result.Value.Equity.ShouldNotBeNull();
+        result.Value.Equity.Current.ShouldBe("100000.00");
+        result.Value.Initial.ShouldNotBeNull();
+        result.Value.Initial.After.ShouldBe("8000.00");
+        result.Value.Maintenance.ShouldNotBeNull();
+        result.Value.Maintenance.After.ShouldBe("6500.00");
     }
 
     [Fact]
@@ -86,11 +89,11 @@ public class OrderOperationsWhatIfTests
         public WhatIfResponse? WhatIfResponse { get; set; }
         public OrdersPayload? LastWhatIfPayload { get; private set; }
 
-        public Task<List<OrderSubmissionResponse>> PlaceOrderAsync(
+        public Task<IApiResponse<List<OrderSubmissionResponse>>> PlaceOrderAsync(
             string accountId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<List<OrderSubmissionResponse>> ModifyOrderAsync(
+        public Task<IApiResponse<List<OrderSubmissionResponse>>> ModifyOrderAsync(
             string accountId, string orderId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
@@ -98,23 +101,23 @@ public class OrderOperationsWhatIfTests
             string replyId, ReplyRequest request, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<List<Trade>>> GetTradesAsync(CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<WhatIfResponse> WhatIfOrderAsync(
+        public Task<IApiResponse<WhatIfResponse>> WhatIfOrderAsync(
             string accountId, OrdersPayload orders, CancellationToken cancellationToken = default)
         {
             LastWhatIfPayload = orders;
-            return Task.FromResult(WhatIfResponse!);
+            return Task.FromResult(FakeApiResponse.Success(WhatIfResponse!));
         }
 
-        public Task<OrderStatus> GetOrderStatusAsync(
+        public Task<IApiResponse<OrderStatus>> GetOrderStatusAsync(
             string orderId, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
     }

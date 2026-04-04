@@ -5,7 +5,9 @@ using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.MarketData;
 using IbkrConduit.Session;
+using IbkrConduit.Tests.Unit.TestHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
+using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.MarketData;
@@ -31,8 +33,8 @@ public class MarketDataOperationsTests : IDisposable
 
         var result = await _sut.GetRegulatorySnapshotAsync(265598, TestContext.Current.CancellationToken);
 
-        result.ShouldNotBeNull();
-        result.Conid.ShouldBe(265598);
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Conid.ShouldBe(265598);
     }
 
     [Fact]
@@ -42,7 +44,7 @@ public class MarketDataOperationsTests : IDisposable
 
         var result = await _sut.UnsubscribeAsync(265598, TestContext.Current.CancellationToken);
 
-        result.Success.ShouldBeTrue();
+        result.Value.Success.ShouldBeTrue();
     }
 
     [Fact]
@@ -52,7 +54,7 @@ public class MarketDataOperationsTests : IDisposable
 
         var result = await _sut.UnsubscribeAllAsync(TestContext.Current.CancellationToken);
 
-        result.Unsubscribed.ShouldBeTrue();
+        result.Value.Unsubscribed.ShouldBeTrue();
     }
 
     [Fact]
@@ -65,9 +67,9 @@ public class MarketDataOperationsTests : IDisposable
         var request = new ScannerRequest("STK", "TOP_TRADE_COUNT", "STK.US.MAJOR", null);
         var result = await _sut.RunScannerAsync(request, TestContext.Current.CancellationToken);
 
-        result.Contracts.ShouldNotBeNull();
-        result.Contracts!.Count.ShouldBe(1);
-        result.Contracts[0].Symbol.ShouldBe("AMD");
+        result.Value.Contracts.ShouldNotBeNull();
+        result.Value.Contracts!.Count.ShouldBe(1);
+        result.Value.Contracts[0].Symbol.ShouldBe("AMD");
     }
 
     [Fact]
@@ -77,7 +79,7 @@ public class MarketDataOperationsTests : IDisposable
 
         var result = await _sut.GetScannerParametersAsync(TestContext.Current.CancellationToken);
 
-        result.ShouldNotBeNull();
+        result.IsSuccess.ShouldBeTrue();
     }
 
     [Fact]
@@ -92,10 +94,10 @@ public class MarketDataOperationsTests : IDisposable
             "HIGH_BOND_ASK_YIELD_ALL", "BOND", 25, []);
         var result = await _sut.RunHmdsScannerAsync(request, TestContext.Current.CancellationToken);
 
-        result.ShouldNotBeNull();
-        result.Contracts.ShouldNotBeNull();
-        result.Contracts!.Contract.ShouldNotBeNull();
-        result.Contracts.Contract!.Count.ShouldBe(1);
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Contracts.ShouldNotBeNull();
+        result.Value.Contracts!.Contract.ShouldNotBeNull();
+        result.Value.Contracts.Contract!.Count.ShouldBe(1);
     }
 
     public void Dispose()
@@ -112,38 +114,38 @@ public class MarketDataOperationsTests : IDisposable
         public ScannerParameters? ScannerParametersValue { get; set; }
         public HmdsScannerResponse? HmdsScannerResponseValue { get; set; }
 
-        public Task<List<MarketDataSnapshotRaw>> GetSnapshotAsync(
+        public Task<IApiResponse<List<MarketDataSnapshotRaw>>> GetSnapshotAsync(
             string conids, string fields, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new List<MarketDataSnapshotRaw>());
+            Task.FromResult(FakeApiResponse.Success(new List<MarketDataSnapshotRaw>()));
 
-        public Task<HistoricalDataResponse> GetHistoryAsync(
+        public Task<IApiResponse<HistoricalDataResponse>> GetHistoryAsync(
             string conid, string period, string bar, bool? outsideRth = null,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(new HistoricalDataResponse("SPY", "SPY", null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+            Task.FromResult(FakeApiResponse.Success(new HistoricalDataResponse("SPY", "SPY", null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null)));
 
-        public Task<MarketDataSnapshotRaw> GetRegulatorySnapshotAsync(
+        public Task<IApiResponse<MarketDataSnapshotRaw>> GetRegulatorySnapshotAsync(
             int conid, CancellationToken cancellationToken = default) =>
-            Task.FromResult(RegulatorySnapshotResponse!);
+            Task.FromResult(FakeApiResponse.Success(RegulatorySnapshotResponse!));
 
-        public Task<UnsubscribeResponse> UnsubscribeAsync(
+        public Task<IApiResponse<UnsubscribeResponse>> UnsubscribeAsync(
             UnsubscribeRequest request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(UnsubscribeResponseValue!);
+            Task.FromResult(FakeApiResponse.Success(UnsubscribeResponseValue!));
 
-        public Task<UnsubscribeAllResponse> UnsubscribeAllAsync(
+        public Task<IApiResponse<UnsubscribeAllResponse>> UnsubscribeAllAsync(
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(UnsubscribeAllResponseValue!);
+            Task.FromResult(FakeApiResponse.Success(UnsubscribeAllResponseValue!));
 
-        public Task<ScannerResponse> RunScannerAsync(
+        public Task<IApiResponse<ScannerResponse>> RunScannerAsync(
             ScannerRequest request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(ScannerResponseValue!);
+            Task.FromResult(FakeApiResponse.Success(ScannerResponseValue!));
 
-        public Task<ScannerParameters> GetScannerParametersAsync(
+        public Task<IApiResponse<ScannerParameters>> GetScannerParametersAsync(
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(ScannerParametersValue!);
+            Task.FromResult(FakeApiResponse.Success(ScannerParametersValue!));
 
-        public Task<HmdsScannerResponse> RunHmdsScannerAsync(
+        public Task<IApiResponse<HmdsScannerResponse>> RunHmdsScannerAsync(
             HmdsScannerRequest request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(HmdsScannerResponseValue!);
+            Task.FromResult(FakeApiResponse.Success(HmdsScannerResponseValue!));
     }
 }

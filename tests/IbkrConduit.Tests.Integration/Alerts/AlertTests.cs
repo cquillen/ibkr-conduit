@@ -26,7 +26,7 @@ public class AlertTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/DU9999999/alerts",
             FixtureLoader.LoadBody("Alerts", "GET-alerts-list"));
 
-        var result = await _harness.Client.Alerts.GetAlertsAsync("DU9999999", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Alerts.GetAlertsAsync("DU9999999", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(2);
@@ -57,7 +57,7 @@ public class AlertTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/mta",
             FixtureLoader.LoadBody("Alerts", "GET-mta-alert"));
 
-        var result = await _harness.Client.Alerts.GetMtaAlertAsync(TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Alerts.GetMtaAlertAsync(TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -79,7 +79,7 @@ public class AlertTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/alert/100001",
             FixtureLoader.LoadBody("Alerts", "GET-alert-detail"));
 
-        var result = await _harness.Client.Alerts.GetAlertDetailAsync("100001", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Alerts.GetAlertDetailAsync("100001", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Account.ShouldBe("DU9999999");
@@ -141,7 +141,7 @@ public class AlertTests : IAsyncLifetime, IDisposable
                 new(Type: 1, Conidex: "265598", Operator: ">=", TriggerMethod: "0", Value: "500"),
             });
 
-        var result = await _harness.Client.Alerts.CreateOrModifyAlertAsync("DU9999999", request, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Alerts.CreateOrModifyAlertAsync("DU9999999", request, TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.RequestId.ShouldBe(1);
@@ -163,7 +163,7 @@ public class AlertTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("Alerts", "POST-activate-alert"));
 
         var request = new AlertActivationRequest(AlertId: 100001, AlertActive: 1);
-        var result = await _harness.Client.Alerts.ActivateAlertAsync("DU9999999", request, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Alerts.ActivateAlertAsync("DU9999999", request, TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.RequestId.ShouldBe(2);
@@ -184,7 +184,7 @@ public class AlertTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/DU9999999/alert/100001",
             FixtureLoader.LoadBody("Alerts", "DELETE-alert"));
 
-        var result = await _harness.Client.Alerts.DeleteAlertAsync("DU9999999", "100001", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Alerts.DeleteAlertAsync("DU9999999", "100001", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.RequestId.ShouldBe(3);
@@ -223,7 +223,7 @@ public class AlertTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Alerts", "GET-alerts-list")));
 
-        var result = await _harness.Client.Alerts.GetAlertsAsync("DU9999999", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Alerts.GetAlertsAsync("DU9999999", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(2);
@@ -257,7 +257,7 @@ public class AlertTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Alerts", "GET-mta-alert")));
 
-        var result = await _harness.Client.Alerts.GetMtaAlertAsync(TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Alerts.GetMtaAlertAsync(TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -291,7 +291,7 @@ public class AlertTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Alerts", "GET-alert-detail")));
 
-        var result = await _harness.Client.Alerts.GetAlertDetailAsync("100001", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Alerts.GetAlertDetailAsync("100001", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.AlertName.ShouldBe("SPY Price Alert");
@@ -334,7 +334,7 @@ public class AlertTests : IAsyncLifetime, IDisposable
             Tif: "GTC",
             Conditions: new List<AlertCondition>());
 
-        var result = await _harness.Client.Alerts.CreateOrModifyAlertAsync("DU9999999", request, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Alerts.CreateOrModifyAlertAsync("DU9999999", request, TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Success.ShouldBeTrue();
@@ -369,7 +369,7 @@ public class AlertTests : IAsyncLifetime, IDisposable
                     .WithBody(FixtureLoader.LoadBody("Alerts", "POST-activate-alert")));
 
         var request = new AlertActivationRequest(AlertId: 100001, AlertActive: 1);
-        var result = await _harness.Client.Alerts.ActivateAlertAsync("DU9999999", request, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Alerts.ActivateAlertAsync("DU9999999", request, TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Success.ShouldBeTrue();
@@ -403,7 +403,7 @@ public class AlertTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Alerts", "DELETE-alert")));
 
-        var result = await _harness.Client.Alerts.DeleteAlertAsync("DU9999999", "100001", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Alerts.DeleteAlertAsync("DU9999999", "100001", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Success.ShouldBeTrue();

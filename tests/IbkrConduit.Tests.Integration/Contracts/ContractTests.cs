@@ -24,8 +24,8 @@ public class ContractTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/secdef/search",
             FixtureLoader.LoadBody("Contracts", "GET-secdef-search"));
 
-        var results = await _harness.Client.Contracts.SearchBySymbolAsync(
-            "SPY", TestContext.Current.CancellationToken);
+        var results = (await _harness.Client.Contracts.SearchBySymbolAsync(
+            "SPY", TestContext.Current.CancellationToken)).Value;
 
         results.ShouldNotBeEmpty();
         results.Count.ShouldBe(2);
@@ -69,8 +69,8 @@ public class ContractTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Contracts", "GET-secdef-search")));
 
-        var results = await _harness.Client.Contracts.SearchBySymbolAsync(
-            "SPY", TestContext.Current.CancellationToken);
+        var results = (await _harness.Client.Contracts.SearchBySymbolAsync(
+            "SPY", TestContext.Current.CancellationToken)).Value;
 
         results.ShouldNotBeEmpty();
         _harness.VerifyReauthenticationOccurred();
@@ -83,8 +83,8 @@ public class ContractTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/contract/756733/info",
             FixtureLoader.LoadBody("Contracts", "GET-contract-info"));
 
-        var details = await _harness.Client.Contracts.GetContractDetailsAsync(
-            "756733", TestContext.Current.CancellationToken);
+        var details = (await _harness.Client.Contracts.GetContractDetailsAsync(
+            "756733", TestContext.Current.CancellationToken)).Value;
 
         details.ShouldNotBeNull();
         details.Conid.ShouldBe(756733);
@@ -124,8 +124,8 @@ public class ContractTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Contracts", "GET-contract-info")));
 
-        var details = await _harness.Client.Contracts.GetContractDetailsAsync(
-            "756733", TestContext.Current.CancellationToken);
+        var details = (await _harness.Client.Contracts.GetContractDetailsAsync(
+            "756733", TestContext.Current.CancellationToken)).Value;
 
         details.Conid.ShouldBe(756733);
         _harness.VerifyReauthenticationOccurred();
@@ -138,8 +138,8 @@ public class ContractTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/secdef/strikes",
             FixtureLoader.LoadBody("Contracts", "GET-secdef-strikes"));
 
-        var strikes = await _harness.Client.Contracts.GetOptionStrikesAsync(
-            "756733", "OPT", "202701", cancellationToken: TestContext.Current.CancellationToken);
+        var strikes = (await _harness.Client.Contracts.GetOptionStrikesAsync(
+            "756733", "OPT", "202701", cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         strikes.ShouldNotBeNull();
         strikes.Call.ShouldNotBeEmpty();
@@ -158,9 +158,9 @@ public class ContractTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/contract/rules",
             FixtureLoader.LoadBody("Contracts", "POST-contract-rules"));
 
-        var rules = await _harness.Client.Contracts.GetTradingRulesAsync(
+        var rules = (await _harness.Client.Contracts.GetTradingRulesAsync(
             new TradingRulesRequest(756733, null, true, null, null),
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken)).Value;
 
         rules.ShouldNotBeNull();
         rules.DefaultSize.ShouldBe(100m);
@@ -201,9 +201,9 @@ public class ContractTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Contracts", "POST-contract-rules")));
 
-        var rules = await _harness.Client.Contracts.GetTradingRulesAsync(
+        var rules = (await _harness.Client.Contracts.GetTradingRulesAsync(
             new TradingRulesRequest(756733, null, true, null, null),
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken)).Value;
 
         rules.DefaultSize.ShouldBe(100m);
         _harness.VerifyReauthenticationOccurred();
@@ -216,8 +216,8 @@ public class ContractTests : IAsyncLifetime, IDisposable
             "/v1/api/trsrv/secdef",
             FixtureLoader.LoadBody("Contracts", "GET-trsrv-secdef"));
 
-        var result = await _harness.Client.Contracts.GetSecurityDefinitionsByConidAsync(
-            "756733", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Contracts.GetSecurityDefinitionsByConidAsync(
+            "756733", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Secdef.ShouldNotBeEmpty();
@@ -238,8 +238,8 @@ public class ContractTests : IAsyncLifetime, IDisposable
             "/v1/api/trsrv/all-conids",
             FixtureLoader.LoadBody("Contracts", "GET-trsrv-all-conids"));
 
-        var conids = await _harness.Client.Contracts.GetAllConidsByExchangeAsync(
-            "NASDAQ", TestContext.Current.CancellationToken);
+        var conids = (await _harness.Client.Contracts.GetAllConidsByExchangeAsync(
+            "NASDAQ", TestContext.Current.CancellationToken)).Value;
 
         conids.ShouldNotBeEmpty();
         conids.Count.ShouldBe(5);
@@ -257,8 +257,8 @@ public class ContractTests : IAsyncLifetime, IDisposable
             "/v1/api/trsrv/futures",
             FixtureLoader.LoadBody("Contracts", "GET-trsrv-futures"));
 
-        var futures = await _harness.Client.Contracts.GetFuturesBySymbolAsync(
-            "ES", TestContext.Current.CancellationToken);
+        var futures = (await _harness.Client.Contracts.GetFuturesBySymbolAsync(
+            "ES", TestContext.Current.CancellationToken)).Value;
 
         futures.ShouldContainKey("ES");
         futures["ES"].ShouldNotBeEmpty();
@@ -280,8 +280,8 @@ public class ContractTests : IAsyncLifetime, IDisposable
             "/v1/api/trsrv/stocks",
             FixtureLoader.LoadBody("Contracts", "GET-trsrv-stocks"));
 
-        var stocks = await _harness.Client.Contracts.GetStocksBySymbolAsync(
-            "AAPL", TestContext.Current.CancellationToken);
+        var stocks = (await _harness.Client.Contracts.GetStocksBySymbolAsync(
+            "AAPL", TestContext.Current.CancellationToken)).Value;
 
         stocks.ShouldContainKey("AAPL");
         stocks["AAPL"].ShouldNotBeEmpty();
@@ -304,8 +304,8 @@ public class ContractTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/currency/pairs",
             FixtureLoader.LoadBody("Contracts", "GET-currency-pairs"));
 
-        var pairs = await _harness.Client.Contracts.GetCurrencyPairsAsync(
-            "USD", TestContext.Current.CancellationToken);
+        var pairs = (await _harness.Client.Contracts.GetCurrencyPairsAsync(
+            "USD", TestContext.Current.CancellationToken)).Value;
 
         pairs.ShouldContainKey("USD");
         pairs["USD"].ShouldNotBeEmpty();
@@ -325,8 +325,8 @@ public class ContractTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/exchangerate",
             FixtureLoader.LoadBody("Contracts", "GET-exchangerate"));
 
-        var result = await _harness.Client.Contracts.GetExchangeRateAsync(
-            "USD", "EUR", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Contracts.GetExchangeRateAsync(
+            "USD", "EUR", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Rate.ShouldBe(0.86656614m);
@@ -360,8 +360,8 @@ public class ContractTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Contracts", "GET-exchangerate")));
 
-        var result = await _harness.Client.Contracts.GetExchangeRateAsync(
-            "USD", "EUR", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Contracts.GetExchangeRateAsync(
+            "USD", "EUR", TestContext.Current.CancellationToken)).Value;
 
         result.Rate.ShouldBe(0.86656614m);
         _harness.VerifyReauthenticationOccurred();

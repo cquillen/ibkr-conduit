@@ -26,7 +26,7 @@ public class AuthFailureTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task Request_401AfterReauth_ThrowsSessionException()
+    public async Task Request_401AfterReauth_ReturnsFailureResult()
     {
         _harness = await CreateInitializedHarnessAsync();
 
@@ -40,15 +40,16 @@ public class AuthFailureTests : IAsyncDisposable
                     .WithStatusCode(401)
                     .WithBody("Unauthorized"));
 
-        var ex = await Should.ThrowAsync<IbkrSessionException>(
-            _harness.Client.Accounts.GetAccountsAsync(TestContext.Current.CancellationToken));
+        // Under Result pattern, persistent 401 after re-auth returns a failed Result
+        var result = await _harness.Client.Accounts.GetAccountsAsync(TestContext.Current.CancellationToken);
 
-        ex.Message.ShouldContain("Re-authentication succeeded but request still unauthorized");
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<IbkrApiError>();
         _harness.VerifyReauthenticationOccurred();
     }
 
     [Fact]
-    public async Task Request_ReauthLstFails_ThrowsSessionException()
+    public async Task Request_ReauthLstFails_ThrowsIbkrApiException()
     {
         _harness = await CreateInitializedHarnessAsync();
 
@@ -72,14 +73,15 @@ public class AuthFailureTests : IAsyncDisposable
                     .WithStatusCode(401)
                     .WithBody("Unauthorized"));
 
-        var ex = await Should.ThrowAsync<IbkrSessionException>(
+        var ex = await Should.ThrowAsync<IbkrApiException>(
             _harness.Client.Accounts.GetAccountsAsync(TestContext.Current.CancellationToken));
 
+        ex.Error.ShouldBeOfType<IbkrSessionError>();
         ex.InnerException.ShouldNotBeNull();
     }
 
     [Fact]
-    public async Task Request_ReauthSsodhInitFails_ThrowsSessionException()
+    public async Task Request_ReauthSsodhInitFails_ThrowsIbkrApiException()
     {
         _harness = await CreateInitializedHarnessAsync();
 
@@ -104,9 +106,10 @@ public class AuthFailureTests : IAsyncDisposable
                     .WithStatusCode(401)
                     .WithBody("Unauthorized"));
 
-        var ex = await Should.ThrowAsync<IbkrSessionException>(
+        var ex = await Should.ThrowAsync<IbkrApiException>(
             _harness.Client.Accounts.GetAccountsAsync(TestContext.Current.CancellationToken));
 
+        ex.Error.ShouldBeOfType<IbkrSessionError>();
         ex.InnerException.ShouldNotBeNull();
     }
 

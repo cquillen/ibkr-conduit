@@ -107,12 +107,18 @@ internal sealed class RefitEndpointMap
 
         var innerType = returnType.GetGenericArguments()[0];
 
-        // IApiResponse<string> -- raw string response, skip
-        if (innerType.IsGenericType &&
-            innerType.GetGenericTypeDefinition() == typeof(IApiResponse<>) &&
-            innerType.GetGenericArguments()[0] == typeof(string))
+        // Unwrap IApiResponse<T> -> T
+        if (innerType.IsGenericType && innerType.GetGenericTypeDefinition() == typeof(IApiResponse<>))
         {
-            return null;
+            var apiResponseInner = innerType.GetGenericArguments()[0];
+
+            // IApiResponse<string> -- raw string response, skip
+            if (apiResponseInner == typeof(string))
+            {
+                return null;
+            }
+
+            innerType = apiResponseInner;
         }
 
         // List<T> -- validate element type T

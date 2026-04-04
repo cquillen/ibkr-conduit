@@ -35,8 +35,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
             Tif = "GTC",
         };
 
-        var result = await _harness.Client.Orders.PlaceOrderAsync(
-            "U1234567", order, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken)).Value;
 
         result.IsT0.ShouldBeTrue("Expected OrderSubmitted but got OrderConfirmationRequired");
         var submitted = result.AsT0;
@@ -65,8 +65,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
             Tif = "GTC",
         };
 
-        var result = await _harness.Client.Orders.PlaceOrderAsync(
-            "U1234567", order, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken)).Value;
 
         result.IsT1.ShouldBeTrue("Expected OrderConfirmationRequired but got OrderSubmitted");
         var confirmation = result.AsT1;
@@ -75,8 +75,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
         confirmation.Messages[0].ShouldContain("without market data");
         confirmation.MessageIds.ShouldContain("o354");
 
-        var replyResult = await _harness.Client.Orders.ReplyAsync(
-            confirmation.ReplyId, true, TestContext.Current.CancellationToken);
+        var replyResult = (await _harness.Client.Orders.ReplyAsync(
+            confirmation.ReplyId, true, TestContext.Current.CancellationToken)).Value;
 
         replyResult.IsT0.ShouldBeTrue("Expected OrderSubmitted after confirmation");
         var submitted = replyResult.AsT0;
@@ -130,12 +130,12 @@ public class OrderTests : IAsyncLifetime, IDisposable
             Tif = "GTC",
         };
 
-        var placeResult = await _harness.Client.Orders.PlaceOrderAsync(
-            "U1234567", order, TestContext.Current.CancellationToken);
+        var placeResult = (await _harness.Client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken)).Value;
         placeResult.IsT1.ShouldBeTrue();
 
-        var replyResult = await _harness.Client.Orders.ReplyAsync(
-            placeResult.AsT1.ReplyId, true, TestContext.Current.CancellationToken);
+        var replyResult = (await _harness.Client.Orders.ReplyAsync(
+            placeResult.AsT1.ReplyId, true, TestContext.Current.CancellationToken)).Value;
 
         replyResult.IsT0.ShouldBeTrue("Expected OrderSubmitted after 401 recovery on reply");
         replyResult.AsT0.OrderId.ShouldBe("987654321");
@@ -179,8 +179,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
             Tif = "GTC",
         };
 
-        var result = await _harness.Client.Orders.PlaceOrderAsync(
-            "U1234567", order, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken)).Value;
 
         result.IsT0.ShouldBeTrue("Expected OrderSubmitted after 401 recovery");
         result.AsT0.OrderId.ShouldBe("123456789");
@@ -197,8 +197,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/orders",
             FixtureLoader.LoadBody("Orders", "GET-live-orders"));
 
-        var result = await _harness.Client.Orders.GetLiveOrdersAsync(
-            TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.GetLiveOrdersAsync(
+            TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -233,8 +233,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/orders",
             FixtureLoader.LoadBody("Orders", "GET-live-orders-empty"));
 
-        var result = await _harness.Client.Orders.GetLiveOrdersAsync(
-            TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.GetLiveOrdersAsync(
+            TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.ShouldBeEmpty();
@@ -268,8 +268,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Orders", "GET-live-orders")));
 
-        var result = await _harness.Client.Orders.GetLiveOrdersAsync(
-            TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.GetLiveOrdersAsync(
+            TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -287,8 +287,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/order/status/473740665",
             FixtureLoader.LoadBody("Orders", "GET-order-status"));
 
-        var result = await _harness.Client.Orders.GetOrderStatusAsync(
-            "473740665", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.GetOrderStatusAsync(
+            "473740665", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.OrderId.ShouldBe(473740665);
@@ -337,8 +337,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Orders", "GET-order-status")));
 
-        var result = await _harness.Client.Orders.GetOrderStatusAsync(
-            "473740665", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.GetOrderStatusAsync(
+            "473740665", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.OrderId.ShouldBe(473740665);
@@ -356,8 +356,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/trades",
             FixtureLoader.LoadBody("Orders", "GET-trades-empty"));
 
-        var result = await _harness.Client.Orders.GetTradesAsync(
-            TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.GetTradesAsync(
+            TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.ShouldBeEmpty();
@@ -391,8 +391,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Orders", "GET-trades")));
 
-        var result = await _harness.Client.Orders.GetTradesAsync(
-            TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.GetTradesAsync(
+            TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -411,8 +411,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/U1234567/order/602801486",
             FixtureLoader.LoadBody("Orders", "DELETE-cancel-order"));
 
-        var result = await _harness.Client.Orders.CancelOrderAsync(
-            "U1234567", "602801486", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.CancelOrderAsync(
+            "U1234567", "602801486", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Message.ShouldBe("Request was submitted");
@@ -448,8 +448,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Orders", "DELETE-cancel-order")));
 
-        var result = await _harness.Client.Orders.CancelOrderAsync(
-            "U1234567", "602801486", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.CancelOrderAsync(
+            "U1234567", "602801486", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Message.ShouldBe("Request was submitted");
@@ -477,8 +477,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
             Tif = "GTC",
         };
 
-        var result = await _harness.Client.Orders.WhatIfOrderAsync(
-            "U1234567", order, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.WhatIfOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
 
@@ -545,8 +545,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
             Tif = "GTC",
         };
 
-        var result = await _harness.Client.Orders.WhatIfOrderAsync(
-            "U1234567", order, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.WhatIfOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Amount.ShouldNotBeNull();
@@ -574,8 +574,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
             Tif = "GTC",
         };
 
-        var result = await _harness.Client.Orders.ModifyOrderAsync(
-            "U1234567", "473740665", order, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.ModifyOrderAsync(
+            "U1234567", "473740665", order, TestContext.Current.CancellationToken)).Value;
 
         result.IsT0.ShouldBeTrue("Expected OrderSubmitted but got OrderConfirmationRequired");
         var submitted = result.AsT0;
@@ -621,8 +621,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
             Tif = "GTC",
         };
 
-        var result = await _harness.Client.Orders.ModifyOrderAsync(
-            "U1234567", "473740665", order, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Orders.ModifyOrderAsync(
+            "U1234567", "473740665", order, TestContext.Current.CancellationToken)).Value;
 
         result.IsT0.ShouldBeTrue("Expected OrderSubmitted after 401 recovery");
         result.AsT0.OrderId.ShouldBe("555666777");
