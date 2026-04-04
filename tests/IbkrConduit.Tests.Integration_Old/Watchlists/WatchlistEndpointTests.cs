@@ -44,7 +44,7 @@ public class WatchlistEndpointTests : IDisposable
                 new(C: 265598, H: "AAPL"),
             });
 
-        var result = await api.CreateWatchlistAsync(request, TestContext.Current.CancellationToken);
+        var result = await api.CreateWatchlistAsync(request, TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Id.ShouldBe("99999");
@@ -87,7 +87,7 @@ public class WatchlistEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrWatchlistApi>();
 
-        var result = await api.GetWatchlistsAsync(cancellationToken: TestContext.Current.CancellationToken);
+        var result = await api.GetWatchlistsAsync(cancellationToken: TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Data.UserLists.Count.ShouldBe(1);
@@ -123,7 +123,7 @@ public class WatchlistEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrWatchlistApi>();
 
-        var result = await api.GetWatchlistAsync("wl1", TestContext.Current.CancellationToken);
+        var result = await api.GetWatchlistAsync("wl1", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Id.ShouldBe("wl1");
@@ -149,7 +149,7 @@ public class WatchlistEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrWatchlistApi>();
 
-        var result = await api.DeleteWatchlistAsync("wl1", TestContext.Current.CancellationToken);
+        var result = await api.DeleteWatchlistAsync("wl1", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Data.Deleted.ShouldBe("wl1");

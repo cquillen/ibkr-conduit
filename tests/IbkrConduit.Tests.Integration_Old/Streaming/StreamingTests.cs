@@ -29,7 +29,7 @@ public class StreamingTests
         var client = provider.GetRequiredService<IIbkrClient>();
 
         // First make a REST call to ensure brokerage session is initialized
-        var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = (await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken)).Value;
         accounts.ShouldNotBeNull();
         accounts.ShouldNotBeEmpty();
 

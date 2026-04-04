@@ -7,6 +7,7 @@ using IbkrConduit.Accounts;
 using IbkrConduit.Alerts;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Contracts;
 using IbkrConduit.Flex;
 using IbkrConduit.Fyi;
@@ -69,7 +70,7 @@ public class OrderManagementTests : IDisposable
             Tif = "DAY",
         };
 
-        var result = await ops.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
+        var result = await ops.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken).Content!;
 
         result.AsT0.OrderId.ShouldBe("12345");
         result.AsT0.OrderStatus.ShouldBe("PreSubmitted");
@@ -110,7 +111,7 @@ public class OrderManagementTests : IDisposable
             Tif = "GTC",
         };
 
-        var result = await ops.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
+        var result = await ops.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken).Content!;
 
         var confirmation = result.AsT1;
         confirmation.ReplyId.ShouldBe("reply-abc");
@@ -139,7 +140,7 @@ public class OrderManagementTests : IDisposable
         var api = CreateRefitClient<IIbkrOrderApi>();
         var ops = new OrderOperations(api, NullLogger<OrderOperations>.Instance);
 
-        var result = await ops.ReplyAsync("reply-xyz", true, TestContext.Current.CancellationToken);
+        var result = await ops.ReplyAsync("reply-xyz", true, TestContext.Current.CancellationToken).Content!;
 
         result.AsT0.OrderId.ShouldBe("99999");
         result.AsT0.OrderStatus.ShouldBe("Submitted");
@@ -167,7 +168,7 @@ public class OrderManagementTests : IDisposable
         var api = CreateRefitClient<IIbkrOrderApi>();
         var ops = new OrderOperations(api, NullLogger<OrderOperations>.Instance);
 
-        var result = await ops.CancelOrderAsync("DU1234567", "12345", TestContext.Current.CancellationToken);
+        var result = await ops.CancelOrderAsync("DU1234567", "12345", TestContext.Current.CancellationToken).Content!;
 
         result.OrderId.ShouldBe(12345);
         result.Conid.ShouldBe(265598);
@@ -208,9 +209,9 @@ public class OrderManagementTests : IDisposable
                         """));
 
         var api = CreateRefitClient<IIbkrContractApi>();
-        var ops = new ContractOperations(api);
+        var ops = new ContractOperations(api, new IbkrClientOptions());
 
-        var result = await ops.SearchBySymbolAsync("AAPL", TestContext.Current.CancellationToken);
+        var result = await ops.SearchBySymbolAsync("AAPL", TestContext.Current.CancellationToken).Content!;
 
         result.Count.ShouldBe(1);
         result[0].Conid.ShouldBe(265598);
@@ -267,18 +268,18 @@ public class OrderManagementTests : IDisposable
         var contractApi = CreateRefitClient<IIbkrContractApi>();
         var orderApi = CreateRefitClient<IIbkrOrderApi>();
 
-        var portfolio = new PortfolioOperations(portfolioApi);
-        var contracts = new ContractOperations(contractApi);
+        var portfolio = new PortfolioOperations(portfolioApi, new IbkrClientOptions());
+        var contracts = new ContractOperations(contractApi, new IbkrClientOptions());
         var orders = new OrderOperations(orderApi, NullLogger<OrderOperations>.Instance);
         var sessionManager = new FakeSessionManager();
 
         var client = new IbkrClient(portfolio, contracts, orders, new FakeMarketDataOperations(), new FakeStreamingOperations(), new FakeFlexOperations(), new FakeAccountOperations(), new FakeAlertOperations(), new FakeWatchlistOperations(), new FakeFyiOperations(), sessionManager);
 
-        var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = (await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken)).Value;
         accounts.Count.ShouldBe(1);
         accounts[0].Id.ShouldBe("DU1234567");
 
-        var searchResults = await client.Contracts.SearchBySymbolAsync("MSFT", TestContext.Current.CancellationToken);
+        var searchResults = (await client.Contracts.SearchBySymbolAsync("MSFT", TestContext.Current.CancellationToken)).Value;
         searchResults.Count.ShouldBe(1);
         searchResults[0].Symbol.ShouldBe("MSFT");
     }
@@ -299,12 +300,12 @@ public class OrderManagementTests : IDisposable
         await using var provider = services.BuildServiceProvider();
         var client = provider.GetRequiredService<IIbkrClient>();
 
-        var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = (await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken)).Value;
         accounts.ShouldNotBeNull();
         accounts.ShouldNotBeEmpty();
         accounts[0].Id.ShouldNotBeNullOrWhiteSpace();
 
-        var searchResults = await client.Contracts.SearchBySymbolAsync("AAPL", TestContext.Current.CancellationToken);
+        var searchResults = (await client.Contracts.SearchBySymbolAsync("AAPL", TestContext.Current.CancellationToken)).Value;
         searchResults.ShouldNotBeNull();
         searchResults.ShouldNotBeEmpty();
         searchResults[0].Conid.ShouldBeGreaterThan(0);
@@ -327,13 +328,13 @@ public class OrderManagementTests : IDisposable
         var client = provider.GetRequiredService<IIbkrClient>();
 
         // Get account ID
-        var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = (await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken)).Value;
         accounts.ShouldNotBeNull();
         accounts.ShouldNotBeEmpty();
         var accountId = accounts[0].Id;
 
         // Look up SPY conid
-        var spyResults = await client.Contracts.SearchBySymbolAsync("SPY", TestContext.Current.CancellationToken);
+        var spyResults = (await client.Contracts.SearchBySymbolAsync("SPY", TestContext.Current.CancellationToken)).Value;
         spyResults.ShouldNotBeNull();
         spyResults.ShouldNotBeEmpty();
         var spyConid = spyResults[0].Conid;
@@ -349,7 +350,7 @@ public class OrderManagementTests : IDisposable
             Tif = "DAY",
         };
 
-        var result = await client.Orders.PlaceOrderAsync(accountId, order, TestContext.Current.CancellationToken);
+        var result = (await client.Orders.PlaceOrderAsync(accountId, order, TestContext.Current.CancellationToken)).Value;
 
         // The result may be either a submitted order or a confirmation request
         result.Switch(
@@ -398,35 +399,35 @@ public class OrderManagementTests : IDisposable
 
     private class FakeMarketDataOperations : IMarketDataOperations
     {
-        public Task<List<MarketDataSnapshot>> GetSnapshotAsync(int[] conids, string[] fields,
+        public Task<Result<List<MarketDataSnapshot>>> GetSnapshotAsync(int[] conids, string[] fields,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(new List<MarketDataSnapshot>());
+            Task.FromResult(Result<List<MarketDataSnapshot>>.Success(new List<MarketDataSnapshot>()));
 
-        public Task<HistoricalDataResponse> GetHistoryAsync(int conid, string period, string bar,
+        public Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, string period, string bar,
             bool? outsideRth = null, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<MarketDataSnapshot> GetRegulatorySnapshotAsync(int conid,
+        public Task<Result<MarketDataSnapshot>> GetRegulatorySnapshotAsync(int conid,
             CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<UnsubscribeResponse> UnsubscribeAsync(int conid,
+        public Task<Result<UnsubscribeResponse>> UnsubscribeAsync(int conid,
             CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<UnsubscribeAllResponse> UnsubscribeAllAsync(
+        public Task<Result<UnsubscribeAllResponse>> UnsubscribeAllAsync(
             CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<ScannerResponse> RunScannerAsync(ScannerRequest request,
+        public Task<Result<ScannerResponse>> RunScannerAsync(ScannerRequest request,
             CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<ScannerParameters> GetScannerParametersAsync(
+        public Task<Result<ScannerParameters>> GetScannerParametersAsync(
             CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<HmdsScannerResponse> RunHmdsScannerAsync(HmdsScannerRequest request,
+        public Task<Result<HmdsScannerResponse>> RunHmdsScannerAsync(HmdsScannerRequest request,
             CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
@@ -463,109 +464,109 @@ public class OrderManagementTests : IDisposable
 
     private class FakeAccountOperations : IAccountOperations
     {
-        public Task<IserverAccountsResponse> GetAccountsAsync(CancellationToken cancellationToken = default) =>
+        public Task<Result<IserverAccountsResponse>> GetAccountsAsync(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<SwitchAccountResponse> SwitchAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
+        public Task<Result<SwitchAccountResponse>> SwitchAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<SignaturesAndOwnersResponse> GetSignaturesAndOwnersAsync(string accountId, CancellationToken cancellationToken = default) =>
+        public Task<Result<SignaturesAndOwnersResponse>> GetSignaturesAndOwnersAsync(string accountId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<DynamicAccountSearchResponse> SearchDynamicAccountAsync(string pattern, CancellationToken cancellationToken = default) =>
+        public Task<Result<DynamicAccountSearchResponse>> SearchDynamicAccountAsync(string pattern, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<SetDynamicAccountResponse> SetDynamicAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
+        public Task<Result<SetDynamicAccountResponse>> SetDynamicAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<AccountSummaryOverview> GetAccountSummaryAsync(string accountId, CancellationToken cancellationToken = default) =>
+        public Task<Result<AccountSummaryOverview>> GetAccountSummaryAsync(string accountId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryAvailableFundsAsync(string accountId, CancellationToken cancellationToken = default) =>
+        public Task<Result<Dictionary<string, Dictionary<string, string>>>> GetAccountSummaryAvailableFundsAsync(string accountId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryBalancesAsync(string accountId, CancellationToken cancellationToken = default) =>
+        public Task<Result<Dictionary<string, Dictionary<string, string>>>> GetAccountSummaryBalancesAsync(string accountId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarginsAsync(string accountId, CancellationToken cancellationToken = default) =>
+        public Task<Result<Dictionary<string, Dictionary<string, string>>>> GetAccountSummaryMarginsAsync(string accountId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarketValueAsync(string accountId, CancellationToken cancellationToken = default) =>
+        public Task<Result<Dictionary<string, Dictionary<string, string>>>> GetAccountSummaryMarketValueAsync(string accountId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 
     private class FakeAlertOperations : IAlertOperations
     {
-        public Task<CreateAlertResponse> CreateOrModifyAlertAsync(string accountId, CreateAlertRequest request, CancellationToken cancellationToken = default) =>
+        public Task<Result<CreateAlertResponse>> CreateOrModifyAlertAsync(string accountId, CreateAlertRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<List<AlertSummary>> GetAlertsAsync(string accountId, CancellationToken cancellationToken = default) =>
+        public Task<Result<List<AlertSummary>>> GetAlertsAsync(string accountId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<List<AlertSummary>> GetMtaAlertAsync(CancellationToken cancellationToken = default) =>
+        public Task<Result<List<AlertSummary>>> GetMtaAlertAsync(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<AlertDetail> GetAlertDetailAsync(string alertId, CancellationToken cancellationToken = default) =>
+        public Task<Result<AlertDetail>> GetAlertDetailAsync(string alertId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<AlertActivationResponse> ActivateAlertAsync(string accountId, AlertActivationRequest request, CancellationToken cancellationToken = default) =>
+        public Task<Result<AlertActivationResponse>> ActivateAlertAsync(string accountId, AlertActivationRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<DeleteAlertResponse> DeleteAlertAsync(string accountId, string alertId, CancellationToken cancellationToken = default) =>
+        public Task<Result<DeleteAlertResponse>> DeleteAlertAsync(string accountId, string alertId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 
     private class FakeWatchlistOperations : IWatchlistOperations
     {
-        public Task<CreateWatchlistResponse> CreateWatchlistAsync(CreateWatchlistRequest request, CancellationToken cancellationToken = default) =>
+        public Task<Result<CreateWatchlistResponse>> CreateWatchlistAsync(CreateWatchlistRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<GetWatchlistsResponse> GetWatchlistsAsync(CancellationToken cancellationToken = default) =>
+        public Task<Result<GetWatchlistsResponse>> GetWatchlistsAsync(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<WatchlistDetail> GetWatchlistAsync(string id, CancellationToken cancellationToken = default) =>
+        public Task<Result<WatchlistDetail>> GetWatchlistAsync(string id, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<DeleteWatchlistResponse> DeleteWatchlistAsync(string id, CancellationToken cancellationToken = default) =>
+        public Task<Result<DeleteWatchlistResponse>> DeleteWatchlistAsync(string id, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 
     private class FakeFyiOperations : IFyiOperations
     {
-        public Task<UnreadBulletinCountResponse> GetUnreadCountAsync(CancellationToken cancellationToken = default) =>
+        public Task<Result<UnreadBulletinCountResponse>> GetUnreadCountAsync(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<List<FyiSettingItem>> GetSettingsAsync(CancellationToken cancellationToken = default) =>
+        public Task<Result<List<FyiSettingItem>>> GetSettingsAsync(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<FyiAcknowledgementResponse> UpdateSettingAsync(string typecode, bool enabled, CancellationToken cancellationToken = default) =>
+        public Task<Result<FyiAcknowledgementResponse>> UpdateSettingAsync(string typecode, bool enabled, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<FyiDisclaimerResponse> GetDisclaimerAsync(string typecode, CancellationToken cancellationToken = default) =>
+        public Task<Result<FyiDisclaimerResponse>> GetDisclaimerAsync(string typecode, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<FyiAcknowledgementResponse> MarkDisclaimerReadAsync(string typecode, CancellationToken cancellationToken = default) =>
+        public Task<Result<FyiAcknowledgementResponse>> MarkDisclaimerReadAsync(string typecode, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<FyiDeliveryOptionsResponse> GetDeliveryOptionsAsync(CancellationToken cancellationToken = default) =>
+        public Task<Result<FyiDeliveryOptionsResponse>> GetDeliveryOptionsAsync(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<FyiAcknowledgementResponse> SetEmailDeliveryAsync(bool enabled, CancellationToken cancellationToken = default) =>
+        public Task<Result<FyiAcknowledgementResponse>> SetEmailDeliveryAsync(bool enabled, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<FyiAcknowledgementResponse> RegisterDeviceAsync(FyiDeviceRequest request, CancellationToken cancellationToken = default) =>
+        public Task<Result<FyiAcknowledgementResponse>> RegisterDeviceAsync(FyiDeviceRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task DeleteDeviceAsync(string deviceId, CancellationToken cancellationToken = default) =>
+        public Task<Result<bool>> DeleteDeviceAsync(string deviceId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<List<FyiNotification>> GetNotificationsAsync(string? max = null, CancellationToken cancellationToken = default) =>
+        public Task<Result<List<FyiNotification>>> GetNotificationsAsync(string? max = null, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<List<FyiNotification>> GetMoreNotificationsAsync(string id, CancellationToken cancellationToken = default) =>
+        public Task<Result<List<FyiNotification>>> GetMoreNotificationsAsync(string id, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<FyiNotificationReadResponse> MarkNotificationReadAsync(string notificationId, CancellationToken cancellationToken = default) =>
+        public Task<Result<FyiNotificationReadResponse>> MarkNotificationReadAsync(string notificationId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 

@@ -27,33 +27,33 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
         {
 
             // Step 1: Search for SPY to get conid
-            var searchResults = await client.Contracts.SearchBySymbolAsync("SPY", CT);
+            var searchResults = (await client.Contracts.SearchBySymbolAsync("SPY", CT)).Value;
             searchResults.ShouldNotBeEmpty("SPY search should return results");
             var spyConid = searchResults[0].Conid;
             spyConid.ShouldBeGreaterThan(0, "SPY conid should be positive");
 
             // Step 2: First snapshot call (pre-flight — may return empty fields)
-            var preFlightSnapshot = await client.MarketData.GetSnapshotAsync(
-                new[] { spyConid }, new[] { "31", "84" }, CT);
+            var preFlightSnapshot = (await client.MarketData.GetSnapshotAsync(
+                new[] { spyConid }, new[] { "31", "84" }, CT)).Value;
 
             // Step 3: Wait for pre-flight data to become available
             await Task.Delay(3000, CT);
 
             // Step 4: Second snapshot call — should have data
-            var snapshot = await client.MarketData.GetSnapshotAsync(
-                new[] { spyConid }, new[] { "31", "84" }, CT);
+            var snapshot = (await client.MarketData.GetSnapshotAsync(
+                new[] { spyConid }, new[] { "31", "84" }, CT)).Value;
             snapshot.ShouldNotBeEmpty("Snapshot should return data after pre-flight");
             snapshot[0].Conid.ShouldBe(spyConid);
 
             // Step 5: Get historical data
-            var history = await client.MarketData.GetHistoryAsync(
-                spyConid, "5d", "1d", cancellationToken: CT);
+            var history = (await client.MarketData.GetHistoryAsync(
+                spyConid, "5d", "1d", cancellationToken: CT)).Value;
             history.ShouldNotBeNull("Historical data response should not be null");
             history.Data.ShouldNotBeNull("Historical data bars should not be null");
             history.Data.ShouldNotBeEmpty("Historical data should contain bars");
 
             // Step 6: Get scanner parameters
-            var scannerParams = await client.MarketData.GetScannerParametersAsync(CT);
+            var scannerParams = (await client.MarketData.GetScannerParametersAsync(CT)).Value;
             scannerParams.ScanTypeList.ShouldNotBeNull("Scanner type list should not be null");
             scannerParams.ScanTypeList.ShouldNotBeEmpty("Scanner type list should not be empty");
 
@@ -63,8 +63,8 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
             // We treat a 400 as a known quirk and continue the workflow.
             try
             {
-                var scannerResult = await client.MarketData.RunScannerAsync(
-                    new ScannerRequest("STK", "TOP_TRADE_COUNT", "STK.US.MAJOR", null), CT);
+                var scannerResult = (await client.MarketData.RunScannerAsync(
+                    new ScannerRequest("STK", "TOP_TRADE_COUNT", "STK.US.MAJOR", null), CT)).Value;
                 scannerResult.Contracts.ShouldNotBeNull("Scanner contracts should not be null");
             }
             catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
@@ -77,8 +77,8 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
             // market data subscription levels on paper accounts.
             try
             {
-                var hmdsScannerResult = await client.MarketData.RunHmdsScannerAsync(
-                    new HmdsScannerRequest("STK", "STK.US.MAJOR", "TOP_PERC_GAIN", "STK", 10, null), CT);
+                var hmdsScannerResult = (await client.MarketData.RunHmdsScannerAsync(
+                    new HmdsScannerRequest("STK", "STK.US.MAJOR", "TOP_PERC_GAIN", "STK", 10, null), CT)).Value;
                 hmdsScannerResult.ShouldNotBeNull("HMDS scanner response should not be null");
             }
             catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
@@ -87,11 +87,11 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
             }
 
             // Step 9: Unsubscribe from SPY market data
-            var unsubResult = await client.MarketData.UnsubscribeAsync(spyConid, CT);
+            var unsubResult = (await client.MarketData.UnsubscribeAsync(spyConid, CT)).Value;
             unsubResult.ShouldNotBeNull("Unsubscribe response should not be null");
 
             // Step 10: Unsubscribe all
-            var unsubAllResult = await client.MarketData.UnsubscribeAllAsync(CT);
+            var unsubAllResult = (await client.MarketData.UnsubscribeAllAsync(CT)).Value;
             unsubAllResult.ShouldNotBeNull("UnsubscribeAll response should not be null");
 
         }
@@ -121,8 +121,8 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
 
             try
             {
-                var result = await client.MarketData.GetSnapshotAsync(
-                    new[] { 0 }, new[] { "31" }, CT);
+                var result = (await client.MarketData.GetSnapshotAsync(
+                    new[] { 0 }, new[] { "31" }, CT)).Value;
 
                 // IBKR QUIRK: The snapshot endpoint may return an empty list or a snapshot
                 // with no data for invalid conids rather than throwing an HTTP error.
@@ -149,14 +149,14 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
         {
 
             // Search for SPY first to get a valid conid
-            var searchResults = await client.Contracts.SearchBySymbolAsync("SPY", CT);
+            var searchResults = (await client.Contracts.SearchBySymbolAsync("SPY", CT)).Value;
             searchResults.ShouldNotBeEmpty();
             var spyConid = searchResults[0].Conid;
 
             try
             {
-                var result = await client.MarketData.GetHistoryAsync(
-                    spyConid, "INVALID_PERIOD", "1d", cancellationToken: CT);
+                var result = (await client.MarketData.GetHistoryAsync(
+                    spyConid, "INVALID_PERIOD", "1d", cancellationToken: CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for an invalid period.
                 result.ShouldNotBeNull(
@@ -185,7 +185,7 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
             // Unsubscribing from a conid we never subscribed to should not crash.
             try
             {
-                var result = await client.MarketData.UnsubscribeAsync(999999999, CT);
+                var result = (await client.MarketData.UnsubscribeAsync(999999999, CT)).Value;
                 result.ShouldNotBeNull("Unsubscribe should return a response even for unknown conid");
             }
             catch (ApiException)
@@ -210,8 +210,8 @@ public sealed class Scenario03_MarketDataScannerTests : E2eScenarioBase
 
             try
             {
-                var result = await client.MarketData.RunScannerAsync(
-                    new ScannerRequest("STK", "TOTALLY_INVALID_SCAN_TYPE", "STK.US.MAJOR", null), CT);
+                var result = (await client.MarketData.RunScannerAsync(
+                    new ScannerRequest("STK", "TOTALLY_INVALID_SCAN_TYPE", "STK.US.MAJOR", null), CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for an invalid scan type.
                 // The contracts list may be null or empty.

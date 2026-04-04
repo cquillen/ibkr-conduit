@@ -61,7 +61,7 @@ public class SessionLifecycleTests : IAsyncDisposable
         var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);
 
         // Act: call portfolio endpoint (triggers lazy init)
-        var accounts = await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = (await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken)).Content!;
 
         // Assert
         accounts.ShouldNotBeNull();
@@ -123,7 +123,7 @@ public class SessionLifecycleTests : IAsyncDisposable
         var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);
 
         // Act
-        var accounts = await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = (await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken)).Content!;
 
         // Assert
         accounts.ShouldNotBeNull();
@@ -242,12 +242,12 @@ public class SessionLifecycleTests : IAsyncDisposable
         var ct = TestContext.Current.CancellationToken;
 
         // Act: first call hits 401, reauth, retry succeeds
-        var result1 = await portfolioApi.GetAccountsAsync(ct);
+        var result1 = (await portfolioApi.GetAccountsAsync(ct)).Content!;
         result1.ShouldNotBeNull();
         result1[0].Id.ShouldBe("DU1234567");
 
         // Second call hits 401 again, reauth again, retry succeeds
-        var result2 = await portfolioApi.GetAccountsAsync(ct);
+        var result2 = (await portfolioApi.GetAccountsAsync(ct)).Content!;
         result2.ShouldNotBeNull();
         result2[0].Id.ShouldBe("DU1234567");
 
@@ -289,8 +289,8 @@ public class SessionLifecycleTests : IAsyncDisposable
 
         var portfolioApi = CreatePortfolioApi(tokenProvider, sessionManager);
 
-        // Act & Assert: first call triggers init, hits 401, reauth runs, retry still 401 → IbkrSessionException
-        var ex = await Should.ThrowAsync<IbkrSessionException>(
+        // Act & Assert: first call triggers init, hits 401, reauth runs, retry still 401 → IbkrApiException
+        var ex = await Should.ThrowAsync<IbkrApiException>(
             async () => await portfolioApi.GetAccountsAsync(TestContext.Current.CancellationToken));
 
         ex.Message.ShouldContain("Re-authentication succeeded but request still unauthorized");
@@ -312,7 +312,7 @@ public class SessionLifecycleTests : IAsyncDisposable
         var client = provider.GetRequiredService<IIbkrClient>();
 
         // Making any API call triggers lazy session initialization
-        var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = (await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken)).Value;
 
         accounts.ShouldNotBeNull();
         accounts.ShouldNotBeEmpty();

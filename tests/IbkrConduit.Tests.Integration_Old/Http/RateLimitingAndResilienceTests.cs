@@ -67,7 +67,7 @@ public class RateLimitingAndResilienceTests : IDisposable
                     .WithBody("""[{"id": "DU1234567"}]"""));
 
         using var client = CreatePipelinedClient(_globalLimiter, _endpointLimiters, _pipeline);
-        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken).Content!;
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
@@ -102,7 +102,7 @@ public class RateLimitingAndResilienceTests : IDisposable
                     .WithBody("""[{"id": "DU7654321"}]"""));
 
         using var client = CreatePipelinedClient(_globalLimiter, _endpointLimiters, _pipeline);
-        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken).Content!;
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
@@ -122,7 +122,7 @@ public class RateLimitingAndResilienceTests : IDisposable
                     .WithBody("Bad Request"));
 
         using var client = CreatePipelinedClient(_globalLimiter, _endpointLimiters, _pipeline);
-        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken).Content!;
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 
@@ -143,7 +143,7 @@ public class RateLimitingAndResilienceTests : IDisposable
                     .WithBody("Forbidden"));
 
         using var client = CreatePipelinedClient(_globalLimiter, _endpointLimiters, _pipeline);
-        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken).Content!;
 
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
@@ -179,7 +179,7 @@ public class RateLimitingAndResilienceTests : IDisposable
                     .WithBody("""[{"id": "DU1111111"}]"""));
 
         using var client = CreatePipelinedClient(_globalLimiter, _endpointLimiters, _pipeline);
-        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken).Content!;
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
@@ -214,7 +214,7 @@ public class RateLimitingAndResilienceTests : IDisposable
                     .WithBody("""[{"id": "DU2222222"}]"""));
 
         using var client = CreatePipelinedClient(_globalLimiter, _endpointLimiters, _pipeline);
-        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken).Content!;
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
@@ -235,7 +235,7 @@ public class RateLimitingAndResilienceTests : IDisposable
                     .WithBody("Service Unavailable"));
 
         using var client = CreatePipelinedClient(_globalLimiter, _endpointLimiters, _pipeline);
-        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+        var response = await client.GetAsync($"{_server.Url}/v1/api/portfolio/accounts", TestContext.Current.CancellationToken).Content!;
 
         response.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
 
@@ -271,7 +271,7 @@ public class RateLimitingAndResilienceTests : IDisposable
         using var client = CreatePipelinedClient(tightLimiter, emptyEndpointLimiters, _pipeline);
 
         // First request consumes the token
-        var firstResponse = await client.GetAsync($"{_server.Url}/v1/api/test", TestContext.Current.CancellationToken);
+        var firstResponse = await client.GetAsync($"{_server.Url}/v1/api/test", TestContext.Current.CancellationToken).Content!;
         firstResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         // Subsequent requests should be rejected
@@ -297,7 +297,8 @@ public class RateLimitingAndResilienceTests : IDisposable
             InnerHandler = endpointHandler,
         };
 
-        var resilienceHandler = new ResilienceHandler(pipeline)
+        var resilienceHandler = // ResilienceHandler removed
+            // new ResilienceHandler(pipeline)
         {
             InnerHandler = globalHandler,
         };

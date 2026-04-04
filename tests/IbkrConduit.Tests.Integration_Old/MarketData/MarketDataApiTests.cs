@@ -47,7 +47,7 @@ public class MarketDataApiTests : IDisposable
 
         var api = CreateRefitClient<IIbkrMarketDataApi>();
 
-        var result = await api.GetRegulatorySnapshotAsync(265598, TestContext.Current.CancellationToken);
+        var result = await api.GetRegulatorySnapshotAsync(265598, TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Conid.ShouldBe(265598);
@@ -71,7 +71,7 @@ public class MarketDataApiTests : IDisposable
 
         var result = await api.UnsubscribeAsync(
             new UnsubscribeRequest(265598),
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Success.ShouldBeTrue();
@@ -92,7 +92,7 @@ public class MarketDataApiTests : IDisposable
 
         var api = CreateRefitClient<IIbkrMarketDataApi>();
 
-        var result = await api.UnsubscribeAllAsync(TestContext.Current.CancellationToken);
+        var result = await api.UnsubscribeAllAsync(TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Unsubscribed.ShouldBeTrue();
@@ -130,7 +130,7 @@ public class MarketDataApiTests : IDisposable
         var api = CreateRefitClient<IIbkrMarketDataApi>();
 
         var request = new ScannerRequest("STK", "TOP_TRADE_COUNT", "STK.US.MAJOR", null);
-        var result = await api.RunScannerAsync(request, TestContext.Current.CancellationToken);
+        var result = await api.RunScannerAsync(request, TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Contracts.ShouldNotBeNull();
@@ -186,7 +186,7 @@ public class MarketDataApiTests : IDisposable
 
         var api = CreateRefitClient<IIbkrMarketDataApi>();
 
-        var result = await api.GetScannerParametersAsync(TestContext.Current.CancellationToken);
+        var result = await api.GetScannerParametersAsync(TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.ScanTypeList.ShouldNotBeNull();
@@ -230,7 +230,7 @@ public class MarketDataApiTests : IDisposable
 
         var request = new HmdsScannerRequest("BOND", "BOND.US",
             "HIGH_BOND_ASK_YIELD_ALL", "BOND", 25, []);
-        var result = await api.RunHmdsScannerAsync(request, TestContext.Current.CancellationToken);
+        var result = await api.RunHmdsScannerAsync(request, TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Total.ShouldBe("17262");

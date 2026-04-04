@@ -54,7 +54,7 @@ public class ContractEndpointTests : IDisposable
         var api = CreateRefitClient<IIbkrContractApi>();
 
         var result = await api.GetSecurityDefinitionInfoAsync(
-            "265598", "OPT", "DEC26", cancellationToken: TestContext.Current.CancellationToken);
+            "265598", "OPT", "DEC26", cancellationToken: TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -87,7 +87,7 @@ public class ContractEndpointTests : IDisposable
         var api = CreateRefitClient<IIbkrContractApi>();
 
         var result = await api.GetOptionStrikesAsync(
-            "265598", "OPT", "DEC26", cancellationToken: TestContext.Current.CancellationToken);
+            "265598", "OPT", "DEC26", cancellationToken: TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Call.Count.ShouldBe(3);
@@ -118,7 +118,7 @@ public class ContractEndpointTests : IDisposable
         var api = CreateRefitClient<IIbkrContractApi>();
         var request = new TradingRulesRequest(265598, "SMART", true, false, null);
 
-        var result = await api.GetTradingRulesAsync(request, TestContext.Current.CancellationToken);
+        var result = await api.GetTradingRulesAsync(request, TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.DefaultSize.ShouldBe(100);
@@ -153,7 +153,7 @@ public class ContractEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrContractApi>();
 
-        var result = await api.GetFuturesBySymbolAsync("ES", TestContext.Current.CancellationToken);
+        var result = await api.GetFuturesBySymbolAsync("ES", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.ShouldContainKey("ES");
@@ -195,7 +195,7 @@ public class ContractEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrContractApi>();
 
-        var result = await api.GetStocksBySymbolAsync("AAPL", TestContext.Current.CancellationToken);
+        var result = await api.GetStocksBySymbolAsync("AAPL", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.ShouldContainKey("AAPL");
@@ -231,7 +231,7 @@ public class ContractEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrContractApi>();
 
-        var result = await api.GetCurrencyPairsAsync("USD", TestContext.Current.CancellationToken);
+        var result = await api.GetCurrencyPairsAsync("USD", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.ShouldContainKey("USD");
@@ -260,7 +260,7 @@ public class ContractEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrContractApi>();
 
-        var result = await api.GetExchangeRateAsync("USD", "EUR", TestContext.Current.CancellationToken);
+        var result = await api.GetExchangeRateAsync("USD", "EUR", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Rate.ShouldBe(0.9212m);
@@ -287,7 +287,7 @@ public class ContractEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrContractApi>();
 
-        var result = await api.GetAllConidsByExchangeAsync("NASDAQ", TestContext.Current.CancellationToken);
+        var result = await api.GetAllConidsByExchangeAsync("NASDAQ", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(2);
@@ -327,7 +327,7 @@ public class ContractEndpointTests : IDisposable
         var api = CreateRefitClient<IIbkrContractApi>();
 
         var result = await api.GetTradingScheduleAsync(
-            "STK", "AAPL", "265598", cancellationToken: TestContext.Current.CancellationToken);
+            "STK", "AAPL", "265598", cancellationToken: TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -372,7 +372,7 @@ public class ContractEndpointTests : IDisposable
         var api = CreateRefitClient<IIbkrContractApi>();
 
         var result = await api.GetSecurityDefinitionsByConidAsync(
-            "265598,272093", TestContext.Current.CancellationToken);
+            "265598,272093", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Secdef.Count.ShouldBe(1);

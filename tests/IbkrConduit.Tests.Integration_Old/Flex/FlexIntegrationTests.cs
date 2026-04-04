@@ -216,7 +216,7 @@ public class FlexIntegrationTests : IDisposable
         await using var provider = services.BuildServiceProvider();
         var client = provider.GetRequiredService<IbkrConduit.Client.IIbkrClient>();
 
-        var result = await client.Flex.ExecuteQueryAsync(queryId, TestContext.Current.CancellationToken);
+        var result = (await client.Flex.ExecuteQueryAsync(queryId, TestContext.Current.CancellationToken)).Value;
 
         result.RawXml.ShouldNotBeNull();
     }
