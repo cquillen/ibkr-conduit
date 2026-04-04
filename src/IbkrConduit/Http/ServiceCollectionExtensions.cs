@@ -1,6 +1,15 @@
 using System;
+using IbkrConduit.Accounts;
+using IbkrConduit.Alerts;
+using IbkrConduit.Allocation;
 using IbkrConduit.Client;
+using IbkrConduit.Contracts;
+using IbkrConduit.Fyi;
+using IbkrConduit.MarketData;
+using IbkrConduit.Orders;
+using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
+using IbkrConduit.Watchlists;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace IbkrConduit.Http;
@@ -33,9 +42,23 @@ public static class ServiceCollectionExtensions
         var credentials = clientOptions.Credentials;
         var baseUrl = clientOptions.BaseUrl ?? _ibkrBaseUrl;
 
+        // Response schema validation map (built once, used by all consumer pipelines)
+        var endpointMap = RefitEndpointMap.Build([
+            typeof(IIbkrPortfolioApi),
+            typeof(IIbkrContractApi),
+            typeof(IIbkrOrderApi),
+            typeof(IIbkrMarketDataApi),
+            typeof(IIbkrAccountApi),
+            typeof(IIbkrAlertApi),
+            typeof(IIbkrWatchlistApi),
+            typeof(IIbkrFyiApi),
+            typeof(IIbkrAllocationApi),
+        ]);
+        services.AddSingleton(endpointMap);
+
         RateLimitingAndResilienceRegistration.Register(services);
         SessionServiceRegistration.Register(services, credentials, clientOptions, baseUrl);
-        ConsumerPipelineRegistration.Register(services, credentials, baseUrl);
+        ConsumerPipelineRegistration.Register(services, credentials, clientOptions, endpointMap, baseUrl);
         StreamingAndFlexRegistration.Register(services, credentials, clientOptions, baseUrl);
 
         // Unified facade
