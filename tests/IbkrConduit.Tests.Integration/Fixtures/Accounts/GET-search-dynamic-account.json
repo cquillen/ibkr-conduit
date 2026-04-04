@@ -1,0 +1,20 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/account/search/U123",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "matchedAccounts": [
+        {
+          "accountId": "U1234567",
+          "alias": "U1234567",
+          "allocationId": "U1234567"
+        }
+      ],
+      "pattern": "U123"
+    }
+  }
+}
