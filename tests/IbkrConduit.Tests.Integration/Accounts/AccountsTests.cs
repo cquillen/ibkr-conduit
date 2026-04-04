@@ -192,6 +192,113 @@ public class AccountsTests : IAsyncLifetime, IDisposable
         _harness.VerifyReauthenticationOccurred();
     }
 
+    [Fact]
+    public async Task SearchDynamicAccount_ReturnsMatchedAccounts()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/search/U123",
+            FixtureLoader.LoadBody("Accounts", "GET-search-dynamic-account"));
+
+        var result = await _harness.Client.Accounts.SearchDynamicAccountAsync(
+            "U123", TestContext.Current.CancellationToken);
+
+        result.Pattern.ShouldBe("U123");
+        result.MatchedAccounts.ShouldNotBeEmpty();
+        result.MatchedAccounts[0].AccountId.ShouldBe("U1234567");
+        result.MatchedAccounts[0].Alias.ShouldBe("U1234567");
+        result.MatchedAccounts[0].AllocationId.ShouldBe("U1234567");
+
+        _harness.VerifyUserAgentOnAllRequests();
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task SearchDynamicAccount_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/search/U123")
+                .UsingGet())
+            .InScenario("search-dynacct-401-recovery")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/search/U123")
+                .UsingGet())
+            .InScenario("search-dynacct-401-recovery")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Accounts", "GET-search-dynamic-account")));
+
+        var result = await _harness.Client.Accounts.SearchDynamicAccountAsync(
+            "U123", TestContext.Current.CancellationToken);
+
+        result.MatchedAccounts.ShouldNotBeEmpty();
+
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task SetDynamicAccount_ReturnsConfirmation()
+    {
+        _harness.StubAuthenticatedPost(
+            "/v1/api/iserver/dynaccount",
+            FixtureLoader.LoadBody("Accounts", "POST-set-dynamic-account"));
+
+        var result = await _harness.Client.Accounts.SetDynamicAccountAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.Set.ShouldNotBeNull();
+        result.Set!.Value.ShouldBeTrue();
+        result.AcctId.ShouldBe("U1234567");
+
+        _harness.VerifyUserAgentOnAllRequests();
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task SetDynamicAccount_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/dynaccount")
+                .UsingPost())
+            .InScenario("set-dynacct-401-recovery")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/dynaccount")
+                .UsingPost())
+            .InScenario("set-dynacct-401-recovery")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Accounts", "POST-set-dynamic-account")));
+
+        var result = await _harness.Client.Accounts.SetDynamicAccountAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.Set.ShouldNotBeNull();
+        result.Set!.Value.ShouldBeTrue();
+
+        _harness.VerifyReauthenticationOccurred();
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _harness.DisposeAsync();
