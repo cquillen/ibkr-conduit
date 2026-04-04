@@ -2,9 +2,9 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
-using IbkrConduit.Watchlists;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
+using IbkrConduit.Watchlists;
 using NSubstitute;
 using Shouldly;
 
