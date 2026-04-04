@@ -52,3 +52,6 @@ appsettings.*.json
 
 # Generated intermediate outputs (DTO generator)
 generated/
+
+# Claude Code worktrees
+.claude/worktrees/
