@@ -87,6 +87,12 @@ public class IbkrClient : IIbkrClient
     public IAllocationOperations Allocations { get; }
 
     /// <inheritdoc />
+    public async Task ValidateConnectionAsync(CancellationToken cancellationToken = default)
+    {
+        await _sessionManager.EnsureInitializedAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
         await _sessionManager.DisposeAsync();

@@ -59,4 +59,12 @@ public interface IIbkrClient : IAsyncDisposable
     /// FA allocation operations (groups, presets, sub-accounts).
     /// </summary>
     IAllocationOperations Allocations { get; }
+
+    /// <summary>
+    /// Validates that the configured credentials can establish a session with the IBKR API.
+    /// Performs LST acquisition, session initialization, and auth status verification.
+    /// Call at startup for fail-fast credential validation.
+    /// Throws <see cref="IbkrConduit.Errors.IbkrConfigurationException"/> with a descriptive message if validation fails.
+    /// </summary>
+    Task ValidateConnectionAsync(CancellationToken cancellationToken = default);
 }
