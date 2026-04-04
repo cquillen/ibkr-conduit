@@ -58,4 +58,49 @@ public class AccountOperations : IAccountOperations
         return await _api.SetDynamicAccountAsync(new SetDynamicAccountRequest(accountId), cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task<AccountSummaryOverview> GetAccountSummaryAsync(string accountId,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccountSummary");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.GetAccountSummaryAsync(accountId, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryAvailableFundsAsync(string accountId,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccountSummaryAvailableFunds");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.GetAccountSummaryAvailableFundsAsync(accountId, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryBalancesAsync(string accountId,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccountSummaryBalances");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.GetAccountSummaryBalancesAsync(accountId, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarginsAsync(string accountId,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccountSummaryMargins");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.GetAccountSummaryMarginsAsync(accountId, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarketValueAsync(string accountId,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccountSummaryMarketValue");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.GetAccountSummaryMarketValueAsync(accountId, cancellationToken);
+    }
+
 }

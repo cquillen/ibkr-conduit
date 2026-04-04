@@ -1,0 +1,35 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/account/U1234567/summary",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "accountType": "",
+      "status": "",
+      "balance": 994831.0,
+      "SMA": 989946.0,
+      "buyingPower": 3979324.0,
+      "availableFunds": 994831.0,
+      "excessLiquidity": 994831.0,
+      "netLiquidationValue": 1005254.0,
+      "equityWithLoanValue": 1002485.0,
+      "regTLoan": 0.0,
+      "securitiesGVP": 30615.0,
+      "totalCashValue": 971870.0,
+      "accruedInterest": 0.0,
+      "regTMargin": 0.0,
+      "initialMargin": 7654.0,
+      "maintenanceMargin": 7654.0,
+      "cashBalances": [
+        {
+          "currency": "USD",
+          "balance": 971870.0,
+          "settledCash": 971870.0
+        }
+      ]
+    }
+  }
+}

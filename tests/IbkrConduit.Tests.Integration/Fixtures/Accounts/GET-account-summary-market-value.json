@@ -1,0 +1,21 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/account/U1234567/summary/market_value",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "USD": {
+        "total_cash": "971,870",
+        "stock": "30,615",
+        "options": "0",
+        "futures": "0",
+        "net_liquidation": "1,005,254",
+        "unrealized_pnl": "2,769",
+        "realized_pnl": "0"
+      }
+    }
+  }
+}

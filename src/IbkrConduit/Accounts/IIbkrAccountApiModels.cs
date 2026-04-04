@@ -154,3 +154,63 @@ public record DynamicAccountSearchResult(
     [property: JsonPropertyName("alias")] string? Alias = null,
     [property: JsonPropertyName("allocationId")] string? AllocationId = null);
 
+/// <summary>
+/// A cash balance entry within an account summary overview.
+/// </summary>
+/// <param name="Currency">The currency code (e.g., "USD").</param>
+/// <param name="Balance">The current cash balance in this currency.</param>
+/// <param name="SettledCash">The settled cash amount in this currency.</param>
+[ExcludeFromCodeCoverage]
+public record AccountSummaryCashBalance(
+    [property: JsonPropertyName("currency")] string? Currency = null,
+    [property: JsonPropertyName("balance")] double? Balance = null,
+    [property: JsonPropertyName("settledCash")] double? SettledCash = null);
+
+/// <summary>
+/// Response from GET /iserver/account/{accountId}/summary.
+/// Provides a high-level overview of account balances, margins, and buying power.
+/// </summary>
+/// <param name="AccountType">The type of account.</param>
+/// <param name="Status">The account status.</param>
+/// <param name="Balance">Current account balance.</param>
+/// <param name="Sma">Special Memorandum Account value.</param>
+/// <param name="BuyingPower">Total buying power available.</param>
+/// <param name="AvailableFunds">Funds available for trading.</param>
+/// <param name="ExcessLiquidity">Excess liquidity in the account.</param>
+/// <param name="NetLiquidationValue">Net liquidation value of the account.</param>
+/// <param name="EquityWithLoanValue">Equity with loan value.</param>
+/// <param name="RegTLoan">Regulation T loan amount.</param>
+/// <param name="SecuritiesGvp">Gross value of securities positions.</param>
+/// <param name="TotalCashValue">Total cash value across all currencies.</param>
+/// <param name="AccruedInterest">Accrued interest amount.</param>
+/// <param name="RegTMargin">Regulation T margin requirement.</param>
+/// <param name="InitialMargin">Initial margin requirement.</param>
+/// <param name="MaintenanceMargin">Maintenance margin requirement.</param>
+/// <param name="CashBalances">Per-currency cash balance breakdown.</param>
+[ExcludeFromCodeCoverage]
+public record AccountSummaryOverview(
+    [property: JsonPropertyName("accountType")] string? AccountType = null,
+    [property: JsonPropertyName("status")] string? Status = null,
+    [property: JsonPropertyName("balance")] double? Balance = null,
+    [property: JsonPropertyName("SMA")] double? Sma = null,
+    [property: JsonPropertyName("buyingPower")] double? BuyingPower = null,
+    [property: JsonPropertyName("availableFunds")] double? AvailableFunds = null,
+    [property: JsonPropertyName("excessLiquidity")] double? ExcessLiquidity = null,
+    [property: JsonPropertyName("netLiquidationValue")] double? NetLiquidationValue = null,
+    [property: JsonPropertyName("equityWithLoanValue")] double? EquityWithLoanValue = null,
+    [property: JsonPropertyName("regTLoan")] double? RegTLoan = null,
+    [property: JsonPropertyName("securitiesGVP")] double? SecuritiesGvp = null,
+    [property: JsonPropertyName("totalCashValue")] double? TotalCashValue = null,
+    [property: JsonPropertyName("accruedInterest")] double? AccruedInterest = null,
+    [property: JsonPropertyName("regTMargin")] double? RegTMargin = null,
+    [property: JsonPropertyName("initialMargin")] double? InitialMargin = null,
+    [property: JsonPropertyName("maintenanceMargin")] double? MaintenanceMargin = null,
+    [property: JsonPropertyName("cashBalances")] List<AccountSummaryCashBalance>? CashBalances = null)
+{
+    /// <summary>
+    /// Additional undocumented fields from the API response.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
