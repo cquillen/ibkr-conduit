@@ -48,7 +48,7 @@ public class ErrorNormalizationHandlerTests
 
         var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        ex.Error.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public class ErrorNormalizationHandlerTests
 
         var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        ex.Error.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class ErrorNormalizationHandlerTests
 
         var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+        ex.Error.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class ErrorNormalizationHandlerTests
 
         var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        ex.Error.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class ErrorNormalizationHandlerTests
 
         var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        ex.Error.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class ErrorNormalizationHandlerTests
 
         var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        ex.Error.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -114,29 +114,31 @@ public class ErrorNormalizationHandlerTests
 
         var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.StatusCode.ShouldBe(HttpStatusCode.Gone);
+        ex.Error.StatusCode.ShouldBe(HttpStatusCode.Gone);
     }
 
     [Fact]
-    public async Task NonSuccess_429WithRetryAfterHeader_ThrowsRateLimitException()
+    public async Task NonSuccess_429WithRetryAfterHeader_ThrowsWithRateLimitError()
     {
         SetResponse(HttpStatusCode.TooManyRequests, """{"error":"rate limited"}""",
             "/v1/api/test", ("Retry-After", "30"));
 
-        var ex = await Should.ThrowAsync<IbkrRateLimitException>(SendAsync());
+        var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.RetryAfter.ShouldBe(TimeSpan.FromSeconds(30));
+        var rle = ex.Error.ShouldBeOfType<IbkrRateLimitError>();
+        rle.RetryAfter.ShouldBe(TimeSpan.FromSeconds(30));
     }
 
     [Fact]
-    public async Task NonSuccess_429WithoutRetryAfter_ThrowsRateLimitExceptionWithNullRetryAfter()
+    public async Task NonSuccess_429WithoutRetryAfter_ThrowsWithRateLimitErrorNullRetryAfter()
     {
         SetResponse(HttpStatusCode.TooManyRequests, """{"error":"rate limited"}""",
             "/v1/api/test");
 
-        var ex = await Should.ThrowAsync<IbkrRateLimitException>(SendAsync());
+        var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.RetryAfter.ShouldBeNull();
+        var rle = ex.Error.ShouldBeOfType<IbkrRateLimitError>();
+        rle.RetryAfter.ShouldBeNull();
     }
 
     [Fact]
@@ -160,18 +162,19 @@ public class ErrorNormalizationHandlerTests
 
         var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        ex.Error.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
     [Fact]
-    public async Task Success_200WithTopLevelError_ThrowsOrderRejectedException()
+    public async Task Success_200WithTopLevelError_ThrowsWithOrderRejectedError()
     {
         SetResponse(HttpStatusCode.OK, """{"error":"insufficient funds"}""",
             "/v1/api/iserver/account/orders");
 
-        var ex = await Should.ThrowAsync<IbkrOrderRejectedException>(SendAsync());
+        var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.RejectionMessage.ShouldBe("insufficient funds");
+        var ore = ex.Error.ShouldBeOfType<IbkrOrderRejectedError>();
+        ore.RejectionMessage.ShouldBe("insufficient funds");
     }
 
     [Fact]
@@ -182,8 +185,8 @@ public class ErrorNormalizationHandlerTests
 
         var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        ex.ErrorMessage.ShouldBe("reason");
+        ex.Error.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        ex.Error.Message.ShouldBe("reason");
     }
 
     [Fact]
@@ -274,8 +277,8 @@ public class ErrorNormalizationHandlerTests
 
         var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.ErrorMessage.ShouldBeNull();
-        ex.RawResponseBody.ShouldBe("<html>Server Error</html>");
+        ex.Error.Message.ShouldBeNull();
+        ex.Error.RawBody.ShouldBe("<html>Server Error</html>");
     }
 
     [Fact]
@@ -301,15 +304,15 @@ public class ErrorNormalizationHandlerTests
     }
 
     [Fact]
-    public async Task ExceptionCarriesRequestUri_WithoutQueryString()
+    public async Task ExceptionCarriesRequestPath()
     {
         SetResponse(HttpStatusCode.InternalServerError, """{"error":"fail"}""",
             "/v1/api/test?secret=abc123");
 
         var ex = await Should.ThrowAsync<IbkrApiException>(SendAsync());
 
-        ex.RequestUri.ShouldBe("/v1/api/test");
-        ex.RequestUri.ShouldNotContain("secret");
+        ex.Error.RequestPath.ShouldBe("/v1/api/test");
+        ex.Error.RequestPath.ShouldNotContain("secret");
     }
 
     private class StubInnerHandler(HttpResponseMessage response) : HttpMessageHandler

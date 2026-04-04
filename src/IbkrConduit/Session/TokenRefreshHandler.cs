@@ -65,8 +65,14 @@ internal sealed class TokenRefreshHandler : DelegatingHandler
         catch (Exception ex)
         {
             response.Dispose();
-            throw new IbkrSessionException(
-                "Re-authentication failed — credentials may be invalidated", ex);
+            throw new IbkrApiException(
+                new IbkrSessionError(
+                    HttpStatusCode.Unauthorized,
+                    "Re-authentication failed — credentials may be invalidated",
+                    "",
+                    request.RequestUri?.AbsolutePath,
+                    false),
+                ex);
         }
 
         // Clone the request for retry
@@ -77,18 +83,9 @@ internal sealed class TokenRefreshHandler : DelegatingHandler
 
         var retryResponse = await base.SendAsync(retryRequest, cancellationToken);
 
-        // If retry also returns 401, credentials are fundamentally invalid — do not loop
-        if (retryResponse.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            retryResponse.Dispose();
-            throw new IbkrSessionException(
-                false,
-                null,
-                HttpStatusCode.Unauthorized,
-                "Re-authentication succeeded but request still unauthorized — credentials may be invalidated",
-                null,
-                request.RequestUri?.AbsolutePath);
-        }
+        // If retry also returns 401, this is likely IBKR returning 401 for a
+        // non-auth reason (e.g., invalid account ID). Return the response as-is
+        // so the facade can interpret it via ResultFactory.
 
         return retryResponse;
     }

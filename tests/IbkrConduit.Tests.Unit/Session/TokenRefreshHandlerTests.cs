@@ -105,7 +105,7 @@ public class TokenRefreshHandlerTests
     }
 
     [Fact]
-    public async Task SendAsync_401OnRetry_ThrowsSessionException()
+    public async Task SendAsync_401OnRetry_ReturnsUnauthorizedResponse()
     {
         var sessionManager = new FakeSessionManager();
         var callCount = 0;
@@ -125,10 +125,9 @@ public class TokenRefreshHandlerTests
             BaseAddress = new Uri("https://api.ibkr.com"),
         };
 
-        var ex = await Should.ThrowAsync<IbkrSessionException>(
-            client.GetAsync("/v1/api/portfolio/accounts", TestContext.Current.CancellationToken));
+        var response = await client.GetAsync("/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
 
-        ex.Message.ShouldContain("Re-authentication succeeded but request still unauthorized");
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         callCount.ShouldBe(2); // original + one retry
         sessionManager.ReauthCallCount.ShouldBe(1); // only one re-auth
     }
@@ -157,10 +156,11 @@ public class TokenRefreshHandlerTests
             BaseAddress = new Uri("https://api.ibkr.com"),
         };
 
-        var ex = await Should.ThrowAsync<IbkrSessionException>(
+        var ex = await Should.ThrowAsync<IbkrApiException>(
             client.GetAsync("/v1/api/portfolio/accounts", TestContext.Current.CancellationToken));
 
         ex.Message.ShouldContain("Re-authentication failed");
+        ex.Error.ShouldBeOfType<IbkrSessionError>();
         ex.InnerException.ShouldNotBeNull();
         ex.InnerException.ShouldBeOfType<InvalidOperationException>();
         ex.InnerException!.Message.ShouldBe("DH exchange failed");

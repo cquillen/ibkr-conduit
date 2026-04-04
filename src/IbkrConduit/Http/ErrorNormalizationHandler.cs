@@ -76,7 +76,8 @@ internal class ErrorNormalizationHandler : DelegatingHandler
                     }
                 }
 
-                throw new IbkrRateLimitException(retryAfter, errorMessage, body, path);
+                throw new IbkrApiException(
+                    new IbkrRateLimitError(HttpStatusCode.TooManyRequests, errorMessage, body, path, retryAfter));
 
             case HttpStatusCode.Unauthorized:
                 // Let 401 pass through — TokenRefreshHandler (upstream) handles
@@ -85,7 +86,8 @@ internal class ErrorNormalizationHandler : DelegatingHandler
 
             default:
                 var remapped = RemapStatusCode(statusCode, path);
-                throw new IbkrApiException(remapped, errorMessage, body, path);
+                throw new IbkrApiException(
+                    new IbkrApiError(remapped, errorMessage, body, path));
         }
     }
 
@@ -150,13 +152,14 @@ internal class ErrorNormalizationHandler : DelegatingHandler
 
         if (!string.IsNullOrEmpty(errorBody.Error))
         {
-            throw new IbkrOrderRejectedException(errorBody.Error, body, requestUri);
+            throw new IbkrApiException(
+                new IbkrOrderRejectedError(errorBody.Error, body, requestUri));
         }
 
         if (errorBody.Success == false)
         {
             throw new IbkrApiException(
-                HttpStatusCode.BadRequest, errorBody.FailureList, body, requestUri);
+                new IbkrApiError(HttpStatusCode.BadRequest, errorBody.FailureList, body, requestUri));
         }
     }
 
