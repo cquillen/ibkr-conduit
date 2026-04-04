@@ -29,12 +29,12 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
         {
 
             // Step 1: Get account ID
-            var accounts = await client.Portfolio.GetAccountsAsync(CT);
+            var accounts = (await client.Portfolio.GetAccountsAsync(CT)).Value;
             accounts.ShouldNotBeEmpty("Should have at least one account");
             accountId = accounts[0].Id;
 
             // Step 2: Search SPY conid
-            var searchResults = await client.Contracts.SearchBySymbolAsync("SPY", CT);
+            var searchResults = (await client.Contracts.SearchBySymbolAsync("SPY", CT)).Value;
             searchResults.ShouldNotBeEmpty("SPY search should return results");
             var spyConid = searchResults[0].Conid;
 
@@ -64,7 +64,7 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
             CreateAlertResponse createResponse;
             try
             {
-                createResponse = await client.Alerts.CreateOrModifyAlertAsync(accountId, createRequest, CT);
+                createResponse = (await client.Alerts.CreateOrModifyAlertAsync(accountId, createRequest, CT)).Value;
             }
             catch (ApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.Forbidden
                                               or System.Net.HttpStatusCode.ServiceUnavailable
@@ -80,30 +80,30 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
             var alertId = createResponse.OrderId.ToString();
 
             // Step 4: List alerts — verify our alert appears
-            var alerts = await client.Alerts.GetMtaAlertAsync(CT);
+            var alerts = (await client.Alerts.GetMtaAlertAsync(CT)).Value;
             alerts.ShouldNotBeNull();
             alerts.ShouldContain(a => a.AlertName == testId,
                 "Alert list should contain the newly created alert");
 
             // Step 5: Get alert detail
-            var detail = await client.Alerts.GetAlertDetailAsync(alertId, CT);
+            var detail = (await client.Alerts.GetAlertDetailAsync(alertId, CT)).Value;
             detail.ShouldNotBeNull();
             detail.AlertName.ShouldBe(testId);
             detail.Conditions.ShouldNotBeEmpty("Alert should have at least one condition");
 
             // Step 6: Delete alert
-            var deleteResponse = await client.Alerts.DeleteAlertAsync(accountId, alertId, CT);
+            var deleteResponse = (await client.Alerts.DeleteAlertAsync(accountId, alertId, CT)).Value;
             deleteResponse.ShouldNotBeNull();
 
             // Step 7: List alerts again — verify our alert is gone
-            var alertsAfterDelete = await client.Alerts.GetMtaAlertAsync(CT);
+            var alertsAfterDelete = (await client.Alerts.GetMtaAlertAsync(CT)).Value;
             alertsAfterDelete.ShouldNotContain(a => a.AlertName == testId,
                 "Alert list should not contain the deleted alert");
 
             // Step 8: Double-delete — verify IBKR behavior
             try
             {
-                var doubleDeleteResponse = await client.Alerts.DeleteAlertAsync(accountId, alertId, CT);
+                var doubleDeleteResponse = (await client.Alerts.DeleteAlertAsync(accountId, alertId, CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for deleting an already-deleted alert.
                 doubleDeleteResponse.ShouldNotBeNull();
@@ -121,7 +121,7 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
             {
                 if (!string.IsNullOrEmpty(accountId))
                 {
-                    var alerts = await client.Alerts.GetMtaAlertAsync(CT);
+                    var alerts = (await client.Alerts.GetMtaAlertAsync(CT)).Value;
                     foreach (var alert in alerts.Where(a => a.AlertName.StartsWith("E2E-", StringComparison.Ordinal)))
                     {
                         try
@@ -154,7 +154,7 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
 
             try
             {
-                var detail = await client.Alerts.GetAlertDetailAsync("0", CT);
+                var detail = (await client.Alerts.GetAlertDetailAsync("0", CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent alert ID.
                 detail.ShouldNotBeNull();
@@ -179,12 +179,12 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
         try
         {
 
-            var accounts = await client.Portfolio.GetAccountsAsync(CT);
+            var accounts = (await client.Portfolio.GetAccountsAsync(CT)).Value;
             var accountId = accounts[0].Id;
 
             try
             {
-                var result = await client.Alerts.DeleteAlertAsync(accountId, "0", CT);
+                var result = (await client.Alerts.DeleteAlertAsync(accountId, "0", CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent alert.
                 result.ShouldNotBeNull();

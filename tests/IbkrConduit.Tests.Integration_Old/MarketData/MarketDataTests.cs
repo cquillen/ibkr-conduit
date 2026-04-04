@@ -51,7 +51,7 @@ public class MarketDataTests : IDisposable
 
         var api = CreateRefitClient<IIbkrMarketDataApi>();
 
-        var result = await api.GetSnapshotAsync("265598", "31,84,86,87,6509", TestContext.Current.CancellationToken);
+        var result = await api.GetSnapshotAsync("265598", "31,84,86,87,6509", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -103,7 +103,7 @@ public class MarketDataTests : IDisposable
 
         var api = CreateRefitClient<IIbkrMarketDataApi>();
 
-        var result = await api.GetHistoryAsync("265598", "2d", "1d", cancellationToken: TestContext.Current.CancellationToken);
+        var result = await api.GetHistoryAsync("265598", "2d", "1d", cancellationToken: TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Symbol.ShouldBe("AAPL");
@@ -136,36 +136,36 @@ public class MarketDataTests : IDisposable
         var ct = TestContext.Current.CancellationToken;
 
         // Get account ID
-        var accounts = await client.Portfolio.GetAccountsAsync(ct);
+        var accounts = (await client.Portfolio.GetAccountsAsync(ct)).Value;
         accounts.ShouldNotBeNull();
         accounts.ShouldNotBeEmpty();
         var accountId = accounts[0].Id;
 
         // Get positions — should have SPY from M3b order
-        var positions = await client.Portfolio.GetPositionsAsync(accountId, cancellationToken: ct);
+        var positions = (await client.Portfolio.GetPositionsAsync(accountId, cancellationToken: ct)).Value;
         positions.ShouldNotBeNull();
 
         // Get account summary
-        var summary = await client.Portfolio.GetAccountSummaryAsync(accountId, ct);
+        var summary = (await client.Portfolio.GetAccountSummaryAsync(accountId, ct)).Value;
         summary.ShouldNotBeNull();
         summary.ShouldNotBeEmpty();
 
         // Get ledger
-        var ledger = await client.Portfolio.GetLedgerAsync(accountId, ct);
+        var ledger = (await client.Portfolio.GetLedgerAsync(accountId, ct)).Value;
         ledger.ShouldNotBeNull();
         ledger.ShouldNotBeEmpty();
 
         // Look up SPY conid for snapshot
-        var spyResults = await client.Contracts.SearchBySymbolAsync("SPY", ct);
+        var spyResults = (await client.Contracts.SearchBySymbolAsync("SPY", ct)).Value;
         spyResults.ShouldNotBeNull();
         spyResults.ShouldNotBeEmpty();
         var spyConid = spyResults[0].Conid;
 
         // Market data snapshot — pre-flight + data
-        var snapshots = await client.MarketData.GetSnapshotAsync(
+        var snapshots = (await client.MarketData.GetSnapshotAsync(
             new[] { spyConid },
             new[] { MarketDataFields.LastPrice, MarketDataFields.BidPrice, MarketDataFields.AskPrice, MarketDataFields.Volume },
-            ct);
+            ct)).Value;
         snapshots.ShouldNotBeNull();
         snapshots.ShouldNotBeEmpty();
         snapshots[0].Conid.ShouldBe(spyConid);

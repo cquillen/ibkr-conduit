@@ -28,12 +28,12 @@ public sealed class Scenario10_WebSocketStreamingTests : E2eScenarioBase
         {
 
             // Step 1: Initialize session by getting accounts
-            var accounts = await client.Portfolio.GetAccountsAsync(CT);
+            var accounts = (await client.Portfolio.GetAccountsAsync(CT)).Value;
             accounts.ShouldNotBeNull();
             accounts.ShouldNotBeEmpty();
 
             // Step 2: Search SPY conid
-            var searchResults = await client.Contracts.SearchBySymbolAsync("SPY", CT);
+            var searchResults = (await client.Contracts.SearchBySymbolAsync("SPY", CT)).Value;
             searchResults.ShouldNotBeEmpty("SPY search should return results");
             var spyConid = searchResults.First(r =>
                 string.Equals(r.Symbol, "SPY", StringComparison.OrdinalIgnoreCase)).Conid;
@@ -116,7 +116,7 @@ public sealed class Scenario10_WebSocketStreamingTests : E2eScenarioBase
         {
 
             // Initialize session
-            var accounts = await client.Portfolio.GetAccountsAsync(CT);
+            var accounts = (await client.Portfolio.GetAccountsAsync(CT)).Value;
             accounts.ShouldNotBeNull();
 
             // Subscribe to market data with an invalid conid — should not crash

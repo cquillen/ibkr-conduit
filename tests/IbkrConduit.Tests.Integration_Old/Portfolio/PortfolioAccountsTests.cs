@@ -40,7 +40,7 @@ public class PortfolioAccountsTests : IDisposable
 
         var api = CreateRefitClient<IIbkrPortfolioApi>();
 
-        var accounts = await api.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = await api.GetAccountsAsync(TestContext.Current.CancellationToken).Content!;
 
         accounts.ShouldNotBeNull();
         accounts.Count.ShouldBe(1);
@@ -95,7 +95,7 @@ public class PortfolioAccountsTests : IDisposable
         await using var provider = services.BuildServiceProvider();
         var client = provider.GetRequiredService<IIbkrClient>();
 
-        var accounts = await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = (await client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken)).Value;
 
         accounts.ShouldNotBeNull();
         accounts.ShouldNotBeEmpty();
@@ -139,7 +139,7 @@ public class PortfolioAccountsTests : IDisposable
 
         var api = CreateRefitClient<IIbkrPortfolioApi>();
 
-        var positions = await api.GetPositionsAsync("DU1234567", cancellationToken: TestContext.Current.CancellationToken);
+        var positions = await api.GetPositionsAsync("DU1234567", cancellationToken: TestContext.Current.CancellationToken).Content!;
 
         positions.ShouldNotBeNull();
         positions.Count.ShouldBe(1);
@@ -184,7 +184,7 @@ public class PortfolioAccountsTests : IDisposable
 
         var api = CreateRefitClient<IIbkrPortfolioApi>();
 
-        var summary = await api.GetAccountSummaryAsync("DU1234567", TestContext.Current.CancellationToken);
+        var summary = await api.GetAccountSummaryAsync("DU1234567", TestContext.Current.CancellationToken).Content!;
 
         summary.ShouldNotBeNull();
         summary.ShouldContainKey("netliquidationvalue");
@@ -224,7 +224,7 @@ public class PortfolioAccountsTests : IDisposable
 
         var result = await api.GetConsolidatedAllocationAsync(
             new ConsolidatedAllocationRequest(["DU1234567"]),
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.AssetClass.ShouldNotBeNull();
@@ -261,7 +261,7 @@ public class PortfolioAccountsTests : IDisposable
         var api = CreateRefitClient<IIbkrPortfolioApi>();
 
         var result = await api.GetComboPositionsAsync("DU1234567",
-            cancellationToken: TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -308,7 +308,7 @@ public class PortfolioAccountsTests : IDisposable
         var api = CreateRefitClient<IIbkrPortfolioApi>();
 
         var result = await api.GetRealTimePositionsAsync("DU1234567",
-            cancellationToken: TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -341,7 +341,7 @@ public class PortfolioAccountsTests : IDisposable
 
         var api = CreateRefitClient<IIbkrPortfolioApi>();
 
-        var result = await api.GetSubAccountsAsync(TestContext.Current.CancellationToken);
+        var result = await api.GetSubAccountsAsync(TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -374,7 +374,7 @@ public class PortfolioAccountsTests : IDisposable
 
         var api = CreateRefitClient<IIbkrPortfolioApi>();
 
-        var result = await api.GetSubAccountsPagedAsync(0, TestContext.Current.CancellationToken);
+        var result = await api.GetSubAccountsPagedAsync(0, TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -407,7 +407,7 @@ public class PortfolioAccountsTests : IDisposable
 
         var result = await api.GetAllPeriodsPerformanceAsync(
             new AllPeriodsRequest(["U1234567"]),
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.CurrencyType.ShouldBe("base");
@@ -442,7 +442,7 @@ public class PortfolioAccountsTests : IDisposable
 
         var api = CreateRefitClient<IIbkrPortfolioApi>();
 
-        var result = await api.GetPartitionedPnlAsync(TestContext.Current.CancellationToken);
+        var result = await api.GetPartitionedPnlAsync(TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Upnl.ShouldNotBeNull();

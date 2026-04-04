@@ -455,6 +455,35 @@ public static class EndpointTable
         // after a warm-up call vs 503 on a cold session.
         // Run this category in isolation to test cold-vs-warm behavior.
         // ---------------------------------------------------------------
+        // ---------------------------------------------------------------
+        // Investigate401 — Side-by-side valid vs invalid account on
+        // portfolio endpoints that return 401 for bad account IDs.
+        // Purpose: verify response headers and body to distinguish
+        // "fake 401" (bad account) from real auth 401.
+        // ---------------------------------------------------------------
+
+        // Valid account — should return 200
+        new("Investigate401", "Positions_ValidAccount", HttpMethod.Get,
+            "/v1/api/portfolio/{accountId}/positions/0", 200),
+        new("Investigate401", "Summary_ValidAccount", HttpMethod.Get,
+            "/v1/api/portfolio/{accountId}/summary", 200),
+        new("Investigate401", "Ledger_ValidAccount", HttpMethod.Get,
+            "/v1/api/portfolio/{accountId}/ledger", 200),
+
+        // Invalid account — returns 401 with empty body
+        new("Investigate401", "Positions_InvalidAccount", HttpMethod.Get,
+            "/v1/api/portfolio/INVALID999/positions/0", 401),
+        new("Investigate401", "Summary_InvalidAccount", HttpMethod.Get,
+            "/v1/api/portfolio/INVALID999/summary", 401),
+        new("Investigate401", "Ledger_InvalidAccount", HttpMethod.Get,
+            "/v1/api/portfolio/INVALID999/ledger", 401),
+
+        // Signatures endpoint — also returns 401 with empty body for invalid account
+        new("Investigate401", "Signatures_ValidAccount", HttpMethod.Get,
+            "/v1/api/acesws/{accountId}/signatures-and-owners", 200),
+        new("Investigate401", "Signatures_InvalidAccount", HttpMethod.Get,
+            "/v1/api/acesws/INVALID999/signatures-and-owners", 401),
+
         new("WatchlistBug", "WarmUp_GetAllWatchlists", HttpMethod.Get,
             "/v1/api/iserver/watchlists?SC=USER_WATCHLIST", 200),
         new("WatchlistBug", "DeleteNonExistent_AfterWarmUp", HttpMethod.Delete,

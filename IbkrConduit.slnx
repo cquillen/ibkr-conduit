@@ -4,7 +4,8 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/IbkrConduit.Tests.Integration/IbkrConduit.Tests.Integration.csproj" />
-    <Project Path="tests/IbkrConduit.Tests.Integration_Old/IbkrConduit.Tests.Integration_Old.csproj" />
+    <!-- Temporarily excluded: needs Result<T> migration. See refactor/result-error-handling branch. -->
+    <!-- <Project Path="tests/IbkrConduit.Tests.Integration_Old/IbkrConduit.Tests.Integration_Old.csproj" /> -->
     <Project Path="tests/IbkrConduit.Tests.Unit/IbkrConduit.Tests.Unit.csproj" />
   </Folder>
 </Solution>

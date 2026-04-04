@@ -48,7 +48,7 @@ public class AlertEndpointTests : IDisposable
                 new(Type: 1, Conidex: "265598", Operator: ">=", TriggerMethod: "0", Value: "500"),
             });
 
-        var result = await api.CreateOrModifyAlertAsync("DU1234567", request, TestContext.Current.CancellationToken);
+        var result = await api.CreateOrModifyAlertAsync("DU1234567", request, TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.RequestId.ShouldBe(1);
@@ -82,7 +82,7 @@ public class AlertEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrAlertApi>();
 
-        var result = await api.GetMtaAlertAsync(TestContext.Current.CancellationToken);
+        var result = await api.GetMtaAlertAsync(TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -130,7 +130,7 @@ public class AlertEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrAlertApi>();
 
-        var result = await api.GetAlertDetailAsync("12345", cancellationToken: TestContext.Current.CancellationToken);
+        var result = await api.GetAlertDetailAsync("12345", cancellationToken: TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Account.ShouldBe("DU1234567");
@@ -154,7 +154,7 @@ public class AlertEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrAlertApi>();
 
-        var result = await api.DeleteAlertAsync("DU1234567", "12345", TestContext.Current.CancellationToken);
+        var result = await api.DeleteAlertAsync("DU1234567", "12345", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.RequestId.ShouldBe(1);

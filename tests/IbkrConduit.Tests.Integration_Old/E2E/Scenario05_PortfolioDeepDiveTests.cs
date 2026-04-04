@@ -25,40 +25,40 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
         {
 
             // Step 1: Get portfolio accounts
-            var accounts = await client.Portfolio.GetAccountsAsync(CT);
+            var accounts = (await client.Portfolio.GetAccountsAsync(CT)).Value;
             accounts.ShouldNotBeEmpty("Should have at least one portfolio account");
             var accountId = accounts[0].Id;
             accountId.ShouldNotBeNullOrWhiteSpace();
 
             // Step 2: Get account summary
-            var summary = await client.Portfolio.GetAccountSummaryAsync(accountId, CT);
+            var summary = (await client.Portfolio.GetAccountSummaryAsync(accountId, CT)).Value;
             summary.ShouldNotBeNull();
             summary.ShouldNotBeEmpty("Account summary should contain at least one entry");
 
             // Step 3: Get ledger (cash balances by currency)
-            var ledger = await client.Portfolio.GetLedgerAsync(accountId, CT);
+            var ledger = (await client.Portfolio.GetLedgerAsync(accountId, CT)).Value;
             ledger.ShouldNotBeNull();
             ledger.ShouldNotBeEmpty("Ledger should contain at least one currency entry");
 
             // Step 4: Get account metadata
-            var meta = await client.Portfolio.GetAccountInfoAsync(accountId, CT);
+            var meta = (await client.Portfolio.GetAccountInfoAsync(accountId, CT)).Value;
             meta.ShouldNotBeNull();
             meta.Id.ShouldNotBeNullOrWhiteSpace();
 
             // Step 5: Get account allocation
-            var allocation = await client.Portfolio.GetAccountAllocationAsync(accountId, CT);
+            var allocation = (await client.Portfolio.GetAccountAllocationAsync(accountId, CT)).Value;
             allocation.ShouldNotBeNull();
 
             // Step 6: Get positions page 0
-            var positions = await client.Portfolio.GetPositionsAsync(accountId, 0, CT);
+            var positions = (await client.Portfolio.GetPositionsAsync(accountId, 0, CT)).Value;
             positions.ShouldNotBeNull();
 
             // Step 7: If positions exist, get position by conid for first position
             if (positions.Count > 0)
             {
                 var firstConid = positions[0].Conid;
-                var positionByConid = await client.Portfolio.GetPositionByConidAsync(
-                    accountId, firstConid.ToString(), CT);
+                var positionByConid = (await client.Portfolio.GetPositionByConidAsync(
+                    accountId, firstConid.ToString(), CT)).Value;
                 positionByConid.ShouldNotBeNull();
                 positionByConid.ShouldNotBeEmpty("Position by conid should return at least the held position");
             }
@@ -67,13 +67,13 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
             if (positions.Count > 0)
             {
                 var firstConid = positions[0].Conid;
-                var posContractInfo = await client.Portfolio.GetPositionAndContractInfoAsync(
-                    firstConid.ToString(), CT);
+                var posContractInfo = (await client.Portfolio.GetPositionAndContractInfoAsync(
+                    firstConid.ToString(), CT)).Value;
                 posContractInfo.ShouldNotBeNull();
             }
 
             // Step 9: Get real-time positions (portfolio2 — bypasses server cache)
-            var realTimePositions = await client.Portfolio.GetRealTimePositionsAsync(accountId, cancellationToken: CT);
+            var realTimePositions = (await client.Portfolio.GetRealTimePositionsAsync(accountId, cancellationToken: CT)).Value;
             realTimePositions.ShouldNotBeNull();
 
             // Step 10: Invalidate portfolio cache
@@ -82,7 +82,7 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
             // Step 11: Get combo positions (may be empty for accounts without spreads)
             try
             {
-                var comboPositions = await client.Portfolio.GetComboPositionsAsync(accountId, cancellationToken: CT);
+                var comboPositions = (await client.Portfolio.GetComboPositionsAsync(accountId, cancellationToken: CT)).Value;
                 comboPositions.ShouldNotBeNull();
                 // Combo positions may be empty — that is expected for accounts without spreads.
             }
@@ -94,11 +94,11 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
 
             // Step 12: Get consolidated allocation across accounts
             var accountIds = new List<string> { accountId };
-            var consolidatedAllocation = await client.Portfolio.GetConsolidatedAllocationAsync(accountIds, CT);
+            var consolidatedAllocation = (await client.Portfolio.GetConsolidatedAllocationAsync(accountIds, CT)).Value;
             consolidatedAllocation.ShouldNotBeNull();
 
             // Step 13: Get performance (1M period)
-            var performance = await client.Portfolio.GetAccountPerformanceAsync(accountIds, "1M", CT);
+            var performance = (await client.Portfolio.GetAccountPerformanceAsync(accountIds, "1M", CT)).Value;
             performance.ShouldNotBeNull();
 
             // Step 14: Get transaction history
@@ -106,8 +106,8 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
             // depending on the account's transaction history state.
             try
             {
-                var transactions = await client.Portfolio.GetTransactionHistoryAsync(
-                    accountIds, new List<string>(), "USD", 7, CT);
+                var transactions = (await client.Portfolio.GetTransactionHistoryAsync(
+                    accountIds, new List<string>(), "USD", 7, CT)).Value;
                 transactions.ShouldNotBeNull();
             }
             catch (Refit.ApiException)
@@ -116,17 +116,17 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
             }
 
             // Step 15: Get all-periods performance
-            var allPeriodsPerf = await client.Portfolio.GetAllPeriodsPerformanceAsync(accountIds, CT);
+            var allPeriodsPerf = (await client.Portfolio.GetAllPeriodsPerformanceAsync(accountIds, CT)).Value;
             allPeriodsPerf.ShouldNotBeNull();
 
             // Step 16: Get partitioned P&L
-            var pnl = await client.Portfolio.GetPartitionedPnlAsync(CT);
+            var pnl = (await client.Portfolio.GetPartitionedPnlAsync(CT)).Value;
             pnl.ShouldNotBeNull();
 
             // Step 17: Get subaccounts (may return empty/error for individual accounts)
             try
             {
-                var subAccounts = await client.Portfolio.GetSubAccountsAsync(CT);
+                var subAccounts = (await client.Portfolio.GetSubAccountsAsync(CT)).Value;
                 subAccounts.ShouldNotBeNull();
                 // Subaccounts may be empty for individual (non-FA) accounts — that is expected.
             }
@@ -139,7 +139,7 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
             // Step 18: Get subaccounts paged (same FA limitation)
             try
             {
-                var subAccountsPaged = await client.Portfolio.GetSubAccountsPagedAsync(0, CT);
+                var subAccountsPaged = (await client.Portfolio.GetSubAccountsPagedAsync(0, CT)).Value;
                 subAccountsPaged.ShouldNotBeNull();
                 // Paged subaccounts may be empty for individual (non-FA) accounts.
             }
@@ -164,15 +164,15 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
         try
         {
 
-            var accounts = await client.Portfolio.GetAccountsAsync(CT);
+            var accounts = (await client.Portfolio.GetAccountsAsync(CT)).Value;
             accounts.ShouldNotBeEmpty();
             var accountId = accounts[0].Id;
 
             // A conid that almost certainly does not exist in the portfolio
             try
             {
-                var positions = await client.Portfolio.GetPositionByConidAsync(
-                    accountId, "999999999", CT);
+                var positions = (await client.Portfolio.GetPositionByConidAsync(
+                    accountId, "999999999", CT)).Value;
                 positions.ShouldNotBeNull();
                 positions.ShouldBeEmpty("Position for non-existent conid should be empty");
             }
@@ -197,14 +197,14 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
         try
         {
 
-            var accounts = await client.Portfolio.GetAccountsAsync(CT);
+            var accounts = (await client.Portfolio.GetAccountsAsync(CT)).Value;
             accounts.ShouldNotBeEmpty();
             var accountId = accounts[0].Id;
 
             // IBKR QUIRK: Page 999 is expected to be beyond any real position pages,
             // but IBKR ignores invalid page numbers and returns all positions instead of
             // an empty list. Accept either empty or non-empty results.
-            var positions = await client.Portfolio.GetPositionsAsync(accountId, 999, CT);
+            var positions = (await client.Portfolio.GetPositionsAsync(accountId, 999, CT)).Value;
             positions.ShouldNotBeNull();
 
         }
@@ -226,8 +226,8 @@ public sealed class Scenario05_PortfolioDeepDiveTests : E2eScenarioBase
             // or throw an ApiException — both are acceptable.
             try
             {
-                var performance = await client.Portfolio.GetAccountPerformanceAsync(
-                    new List<string>(), "1M", CT);
+                var performance = (await client.Portfolio.GetAccountPerformanceAsync(
+                    new List<string>(), "1M", CT)).Value;
                 performance.ShouldNotBeNull();
             }
             catch (ApiException)

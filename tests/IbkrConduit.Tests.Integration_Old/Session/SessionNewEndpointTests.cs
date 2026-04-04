@@ -36,7 +36,7 @@ public class SessionNewEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrSessionApi>();
 
-        var result = await api.ResetSuppressedQuestionsAsync(TestContext.Current.CancellationToken);
+        var result = await api.ResetSuppressedQuestionsAsync(TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Status.ShouldBe("submitted");
@@ -66,7 +66,7 @@ public class SessionNewEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrSessionApi>();
 
-        var result = await api.GetAuthStatusAsync(TestContext.Current.CancellationToken);
+        var result = await api.GetAuthStatusAsync(TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Authenticated.ShouldBeTrue();

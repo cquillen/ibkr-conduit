@@ -36,7 +36,7 @@ public class FyiEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrFyiApi>();
 
-        var result = await api.GetUnreadCountAsync(TestContext.Current.CancellationToken);
+        var result = await api.GetUnreadCountAsync(TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.BN.ShouldBe(4);
@@ -62,7 +62,7 @@ public class FyiEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrFyiApi>();
 
-        var result = await api.GetSettingsAsync(TestContext.Current.CancellationToken);
+        var result = await api.GetSettingsAsync(TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(2);
@@ -86,7 +86,7 @@ public class FyiEndpointTests : IDisposable
         var api = CreateRefitClient<IIbkrFyiApi>();
 
         var result = await api.UpdateSettingAsync("SM", new FyiSettingUpdateRequest(true),
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.V.ShouldBe(1);
@@ -107,7 +107,7 @@ public class FyiEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrFyiApi>();
 
-        var result = await api.GetDisclaimerAsync("SM", TestContext.Current.CancellationToken);
+        var result = await api.GetDisclaimerAsync("SM", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.FC.ShouldBe("SM");
@@ -129,7 +129,7 @@ public class FyiEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrFyiApi>();
 
-        var result = await api.MarkDisclaimerReadAsync("CT", TestContext.Current.CancellationToken);
+        var result = await api.MarkDisclaimerReadAsync("CT", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.V.ShouldBe(1);
@@ -155,7 +155,7 @@ public class FyiEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrFyiApi>();
 
-        var result = await api.GetDeliveryOptionsAsync(TestContext.Current.CancellationToken);
+        var result = await api.GetDeliveryOptionsAsync(TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.M.ShouldBe(1);
@@ -178,7 +178,7 @@ public class FyiEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrFyiApi>();
 
-        var result = await api.SetEmailDeliveryAsync("true", TestContext.Current.CancellationToken);
+        var result = await api.SetEmailDeliveryAsync("true", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.V.ShouldBe(1);
@@ -201,7 +201,7 @@ public class FyiEndpointTests : IDisposable
 
         var result = await api.RegisterDeviceAsync(
             new FyiDeviceRequest("iPhone", "apn://device1", "apn://device1", true),
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.V.ShouldBe(1);
@@ -248,7 +248,7 @@ public class FyiEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrFyiApi>();
 
-        var result = await api.GetNotificationsAsync("10", TestContext.Current.CancellationToken);
+        var result = await api.GetNotificationsAsync("10", TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -272,7 +272,7 @@ public class FyiEndpointTests : IDisposable
         var api = CreateRefitClient<IIbkrFyiApi>();
 
         var result = await api.GetMoreNotificationsAsync("12345678901234567",
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(0);
@@ -294,7 +294,7 @@ public class FyiEndpointTests : IDisposable
         var api = CreateRefitClient<IIbkrFyiApi>();
 
         var result = await api.MarkNotificationReadAsync("12345678901234567",
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.V.ShouldBe(1);

@@ -28,13 +28,13 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
         {
 
             // Step 1: Search for AAPL
-            var searchResults = await client.Contracts.SearchBySymbolAsync("AAPL", CT);
+            var searchResults = (await client.Contracts.SearchBySymbolAsync("AAPL", CT)).Value;
             searchResults.ShouldNotBeEmpty("AAPL search should return results");
             var aaplConid = searchResults[0].Conid;
             aaplConid.ShouldBeGreaterThan(0, "AAPL conid should be positive");
 
             // Step 2: Get contract details
-            var details = await client.Contracts.GetContractDetailsAsync(aaplConid.ToString(), CT);
+            var details = (await client.Contracts.GetContractDetailsAsync(aaplConid.ToString(), CT)).Value;
             details.Symbol.ShouldContain("AAPL");
 
             // Step 3: Get trading rules (isBuy is required by IBKR)
@@ -43,8 +43,8 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
             // server issues. We treat a 500 as a known quirk and continue the workflow.
             try
             {
-                var tradingRules = await client.Contracts.GetTradingRulesAsync(
-                    new TradingRulesRequest(aaplConid, null, true, false, null), CT);
+                var tradingRules = (await client.Contracts.GetTradingRulesAsync(
+                    new TradingRulesRequest(aaplConid, null, true, false, null), CT)).Value;
                 tradingRules.ShouldNotBeNull("Trading rules should not be null");
             }
             catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.InternalServerError)
@@ -53,8 +53,8 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
             }
 
             // Step 4: Get security definitions by conid
-            var secDefs = await client.Contracts.GetSecurityDefinitionsByConidAsync(
-                aaplConid.ToString(), CT);
+            var secDefs = (await client.Contracts.GetSecurityDefinitionsByConidAsync(
+                aaplConid.ToString(), CT)).Value;
             secDefs.Secdef.ShouldNotBeEmpty("Security definitions should not be empty");
 
             // Step 5: Get trading schedule
@@ -62,8 +62,8 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
             // accounts. This may be due to assetClass/symbol/conid mismatch in IBKR's backend.
             try
             {
-                var schedules = await client.Contracts.GetTradingScheduleAsync(
-                    "STK", "AAPL", aaplConid.ToString(), cancellationToken: CT);
+                var schedules = (await client.Contracts.GetTradingScheduleAsync(
+                    "STK", "AAPL", aaplConid.ToString(), cancellationToken: CT)).Value;
                 schedules.ShouldNotBeEmpty("Trading schedule should not be empty");
             }
             catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
@@ -73,8 +73,8 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
 
             // Step 6: Get option strikes for nearest month
             var nearestMonth = GetNearestOptionMonth();
-            var strikes = await client.Contracts.GetOptionStrikesAsync(
-                aaplConid.ToString(), "OPT", nearestMonth, cancellationToken: CT);
+            var strikes = (await client.Contracts.GetOptionStrikesAsync(
+                aaplConid.ToString(), "OPT", nearestMonth, cancellationToken: CT)).Value;
             strikes.Call.ShouldNotBeEmpty("Call strikes should not be empty");
             strikes.Put.ShouldNotBeEmpty("Put strikes should not be empty");
 
@@ -83,8 +83,8 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
             // doesn't match available option months, or if no options exist for the month.
             try
             {
-                var secDefInfo = await client.Contracts.GetSecurityDefinitionInfoAsync(
-                    aaplConid.ToString(), "OPT", nearestMonth, cancellationToken: CT);
+                var secDefInfo = (await client.Contracts.GetSecurityDefinitionInfoAsync(
+                    aaplConid.ToString(), "OPT", nearestMonth, cancellationToken: CT)).Value;
                 secDefInfo.ShouldNotBeEmpty("Security definition info should not be empty");
             }
             catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
@@ -93,23 +93,23 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
             }
 
             // Step 8: Get stocks by symbol
-            var stocks = await client.Contracts.GetStocksBySymbolAsync("AAPL", CT);
+            var stocks = (await client.Contracts.GetStocksBySymbolAsync("AAPL", CT)).Value;
             stocks.ShouldContainKey("AAPL");
 
             // Step 9: Get futures by symbol
-            var futures = await client.Contracts.GetFuturesBySymbolAsync("ES", CT);
+            var futures = (await client.Contracts.GetFuturesBySymbolAsync("ES", CT)).Value;
             futures.ShouldNotBeEmpty("ES futures should not be empty");
 
             // Step 10: Get all conids by exchange
-            var exchangeConids = await client.Contracts.GetAllConidsByExchangeAsync("NASDAQ", CT);
+            var exchangeConids = (await client.Contracts.GetAllConidsByExchangeAsync("NASDAQ", CT)).Value;
             exchangeConids.ShouldNotBeEmpty("NASDAQ conids should not be empty");
 
             // Step 11: Get currency pairs
-            var currencyPairs = await client.Contracts.GetCurrencyPairsAsync("USD", CT);
+            var currencyPairs = (await client.Contracts.GetCurrencyPairsAsync("USD", CT)).Value;
             currencyPairs.ShouldNotBeEmpty("USD currency pairs should not be empty");
 
             // Step 12: Get exchange rate
-            var exchangeRate = await client.Contracts.GetExchangeRateAsync("USD", "EUR", CT);
+            var exchangeRate = (await client.Contracts.GetExchangeRateAsync("USD", "EUR", CT)).Value;
             exchangeRate.Rate.ShouldBeGreaterThan(0m, "USD/EUR rate should be positive");
 
         }
@@ -129,7 +129,7 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
 
             try
             {
-                var results = await client.Contracts.SearchBySymbolAsync("ZZZZNOTREAL", CT);
+                var results = (await client.Contracts.SearchBySymbolAsync("ZZZZNOTREAL", CT)).Value;
                 results.ShouldBeEmpty("Non-existent symbol should return empty results");
             }
             catch (ApiException)
@@ -156,7 +156,7 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
 
             try
             {
-                var result = await client.Contracts.GetContractDetailsAsync("999999999", CT);
+                var result = (await client.Contracts.GetContractDetailsAsync("999999999", CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for an invalid conid.
                 result.ShouldNotBeNull(
@@ -184,7 +184,7 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
 
             try
             {
-                var result = await client.Contracts.GetExchangeRateAsync("USD", "USD", CT);
+                var result = (await client.Contracts.GetExchangeRateAsync("USD", "USD", CT)).Value;
 
                 // Same currency exchange rate should be 1.0 or very close to it.
                 result.Rate.ShouldBeGreaterThan(0m,
@@ -212,8 +212,8 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
 
             try
             {
-                var result = await client.Contracts.GetTradingRulesAsync(
-                    new TradingRulesRequest(0, null, null, null, null), CT);
+                var result = (await client.Contracts.GetTradingRulesAsync(
+                    new TradingRulesRequest(0, null, null, null, null), CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for conid 0.
                 result.ShouldNotBeNull(
@@ -240,14 +240,14 @@ public sealed class Scenario02_ContractResearchTests : E2eScenarioBase
         {
 
             // Search for AAPL first to get a valid conid
-            var searchResults = await client.Contracts.SearchBySymbolAsync("AAPL", CT);
+            var searchResults = (await client.Contracts.SearchBySymbolAsync("AAPL", CT)).Value;
             searchResults.ShouldNotBeEmpty();
             var aaplConid = searchResults[0].Conid;
 
             try
             {
-                var result = await client.Contracts.GetOptionStrikesAsync(
-                    aaplConid.ToString(), "OPT", "999999", cancellationToken: CT);
+                var result = (await client.Contracts.GetOptionStrikesAsync(
+                    aaplConid.ToString(), "OPT", "999999", cancellationToken: CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for invalid month.
                 // Strikes lists may be empty.

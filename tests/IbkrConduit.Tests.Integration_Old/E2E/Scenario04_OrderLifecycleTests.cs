@@ -29,13 +29,13 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
         {
 
             // Step 1: Get account ID
-            var accounts = await client.Portfolio.GetAccountsAsync(CT);
+            var accounts = (await client.Portfolio.GetAccountsAsync(CT)).Value;
             accounts.ShouldNotBeEmpty("Should have at least one account");
             accountId = accounts[0].Id;
             accountId.ShouldNotBeNullOrEmpty();
 
             // Step 2: Search SPY conid
-            var searchResults = await client.Contracts.SearchBySymbolAsync("SPY", CT);
+            var searchResults = (await client.Contracts.SearchBySymbolAsync("SPY", CT)).Value;
             searchResults.ShouldNotBeEmpty("SPY search should return results");
             var spyConid = searchResults[0].Conid;
             spyConid.ShouldBeGreaterThan(0);
@@ -51,11 +51,11 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
                 Tif = "GTC",
             };
 
-            var whatIf = await client.Orders.WhatIfOrderAsync(accountId, orderRequest, CT);
+            var whatIf = (await client.Orders.WhatIfOrderAsync(accountId, orderRequest, CT)).Value;
             whatIf.ShouldNotBeNull();
 
             // Step 4: Place order (far below market, won't fill)
-            var placeResult = await client.Orders.PlaceOrderAsync(accountId, orderRequest, CT);
+            var placeResult = (await client.Orders.PlaceOrderAsync(accountId, orderRequest, CT)).Value;
             // Handle confirmation flow if IBKR asks for confirmation
             var submitted = placeResult.IsT0
                 ? placeResult.AsT0
@@ -64,12 +64,12 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
             var orderId = submitted.OrderId;
 
             // Step 5: Get order status
-            var status = await client.Orders.GetOrderStatusAsync(orderId, CT);
+            var status = (await client.Orders.GetOrderStatusAsync(orderId, CT)).Value;
             status.ShouldNotBeNull();
             status.OrderId.ShouldBeGreaterThan(0);
 
             // Step 6: Get live orders — verify our order appears
-            var liveOrders = await client.Orders.GetLiveOrdersAsync(CT);
+            var liveOrders = (await client.Orders.GetLiveOrdersAsync(CT)).Value;
             liveOrders.ShouldNotBeNull();
 
             // Step 7: Modify order — change price to $1.01
@@ -88,7 +88,7 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
             // where the order hasn't fully settled, or a paper-account-specific limitation.
             try
             {
-                var modifyResult = await client.Orders.ModifyOrderAsync(accountId, orderId, modifiedOrder, CT);
+                var modifyResult = (await client.Orders.ModifyOrderAsync(accountId, orderId, modifiedOrder, CT)).Value;
                 var modifySubmitted = modifyResult.IsT0
                     ? modifyResult.AsT0
                     : (await client.Orders.ReplyAsync(modifyResult.AsT1.ReplyId, true, CT)).AsT0;
@@ -101,13 +101,13 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
             }
 
             // Step 8: Cancel order
-            var cancelResult = await client.Orders.CancelOrderAsync(accountId, orderId, CT);
+            var cancelResult = (await client.Orders.CancelOrderAsync(accountId, orderId, CT)).Value;
             cancelResult.ShouldNotBeNull();
 
             // Step 9: Double-cancel — verify IBKR behavior for cancelling already-cancelled order
             try
             {
-                var doubleCancelResult = await client.Orders.CancelOrderAsync(accountId, orderId, CT);
+                var doubleCancelResult = (await client.Orders.CancelOrderAsync(accountId, orderId, CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for cancelling an already-cancelled order.
                 doubleCancelResult.ShouldNotBeNull();
@@ -118,7 +118,7 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
             }
 
             // Step 10: Get trades — verify response shape (may be empty if order never filled)
-            var trades = await client.Orders.GetTradesAsync(CT);
+            var trades = (await client.Orders.GetTradesAsync(CT)).Value;
             trades.ShouldNotBeNull();
 
         }
@@ -129,7 +129,7 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
             {
                 if (!string.IsNullOrEmpty(accountId))
                 {
-                    var liveOrders = await client.Orders.GetLiveOrdersAsync(CT);
+                    var liveOrders = (await client.Orders.GetLiveOrdersAsync(CT)).Value;
                     foreach (var order in liveOrders.Where(o =>
                                  o.Ticker == "SPY"))
                     {
@@ -163,7 +163,7 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
 
             try
             {
-                var status = await client.Orders.GetOrderStatusAsync("000000000", CT);
+                var status = (await client.Orders.GetOrderStatusAsync("000000000", CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent order ID.
                 status.ShouldNotBeNull();
@@ -189,12 +189,12 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
         {
 
             // Get a valid account ID for the cancel call
-            var accounts = await client.Portfolio.GetAccountsAsync(CT);
+            var accounts = (await client.Portfolio.GetAccountsAsync(CT)).Value;
             var accountId = accounts[0].Id;
 
             try
             {
-                var result = await client.Orders.CancelOrderAsync(accountId, "000000000", CT);
+                var result = (await client.Orders.CancelOrderAsync(accountId, "000000000", CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent order.
                 result.ShouldNotBeNull();
@@ -219,10 +219,10 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
         try
         {
 
-            var accounts = await client.Portfolio.GetAccountsAsync(CT);
+            var accounts = (await client.Portfolio.GetAccountsAsync(CT)).Value;
             var accountId = accounts[0].Id;
 
-            var searchResults = await client.Contracts.SearchBySymbolAsync("SPY", CT);
+            var searchResults = (await client.Contracts.SearchBySymbolAsync("SPY", CT)).Value;
             var spyConid = searchResults[0].Conid;
 
             var order = new OrderRequest
@@ -237,7 +237,7 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
 
             try
             {
-                var result = await client.Orders.ModifyOrderAsync(accountId, "000000000", order, CT);
+                var result = (await client.Orders.ModifyOrderAsync(accountId, "000000000", order, CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent order.
                 // OneOf is a struct so always non-null; just verify we got a response
@@ -263,7 +263,7 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
         try
         {
 
-            var accounts = await client.Portfolio.GetAccountsAsync(CT);
+            var accounts = (await client.Portfolio.GetAccountsAsync(CT)).Value;
             var accountId = accounts[0].Id;
 
             var order = new OrderRequest
@@ -278,7 +278,7 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
 
             try
             {
-                var result = await client.Orders.WhatIfOrderAsync(accountId, order, CT);
+                var result = (await client.Orders.WhatIfOrderAsync(accountId, order, CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for an invalid conid.
                 // Check if the response contains an error indicator.
@@ -307,10 +307,10 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
         try
         {
 
-            var accounts = await client.Portfolio.GetAccountsAsync(CT);
+            var accounts = (await client.Portfolio.GetAccountsAsync(CT)).Value;
             var accountId = accounts[0].Id;
 
-            var searchResults = await client.Contracts.SearchBySymbolAsync("SPY", CT);
+            var searchResults = (await client.Contracts.SearchBySymbolAsync("SPY", CT)).Value;
             var spyConid = searchResults[0].Conid;
 
             var order = new OrderRequest
@@ -325,7 +325,7 @@ public sealed class Scenario04_OrderLifecycleTests : E2eScenarioBase
 
             try
             {
-                var result = await client.Orders.PlaceOrderAsync(accountId, order, CT);
+                var result = (await client.Orders.PlaceOrderAsync(accountId, order, CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API accepted a zero-quantity order.
                 // OneOf is a struct so always non-null; just verify we got a response

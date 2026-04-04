@@ -29,11 +29,11 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
         {
 
             // Step 1: Search SPY and AAPL conids
-            var spyResults = await client.Contracts.SearchBySymbolAsync("SPY", CT);
+            var spyResults = (await client.Contracts.SearchBySymbolAsync("SPY", CT)).Value;
             spyResults.ShouldNotBeEmpty("SPY search should return results");
             var spyConid = spyResults[0].Conid;
 
-            var aaplResults = await client.Contracts.SearchBySymbolAsync("AAPL", CT);
+            var aaplResults = (await client.Contracts.SearchBySymbolAsync("AAPL", CT)).Value;
             aaplResults.ShouldNotBeEmpty("AAPL search should return results");
             var aaplConid = aaplResults[0].Conid;
 
@@ -54,7 +54,7 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
             CreateWatchlistResponse createResponse;
             try
             {
-                createResponse = await client.Watchlists.CreateWatchlistAsync(createRequest, CT);
+                createResponse = (await client.Watchlists.CreateWatchlistAsync(createRequest, CT)).Value;
             }
             catch (ApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.ServiceUnavailable
                                               or System.Net.HttpStatusCode.Forbidden
@@ -70,25 +70,25 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
             watchlistId = createResponse.Id;
 
             // Step 3: List watchlists — verify our watchlist appears
-            var watchlists = await client.Watchlists.GetWatchlistsAsync(CT);
+            var watchlists = (await client.Watchlists.GetWatchlistsAsync(CT)).Value;
             watchlists.ShouldNotBeNull();
             watchlists.Data.UserLists.ShouldContain(
                 w => w.Id == watchlistId || w.Name == testId,
                 "Watchlist list should contain the newly created watchlist");
 
             // Step 4: Get watchlist detail
-            var detail = await client.Watchlists.GetWatchlistAsync(watchlistId, CT);
+            var detail = (await client.Watchlists.GetWatchlistAsync(watchlistId, CT)).Value;
             detail.ShouldNotBeNull();
             detail.Instruments.ShouldNotBeEmpty("Watchlist should have instruments");
             detail.Instruments.Count.ShouldBe(2, "Watchlist should have 2 instruments (SPY and AAPL)");
 
             // Step 5: Delete watchlist
-            var deleteResponse = await client.Watchlists.DeleteWatchlistAsync(watchlistId, CT);
+            var deleteResponse = (await client.Watchlists.DeleteWatchlistAsync(watchlistId, CT)).Value;
             deleteResponse.ShouldNotBeNull();
             deleteResponse.Data.Deleted.ShouldBe(watchlistId, "Delete should return the deleted watchlist ID");
 
             // Step 6: List watchlists again — verify ours is gone
-            var watchlistsAfterDelete = await client.Watchlists.GetWatchlistsAsync(CT);
+            var watchlistsAfterDelete = (await client.Watchlists.GetWatchlistsAsync(CT)).Value;
             watchlistsAfterDelete.Data.UserLists.ShouldNotContain(
                 w => w.Id == watchlistId || w.Name == testId,
                 "Watchlist list should not contain the deleted watchlist");
@@ -96,7 +96,7 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
             // Step 7: Double-delete — verify IBKR behavior
             try
             {
-                var doubleDeleteResponse = await client.Watchlists.DeleteWatchlistAsync(watchlistId, CT);
+                var doubleDeleteResponse = (await client.Watchlists.DeleteWatchlistAsync(watchlistId, CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for deleting an already-deleted watchlist.
                 doubleDeleteResponse.ShouldNotBeNull();
@@ -112,7 +112,7 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
             // Cleanup: delete any leftover E2E watchlists
             try
             {
-                var watchlists = await client.Watchlists.GetWatchlistsAsync(CT);
+                var watchlists = (await client.Watchlists.GetWatchlistsAsync(CT)).Value;
                 foreach (var wl in watchlists.Data.UserLists.Where(w =>
                              w.Name.StartsWith("E2E-", StringComparison.Ordinal)))
                 {
@@ -145,7 +145,7 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
 
             try
             {
-                var detail = await client.Watchlists.GetWatchlistAsync("FAKE-ID-99999", CT);
+                var detail = (await client.Watchlists.GetWatchlistAsync("FAKE-ID-99999", CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent watchlist ID.
                 detail.ShouldNotBeNull();
@@ -172,7 +172,7 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
 
             try
             {
-                var result = await client.Watchlists.DeleteWatchlistAsync("FAKE-ID-99999", CT);
+                var result = (await client.Watchlists.DeleteWatchlistAsync("FAKE-ID-99999", CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent watchlist.
                 result.ShouldNotBeNull();

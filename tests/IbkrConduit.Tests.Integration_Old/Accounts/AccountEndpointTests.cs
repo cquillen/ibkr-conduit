@@ -41,7 +41,7 @@ public class AccountEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrAccountApi>();
 
-        var result = await api.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var result = await api.GetAccountsAsync(TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Accounts.Count.ShouldBe(2);
@@ -65,7 +65,7 @@ public class AccountEndpointTests : IDisposable
         var api = CreateRefitClient<IIbkrAccountApi>();
 
         var result = await api.SwitchAccountAsync(
-            new SwitchAccountRequest("DU7654321"), TestContext.Current.CancellationToken);
+            new SwitchAccountRequest("DU7654321"), TestContext.Current.CancellationToken).Content!;
 
         result.ShouldNotBeNull();
         result.Success.ShouldNotBeNull();

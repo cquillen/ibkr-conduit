@@ -31,12 +31,12 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
         {
 
             // Step 1: Get unread notification count
-            var unreadCount = await client.Notifications.GetUnreadCountAsync(CT);
+            var unreadCount = (await client.Notifications.GetUnreadCountAsync(CT)).Value;
             unreadCount.ShouldNotBeNull();
             unreadCount.BN.ShouldBeGreaterThanOrEqualTo(0, "Unread count should be non-negative");
 
             // Step 2: Get current FYI settings — capture original state
-            var settings = await client.Notifications.GetSettingsAsync(CT);
+            var settings = (await client.Notifications.GetSettingsAsync(CT)).Value;
             settings.ShouldNotBeNull();
             settings.ShouldNotBeEmpty("Should have at least one notification setting");
 
@@ -47,8 +47,8 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
             originalEnabled = settingToToggle.H == 1;
 
             // Step 3: Toggle the setting (flip enabled state)
-            var toggleResult = await client.Notifications.UpdateSettingAsync(
-                toggledTypecode, !originalEnabled, CT);
+            var toggleResult = (await client.Notifications.UpdateSettingAsync(
+                toggledTypecode, !originalEnabled, CT)).Value;
             toggleResult.ShouldNotBeNull();
 
             // Step 4: Restore handled in finally block
@@ -56,7 +56,7 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
             // Step 5: Get disclaimer for the typecode
             try
             {
-                var disclaimer = await client.Notifications.GetDisclaimerAsync(toggledTypecode, CT);
+                var disclaimer = (await client.Notifications.GetDisclaimerAsync(toggledTypecode, CT)).Value;
                 disclaimer.ShouldNotBeNull();
                 disclaimer.FC.ShouldNotBeNullOrEmpty("Disclaimer should have a typecode");
             }
@@ -69,7 +69,7 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
             // Step 6: Mark disclaimer as read
             try
             {
-                var markResult = await client.Notifications.MarkDisclaimerReadAsync(toggledTypecode, CT);
+                var markResult = (await client.Notifications.MarkDisclaimerReadAsync(toggledTypecode, CT)).Value;
                 markResult.ShouldNotBeNull();
             }
             catch (ApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.NotFound
@@ -80,13 +80,13 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
             }
 
             // Step 7: Get delivery options
-            var deliveryOptions = await client.Notifications.GetDeliveryOptionsAsync(CT);
+            var deliveryOptions = (await client.Notifications.GetDeliveryOptionsAsync(CT)).Value;
             deliveryOptions.ShouldNotBeNull();
             originalEmailEnabled = deliveryOptions.M == 1;
 
             // Step 8: Toggle email delivery (flip current state) — restore in finally
-            var emailToggleResult = await client.Notifications.SetEmailDeliveryAsync(
-                !originalEmailEnabled.Value, CT);
+            var emailToggleResult = (await client.Notifications.SetEmailDeliveryAsync(
+                !originalEmailEnabled.Value, CT)).Value;
             emailToggleResult.ShouldNotBeNull();
 
             // Step 9: Attempt device registration with synthetic token — may fail, that's OK
@@ -98,7 +98,7 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                     UiName: "E2E Test UI",
                     Enabled: true);
 
-                var registerResult = await client.Notifications.RegisterDeviceAsync(deviceRequest, CT);
+                var registerResult = (await client.Notifications.RegisterDeviceAsync(deviceRequest, CT)).Value;
                 registerResult.ShouldNotBeNull();
 
                 // If registration succeeded, capture the device ID for cleanup
@@ -125,7 +125,7 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
             }
 
             // Step 11: Get notifications
-            var notifications = await client.Notifications.GetNotificationsAsync(cancellationToken: CT);
+            var notifications = (await client.Notifications.GetNotificationsAsync(cancellationToken: CT)).Value;
             notifications.ShouldNotBeNull();
 
             // Step 12: If notifications exist, get more for pagination
@@ -134,8 +134,8 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 var lastNotification = notifications[^1];
                 try
                 {
-                    var moreNotifications = await client.Notifications.GetMoreNotificationsAsync(
-                        lastNotification.ID, CT);
+                    var moreNotifications = (await client.Notifications.GetMoreNotificationsAsync(
+                        lastNotification.ID, CT)).Value;
                     moreNotifications.ShouldNotBeNull();
                 }
                 catch (ApiException)
@@ -147,8 +147,8 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
                 var firstNotification = notifications[0];
                 try
                 {
-                    var readResult = await client.Notifications.MarkNotificationReadAsync(
-                        firstNotification.ID, CT);
+                    var readResult = (await client.Notifications.MarkNotificationReadAsync(
+                        firstNotification.ID, CT)).Value;
                     readResult.ShouldNotBeNull();
                 }
                 catch (ApiException)
@@ -213,7 +213,7 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
 
             try
             {
-                var result = await client.Notifications.UpdateSettingAsync("NONEXISTENT", true, CT);
+                var result = (await client.Notifications.UpdateSettingAsync("NONEXISTENT", true, CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for an invalid typecode.
                 result.ShouldNotBeNull();
@@ -240,7 +240,7 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
 
             try
             {
-                var result = await client.Notifications.GetDisclaimerAsync("NONEXISTENT", CT);
+                var result = (await client.Notifications.GetDisclaimerAsync("NONEXISTENT", CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for an invalid typecode.
                 result.ShouldNotBeNull();
@@ -267,7 +267,7 @@ public sealed class Scenario08_NotificationPreferencesTests : E2eScenarioBase
 
             try
             {
-                var result = await client.Notifications.MarkNotificationReadAsync("0", CT);
+                var result = (await client.Notifications.MarkNotificationReadAsync("0", CT)).Value;
 
                 // IBKR QUIRK: If we get here, the API returned 200 for a non-existent notification ID.
                 result.ShouldNotBeNull();
