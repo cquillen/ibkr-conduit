@@ -13,6 +13,12 @@ Systematically validate and fix the entire IBKR Client Portal API surface by com
 5. **Fix DTOs** — compare recording response shapes against our model classes in `src/IbkrConduit/`. Fix field names, types, wrapper structures, missing fields. When a recording cannot be captured (e.g., alert creation returns 403 on paper accounts), use the OpenAPI spec as a fallback source for DTO definition. Mark these endpoints as "OpenAPI" in the API Testing Status Report
 6. **Add missing Refit endpoints** — check if any endpoints from the OpenAPI spec are missing from our Refit interfaces. Add them with correct return types
 7. **Fix integration tests** — update/create fixtures from recordings, update test assertions to match new DTOs, ensure 401 recovery test for every endpoint
+8. **Update API Testing Status Report** — update `docs/api-testing-status-report.md` for every endpoint worked on in this category:
+   - Set **DTO Source** to `Recording` if validated against a live capture, or `OpenAPI` if using the spec as fallback
+   - Set **Integration Tests** to `Yes + 401` if both success and 401 recovery tests exist, `Yes` for success only, or `Not Tested`
+   - Update the **Notes** column with any findings (quirks, limitations, field mismatches)
+   - Update the **Summary** table at the bottom with new totals
+   - Commit the status report update as part of the category's PR
 
 ## Categories and Priority
 
