@@ -23,6 +23,7 @@ jobs:
               - '*.slnx'
               - '*.props'
               - '*.targets'
+              - 'global.json'
               - '.editorconfig'
               - '.github/workflows/**'
 
@@ -60,7 +61,7 @@ jobs:
 
       - name: Test
         if: needs.changes.outputs.code == 'true'
-        run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" -- --filter-not-trait "Category=Slow"
+        run: dotnet test --no-build --configuration Release --filter-not-trait "Category=Slow"
 
       - name: Upload coverage to Codecov
         if: needs.changes.outputs.code == 'true'
