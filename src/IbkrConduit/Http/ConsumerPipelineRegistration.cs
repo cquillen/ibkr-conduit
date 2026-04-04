@@ -16,7 +16,6 @@ using IbkrConduit.Session;
 using IbkrConduit.Watchlists;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Polly;
 using Refit;
 
 namespace IbkrConduit.Http;
@@ -38,8 +37,8 @@ internal static class ConsumerPipelineRegistration
         string baseUrl)
     {
         // Consumer Refit clients (all go through the full pipeline):
-        //   TokenRefreshHandler -> ResponseSchemaValidationHandler -> ErrorNormalizationHandler ->
-        //   ResilienceHandler -> GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
+        //   TokenRefreshHandler -> ResponseSchemaValidationHandler ->
+        //   GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
         RegisterConsumerRefitClient<IIbkrPortfolioApi>(services, credentials, clientOptions, endpointMap, baseUrl);
         RegisterConsumerRefitClient<IIbkrContractApi>(services, credentials, clientOptions, endpointMap, baseUrl);
         RegisterConsumerRefitClient<IIbkrOrderApi>(services, credentials, clientOptions, endpointMap, baseUrl);
@@ -84,11 +83,6 @@ internal static class ConsumerPipelineRegistration
                     clientOptions,
                     endpointMap,
                     sp.GetRequiredService<ILogger<ResponseSchemaValidationHandler>>()))
-            .AddHttpMessageHandler(_ =>
-                new ErrorNormalizationHandler())
-            .AddHttpMessageHandler(sp =>
-                new ResilienceHandler(
-                    sp.GetRequiredService<ResiliencePipeline<HttpResponseMessage>>()))
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
                     sp.GetRequiredService<RateLimiter>()))

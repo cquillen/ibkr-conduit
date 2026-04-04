@@ -1,5 +1,7 @@
 using IbkrConduit.Accounts;
 using IbkrConduit.Diagnostics;
+using IbkrConduit.Errors;
+using IbkrConduit.Session;
 
 namespace IbkrConduit.Client;
 
@@ -9,98 +11,124 @@ namespace IbkrConduit.Client;
 public class AccountOperations : IAccountOperations
 {
     private readonly IIbkrAccountApi _api;
+    private readonly IbkrClientOptions _options;
 
     /// <summary>
     /// Creates a new <see cref="AccountOperations"/> instance.
     /// </summary>
     /// <param name="api">The Refit account API client.</param>
-    public AccountOperations(IIbkrAccountApi api) => _api = api;
-
-    /// <inheritdoc />
-    public async Task<IserverAccountsResponse> GetAccountsAsync(CancellationToken cancellationToken = default)
+    /// <param name="options">Client options.</param>
+    public AccountOperations(IIbkrAccountApi api, IbkrClientOptions options)
     {
-        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccounts");
-        return await _api.GetAccountsAsync(cancellationToken);
+        _api = api;
+        _options = options;
     }
 
     /// <inheritdoc />
-    public async Task<SwitchAccountResponse> SwitchAccountAsync(string accountId,
+    public async Task<Result<IserverAccountsResponse>> GetAccountsAsync(CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccounts");
+        var response = await _api.GetAccountsAsync(cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<SwitchAccountResponse>> SwitchAccountAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.SwitchAccount");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.SwitchAccountAsync(new SwitchAccountRequest(accountId), cancellationToken);
+        var response = await _api.SwitchAccountAsync(new SwitchAccountRequest(accountId), cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<SignaturesAndOwnersResponse> GetSignaturesAndOwnersAsync(string accountId,
+    public async Task<Result<SignaturesAndOwnersResponse>> GetSignaturesAndOwnersAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetSignaturesAndOwners");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetSignaturesAndOwnersAsync(accountId, cancellationToken);
+        var response = await _api.GetSignaturesAndOwnersAsync(accountId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<DynamicAccountSearchResponse> SearchDynamicAccountAsync(string pattern,
+    public async Task<Result<DynamicAccountSearchResponse>> SearchDynamicAccountAsync(string pattern,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.SearchDynamicAccount");
-        return await _api.SearchDynamicAccountAsync(pattern, cancellationToken);
+        var response = await _api.SearchDynamicAccountAsync(pattern, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<SetDynamicAccountResponse> SetDynamicAccountAsync(string accountId,
+    public async Task<Result<SetDynamicAccountResponse>> SetDynamicAccountAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.SetDynamicAccount");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.SetDynamicAccountAsync(new SetDynamicAccountRequest(accountId), cancellationToken);
+        var response = await _api.SetDynamicAccountAsync(new SetDynamicAccountRequest(accountId), cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<AccountSummaryOverview> GetAccountSummaryAsync(string accountId,
+    public async Task<Result<AccountSummaryOverview>> GetAccountSummaryAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccountSummary");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetAccountSummaryAsync(accountId, cancellationToken);
+        var response = await _api.GetAccountSummaryAsync(accountId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryAvailableFundsAsync(string accountId,
+    public async Task<Result<Dictionary<string, Dictionary<string, string>>>> GetAccountSummaryAvailableFundsAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccountSummaryAvailableFunds");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetAccountSummaryAvailableFundsAsync(accountId, cancellationToken);
+        var response = await _api.GetAccountSummaryAvailableFundsAsync(accountId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryBalancesAsync(string accountId,
+    public async Task<Result<Dictionary<string, Dictionary<string, string>>>> GetAccountSummaryBalancesAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccountSummaryBalances");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetAccountSummaryBalancesAsync(accountId, cancellationToken);
+        var response = await _api.GetAccountSummaryBalancesAsync(accountId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarginsAsync(string accountId,
+    public async Task<Result<Dictionary<string, Dictionary<string, string>>>> GetAccountSummaryMarginsAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccountSummaryMargins");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetAccountSummaryMarginsAsync(accountId, cancellationToken);
+        var response = await _api.GetAccountSummaryMarginsAsync(accountId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarketValueAsync(string accountId,
+    public async Task<Result<Dictionary<string, Dictionary<string, string>>>> GetAccountSummaryMarketValueAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccountSummaryMarketValue");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetAccountSummaryMarketValueAsync(accountId, cancellationToken);
+        var response = await _api.GetAccountSummaryMarketValueAsync(accountId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
 }

@@ -1,3 +1,4 @@
+using IbkrConduit.Errors;
 using IbkrConduit.Portfolio;
 
 namespace IbkrConduit.Client;
@@ -10,7 +11,7 @@ public interface IPortfolioOperations
     /// <summary>
     /// Retrieves the list of accounts for the authenticated user.
     /// </summary>
-    Task<List<Account>> GetAccountsAsync(CancellationToken cancellationToken = default);
+    Task<Result<List<Account>>> GetAccountsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves positions for the specified account and page.
@@ -18,7 +19,7 @@ public interface IPortfolioOperations
     /// <param name="accountId">The account identifier.</param>
     /// <param name="page">The page number (default 0).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<Position>> GetPositionsAsync(string accountId, int page = 0,
+    Task<Result<List<Position>>> GetPositionsAsync(string accountId, int page = 0,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -26,7 +27,7 @@ public interface IPortfolioOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Dictionary<string, AccountSummaryEntry>> GetAccountSummaryAsync(string accountId,
+    Task<Result<Dictionary<string, AccountSummaryEntry>>> GetAccountSummaryAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -34,7 +35,7 @@ public interface IPortfolioOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Dictionary<string, LedgerEntry>> GetLedgerAsync(string accountId,
+    Task<Result<Dictionary<string, LedgerEntry>>> GetLedgerAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -42,7 +43,7 @@ public interface IPortfolioOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<AccountInfo> GetAccountInfoAsync(string accountId,
+    Task<Result<AccountInfo>> GetAccountInfoAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -50,7 +51,7 @@ public interface IPortfolioOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<AccountAllocation> GetAccountAllocationAsync(string accountId,
+    Task<Result<AccountAllocation>> GetAccountAllocationAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -59,7 +60,7 @@ public interface IPortfolioOperations
     /// <param name="accountId">The account identifier.</param>
     /// <param name="conid">The contract identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<Position>> GetPositionByConidAsync(string accountId, string conid,
+    Task<Result<List<Position>>> GetPositionByConidAsync(string accountId, string conid,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -67,7 +68,7 @@ public interface IPortfolioOperations
     /// </summary>
     /// <param name="conid">The contract identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<PositionContractInfo> GetPositionAndContractInfoAsync(string conid,
+    Task<Result<PositionContractInfo>> GetPositionAndContractInfoAsync(string conid,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -75,7 +76,7 @@ public interface IPortfolioOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task InvalidatePortfolioCacheAsync(string accountId,
+    Task<Result<bool>> InvalidatePortfolioCacheAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -84,7 +85,7 @@ public interface IPortfolioOperations
     /// <param name="accountIds">The account IDs to query.</param>
     /// <param name="period">The time period (e.g., "1D", "1W", "1M", "1Y").</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<AccountPerformance> GetAccountPerformanceAsync(List<string> accountIds, string period,
+    Task<Result<AccountPerformance>> GetAccountPerformanceAsync(List<string> accountIds, string period,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -95,7 +96,7 @@ public interface IPortfolioOperations
     /// <param name="currency">The currency code.</param>
     /// <param name="days">Number of days of history to return.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<TransactionHistory> GetTransactionHistoryAsync(List<string> accountIds,
+    Task<Result<TransactionHistory>> GetTransactionHistoryAsync(List<string> accountIds,
         List<string> conids, string currency, int? days = null,
         CancellationToken cancellationToken = default);
 
@@ -104,7 +105,7 @@ public interface IPortfolioOperations
     /// </summary>
     /// <param name="accountIds">The account IDs to consolidate allocation for.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<AccountAllocation> GetConsolidatedAllocationAsync(List<string> accountIds,
+    Task<Result<AccountAllocation>> GetConsolidatedAllocationAsync(List<string> accountIds,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -113,7 +114,7 @@ public interface IPortfolioOperations
     /// <param name="accountId">The account identifier.</param>
     /// <param name="nocache">Whether to bypass the server cache.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<ComboPosition>> GetComboPositionsAsync(string accountId, bool? nocache = null,
+    Task<Result<List<ComboPosition>>> GetComboPositionsAsync(string accountId, bool? nocache = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -124,7 +125,7 @@ public interface IPortfolioOperations
     /// <param name="sort">Optional sort column.</param>
     /// <param name="direction">Optional sort direction ("a" ascending, "d" descending).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<Position>> GetRealTimePositionsAsync(string accountId,
+    Task<Result<List<Position>>> GetRealTimePositionsAsync(string accountId,
         string? model = null, string? sort = null, string? direction = null,
         CancellationToken cancellationToken = default);
 
@@ -132,14 +133,14 @@ public interface IPortfolioOperations
     /// Retrieves sub-accounts for FA/IBroker users.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<SubAccount>> GetSubAccountsAsync(CancellationToken cancellationToken = default);
+    Task<Result<List<SubAccount>>> GetSubAccountsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves sub-accounts (paginated) for FA/IBroker users.
     /// </summary>
     /// <param name="page">The page number (default 0).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<SubAccount>> GetSubAccountsPagedAsync(int page = 0,
+    Task<Result<List<SubAccount>>> GetSubAccountsPagedAsync(int page = 0,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -147,12 +148,12 @@ public interface IPortfolioOperations
     /// </summary>
     /// <param name="accountIds">The account IDs to query.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<AllPeriodsPerformance> GetAllPeriodsPerformanceAsync(List<string> accountIds,
+    Task<Result<AllPeriodsPerformance>> GetAllPeriodsPerformanceAsync(List<string> accountIds,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves P&amp;L partitioned by account and model.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<PartitionedPnl> GetPartitionedPnlAsync(CancellationToken cancellationToken = default);
+    Task<Result<PartitionedPnl>> GetPartitionedPnlAsync(CancellationToken cancellationToken = default);
 }

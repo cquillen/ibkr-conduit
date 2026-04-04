@@ -23,10 +23,9 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Registers the full IBKR API client pipeline including all Refit interfaces,
     /// operations implementations, and the unified <see cref="IIbkrClient"/> facade.
-    /// Consumer pipeline: Refit -> TokenRefreshHandler -> ErrorNormalizationHandler ->
-    /// ResilienceHandler -> GlobalRateLimitingHandler -> EndpointRateLimitingHandler ->
-    /// OAuthSigningHandler -> HttpClient.
-    /// Internal session pipeline: Refit -> ResilienceHandler -> GlobalRateLimitingHandler ->
+    /// Consumer pipeline: Refit -> TokenRefreshHandler -> ResponseSchemaValidationHandler ->
+    /// GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler -> HttpClient.
+    /// Internal session pipeline: Refit -> GlobalRateLimitingHandler ->
     /// EndpointRateLimitingHandler -> OAuthSigningHandler -> HttpClient (no TokenRefreshHandler).
     /// </summary>
     public static IServiceCollection AddIbkrClient(

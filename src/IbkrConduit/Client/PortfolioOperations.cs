@@ -1,183 +1,233 @@
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using IbkrConduit.Diagnostics;
+using IbkrConduit.Errors;
 using IbkrConduit.Portfolio;
+using IbkrConduit.Session;
 
 namespace IbkrConduit.Client;
 
 /// <summary>
 /// Portfolio operations that delegate to the underlying Refit API.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public class PortfolioOperations : IPortfolioOperations
 {
     private readonly IIbkrPortfolioApi _api;
+    private readonly IbkrClientOptions _options;
 
     /// <summary>
     /// Creates a new <see cref="PortfolioOperations"/> instance.
     /// </summary>
     /// <param name="api">The Refit portfolio API client.</param>
-    public PortfolioOperations(IIbkrPortfolioApi api) => _api = api;
-
-    /// <inheritdoc />
-    public async Task<List<Account>> GetAccountsAsync(CancellationToken cancellationToken = default)
+    /// <param name="options">Client options.</param>
+    public PortfolioOperations(IIbkrPortfolioApi api, IbkrClientOptions options)
     {
-        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAccounts");
-        return await _api.GetAccountsAsync(cancellationToken);
+        _api = api;
+        _options = options;
     }
 
     /// <inheritdoc />
-    public async Task<List<Position>> GetPositionsAsync(string accountId, int page = 0,
+    public async Task<Result<List<Account>>> GetAccountsAsync(CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAccounts");
+        var response = await _api.GetAccountsAsync(cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<List<Position>>> GetPositionsAsync(string accountId, int page = 0,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPositions");
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag("page", page);
-        return await _api.GetPositionsAsync(accountId, page, cancellationToken: cancellationToken);
+        var response = await _api.GetPositionsAsync(accountId, page, cancellationToken: cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<Dictionary<string, AccountSummaryEntry>> GetAccountSummaryAsync(string accountId,
+    public async Task<Result<Dictionary<string, AccountSummaryEntry>>> GetAccountSummaryAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAccountSummary");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetAccountSummaryAsync(accountId, cancellationToken);
+        var response = await _api.GetAccountSummaryAsync(accountId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<Dictionary<string, LedgerEntry>> GetLedgerAsync(string accountId,
+    public async Task<Result<Dictionary<string, LedgerEntry>>> GetLedgerAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetLedger");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetLedgerAsync(accountId, cancellationToken);
+        var response = await _api.GetLedgerAsync(accountId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<AccountInfo> GetAccountInfoAsync(string accountId,
+    public async Task<Result<AccountInfo>> GetAccountInfoAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAccountInfo");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetAccountInfoAsync(accountId, cancellationToken);
+        var response = await _api.GetAccountInfoAsync(accountId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<AccountAllocation> GetAccountAllocationAsync(string accountId,
+    public async Task<Result<AccountAllocation>> GetAccountAllocationAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAllocation");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetAccountAllocationAsync(accountId, cancellationToken);
+        var response = await _api.GetAccountAllocationAsync(accountId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<List<Position>> GetPositionByConidAsync(string accountId, string conid,
+    public async Task<Result<List<Position>>> GetPositionByConidAsync(string accountId, string conid,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPositionByConid");
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag(LogFields.Conid, conid);
-        return await _api.GetPositionByConidAsync(accountId, conid, cancellationToken);
+        var response = await _api.GetPositionByConidAsync(accountId, conid, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<PositionContractInfo> GetPositionAndContractInfoAsync(string conid,
+    public async Task<Result<PositionContractInfo>> GetPositionAndContractInfoAsync(string conid,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPositionContractInfo");
         activity?.SetTag(LogFields.Conid, conid);
-        return await _api.GetPositionAndContractInfoAsync(conid, cancellationToken);
+        var response = await _api.GetPositionAndContractInfoAsync(conid, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task InvalidatePortfolioCacheAsync(string accountId,
+    public async Task<Result<bool>> InvalidatePortfolioCacheAsync(string accountId,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.InvalidateCache");
         activity?.SetTag(LogFields.AccountId, accountId);
-        await _api.InvalidatePortfolioCacheAsync(accountId, cancellationToken);
+        var response = await _api.InvalidatePortfolioCacheAsync(accountId, cancellationToken);
+        if (response.IsSuccessStatusCode)
+        {
+            var result = Result<bool>.Success(true);
+            return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+        }
+
+        var rawBody = response.Error?.Content ?? "";
+        var error = new IbkrApiError(response.StatusCode, rawBody, rawBody, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var failResult = Result<bool>.Failure(error);
+        return _options.ThrowOnApiError ? failResult.EnsureSuccess() : failResult;
     }
 
     /// <inheritdoc />
-    public async Task<AccountPerformance> GetAccountPerformanceAsync(List<string> accountIds, string period,
+    public async Task<Result<AccountPerformance>> GetAccountPerformanceAsync(List<string> accountIds, string period,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPerformance");
         activity?.SetTag("period", period);
-        return await _api.GetAccountPerformanceAsync(new PerformanceRequest(accountIds, period), cancellationToken);
+        var response = await _api.GetAccountPerformanceAsync(new PerformanceRequest(accountIds, period), cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<TransactionHistory> GetTransactionHistoryAsync(List<string> accountIds,
+    public async Task<Result<TransactionHistory>> GetTransactionHistoryAsync(List<string> accountIds,
         List<string> conids, string currency, int? days = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetTransactionHistory");
         activity?.SetTag("currency", currency);
         activity?.SetTag("days", days);
-        return await _api.GetTransactionHistoryAsync(
+        var response = await _api.GetTransactionHistoryAsync(
             new TransactionHistoryRequest(accountIds, conids, currency, days), cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<AccountAllocation> GetConsolidatedAllocationAsync(List<string> accountIds,
+    public async Task<Result<AccountAllocation>> GetConsolidatedAllocationAsync(List<string> accountIds,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetConsolidatedAllocation");
-        return await _api.GetConsolidatedAllocationAsync(
+        var response = await _api.GetConsolidatedAllocationAsync(
             new ConsolidatedAllocationRequest(accountIds), cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<List<ComboPosition>> GetComboPositionsAsync(string accountId, bool? nocache = null,
+    public async Task<Result<List<ComboPosition>>> GetComboPositionsAsync(string accountId, bool? nocache = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetComboPositions");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetComboPositionsAsync(accountId, nocache, cancellationToken);
+        var response = await _api.GetComboPositionsAsync(accountId, nocache, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<List<Position>> GetRealTimePositionsAsync(string accountId,
+    public async Task<Result<List<Position>>> GetRealTimePositionsAsync(string accountId,
         string? model = null, string? sort = null, string? direction = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetRealTimePositions");
         activity?.SetTag(LogFields.AccountId, accountId);
-        return await _api.GetRealTimePositionsAsync(accountId, model, sort, direction, cancellationToken);
+        var response = await _api.GetRealTimePositionsAsync(accountId, model, sort, direction, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<List<SubAccount>> GetSubAccountsAsync(CancellationToken cancellationToken = default)
+    public async Task<Result<List<SubAccount>>> GetSubAccountsAsync(CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetSubAccounts");
-        return await _api.GetSubAccountsAsync(cancellationToken);
+        var response = await _api.GetSubAccountsAsync(cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<List<SubAccount>> GetSubAccountsPagedAsync(int page = 0,
+    public async Task<Result<List<SubAccount>>> GetSubAccountsPagedAsync(int page = 0,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetSubAccountsPaged");
         activity?.SetTag("page", page);
-        return await _api.GetSubAccountsPagedAsync(page, cancellationToken);
+        var response = await _api.GetSubAccountsPagedAsync(page, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<AllPeriodsPerformance> GetAllPeriodsPerformanceAsync(List<string> accountIds,
+    public async Task<Result<AllPeriodsPerformance>> GetAllPeriodsPerformanceAsync(List<string> accountIds,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAllPeriodsPerformance");
-        return await _api.GetAllPeriodsPerformanceAsync(
+        var response = await _api.GetAllPeriodsPerformanceAsync(
             new AllPeriodsRequest(accountIds), cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<PartitionedPnl> GetPartitionedPnlAsync(CancellationToken cancellationToken = default)
+    public async Task<Result<PartitionedPnl>> GetPartitionedPnlAsync(CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPartitionedPnl");
-        return await _api.GetPartitionedPnlAsync(cancellationToken);
+        var response = await _api.GetPartitionedPnlAsync(cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 }

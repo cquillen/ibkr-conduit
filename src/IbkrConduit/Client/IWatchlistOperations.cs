@@ -1,3 +1,4 @@
+using IbkrConduit.Errors;
 using IbkrConduit.Watchlists;
 
 namespace IbkrConduit.Client;
@@ -12,21 +13,21 @@ public interface IWatchlistOperations
     /// </summary>
     /// <param name="request">The watchlist definition.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<CreateWatchlistResponse> CreateWatchlistAsync(CreateWatchlistRequest request,
+    Task<Result<CreateWatchlistResponse>> CreateWatchlistAsync(CreateWatchlistRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves all watchlists.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<GetWatchlistsResponse> GetWatchlistsAsync(CancellationToken cancellationToken = default);
+    Task<Result<GetWatchlistsResponse>> GetWatchlistsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves a specific watchlist by ID.
     /// </summary>
     /// <param name="id">The watchlist identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<WatchlistDetail> GetWatchlistAsync(string id,
+    Task<Result<WatchlistDetail>> GetWatchlistAsync(string id,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -34,6 +35,6 @@ public interface IWatchlistOperations
     /// </summary>
     /// <param name="id">The watchlist identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<DeleteWatchlistResponse> DeleteWatchlistAsync(string id,
+    Task<Result<DeleteWatchlistResponse>> DeleteWatchlistAsync(string id,
         CancellationToken cancellationToken = default);
 }

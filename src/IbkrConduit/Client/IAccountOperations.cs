@@ -1,4 +1,5 @@
 using IbkrConduit.Accounts;
+using IbkrConduit.Errors;
 
 namespace IbkrConduit.Client;
 
@@ -11,14 +12,14 @@ public interface IAccountOperations
     /// Retrieves the list of brokerage accounts available for iserver endpoints.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<IserverAccountsResponse> GetAccountsAsync(CancellationToken cancellationToken = default);
+    Task<Result<IserverAccountsResponse>> GetAccountsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Switches the active brokerage account.
     /// </summary>
     /// <param name="accountId">The account identifier to switch to.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<SwitchAccountResponse> SwitchAccountAsync(string accountId,
+    Task<Result<SwitchAccountResponse>> SwitchAccountAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -26,7 +27,7 @@ public interface IAccountOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<SignaturesAndOwnersResponse> GetSignaturesAndOwnersAsync(string accountId,
+    Task<Result<SignaturesAndOwnersResponse>> GetSignaturesAndOwnersAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -34,7 +35,7 @@ public interface IAccountOperations
     /// </summary>
     /// <param name="pattern">The account search pattern.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<DynamicAccountSearchResponse> SearchDynamicAccountAsync(string pattern,
+    Task<Result<DynamicAccountSearchResponse>> SearchDynamicAccountAsync(string pattern,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -42,7 +43,7 @@ public interface IAccountOperations
     /// </summary>
     /// <param name="accountId">The account identifier to set.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<SetDynamicAccountResponse> SetDynamicAccountAsync(string accountId,
+    Task<Result<SetDynamicAccountResponse>> SetDynamicAccountAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -50,7 +51,7 @@ public interface IAccountOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<AccountSummaryOverview> GetAccountSummaryAsync(string accountId,
+    Task<Result<AccountSummaryOverview>> GetAccountSummaryAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -58,7 +59,7 @@ public interface IAccountOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryAvailableFundsAsync(string accountId,
+    Task<Result<Dictionary<string, Dictionary<string, string>>>> GetAccountSummaryAvailableFundsAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -66,7 +67,7 @@ public interface IAccountOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryBalancesAsync(string accountId,
+    Task<Result<Dictionary<string, Dictionary<string, string>>>> GetAccountSummaryBalancesAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -74,7 +75,7 @@ public interface IAccountOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarginsAsync(string accountId,
+    Task<Result<Dictionary<string, Dictionary<string, string>>>> GetAccountSummaryMarginsAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -82,7 +83,7 @@ public interface IAccountOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarketValueAsync(string accountId,
+    Task<Result<Dictionary<string, Dictionary<string, string>>>> GetAccountSummaryMarketValueAsync(string accountId,
         CancellationToken cancellationToken = default);
 
 }

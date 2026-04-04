@@ -1,31 +1,25 @@
 using System;
 using System.Collections.Generic;
-using System.Net;
-using System.Net.Http;
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
-using Polly;
-using Polly.Retry;
 
 namespace IbkrConduit.Http;
 
 /// <summary>
-/// Registers global and per-endpoint rate limiters and the Polly resilience pipeline.
+/// Registers global and per-endpoint rate limiters.
 /// </summary>
 internal static class RateLimitingAndResilienceRegistration
 {
     /// <summary>
-    /// Creates and registers rate limiting and resilience singletons shared across all HTTP pipelines.
+    /// Creates and registers rate limiting singletons shared across all HTTP pipelines.
     /// </summary>
     public static void Register(IServiceCollection services)
     {
         var globalRateLimiter = CreateGlobalRateLimiter();
         var endpointRateLimiters = CreateEndpointRateLimiters();
-        var resiliencePipeline = CreateResiliencePipeline();
 
         services.AddSingleton<RateLimiter>(globalRateLimiter);
         services.AddSingleton<IReadOnlyDictionary<string, RateLimiter>>(endpointRateLimiters);
-        services.AddSingleton(resiliencePipeline);
     }
 
     /// <summary>
@@ -73,23 +67,4 @@ internal static class RateLimitingAndResilienceRegistration
             QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
             QueueLimit = queueLimit,
         });
-
-    /// <summary>
-    /// Creates the Polly resilience pipeline for retrying transient HTTP errors.
-    /// Retries 5xx, 408, and 429 with exponential backoff (1s, 2s, 4s) and jitter.
-    /// </summary>
-    private static ResiliencePipeline<HttpResponseMessage> CreateResiliencePipeline() =>
-        new ResiliencePipelineBuilder<HttpResponseMessage>()
-            .AddRetry(new RetryStrategyOptions<HttpResponseMessage>
-            {
-                MaxRetryAttempts = 3,
-                BackoffType = DelayBackoffType.Exponential,
-                Delay = TimeSpan.FromSeconds(1),
-                UseJitter = true,
-                ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
-                    .HandleResult(r => (int)r.StatusCode >= 500)
-                    .HandleResult(r => r.StatusCode == HttpStatusCode.RequestTimeout)
-                    .HandleResult(r => r.StatusCode == HttpStatusCode.TooManyRequests),
-            })
-            .Build();
 }

@@ -3,6 +3,7 @@ using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Text.Json;
 using IbkrConduit.Diagnostics;
+using IbkrConduit.Errors;
 using IbkrConduit.MarketData;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Caching.Memory;
@@ -63,7 +64,7 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
     }
 
     /// <inheritdoc />
-    public async Task<List<MarketDataSnapshot>> GetSnapshotAsync(int[] conids, string[] fields,
+    public async Task<Result<List<MarketDataSnapshot>>> GetSnapshotAsync(int[] conids, string[] fields,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.Snapshot");
@@ -76,8 +77,14 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
         var conidsStr = string.Join(",", conids);
         var fieldsStr = string.Join(",", fields);
 
-        var rawSnapshots = await _api.GetSnapshotAsync(conidsStr, fieldsStr, cancellationToken);
+        var apiResponse = await _api.GetSnapshotAsync(conidsStr, fieldsStr, cancellationToken);
+        var firstResult = ResultFactory.FromResponse(apiResponse, apiResponse.RequestMessage?.RequestUri?.AbsolutePath);
+        if (!firstResult.IsSuccess)
+        {
+            return _options.ThrowOnApiError ? firstResult.Map(MapSnapshots).EnsureSuccess() : firstResult.Map(MapSnapshots);
+        }
 
+        var rawSnapshots = firstResult.Value;
         var preflightNeeded = GetConidsNeedingPreflight(rawSnapshots);
 
         activity?.SetTag(LogFields.PreflightNeeded, preflightNeeded.Count > 0);
@@ -98,17 +105,26 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
 
             await Task.Delay(_preflightDelayMs, cancellationToken);
 
-            rawSnapshots = await _api.GetSnapshotAsync(conidsStr, fieldsStr, cancellationToken);
+            var retryResponse = await _api.GetSnapshotAsync(conidsStr, fieldsStr, cancellationToken);
+            var retryResult = ResultFactory.FromResponse(retryResponse, retryResponse.RequestMessage?.RequestUri?.AbsolutePath);
+            if (!retryResult.IsSuccess)
+            {
+                return _options.ThrowOnApiError ? retryResult.Map(MapSnapshots).EnsureSuccess() : retryResult.Map(MapSnapshots);
+            }
+
+            rawSnapshots = retryResult.Value;
         }
 
         _snapshotDuration.Record(sw.Elapsed.TotalMilliseconds,
             new KeyValuePair<string, object?>("preflight", preflightNeeded.Count > 0));
 
-        return rawSnapshots.Select(MapSnapshot).ToList();
+        var mapped = MapSnapshots(rawSnapshots);
+        var result = Result<List<MarketDataSnapshot>>.Success(mapped);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<HistoricalDataResponse> GetHistoryAsync(int conid, string period, string bar,
+    public async Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, string period, string bar,
         bool? outsideRth = null, CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.History");
@@ -118,13 +134,14 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
 
         _historyCount.Add(1);
         var sw = Stopwatch.StartNew();
-        var result = await _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period, bar, outsideRth, cancellationToken);
+        var response = await _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period, bar, outsideRth, cancellationToken);
         _historyDuration.Record(sw.Elapsed.TotalMilliseconds);
-        return result;
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<MarketDataSnapshot> GetRegulatorySnapshotAsync(int conid,
+    public async Task<Result<MarketDataSnapshot>> GetRegulatorySnapshotAsync(int conid,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.RegulatorySnapshot");
@@ -132,49 +149,61 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
 
         LogRegulatorySnapshotWarning(conid);
 
-        var raw = await _api.GetRegulatorySnapshotAsync(conid, cancellationToken);
-        return MapSnapshot(raw);
+        var response = await _api.GetRegulatorySnapshotAsync(conid, cancellationToken);
+        var rawResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = rawResult.Map(MapSnapshot);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<UnsubscribeResponse> UnsubscribeAsync(int conid,
+    public async Task<Result<UnsubscribeResponse>> UnsubscribeAsync(int conid,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.Unsubscribe");
         activity?.SetTag(LogFields.Conid, conid);
-        return await _api.UnsubscribeAsync(new UnsubscribeRequest(conid), cancellationToken);
+        var response = await _api.UnsubscribeAsync(new UnsubscribeRequest(conid), cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<UnsubscribeAllResponse> UnsubscribeAllAsync(
+    public async Task<Result<UnsubscribeAllResponse>> UnsubscribeAllAsync(
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.UnsubscribeAll");
-        return await _api.UnsubscribeAllAsync(cancellationToken);
+        var response = await _api.UnsubscribeAllAsync(cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<ScannerResponse> RunScannerAsync(ScannerRequest request,
+    public async Task<Result<ScannerResponse>> RunScannerAsync(ScannerRequest request,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.RunScanner");
-        return await _api.RunScannerAsync(request, cancellationToken);
+        var response = await _api.RunScannerAsync(request, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<ScannerParameters> GetScannerParametersAsync(
+    public async Task<Result<ScannerParameters>> GetScannerParametersAsync(
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.GetScannerParams");
-        return await _api.GetScannerParametersAsync(cancellationToken);
+        var response = await _api.GetScannerParametersAsync(cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<HmdsScannerResponse> RunHmdsScannerAsync(HmdsScannerRequest request,
+    public async Task<Result<HmdsScannerResponse>> RunHmdsScannerAsync(HmdsScannerRequest request,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.RunHmdsScanner");
-        return await _api.RunHmdsScannerAsync(request, cancellationToken);
+        var response = await _api.RunHmdsScannerAsync(request, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <summary>
@@ -185,6 +214,9 @@ public partial class MarketDataOperations : IMarketDataOperations, IDisposable
         _preflightCache.Dispose();
         GC.SuppressFinalize(this);
     }
+
+    private static List<MarketDataSnapshot> MapSnapshots(List<MarketDataSnapshotRaw> rawSnapshots) =>
+        rawSnapshots.Select(MapSnapshot).ToList();
 
     private List<int> GetConidsNeedingPreflight(List<MarketDataSnapshotRaw> snapshots)
     {

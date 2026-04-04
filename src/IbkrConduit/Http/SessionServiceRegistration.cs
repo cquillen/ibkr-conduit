@@ -7,7 +7,6 @@ using IbkrConduit.Auth;
 using IbkrConduit.Session;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Polly;
 using Refit;
 
 namespace IbkrConduit.Http;
@@ -60,16 +59,13 @@ internal static class SessionServiceRegistration
                 clientOptions.TickleIntervalSeconds));
 
         // Internal session API client:
-        //   ResilienceHandler -> GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
+        //   GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
         services.AddRefitClient<IIbkrSessionApi>()
             .ConfigureHttpClient(c => c.BaseAddress = new Uri(baseUrl))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             {
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
             })
-            .AddHttpMessageHandler(sp =>
-                new ResilienceHandler(
-                    sp.GetRequiredService<ResiliencePipeline<HttpResponseMessage>>()))
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
                     sp.GetRequiredService<RateLimiter>()))

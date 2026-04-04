@@ -11,27 +11,27 @@ public interface IIbkrWatchlistApi
     /// Creates a new watchlist.
     /// </summary>
     [Post("/v1/api/iserver/watchlist")]
-    Task<CreateWatchlistResponse> CreateWatchlistAsync(
+    Task<IApiResponse<CreateWatchlistResponse>> CreateWatchlistAsync(
         [Body] CreateWatchlistRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves all watchlists.
     /// </summary>
     [Get("/v1/api/iserver/watchlists")]
-    Task<GetWatchlistsResponse> GetWatchlistsAsync(
+    Task<IApiResponse<GetWatchlistsResponse>> GetWatchlistsAsync(
         [Query] string sc = "USER_WATCHLIST", CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves a specific watchlist by ID.
     /// </summary>
     [Get("/v1/api/iserver/watchlist")]
-    Task<WatchlistDetail> GetWatchlistAsync(
+    Task<IApiResponse<WatchlistDetail>> GetWatchlistAsync(
         [Query] string id, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes a watchlist by ID.
     /// </summary>
     [Delete("/v1/api/iserver/watchlist")]
-    Task<DeleteWatchlistResponse> DeleteWatchlistAsync(
+    Task<IApiResponse<DeleteWatchlistResponse>> DeleteWatchlistAsync(
         [Query] string id, CancellationToken cancellationToken = default);
 }
