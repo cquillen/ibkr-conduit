@@ -125,17 +125,23 @@ public static class CaptureRunner
 
     private static void PrintVerboseDetail(EndpointEntry entry, string? requestBody, int status, string responseBody)
     {
+        Console.WriteLine();
         Console.WriteLine($"    {"Name:",-10} {entry.Name}");
 
         if (requestBody is not null)
         {
+            Console.WriteLine();
             Console.WriteLine($"    {"Request:",-10}");
             Console.WriteLine(PrettyPrintJson(requestBody, "      "));
         }
 
+        Console.WriteLine();
         Console.WriteLine($"    {"Response:",-10} {status}");
         Console.WriteLine(PrettyPrintJson(responseBody, "      "));
+
+        Console.WriteLine();
         Console.WriteLine(new string('=', 72));
+        Console.WriteLine();
     }
 
     private static string PrettyPrintJson(string json, string indent)
