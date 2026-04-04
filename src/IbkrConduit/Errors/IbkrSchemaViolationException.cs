@@ -28,11 +28,11 @@ public class IbkrSchemaViolationException : IbkrApiException
         Type dtoType,
         IReadOnlyList<string> extraFields,
         IReadOnlyList<string> missingFields)
-        : base(
+        : base(new IbkrApiError(
             HttpStatusCode.OK,
             FormatMessage(endpointPath, dtoType, extraFields, missingFields),
-            rawResponseBody: null,
-            requestUri: endpointPath)
+            null,
+            endpointPath))
     {
         EndpointPath = endpointPath;
         DtoType = dtoType;

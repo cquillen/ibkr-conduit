@@ -8,87 +8,34 @@ namespace IbkrConduit.Tests.Unit.Errors;
 public class IbkrApiExceptionTests
 {
     [Fact]
-    public void IbkrApiException_CarriesAllProperties()
+    public void Constructor_SetsErrorAndMessage()
     {
-        var ex = new IbkrApiException(
-            HttpStatusCode.BadRequest, "bad param", """{"error":"bad param"}""", "/v1/api/test");
-
-        ex.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        ex.ErrorMessage.ShouldBe("bad param");
-        ex.RawResponseBody.ShouldBe("""{"error":"bad param"}""");
-        ex.RequestUri.ShouldBe("/v1/api/test");
-        ex.Message.ShouldContain("bad param");
+        var error = new IbkrApiError(HttpStatusCode.BadRequest, "bad input", "{}", "/test");
+        var ex = new IbkrApiException(error);
+        ex.Error.ShouldBe(error);
+        ex.Message.ShouldBe("bad input");
     }
 
     [Fact]
-    public void IbkrApiException_NullErrorMessage_UsesDefaultMessage()
+    public void Constructor_WithInnerException_SetsAll()
     {
-        var ex = new IbkrApiException(HttpStatusCode.InternalServerError, null, "<html>error</html>", "/v1/api/test");
-
-        ex.ErrorMessage.ShouldBeNull();
-        ex.RawResponseBody.ShouldBe("<html>error</html>");
-        ex.Message.ShouldContain("500");
+        var error = new IbkrApiError(HttpStatusCode.InternalServerError, "fail", "", "/test");
+        var inner = new InvalidOperationException("inner");
+        var ex = new IbkrApiException(error, inner);
+        ex.Error.ShouldBe(error);
+        ex.InnerException.ShouldBe(inner);
     }
 
     [Fact]
-    public void IbkrRateLimitException_InheritsFromBase()
+    public void PatternMatching_OnError_Works()
     {
-        var ex = new IbkrRateLimitException(
-            TimeSpan.FromSeconds(5), "rate limited", """{"error":"rate limited"}""", "/v1/api/test");
-
-        ex.RetryAfter.ShouldBe(TimeSpan.FromSeconds(5));
-        ex.StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
-        ex.ShouldBeAssignableTo<IbkrApiException>();
-    }
-
-    [Fact]
-    public void IbkrRateLimitException_NullRetryAfter_Allowed()
-    {
-        var ex = new IbkrRateLimitException(
-            null, "rate limited", """{"error":"rate limited"}""", "/v1/api/test");
-
-        ex.RetryAfter.ShouldBeNull();
-    }
-
-    [Fact]
-    public void IbkrSessionException_CarriesExtraProperties()
-    {
-        var ex = new IbkrSessionException(
-            true, "competing session", HttpStatusCode.Unauthorized, "session dead",
-            """{"authenticated":false}""", "/v1/api/iserver/auth/status");
-
-        ex.IsCompeting.ShouldBeTrue();
-        ex.Reason.ShouldBe("competing session");
-        ex.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-        ex.ShouldBeAssignableTo<IbkrApiException>();
-    }
-
-    [Fact]
-    public void IbkrOrderRejectedException_CarriesRejectionMessage()
-    {
-        var ex = new IbkrOrderRejectedException(
-            "insufficient funds", """{"error":"insufficient funds"}""", "/v1/api/iserver/account/DU123/orders");
-
-        ex.RejectionMessage.ShouldBe("insufficient funds");
-        ex.StatusCode.ShouldBe(HttpStatusCode.OK);
-        ex.Message.ShouldContain("insufficient funds");
-        ex.ShouldBeAssignableTo<IbkrApiException>();
-    }
-
-    [Fact]
-    public void AllExceptions_CatchableAsIbkrApiException()
-    {
-        var exceptions = new IbkrApiException[]
+        var error = new IbkrRateLimitError(HttpStatusCode.TooManyRequests, "slow", "", "/test", TimeSpan.FromSeconds(5));
+        var ex = new IbkrApiException(error);
+        var delay = ex.Error switch
         {
-            new(HttpStatusCode.BadRequest, "test", "{}", "/test"),
-            new IbkrRateLimitException(null, "test", "{}", "/test"),
-            new IbkrSessionException(false, null, HttpStatusCode.Unauthorized, "test", "{}", "/test"),
-            new IbkrOrderRejectedException("test", "{}", "/test"),
+            IbkrRateLimitError rle => rle.RetryAfter,
+            _ => null
         };
-
-        foreach (var ex in exceptions)
-        {
-            ex.ShouldBeAssignableTo<IbkrApiException>();
-        }
+        delay.ShouldBe(TimeSpan.FromSeconds(5));
     }
 }
