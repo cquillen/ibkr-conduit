@@ -1,0 +1,44 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/account/U1234567/summary/available_funds",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "total": {
+        "current_available": "994,831 USD",
+        "current_excess": "994,831 USD",
+        "buying_power": "3,979,324 USD",
+        "leverage": "1.01",
+        "look_ahead_available": "994,831 USD",
+        "look_ahead_excess": "994,831 USD"
+      },
+      "Crypto at Paxos": {
+        "current_available": "0 USD",
+        "current_excess": "0 USD",
+        "buying_power": "0 USD",
+        "leverage": "0.00",
+        "look_ahead_available": "0 USD",
+        "look_ahead_excess": "0 USD"
+      },
+      "commodities": {
+        "current_available": "0 USD",
+        "current_excess": "0 USD",
+        "buying_power": "0 USD",
+        "leverage": "0.00",
+        "look_ahead_available": "0 USD",
+        "look_ahead_excess": "0 USD"
+      },
+      "securities": {
+        "current_available": "994,831 USD",
+        "current_excess": "994,831 USD",
+        "buying_power": "3,979,324 USD",
+        "leverage": "1.01",
+        "look_ahead_available": "994,831 USD",
+        "look_ahead_excess": "994,831 USD"
+      }
+    }
+  }
+}

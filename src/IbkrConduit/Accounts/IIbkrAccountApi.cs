@@ -41,4 +41,39 @@ public interface IIbkrAccountApi
     Task<SetDynamicAccountResponse> SetDynamicAccountAsync(
         [Body] SetDynamicAccountRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Retrieves a high-level account summary overview with balances, margins, and buying power.
+    /// </summary>
+    [Get("/v1/api/iserver/account/{accountId}/summary")]
+    Task<AccountSummaryOverview> GetAccountSummaryAsync(
+        string accountId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves available funds broken down by segment (total, securities, commodities, crypto).
+    /// </summary>
+    [Get("/v1/api/iserver/account/{accountId}/summary/available_funds")]
+    Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryAvailableFundsAsync(
+        string accountId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves balance information broken down by segment (total, securities, commodities, crypto).
+    /// </summary>
+    [Get("/v1/api/iserver/account/{accountId}/summary/balances")]
+    Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryBalancesAsync(
+        string accountId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves margin information broken down by segment (total, securities, commodities, crypto).
+    /// </summary>
+    [Get("/v1/api/iserver/account/{accountId}/summary/margins")]
+    Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarginsAsync(
+        string accountId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves market value information broken down by currency.
+    /// </summary>
+    [Get("/v1/api/iserver/account/{accountId}/summary/market_value")]
+    Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarketValueAsync(
+        string accountId, CancellationToken cancellationToken = default);
+
 }

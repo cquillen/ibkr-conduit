@@ -65,16 +65,16 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 | `/iserver/accounts` | GET | Yes | Recording | Yes + 401 | Full response with acctProps, allowFeatures, chartPeriods |
 | `/iserver/account` | POST | Yes | Recording | Yes + 401 | Switch account — returns "Account already set" for same account |
 | `/iserver/account/pnl/partitioned` | GET | Yes | Recording | Yes + 401 | Existing tests |
-| `/iserver/account/{id}/summary` | GET | No | Not captured | Not Tested | OpenAPI only — umbrella summary endpoint |
-| `/iserver/account/{id}/summary/available_funds` | GET | No | Not captured | Not Tested | OpenAPI only |
-| `/iserver/account/{id}/summary/balances` | GET | No | Recording | Not Tested | Have capture in Test category |
-| `/iserver/account/{id}/summary/margins` | GET | No | Not captured | Not Tested | OpenAPI only |
-| `/iserver/account/{id}/summary/market_value` | GET | No | Not captured | Not Tested | OpenAPI only |
+| `/iserver/account/{id}/summary` | GET | Yes | Recording | Yes + 401 | Typed DTO with numeric fields |
+| `/iserver/account/{id}/summary/available_funds` | GET | Yes | Recording | Yes + 401 | Segmented dict response with string values |
+| `/iserver/account/{id}/summary/balances` | GET | Yes | Recording | Yes + 401 | Segmented dict; abbreviated field names |
+| `/iserver/account/{id}/summary/margins` | GET | Yes | Recording | Yes + 401 | Segmented dict; abbreviated field names |
+| `/iserver/account/{id}/summary/market_value` | GET | Yes | Recording | Yes + 401 | Dynamic currency keys |
 | `/iserver/account/search/{pattern}` | GET | Yes | OpenAPI | Yes + 401 | DYNACCT only — returns 503 on non-DYNACCT accounts; synthetic WireMock fixture |
 | `/iserver/dynaccount` | POST | Yes | OpenAPI | Yes + 401 | DYNACCT only — returns 401 on non-DYNACCT accounts; synthetic WireMock fixture |
 | `/acesws/{id}/signatures-and-owners` | GET | Yes | Recording | Yes + 401 | Contains PII (name, DOB) — fixtures sanitized |
 
-**Findings:** DYNACCT endpoints return 503/401 for non-DYNACCT accounts. Signatures endpoint returns full owner entity details including DOB. Switch account with invalid ID returns 500, missing body returns 400. Account summary sub-endpoints are OpenAPI-only — distinct from `/portfolio/{id}/summary`.
+**Findings:** DYNACCT endpoints return 503/401 for non-DYNACCT accounts. Signatures endpoint returns full owner entity details including DOB. Switch account with invalid ID returns 500, missing body returns 400. Summary sub-endpoints return string-formatted values (`"1,005,254 USD"`) with heavily abbreviated field names; constants class provided. Invalid account on summary returns 400, not 401.
 
 ## Contract (17 endpoints)
 
@@ -332,7 +332,7 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 | Watchlists | 4 | 4 | 4 | 0 | 0 | 8 (4+4 401) |
 | Alerts | 6 | 6 | 1 | 5 | 0 | 12 (6+6 401) |
 | Session | 7 | 5 (int) | 5 | 0 | 2 | 6 |
-| Accounts | 11 | 6 | 4 | 2 | 5 | 10 (5+5 401) |
+| Accounts | 11 | 11 | 9 | 2 | 0 | 20 (10+10 401) |
 | Contract | 17 | 12 | 11 | 0 | 6 | 20 |
 | Market Data | 5 | 5 | 4 | 0 | 1 | 8 |
 | Orders | 7 | 5 + 1 (int) | 5 | 0 | 2 | 10 |
@@ -342,7 +342,7 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 | FYIs | 12 | 12 | 8 | 0 | 4 | 0 |
 | Scanner | 3 | 3 | 2 | 0 | 1 | 0 |
 | Event Contracts | 5 | 0 | 0 | 0 | 5 | 0 |
-| **Subtotal** | **97** | **72 + 6 int** | **60** | **7** | **30** | **108** |
+| **Subtotal** | **97** | **77 + 6 int** | **65** | **7** | **25** | **118** |
 
 ### Not Currently Supported
 
@@ -363,6 +363,6 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 
 | | Endpoints | Wrapped | Not Supported |
 |-|-----------|--------:|--------------:|
-| **All** | **169** | **72 + 10 int** | **68 (N/S)** |
+| **All** | **169** | **77 + 10 int** | **68 (N/S)** |
 
-**Not wrapped (19 in Client Portal):** 5 event contract endpoints, 5 account summary sub-endpoints, 4 contract endpoints (algos, bond-filters, trading-schedule, POST secdef/search), 1 order endpoint (notification), 2 deprecated session endpoints (reauthenticate, sso/validate).
+**Not wrapped (14 in Client Portal):** 5 event contract endpoints, 4 contract endpoints (algos, bond-filters, trading-schedule, POST secdef/search), 1 order endpoint (notification), 2 deprecated session endpoints (reauthenticate, sso/validate).

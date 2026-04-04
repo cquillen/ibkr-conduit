@@ -45,4 +45,44 @@ public interface IAccountOperations
     Task<SetDynamicAccountResponse> SetDynamicAccountAsync(string accountId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Retrieves a high-level account summary overview with balances, margins, and buying power.
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<AccountSummaryOverview> GetAccountSummaryAsync(string accountId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves available funds broken down by segment.
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryAvailableFundsAsync(string accountId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves balance information broken down by segment.
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryBalancesAsync(string accountId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves margin information broken down by segment.
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarginsAsync(string accountId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves market value information broken down by currency.
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarketValueAsync(string accountId,
+        CancellationToken cancellationToken = default);
+
 }

@@ -477,6 +477,21 @@ public class OrderManagementTests : IDisposable
 
         public Task<SetDynamicAccountResponse> SetDynamicAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
+
+        public Task<AccountSummaryOverview> GetAccountSummaryAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryAvailableFundsAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryBalancesAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarginsAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<Dictionary<string, Dictionary<string, string>>> GetAccountSummaryMarketValueAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 
     private class FakeAlertOperations : IAlertOperations

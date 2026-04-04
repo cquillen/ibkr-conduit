@@ -58,6 +58,24 @@ public static class EndpointTable
         new("Accounts", "SignaturesAndOwners_Success", HttpMethod.Get,
             "/v1/api/acesws/{accountId}/signatures-and-owners", 200),
 
+        // Accounts — Summary sub-endpoints
+        new("Accounts", "GetSummary_Success", HttpMethod.Get,
+            "/v1/api/iserver/account/{accountId}/summary", 200),
+        new("Accounts", "GetSummaryAvailableFunds_Success", HttpMethod.Get,
+            "/v1/api/iserver/account/{accountId}/summary/available_funds", 200),
+        new("Accounts", "GetSummaryBalances_Success", HttpMethod.Get,
+            "/v1/api/iserver/account/{accountId}/summary/balances", 200),
+        new("Accounts", "GetSummaryMargins_Success", HttpMethod.Get,
+            "/v1/api/iserver/account/{accountId}/summary/margins", 200),
+        new("Accounts", "GetSummaryMarketValue_Success", HttpMethod.Get,
+            "/v1/api/iserver/account/{accountId}/summary/market_value", 200),
+
+        // Accounts — Summary failures (IBKR returns 400 for invalid account IDs on summary endpoints)
+        new("Accounts", "GetSummary_InvalidAccount", HttpMethod.Get,
+            "/v1/api/iserver/account/INVALID999/summary", 400),
+        new("Accounts", "GetSummaryBalances_InvalidAccount", HttpMethod.Get,
+            "/v1/api/iserver/account/INVALID999/summary/balances", 400),
+
         // Accounts — DYNACCT endpoints (account doesn't have DYNACCT feature)
         new("Accounts", "SearchDynamicAccount_NoDynacct", HttpMethod.Get,
             "/v1/api/iserver/account/search/DU", 503),

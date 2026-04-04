@@ -299,6 +299,291 @@ public class AccountsTests : IAsyncLifetime, IDisposable
         _harness.VerifyReauthenticationOccurred();
     }
 
+    [Fact]
+    public async Task GetAccountSummary_ReturnsAllFields()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/U1234567/summary",
+            FixtureLoader.LoadBody("Accounts", "GET-account-summary"));
+
+        var result = await _harness.Client.Accounts.GetAccountSummaryAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.Balance.ShouldBe(994831.0);
+        result.BuyingPower.ShouldBe(3979324.0);
+        result.NetLiquidationValue.ShouldBe(1005254.0);
+        result.EquityWithLoanValue.ShouldBe(1002485.0);
+        result.TotalCashValue.ShouldBe(971870.0);
+        result.InitialMargin.ShouldBe(7654.0);
+        result.MaintenanceMargin.ShouldBe(7654.0);
+        result.SecuritiesGvp.ShouldBe(30615.0);
+        result.Sma.ShouldBe(989946.0);
+        result.CashBalances.ShouldNotBeNull();
+        result.CashBalances!.Count.ShouldBe(1);
+        result.CashBalances[0].Currency.ShouldBe("USD");
+        result.CashBalances[0].Balance.ShouldBe(971870.0);
+        result.CashBalances[0].SettledCash.ShouldBe(971870.0);
+
+        _harness.VerifyUserAgentOnAllRequests();
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetAccountSummary_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/U1234567/summary")
+                .UsingGet())
+            .InScenario("summary-401-recovery")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/U1234567/summary")
+                .UsingGet())
+            .InScenario("summary-401-recovery")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Accounts", "GET-account-summary")));
+
+        var result = await _harness.Client.Accounts.GetAccountSummaryAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.NetLiquidationValue.ShouldBe(1005254.0);
+
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task GetAccountSummaryAvailableFunds_ReturnsAllSegments()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/U1234567/summary/available_funds",
+            FixtureLoader.LoadBody("Accounts", "GET-account-summary-available-funds"));
+
+        var result = await _harness.Client.Accounts.GetAccountSummaryAvailableFundsAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.ShouldContainKey("total");
+        result.ShouldContainKey("securities");
+        result.ShouldContainKey("commodities");
+        result.ShouldContainKey("Crypto at Paxos");
+        result["total"]["current_available"].ShouldBe("994,831 USD");
+        result["total"]["buying_power"].ShouldBe("3,979,324 USD");
+        result["securities"]["leverage"].ShouldBe("1.01");
+
+        _harness.VerifyUserAgentOnAllRequests();
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetAccountSummaryAvailableFunds_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/U1234567/summary/available_funds")
+                .UsingGet())
+            .InScenario("avail-funds-401-recovery")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/U1234567/summary/available_funds")
+                .UsingGet())
+            .InScenario("avail-funds-401-recovery")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Accounts", "GET-account-summary-available-funds")));
+
+        var result = await _harness.Client.Accounts.GetAccountSummaryAvailableFundsAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.ShouldContainKey("total");
+
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task GetAccountSummaryBalances_ReturnsAllSegments()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/U1234567/summary/balances",
+            FixtureLoader.LoadBody("Accounts", "GET-account-summary-balances"));
+
+        var result = await _harness.Client.Accounts.GetAccountSummaryBalancesAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.ShouldContainKey("total");
+        result.ShouldContainKey("securities");
+        result.ShouldContainKey("commodities");
+        result.ShouldContainKey("Crypto at Paxos");
+        result["total"]["net_liquidation"].ShouldBe("1,005,254 USD");
+        result["total"]["equity_with_loan"].ShouldBe("1,002,485 USD");
+        result["total"]["cash"].ShouldBe("971,870 USD");
+
+        _harness.VerifyUserAgentOnAllRequests();
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetAccountSummaryBalances_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/U1234567/summary/balances")
+                .UsingGet())
+            .InScenario("balances-401-recovery")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/U1234567/summary/balances")
+                .UsingGet())
+            .InScenario("balances-401-recovery")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Accounts", "GET-account-summary-balances")));
+
+        var result = await _harness.Client.Accounts.GetAccountSummaryBalancesAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.ShouldContainKey("total");
+
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task GetAccountSummaryMargins_ReturnsAllSegments()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/U1234567/summary/margins",
+            FixtureLoader.LoadBody("Accounts", "GET-account-summary-margins"));
+
+        var result = await _harness.Client.Accounts.GetAccountSummaryMarginsAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.ShouldContainKey("total");
+        result.ShouldContainKey("securities");
+        result.ShouldContainKey("commodities");
+        result.ShouldContainKey("Crypto at Paxos");
+        result["total"]["current_initial"].ShouldBe("7,654 USD");
+        result["total"]["current_maint"].ShouldBe("7,654 USD");
+        result["securities"]["RegT Margin"].ShouldBe("0 USD");
+
+        _harness.VerifyUserAgentOnAllRequests();
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetAccountSummaryMargins_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/U1234567/summary/margins")
+                .UsingGet())
+            .InScenario("margins-401-recovery")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/U1234567/summary/margins")
+                .UsingGet())
+            .InScenario("margins-401-recovery")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Accounts", "GET-account-summary-margins")));
+
+        var result = await _harness.Client.Accounts.GetAccountSummaryMarginsAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.ShouldContainKey("total");
+
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task GetAccountSummaryMarketValue_ReturnsAllCurrencies()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/U1234567/summary/market_value",
+            FixtureLoader.LoadBody("Accounts", "GET-account-summary-market-value"));
+
+        var result = await _harness.Client.Accounts.GetAccountSummaryMarketValueAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.ShouldContainKey("USD");
+        result["USD"]["total_cash"].ShouldBe("971,870");
+        result["USD"]["stock"].ShouldBe("30,615");
+        result["USD"]["net_liquidation"].ShouldBe("1,005,254");
+        result["USD"]["unrealized_pnl"].ShouldBe("2,769");
+
+        _harness.VerifyUserAgentOnAllRequests();
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetAccountSummaryMarketValue_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/U1234567/summary/market_value")
+                .UsingGet())
+            .InScenario("market-value-401-recovery")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/U1234567/summary/market_value")
+                .UsingGet())
+            .InScenario("market-value-401-recovery")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Accounts", "GET-account-summary-market-value")));
+
+        var result = await _harness.Client.Accounts.GetAccountSummaryMarketValueAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.ShouldContainKey("USD");
+
+        _harness.VerifyReauthenticationOccurred();
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _harness.DisposeAsync();

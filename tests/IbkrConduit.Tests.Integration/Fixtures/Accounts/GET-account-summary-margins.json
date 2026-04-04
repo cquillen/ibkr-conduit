@@ -1,0 +1,40 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/account/U1234567/summary/margins",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "total": {
+        "current_initial": "7,654 USD",
+        "current_maint": "7,654 USD",
+        "look_ahead_initial": "7,654 USD",
+        "look_ahead_maint": "7,654 USD",
+        "RegT Margin": "0 USD"
+      },
+      "Crypto at Paxos": {
+        "current_initial": "0 USD",
+        "current_maint": "0 USD",
+        "look_ahead_initial": "0 USD",
+        "look_ahead_maint": "0 USD",
+        "RegT Margin": "0 USD"
+      },
+      "commodities": {
+        "current_initial": "0 USD",
+        "current_maint": "0 USD",
+        "look_ahead_initial": "0 USD",
+        "look_ahead_maint": "0 USD",
+        "RegT Margin": "0 USD"
+      },
+      "securities": {
+        "current_initial": "7,654 USD",
+        "current_maint": "7,654 USD",
+        "look_ahead_initial": "7,654 USD",
+        "look_ahead_maint": "7,654 USD",
+        "RegT Margin": "0 USD"
+      }
+    }
+  }
+}

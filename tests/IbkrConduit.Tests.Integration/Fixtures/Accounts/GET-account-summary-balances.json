@@ -1,0 +1,40 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/account/U1234567/summary/balances",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "total": {
+        "net_liquidation": "1,005,254 USD",
+        "equity_with_loan": "1,002,485 USD",
+        "cash": "971,870 USD",
+        "MTD Interest": "0 USD",
+        "previous_day_equity_with_loan": "1,000,000 USD"
+      },
+      "Crypto at Paxos": {
+        "net_liquidation": "0 USD",
+        "equity_with_loan": "0 USD",
+        "cash": "0 USD",
+        "MTD Interest": "0 USD",
+        "previous_day_equity_with_loan": "0 USD"
+      },
+      "commodities": {
+        "net_liquidation": "0 USD",
+        "equity_with_loan": "0 USD",
+        "cash": "0 USD",
+        "MTD Interest": "0 USD",
+        "previous_day_equity_with_loan": "0 USD"
+      },
+      "securities": {
+        "net_liquidation": "1,005,254 USD",
+        "equity_with_loan": "1,002,485 USD",
+        "cash": "971,870 USD",
+        "MTD Interest": "0 USD",
+        "previous_day_equity_with_loan": "1,000,000 USD"
+      }
+    }
+  }
+}
