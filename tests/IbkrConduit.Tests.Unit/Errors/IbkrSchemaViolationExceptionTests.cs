@@ -23,7 +23,7 @@ public class IbkrSchemaViolationExceptionTests
         ex.DtoType.ShouldBe(typeof(string));
         ex.ExtraFields.ShouldBe(extra);
         ex.MissingFields.ShouldBe(missing);
-        ex.StatusCode.ShouldBe(HttpStatusCode.OK);
+        ex.Error.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]

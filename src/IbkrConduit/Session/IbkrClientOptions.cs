@@ -64,4 +64,10 @@ public class IbkrClientOptions
     /// Default is false (log warnings only). Enable in dev/test environments for fail-fast behavior.
     /// </summary>
     public bool StrictResponseValidation { get; set; }
+
+    /// <summary>
+    /// When true, facade methods call <see cref="Errors.Result{T}.EnsureSuccess"/> internally,
+    /// throwing <see cref="Errors.IbkrApiException"/> on API errors. Default false.
+    /// </summary>
+    public bool ThrowOnApiError { get; set; }
 }

@@ -1,48 +1,33 @@
-using System.Net;
-
 namespace IbkrConduit.Errors;
 
 /// <summary>
-/// Base exception for all IBKR API errors after normalization.
-/// The <see cref="StatusCode"/> reflects the normalized (remapped) status, not the original.
+/// Exception wrapping an <see cref="IbkrError"/>. Thrown by <see cref="Result{T}.EnsureSuccess"/>
+/// and when <see cref="IbkrConduit.Session.IbkrClientOptions.ThrowOnApiError"/> is enabled.
+/// Use pattern matching on <see cref="Error"/> to discriminate error subtypes.
 /// </summary>
 public class IbkrApiException : Exception
 {
-    /// <summary>The normalized HTTP status code (after remapping).</summary>
-    public HttpStatusCode StatusCode { get; }
-
-    /// <summary>Parsed error message from the response body, if available.</summary>
-    public string? ErrorMessage { get; }
-
-    /// <summary>Full response body for diagnostics and logging.</summary>
-    public string? RawResponseBody { get; }
-
-    /// <summary>The request URI path that triggered the error.</summary>
-    public string? RequestUri { get; }
+    /// <summary>The structured error details.</summary>
+    public IbkrError Error { get; }
 
     /// <summary>
-    /// Creates a new <see cref="IbkrApiException"/>.
+    /// Creates a new <see cref="IbkrApiException"/> wrapping the given error.
     /// </summary>
-    public IbkrApiException(
-        HttpStatusCode statusCode, string? errorMessage, string? rawResponseBody, string? requestUri)
-        : base(errorMessage ?? $"IBKR API returned {(int)statusCode}")
+    /// <param name="error">The structured error.</param>
+    public IbkrApiException(IbkrError error)
+        : base(error.Message)
     {
-        StatusCode = statusCode;
-        ErrorMessage = errorMessage;
-        RawResponseBody = rawResponseBody;
-        RequestUri = requestUri;
+        Error = error;
     }
 
     /// <summary>
-    /// Creates a new <see cref="IbkrApiException"/> with an inner exception.
+    /// Creates a new <see cref="IbkrApiException"/> wrapping the given error with an inner exception.
     /// </summary>
-    public IbkrApiException(
-        HttpStatusCode statusCode, string? errorMessage, Exception innerException)
-        : base(errorMessage ?? $"IBKR API returned {(int)statusCode}", innerException)
+    /// <param name="error">The structured error.</param>
+    /// <param name="innerException">The inner exception.</param>
+    public IbkrApiException(IbkrError error, Exception innerException)
+        : base(error.Message, innerException)
     {
-        StatusCode = statusCode;
-        ErrorMessage = errorMessage;
-        RawResponseBody = null;
-        RequestUri = null;
+        Error = error;
     }
 }
