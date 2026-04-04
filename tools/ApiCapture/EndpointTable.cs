@@ -242,16 +242,16 @@ public static class EndpointTable
         // ---------------------------------------------------------------
         // Watchlists — Success (create, list, detail, delete)
         // ---------------------------------------------------------------
-        // Create a watchlist with SPY and AAPL
+        // Create a watchlist with SPY and AAPL (id must be numeric)
         new("Watchlists", "CreateWatchlist_Success", HttpMethod.Post,
             "/v1/api/iserver/watchlist", 200,
-            """{"id":"capture_test","name":"Capture Test","rows":[{"C":756733},{"C":265598}]}"""),
+            """{"id":"99999","name":"Capture Test","rows":[{"C":756733},{"C":265598}]}"""),
         new("Watchlists", "GetWatchlists_Success", HttpMethod.Get,
             "/v1/api/iserver/watchlists?SC=USER_WATCHLIST", 200),
         new("Watchlists", "GetWatchlist_ById", HttpMethod.Get,
-            "/v1/api/iserver/watchlist?id=capture_test", 200),
+            "/v1/api/iserver/watchlist?id=99999", 200),
         new("Watchlists", "DeleteWatchlist_Success", HttpMethod.Delete,
-            "/v1/api/iserver/watchlist?id=capture_test", 200),
+            "/v1/api/iserver/watchlist?id=99999", 200),
 
         // Watchlists — Failures
         new("Watchlists", "GetWatchlist_NonExistent", HttpMethod.Get,
