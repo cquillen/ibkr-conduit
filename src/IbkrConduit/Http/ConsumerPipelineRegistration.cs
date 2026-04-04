@@ -16,6 +16,7 @@ using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
 using IbkrConduit.Watchlists;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Polly;
 using Refit;
 
@@ -33,20 +34,22 @@ internal static class ConsumerPipelineRegistration
     public static void Register(
         IServiceCollection services,
         IbkrOAuthCredentials credentials,
+        IbkrClientOptions clientOptions,
+        RefitEndpointMap endpointMap,
         string baseUrl)
     {
         // Consumer Refit clients (all go through the full pipeline):
-        //   TokenRefreshHandler -> ErrorNormalizationHandler -> ResilienceHandler ->
-        //   GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
-        RegisterConsumerRefitClient<IIbkrPortfolioApi>(services, credentials, baseUrl);
-        RegisterConsumerRefitClient<IIbkrContractApi>(services, credentials, baseUrl);
-        RegisterConsumerRefitClient<IIbkrOrderApi>(services, credentials, baseUrl);
-        RegisterConsumerRefitClient<IIbkrMarketDataApi>(services, credentials, baseUrl);
-        RegisterConsumerRefitClient<IIbkrAccountApi>(services, credentials, baseUrl);
-        RegisterConsumerRefitClient<IIbkrAlertApi>(services, credentials, baseUrl);
-        RegisterConsumerRefitClient<IIbkrWatchlistApi>(services, credentials, baseUrl);
-        RegisterConsumerRefitClient<IIbkrFyiApi>(services, credentials, baseUrl);
-        RegisterConsumerRefitClient<IIbkrAllocationApi>(services, credentials, baseUrl);
+        //   TokenRefreshHandler -> ResponseSchemaValidationHandler -> ErrorNormalizationHandler ->
+        //   ResilienceHandler -> GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
+        RegisterConsumerRefitClient<IIbkrPortfolioApi>(services, credentials, clientOptions, endpointMap, baseUrl);
+        RegisterConsumerRefitClient<IIbkrContractApi>(services, credentials, clientOptions, endpointMap, baseUrl);
+        RegisterConsumerRefitClient<IIbkrOrderApi>(services, credentials, clientOptions, endpointMap, baseUrl);
+        RegisterConsumerRefitClient<IIbkrMarketDataApi>(services, credentials, clientOptions, endpointMap, baseUrl);
+        RegisterConsumerRefitClient<IIbkrAccountApi>(services, credentials, clientOptions, endpointMap, baseUrl);
+        RegisterConsumerRefitClient<IIbkrAlertApi>(services, credentials, clientOptions, endpointMap, baseUrl);
+        RegisterConsumerRefitClient<IIbkrWatchlistApi>(services, credentials, clientOptions, endpointMap, baseUrl);
+        RegisterConsumerRefitClient<IIbkrFyiApi>(services, credentials, clientOptions, endpointMap, baseUrl);
+        RegisterConsumerRefitClient<IIbkrAllocationApi>(services, credentials, clientOptions, endpointMap, baseUrl);
 
         // Operations implementations
         services.AddSingleton<IPortfolioOperations, PortfolioOperations>();
@@ -66,6 +69,8 @@ internal static class ConsumerPipelineRegistration
     private static void RegisterConsumerRefitClient<TApi>(
         IServiceCollection services,
         IbkrOAuthCredentials credentials,
+        IbkrClientOptions clientOptions,
+        RefitEndpointMap endpointMap,
         string baseUrl) where TApi : class
     {
         services.AddRefitClient<TApi>()
@@ -77,6 +82,11 @@ internal static class ConsumerPipelineRegistration
             .AddHttpMessageHandler(sp =>
                 new TokenRefreshHandler(
                     sp.GetRequiredService<ISessionManager>()))
+            .AddHttpMessageHandler(sp =>
+                new ResponseSchemaValidationHandler(
+                    clientOptions,
+                    endpointMap,
+                    sp.GetRequiredService<ILogger<ResponseSchemaValidationHandler>>()))
             .AddHttpMessageHandler(_ =>
                 new ErrorNormalizationHandler())
             .AddHttpMessageHandler(sp =>
