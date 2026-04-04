@@ -128,6 +128,70 @@ public class AccountsTests : IAsyncLifetime, IDisposable
         _harness.VerifyReauthenticationOccurred();
     }
 
+    [Fact]
+    public async Task GetSignaturesAndOwners_ReturnsAllFields()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/acesws/U1234567/signatures-and-owners",
+            FixtureLoader.LoadBody("Accounts", "GET-signatures-and-owners"));
+
+        var result = await _harness.Client.Accounts.GetSignaturesAndOwnersAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.AccountId.ShouldBe("U1234567");
+        result.Users.ShouldNotBeEmpty();
+        result.Users[0].RoleId.ShouldBe("OWNER");
+        result.Users[0].HasRightCodeInd.ShouldBeTrue();
+        result.Users[0].UserName.ShouldBe("testuser01");
+        result.Users[0].Entity.ShouldNotBeNull();
+        result.Users[0].Entity!.FirstName.ShouldBe("Jane");
+        result.Users[0].Entity!.LastName.ShouldBe("Doe");
+        result.Users[0].Entity!.EntityType.ShouldBe("INDIVIDUAL");
+        result.Users[0].Entity!.EntityName.ShouldBe("Ms. Jane A Doe");
+        result.Users[0].Entity!.DateOfBirth.ShouldBe("1990-01-15");
+        result.Applicant.ShouldNotBeNull();
+        result.Applicant!.Signatures.ShouldNotBeEmpty();
+        result.Applicant!.Signatures[0].ShouldBe("Jane A Doe");
+
+        _harness.VerifyUserAgentOnAllRequests();
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetSignaturesAndOwners_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/acesws/U1234567/signatures-and-owners")
+                .UsingGet())
+            .InScenario("signatures-401-recovery")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/acesws/U1234567/signatures-and-owners")
+                .UsingGet())
+            .InScenario("signatures-401-recovery")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Accounts", "GET-signatures-and-owners")));
+
+        var result = await _harness.Client.Accounts.GetSignaturesAndOwnersAsync(
+            "U1234567", TestContext.Current.CancellationToken);
+
+        result.AccountId.ShouldBe("U1234567");
+        result.Users.ShouldNotBeEmpty();
+
+        _harness.VerifyReauthenticationOccurred();
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _harness.DisposeAsync();

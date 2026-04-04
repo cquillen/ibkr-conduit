@@ -371,6 +371,14 @@ public class IbkrClientTests
         public Task<SwitchAccountResponse> SwitchAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
+        public Task<SignaturesAndOwnersResponse> GetSignaturesAndOwnersAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<DynamicAccountSearchResponse> SearchDynamicAccountAsync(string pattern, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<SetDynamicAccountResponse> SetDynamicAccountAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 
     private class FakeAlertOperations : IAlertOperations
