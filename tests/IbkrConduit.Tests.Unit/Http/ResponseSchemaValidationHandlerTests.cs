@@ -158,11 +158,25 @@ public class ResponseSchemaValidationHandlerTests
     }
 
     [Fact]
-    public async Task UnknownEndpoint_SkipsValidation()
+    public async Task StrictMode_UnknownEndpoint_ThrowsSchemaViolationException()
     {
         var map = BuildMap();
         var response = MakeJsonResponse("""{"random":"data"}""");
         var handler = CreateHandler(strict: true, map, response);
+
+        var ex = await Should.ThrowAsync<IbkrSchemaViolationException>(
+            SendAsync(handler, MakeRequest(HttpMethod.Get, "/v1/api/unknown/path")));
+
+        ex.MissingFields.ShouldContain(f => f.Contains("No DTO mapping"));
+        ex.EndpointPath.ShouldBe("/v1/api/unknown/path");
+    }
+
+    [Fact]
+    public async Task NonStrictMode_UnknownEndpoint_LogsErrorAndPassesThrough()
+    {
+        var map = BuildMap();
+        var response = MakeJsonResponse("""{"random":"data"}""");
+        var handler = CreateHandler(strict: false, map, response);
 
         var result = await SendAsync(handler, MakeRequest(HttpMethod.Get, "/v1/api/unknown/path"));
 
