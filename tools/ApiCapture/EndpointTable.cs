@@ -242,15 +242,16 @@ public static class EndpointTable
         // ---------------------------------------------------------------
         // Watchlists — Success (create, list, detail, delete)
         // ---------------------------------------------------------------
+        // Create a watchlist with SPY and AAPL
         new("Watchlists", "CreateWatchlist_Success", HttpMethod.Post,
-            "/v1/api/iserver/watchlist", 503,
-            """{"id":"capture_test","rows":[{"C":756733,"H":"SPY"}]}"""),
+            "/v1/api/iserver/watchlist", 200,
+            """{"id":"capture_test","name":"Capture Test","rows":[{"C":756733},{"C":265598}]}"""),
         new("Watchlists", "GetWatchlists_Success", HttpMethod.Get,
-            "/v1/api/iserver/watchlists", 200),
+            "/v1/api/iserver/watchlists?SC=USER_WATCHLIST", 200),
         new("Watchlists", "GetWatchlist_ById", HttpMethod.Get,
-            "/v1/api/iserver/watchlist?id=capture_test", 503),
+            "/v1/api/iserver/watchlist?id=capture_test", 200),
         new("Watchlists", "DeleteWatchlist_Success", HttpMethod.Delete,
-            "/v1/api/iserver/watchlist?id=capture_test", 500),
+            "/v1/api/iserver/watchlist?id=capture_test", 200),
 
         // Watchlists — Failures
         new("Watchlists", "GetWatchlist_NonExistent", HttpMethod.Get,
@@ -341,5 +342,11 @@ public static class EndpointTable
         new("Orders", "WhatIfOrder_InvalidConid", HttpMethod.Post,
             "/v1/api/iserver/account/{accountId}/orders/whatif", 400,
             """{"orders":[{"conid":0,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC"}]}"""),
+
+        // ---------------------------------------------------------------
+        // Test — Exploratory captures for undocumented/new endpoints
+        // ---------------------------------------------------------------
+        new("Test", "AccountBalances_Success", HttpMethod.Get,
+            "/v1/api/iserver/account/{accountId}/summary/balances", 200),
     ];
 }
