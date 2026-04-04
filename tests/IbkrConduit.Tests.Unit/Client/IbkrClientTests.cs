@@ -77,6 +77,17 @@ public class IbkrClientTests
     }
 
     [Fact]
+    public async Task ValidateConnectionAsync_DelegatesToSessionManager()
+    {
+        var sessionManager = new FakeSessionManager();
+        var client = CreateClient(sessionManager: sessionManager);
+
+        await client.ValidateConnectionAsync(TestContext.Current.CancellationToken);
+
+        sessionManager.EnsureInitializedCallCount.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task DisposeAsync_DisposesSessionManager()
     {
         var sessionManager = new FakeSessionManager();
@@ -461,9 +472,13 @@ public class IbkrClientTests
     private class FakeSessionManager : ISessionManager
     {
         public bool Disposed { get; private set; }
+        public int EnsureInitializedCallCount { get; private set; }
 
-        public Task EnsureInitializedAsync(CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+        public Task EnsureInitializedAsync(CancellationToken cancellationToken)
+        {
+            EnsureInitializedCallCount++;
+            return Task.CompletedTask;
+        }
 
         public Task ReauthenticateAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
