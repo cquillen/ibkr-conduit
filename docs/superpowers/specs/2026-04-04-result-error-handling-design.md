@@ -50,7 +50,7 @@ public readonly struct Result<T>
     static Result<T> Success(T value);
     static Result<T> Failure(IbkrError error);
 
-    T EnsureSuccess();           // returns Value or throws IbkrApiException wrapping Error
+    Result<T> EnsureSuccess();   // returns self if success, throws IbkrApiException if failure
     Result<TOut> Map<TOut>(Func<T, TOut> selector);
     void Switch(Action<T> onSuccess, Action<IbkrError> onError);
     TOut Match<TOut>(Func<T, TOut> onSuccess, Func<IbkrError, TOut> onError);
@@ -150,6 +150,20 @@ HttpClientHandler
 
 5 handlers, down from 7.
 
+### ThrowOnApiError Option
+
+`IbkrClientOptions.ThrowOnApiError` (default `false`) provides a global opt-in for exception-based error handling. When enabled, the facade calls `EnsureSuccess()` internally before returning, so consumers get the same exception behavior as before without changing their call sites.
+
+```csharp
+services.AddIbkrClient(opts =>
+{
+    opts.Credentials = creds;
+    opts.ThrowOnApiError = true; // all facade methods throw on failure
+});
+```
+
+Operations implementations receive the option via constructor injection. The return type is still `Task<Result<T>>` — the Result is constructed, then `EnsureSuccess()` is called if the option is enabled. This keeps the API surface uniform regardless of the setting.
+
 ### Facade Method Pattern
 
 Every facade method follows the same shape:
@@ -160,9 +174,12 @@ public async Task<Result<IserverAccountsResponse>> GetAccountsAsync(
 {
     using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Accounts.GetAccounts");
     var response = await _api.GetAccountsAsync(cancellationToken);
-    return ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+    var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+    return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
 }
 ```
+
+`EnsureSuccess()` returns the same `Result<T>` on success (pass-through) or throws `IbkrApiException` on failure. The return type is always `Result<T>` — the option only controls whether failures reach the caller as a Result or as an exception.
 
 Order endpoints with custom parsing:
 
@@ -173,7 +190,8 @@ public async Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> Plac
     using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Orders.PlaceOrder");
     activity?.SetTag(LogFields.AccountId, accountId);
     var response = await _api.PlaceOrderAsync(accountId, request, cancellationToken);
-    return ResultFactory.FromResponse(response, ParseOrderResponse, response.RequestMessage?.RequestUri?.AbsolutePath);
+    var result = ResultFactory.FromResponse(response, ParseOrderResponse, response.RequestMessage?.RequestUri?.AbsolutePath);
+    return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
 }
 ```
 
@@ -215,10 +233,23 @@ var accounts = (await client.Accounts.GetAccountsAsync())
         error => throw new ApplicationException($"Failed: {error.Message}"));
 ```
 
-**Exception bridge (for consumers who prefer exceptions):**
+**Exception bridge (per-call):**
 
 ```csharp
-var accounts = (await client.Accounts.GetAccountsAsync()).EnsureSuccess();
+var accounts = (await client.Accounts.GetAccountsAsync()).EnsureSuccess().Value;
+```
+
+**Exception bridge (global via option):**
+
+```csharp
+services.AddIbkrClient(opts =>
+{
+    opts.Credentials = creds;
+    opts.ThrowOnApiError = true;
+});
+
+// All calls now throw IbkrApiException on failure — no need for EnsureSuccess()
+var accounts = (await client.Accounts.GetAccountsAsync()).Value;
 ```
 
 **Order endpoint with OneOf:**
@@ -248,6 +279,7 @@ if (result.IsSuccess)
 - `IbkrError` record hierarchy
 - `ResultFactory` shared helper
 - Simplified `IbkrApiException`
+- `IbkrClientOptions.ThrowOnApiError` option (default `false`)
 - Refit interface return type changes
 - Facade return type changes and ResultFactory integration
 - `TokenRefreshHandler` modification (repeated 401 returns response)
