@@ -50,6 +50,13 @@ internal sealed partial class ResponseSchemaValidationHandler : DelegatingHandle
         var dtoInfo = _endpointMap.TryGetDtoType(request.Method, path);
         if (dtoInfo is null)
         {
+            if (_options.StrictResponseValidation)
+            {
+                throw new IbkrSchemaViolationException(
+                    path, typeof(object), [], [$"No DTO mapping for {request.Method} {path}"]);
+            }
+
+            LogUnmappedEndpoint(request.Method.Method, path);
             return response;
         }
 
@@ -176,4 +183,9 @@ internal sealed partial class ResponseSchemaValidationHandler : DelegatingHandle
     private partial void LogSchemaMismatch(
         string path, string dtoTypeName,
         string extraFields, string missingFields);
+
+    [LoggerMessage(
+        Level = LogLevel.Error,
+        Message = "No DTO mapping found for {Method} {Path} — endpoint will not be validated. Add the Refit interface to RefitEndpointMap.Build() in ServiceCollectionExtensions.")]
+    private partial void LogUnmappedEndpoint(string method, string path);
 }
