@@ -1,0 +1,17 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/watchlist",
+    "Methods": ["DELETE"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "data": {
+        "deleted": "99999"
+      },
+      "action": "context",
+      "MID": "2"
+    }
+  }
+}

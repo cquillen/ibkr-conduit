@@ -33,11 +33,12 @@ public class WatchlistEndpointTests : IDisposable
                 Response.Create()
                     .WithStatusCode(200)
                     .WithHeader("Content-Type", "application/json")
-                    .WithBody("""{"id":"my-watchlist-123"}"""));
+                    .WithBody("""{"id":"99999","hash":"1775319529009","name":"My Watchlist","readOnly":false,"instruments":[]}"""));
 
         var api = CreateRefitClient<IIbkrWatchlistApi>();
         var request = new CreateWatchlistRequest(
             Id: "My Watchlist",
+            Name: "My Watchlist",
             Rows: new List<WatchlistRow>
             {
                 new(C: 265598, H: "AAPL"),
@@ -46,7 +47,9 @@ public class WatchlistEndpointTests : IDisposable
         var result = await api.CreateWatchlistAsync(request, TestContext.Current.CancellationToken);
 
         result.ShouldNotBeNull();
-        result.Id.ShouldBe("my-watchlist-123");
+        result.Id.ShouldBe("99999");
+        result.Hash.ShouldBe("1775319529009");
+        result.Name.ShouldBe("My Watchlist");
     }
 
     [Fact]
@@ -61,26 +64,36 @@ public class WatchlistEndpointTests : IDisposable
                     .WithStatusCode(200)
                     .WithHeader("Content-Type", "application/json")
                     .WithBody("""
-                        [
-                            {
-                                "id": "wl1",
-                                "name": "Tech Stocks",
-                                "modified": 1700000000,
-                                "instruments": 5
-                            }
-                        ]
+                        {
+                            "data": {
+                                "scanners_only": false,
+                                "show_scanners": false,
+                                "bulk_delete": false,
+                                "user_lists": [
+                                    {
+                                        "id": "wl1",
+                                        "name": "Tech Stocks",
+                                        "modified": 1700000000,
+                                        "is_open": false,
+                                        "read_only": false,
+                                        "type": "watchlist"
+                                    }
+                                ]
+                            },
+                            "action": "content",
+                            "MID": "1"
+                        }
                         """));
 
         var api = CreateRefitClient<IIbkrWatchlistApi>();
 
-        var result = await api.GetWatchlistsAsync(TestContext.Current.CancellationToken);
+        var result = await api.GetWatchlistsAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         result.ShouldNotBeNull();
-        result.Count.ShouldBe(1);
-        result[0].Id.ShouldBe("wl1");
-        result[0].Name.ShouldBe("Tech Stocks");
-        result[0].Modified.ShouldBe(1700000000);
-        result[0].Instruments.ShouldBe(5);
+        result.Data.UserLists.Count.ShouldBe(1);
+        result.Data.UserLists[0].Id.ShouldBe("wl1");
+        result.Data.UserLists[0].Name.ShouldBe("Tech Stocks");
+        result.Data.UserLists[0].Modified.ShouldBe(1700000000);
     }
 
     [Fact]
@@ -98,10 +111,12 @@ public class WatchlistEndpointTests : IDisposable
                     .WithBody("""
                         {
                             "id": "wl1",
+                            "hash": "123456789",
                             "name": "Tech Stocks",
-                            "rows": [
-                                { "C": 265598, "H": "AAPL", "sym": "AAPL" },
-                                { "C": 272093, "H": "MSFT", "sym": "MSFT" }
+                            "readOnly": false,
+                            "instruments": [
+                                { "ST": "STK", "C": "265598", "conid": 265598, "name": "APPLE INC", "fullName": "AAPL", "assetClass": "STK", "ticker": "AAPL", "chineseName": null },
+                                { "ST": "STK", "C": "272093", "conid": 272093, "name": "MICROSOFT CORP", "fullName": "MSFT", "assetClass": "STK", "ticker": "MSFT", "chineseName": null }
                             ]
                         }
                         """));
@@ -113,9 +128,9 @@ public class WatchlistEndpointTests : IDisposable
         result.ShouldNotBeNull();
         result.Id.ShouldBe("wl1");
         result.Name.ShouldBe("Tech Stocks");
-        result.Rows.Count.ShouldBe(2);
-        result.Rows[0].C.ShouldBe(265598);
-        result.Rows[0].Sym.ShouldBe("AAPL");
+        result.Instruments.Count.ShouldBe(2);
+        result.Instruments[0].Conid.ShouldBe(265598);
+        result.Instruments[0].Ticker.ShouldBe("AAPL");
     }
 
     [Fact]
@@ -130,15 +145,15 @@ public class WatchlistEndpointTests : IDisposable
                 Response.Create()
                     .WithStatusCode(200)
                     .WithHeader("Content-Type", "application/json")
-                    .WithBody("""{"deleted":true,"id":"wl1"}"""));
+                    .WithBody("""{"data":{"deleted":"wl1"},"action":"context","MID":"2"}"""));
 
         var api = CreateRefitClient<IIbkrWatchlistApi>();
 
         var result = await api.DeleteWatchlistAsync("wl1", TestContext.Current.CancellationToken);
 
         result.ShouldNotBeNull();
-        result.Deleted.ShouldBeTrue();
-        result.Id.ShouldBe("wl1");
+        result.Data.Deleted.ShouldBe("wl1");
+        result.Action.ShouldBe("context");
     }
 
     public void Dispose()

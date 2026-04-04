@@ -393,7 +393,7 @@ public class IbkrClientTests
         public Task<CreateWatchlistResponse> CreateWatchlistAsync(CreateWatchlistRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<List<WatchlistSummary>> GetWatchlistsAsync(CancellationToken cancellationToken = default) =>
+        public Task<GetWatchlistsResponse> GetWatchlistsAsync(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
         public Task<WatchlistDetail> GetWatchlistAsync(string id, CancellationToken cancellationToken = default) =>

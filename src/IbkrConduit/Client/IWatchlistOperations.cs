@@ -19,7 +19,7 @@ public interface IWatchlistOperations
     /// Retrieves all watchlists.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<WatchlistSummary>> GetWatchlistsAsync(CancellationToken cancellationToken = default);
+    Task<GetWatchlistsResponse> GetWatchlistsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves a specific watchlist by ID.

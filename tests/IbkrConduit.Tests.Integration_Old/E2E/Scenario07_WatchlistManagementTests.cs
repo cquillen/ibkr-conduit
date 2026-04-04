@@ -41,6 +41,7 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
             var testId = $"E2E-{Guid.NewGuid():N}"[..20];
             var createRequest = new CreateWatchlistRequest(
                 Id: testId,
+                Name: testId,
                 Rows: new List<WatchlistRow>
                 {
                     new(C: spyConid, H: "SPY"),
@@ -71,24 +72,24 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
             // Step 3: List watchlists — verify our watchlist appears
             var watchlists = await client.Watchlists.GetWatchlistsAsync(CT);
             watchlists.ShouldNotBeNull();
-            watchlists.ShouldContain(
+            watchlists.Data.UserLists.ShouldContain(
                 w => w.Id == watchlistId || w.Name == testId,
                 "Watchlist list should contain the newly created watchlist");
 
             // Step 4: Get watchlist detail
             var detail = await client.Watchlists.GetWatchlistAsync(watchlistId, CT);
             detail.ShouldNotBeNull();
-            detail.Rows.ShouldNotBeEmpty("Watchlist should have rows");
-            detail.Rows.Count.ShouldBe(2, "Watchlist should have 2 rows (SPY and AAPL)");
+            detail.Instruments.ShouldNotBeEmpty("Watchlist should have instruments");
+            detail.Instruments.Count.ShouldBe(2, "Watchlist should have 2 instruments (SPY and AAPL)");
 
             // Step 5: Delete watchlist
             var deleteResponse = await client.Watchlists.DeleteWatchlistAsync(watchlistId, CT);
             deleteResponse.ShouldNotBeNull();
-            deleteResponse.Deleted.ShouldBeTrue("Delete should confirm success");
+            deleteResponse.Data.Deleted.ShouldBe(watchlistId, "Delete should return the deleted watchlist ID");
 
             // Step 6: List watchlists again — verify ours is gone
             var watchlistsAfterDelete = await client.Watchlists.GetWatchlistsAsync(CT);
-            watchlistsAfterDelete.ShouldNotContain(
+            watchlistsAfterDelete.Data.UserLists.ShouldNotContain(
                 w => w.Id == watchlistId || w.Name == testId,
                 "Watchlist list should not contain the deleted watchlist");
 
@@ -112,7 +113,7 @@ public sealed class Scenario07_WatchlistManagementTests : E2eScenarioBase
             try
             {
                 var watchlists = await client.Watchlists.GetWatchlistsAsync(CT);
-                foreach (var wl in watchlists.Where(w =>
+                foreach (var wl in watchlists.Data.UserLists.Where(w =>
                              w.Name.StartsWith("E2E-", StringComparison.Ordinal)))
                 {
                     try

@@ -18,7 +18,8 @@ public interface IIbkrWatchlistApi
     /// Retrieves all watchlists.
     /// </summary>
     [Get("/v1/api/iserver/watchlists")]
-    Task<List<WatchlistSummary>> GetWatchlistsAsync(CancellationToken cancellationToken = default);
+    Task<GetWatchlistsResponse> GetWatchlistsAsync(
+        [Query] string sc = "USER_WATCHLIST", CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves a specific watchlist by ID.
