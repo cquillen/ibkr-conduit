@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Errors;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -322,6 +326,270 @@ public class SessionManagerTests
         deps.Notifier.NotifyCallCount.ShouldBe(1);
     }
 
+    [Fact]
+    public async Task EnsureInitializedAsync_CryptographicException_Decrypt_WrapsInConfigurationException()
+    {
+        var deps = CreateDependencies();
+        deps.TokenProvider.GetException = new CryptographicException("Unable to decrypt data");
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("decrypt");
+        ex.CredentialHint.ShouldBe("EncryptionPrivateKey");
+        ex.InnerException.ShouldBeOfType<CryptographicException>();
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_CryptographicException_Sign_WrapsInConfigurationException()
+    {
+        var deps = CreateDependencies();
+        deps.TokenProvider.GetException = new CryptographicException("Unable to sign data");
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("signature");
+        ex.CredentialHint.ShouldBe("SignaturePrivateKey");
+        ex.InnerException.ShouldBeOfType<CryptographicException>();
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_CryptographicException_Generic_WrapsInConfigurationException()
+    {
+        var deps = CreateDependencies();
+        deps.TokenProvider.GetException = new CryptographicException("The parameter is incorrect");
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("Cryptographic operation failed");
+        ex.CredentialHint.ShouldBe("SignaturePrivateKey, EncryptionPrivateKey");
+        ex.InnerException.ShouldBeOfType<CryptographicException>();
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_HttpRequestException_401_WrapsInConfigurationException()
+    {
+        var deps = CreateDependencies();
+        deps.TokenProvider.GetException = new HttpRequestException("Unauthorized", null, HttpStatusCode.Unauthorized);
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("ConsumerKey");
+        ex.CredentialHint.ShouldBe("ConsumerKey, AccessToken");
+        ex.InnerException.ShouldBeOfType<HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_HttpRequestException_403_WrapsInConfigurationException()
+    {
+        var deps = CreateDependencies();
+        deps.TokenProvider.GetException = new HttpRequestException("Forbidden", null, HttpStatusCode.Forbidden);
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("rejected");
+        ex.CredentialHint.ShouldBe("ConsumerKey, AccessToken");
+        ex.InnerException.ShouldBeOfType<HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_HttpRequestException_NetworkError_WrapsInConfigurationException()
+    {
+        var deps = CreateDependencies();
+        deps.TokenProvider.GetException = new HttpRequestException("Connection refused");
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("network");
+        ex.CredentialHint.ShouldBe("BaseUrl");
+        ex.InnerException.ShouldBeOfType<HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_FormatException_WrapsInConfigurationException()
+    {
+        var deps = CreateDependencies();
+        deps.TokenProvider.GetException = new FormatException("Input string was not in a correct format");
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("Diffie-Hellman");
+        ex.CredentialHint.ShouldBe("DhPrime");
+        ex.InnerException.ShouldBeOfType<FormatException>();
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_InvalidOperationException_WrapsInConfigurationException()
+    {
+        var deps = CreateDependencies();
+        deps.TokenProvider.GetException = new InvalidOperationException("DH exchange failed");
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("Diffie-Hellman");
+        ex.CredentialHint.ShouldBe("DhPrime");
+        ex.InnerException.ShouldBeOfType<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_JsonException_WrapsInConfigurationException()
+    {
+        var deps = CreateDependencies();
+        deps.TokenProvider.GetException = new JsonException("Unexpected token");
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("Unexpected response format");
+        ex.CredentialHint.ShouldBe("BaseUrl");
+        ex.InnerException.ShouldBeOfType<JsonException>();
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_InitApiThrows_WrapsInConfigurationException()
+    {
+        var deps = CreateDependencies();
+        deps.SessionApi.InitException = new HttpRequestException("Unauthorized", null, HttpStatusCode.Unauthorized);
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.CredentialHint.ShouldBe("ConsumerKey, AccessToken");
+        ex.InnerException.ShouldBeOfType<HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_TokenProviderThrows_WrapsInConfigurationException()
+    {
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        // Initialize successfully first
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        // Now make refresh throw
+        deps.TokenProvider.RefreshException = new CryptographicException("Unable to decrypt data");
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => manager.ReauthenticateAsync(TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("decrypt");
+        ex.CredentialHint.ShouldBe("EncryptionPrivateKey");
+        ex.InnerException.ShouldBeOfType<CryptographicException>();
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_OperationCanceledException_NotWrapped()
+    {
+        var deps = CreateDependencies();
+        deps.TokenProvider.GetException = new OperationCanceledException("Canceled");
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+    }
+
     private static TestDependencies CreateDependencies() => new();
 
     private class TestDependencies
@@ -342,15 +610,31 @@ public class SessionManagerTests
         public int GetCallCount { get; private set; }
         public int RefreshCallCount { get; private set; }
 
+        /// <summary>If set, GetLiveSessionTokenAsync throws this exception.</summary>
+        public Exception? GetException { get; set; }
+
+        /// <summary>If set, RefreshAsync throws this exception.</summary>
+        public Exception? RefreshException { get; set; }
+
         public Task<LiveSessionToken> GetLiveSessionTokenAsync(CancellationToken cancellationToken)
         {
             GetCallCount++;
+            if (GetException != null)
+            {
+                throw GetException;
+            }
+
             return Task.FromResult(_token);
         }
 
         public Task<LiveSessionToken> RefreshAsync(CancellationToken cancellationToken)
         {
             RefreshCallCount++;
+            if (RefreshException != null)
+            {
+                throw RefreshException;
+            }
+
             return Task.FromResult(new LiveSessionToken(
                 new byte[] { 0x04, 0x05, 0x06 },
                 DateTimeOffset.UtcNow.AddHours(24)));
@@ -413,10 +697,18 @@ public class SessionManagerTests
         public SuppressRequest? LastSuppressRequest { get; private set; }
         public bool LogoutShouldThrow { get; set; }
 
+        /// <summary>If set, InitializeBrokerageSessionAsync throws this exception.</summary>
+        public Exception? InitException { get; set; }
+
         public Task<SsodhInitResponse> InitializeBrokerageSessionAsync(SsodhInitRequest request, CancellationToken cancellationToken = default)
         {
             InitCallCount++;
             LastInitRequest = request;
+            if (InitException != null)
+            {
+                throw InitException;
+            }
+
             return Task.FromResult(new SsodhInitResponse(Authenticated: true, Connected: true, Competing: false, Established: true, Message: null, Mac: null, ServerInfo: null, HardwareInfo: null));
         }
 

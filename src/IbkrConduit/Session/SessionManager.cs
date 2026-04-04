@@ -1,10 +1,15 @@
 using System;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Net;
+using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
 using IbkrConduit.Diagnostics;
+using IbkrConduit.Errors;
 using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Session;
@@ -82,10 +87,21 @@ internal sealed partial class SessionManager : ISessionManager
             _state = SessionState.Initializing;
             LogInitializing();
 
-            _currentLst = await _sessionTokenProvider.GetLiveSessionTokenAsync(cancellationToken);
+            try
+            {
+                _currentLst = await _sessionTokenProvider.GetLiveSessionTokenAsync(cancellationToken);
 
-            await _sessionApi.InitializeBrokerageSessionAsync(
-                new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
+                await _sessionApi.InitializeBrokerageSessionAsync(
+                    new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw WrapCredentialException(ex);
+            }
 
             if (_options.SuppressMessageIds.Count > 0)
             {
@@ -133,10 +149,21 @@ internal sealed partial class SessionManager : ISessionManager
 
             CancelProactiveRefresh();
 
-            _currentLst = await _sessionTokenProvider.RefreshAsync(cancellationToken);
+            try
+            {
+                _currentLst = await _sessionTokenProvider.RefreshAsync(cancellationToken);
 
-            await _sessionApi.InitializeBrokerageSessionAsync(
-                new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
+                await _sessionApi.InitializeBrokerageSessionAsync(
+                    new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw WrapCredentialException(ex);
+            }
 
             if (_options.SuppressMessageIds.Count > 0)
             {
@@ -280,6 +307,59 @@ internal sealed partial class SessionManager : ISessionManager
             _proactiveRefreshCts = null;
         }
     }
+
+    private static IbkrConfigurationException WrapCredentialException(Exception ex) =>
+        ex switch
+        {
+            CryptographicException ce when ce.Message.Contains("decrypt", StringComparison.OrdinalIgnoreCase) =>
+                new IbkrConfigurationException(
+                    "Failed to decrypt access token secret — verify EncryptionPrivateKey matches the key registered in the IBKR portal",
+                    "EncryptionPrivateKey", ce),
+
+            CryptographicException ce when ce.Message.Contains("sign", StringComparison.OrdinalIgnoreCase) =>
+                new IbkrConfigurationException(
+                    "RSA signature failed — verify SignaturePrivateKey matches the key registered in the IBKR portal",
+                    "SignaturePrivateKey", ce),
+
+            CryptographicException ce =>
+                new IbkrConfigurationException(
+                    "Cryptographic operation failed during session initialization — verify SignaturePrivateKey and EncryptionPrivateKey",
+                    "SignaturePrivateKey, EncryptionPrivateKey", ce),
+
+            HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden } he =>
+                new IbkrConfigurationException(
+                    "LST acquisition rejected by IBKR — verify ConsumerKey and AccessToken are correct and not expired",
+                    "ConsumerKey, AccessToken", he),
+
+            HttpRequestException { StatusCode: null } he =>
+                new IbkrConfigurationException(
+                    "Cannot reach IBKR API — check network connectivity and BaseUrl configuration",
+                    "BaseUrl", he),
+
+            HttpRequestException he =>
+                new IbkrConfigurationException(
+                    "LST acquisition rejected by IBKR — verify ConsumerKey and AccessToken are correct and not expired",
+                    "ConsumerKey, AccessToken", he),
+
+            FormatException fe =>
+                new IbkrConfigurationException(
+                    "Diffie-Hellman key exchange produced invalid data — verify DhPrime is the correct RFC 3526 Group 14 prime",
+                    "DhPrime", fe),
+
+            InvalidOperationException ioe =>
+                new IbkrConfigurationException(
+                    "Diffie-Hellman key exchange failed — verify DhPrime is the correct RFC 3526 Group 14 prime",
+                    "DhPrime", ioe),
+
+            JsonException je =>
+                new IbkrConfigurationException(
+                    "Unexpected response format from IBKR LST endpoint — the API may be experiencing issues or the endpoint URL may be incorrect",
+                    "BaseUrl", je),
+
+            _ => new IbkrConfigurationException(
+                $"Session initialization failed: {ex.Message}",
+                null, ex),
+        };
 
     private enum SessionState
     {
