@@ -57,4 +57,11 @@ public class IbkrClientOptions
     /// Default is 1 hour. Reduce for integration testing.
     /// </summary>
     public TimeSpan ProactiveRefreshMargin { get; set; } = TimeSpan.FromHours(1);
+
+    /// <summary>
+    /// When true, throws <see cref="Errors.IbkrSchemaViolationException"/> if a JSON response
+    /// contains fields not mapped to the DTO, or if DTO fields are missing from the response.
+    /// Default is false (log warnings only). Enable in dev/test environments for fail-fast behavior.
+    /// </summary>
+    public bool StrictResponseValidation { get; set; }
 }
