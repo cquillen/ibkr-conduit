@@ -3,7 +3,7 @@
 Tracks the validation status of each endpoint's response schema. Endpoints are validated through one of two sources:
 
 - **Recording** — Schema validated against an actual live API recording from a paper account. High confidence.
-- **OpenAPI** — Schema derived from the OpenAPI spec (`docs/ibkr-web-api-openapi.json`). Medium confidence — may not match actual API behavior.
+- **OpenAPI** — Schema derived from the OpenAPI spec (`docs/ibkr-web-api-openapi.json`). Used as fallback when live recording cannot be captured (e.g., paper account permission limitations). Medium confidence — may not match actual API behavior.
 
 ## Legend
 

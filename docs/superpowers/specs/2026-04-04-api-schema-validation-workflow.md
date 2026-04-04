@@ -10,7 +10,7 @@ Systematically validate and fix the entire IBKR Client Portal API surface by com
 2. **Query OpenAPI spec** — extract endpoint info (method, path, request body schema, 200 response schema) from `docs/ibkr-web-api-openapi.json` using the python comparison tools
 3. **Build capture scenarios** — add/update entries in `tools/ApiCapture/EndpointTable.cs` for the category. Consider ordering for stateful flows (create before get/modify/delete). Include success, edge case, and failure scenarios
 4. **Run captures** — execute `dotnet run --project tools/ApiCapture -- <category> -v`, fix expected status codes and request bodies until all scenarios pass with good coverage
-5. **Fix DTOs** — compare recording response shapes against our model classes in `src/IbkrConduit/`. Fix field names, types, wrapper structures, missing fields
+5. **Fix DTOs** — compare recording response shapes against our model classes in `src/IbkrConduit/`. Fix field names, types, wrapper structures, missing fields. When a recording cannot be captured (e.g., alert creation returns 403 on paper accounts), use the OpenAPI spec as a fallback source for DTO definition. Mark these endpoints as "OpenAPI" in the API Testing Status Report
 6. **Add missing Refit endpoints** — check if any endpoints from the OpenAPI spec are missing from our Refit interfaces. Add them with correct return types
 7. **Fix integration tests** — update/create fixtures from recordings, update test assertions to match new DTOs, ensure 401 recovery test for every endpoint
 
