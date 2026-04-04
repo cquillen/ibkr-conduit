@@ -6,8 +6,9 @@ if (args.Length == 0)
     return;
 }
 
-// Parse --delay option from args
+// Parse options from args
 var delayMs = 1000;
+var verbose = false;
 var positionalArgs = new List<string>();
 for (var i = 0; i < args.Length; i++)
 {
@@ -15,6 +16,10 @@ for (var i = 0; i < args.Length; i++)
     {
         delayMs = d;
         i++; // skip value
+    }
+    else if (args[i] is "--verbose" or "-v")
+    {
+        verbose = true;
     }
     else
     {
@@ -36,6 +41,10 @@ var outputDir = Path.GetFullPath(
 
 Console.WriteLine($"Output directory: {outputDir}");
 Console.WriteLine($"Rate limit delay: {delayMs}ms");
+if (verbose)
+{
+    Console.WriteLine("Verbose mode: ON");
+}
 
 await using var ctx = new CaptureContext();
 await ctx.InitializeAsync(outputDir);
@@ -62,7 +71,7 @@ if (entries.Count == 0)
 
 Console.WriteLine($"\nRunning {entries.Count} endpoint(s)...");
 
-var result = await CaptureRunner.RunAsync(ctx, entries, delayMs);
+var result = await CaptureRunner.RunAsync(ctx, entries, delayMs, verbose);
 
 Console.WriteLine($"\n{new string('=', 60)}");
 Console.WriteLine($"Done: {result.Passed} passed, {result.Failed} failed, {result.Errors} errors");
@@ -79,6 +88,7 @@ static void PrintUsage()
     Console.WriteLine();
     Console.WriteLine("Options:");
     Console.WriteLine("  --delay <ms>          Delay between requests in ms (default: 1000)");
+    Console.WriteLine("  --verbose, -v         Print request/response bodies to console");
     Console.WriteLine();
     Console.WriteLine("Categories:");
 

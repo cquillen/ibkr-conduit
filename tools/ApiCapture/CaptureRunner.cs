@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Path;
 
@@ -10,6 +11,8 @@ namespace ApiCapture;
 /// </summary>
 public static class CaptureRunner
 {
+    private static readonly JsonSerializerOptions PrettyPrint = new() { WriteIndented = true };
+
     /// <summary>
     /// Runs all matching endpoint entries, recording responses and deleting
     /// recordings for entries where the actual status doesn't match expected.
@@ -17,9 +20,10 @@ public static class CaptureRunner
     /// <param name="ctx">The initialized capture context.</param>
     /// <param name="entries">The endpoint entries to execute.</param>
     /// <param name="delayMs">Delay in milliseconds between requests to respect rate limits. Default 1000ms.</param>
+    /// <param name="verbose">When true, prints pretty-printed request and response bodies to the console.</param>
     /// <returns>A summary of results.</returns>
     public static async Task<CaptureResult> RunAsync(
-        CaptureContext ctx, IReadOnlyList<EndpointEntry> entries, int delayMs = 1000)
+        CaptureContext ctx, IReadOnlyList<EndpointEntry> entries, int delayMs = 1000, bool verbose = false)
     {
         var passed = 0;
         var failed = 0;
@@ -58,6 +62,7 @@ public static class CaptureRunner
 
                 var response = await ctx.CaptureClient.SendAsync(request);
                 var actualStatus = (int)response.StatusCode;
+                var responseBody = await response.Content.ReadAsStringAsync();
 
                 if (actualStatus == entry.ExpectedStatus)
                 {
@@ -66,7 +71,6 @@ public static class CaptureRunner
 
                     if (entry.CaptureAs is not null && entry.CaptureJsonPath is not null)
                     {
-                        var responseBody = await response.Content.ReadAsStringAsync();
                         try
                         {
                             var node = JsonNode.Parse(responseBody);
@@ -95,6 +99,11 @@ public static class CaptureRunner
                     Console.WriteLine($"-> {actualStatus} EXPECTED {entry.ExpectedStatus} [{entry.Name}]");
                     failed++;
                 }
+
+                if (verbose)
+                {
+                    PrintVerboseDetail(entry, body, actualStatus, responseBody);
+                }
             }
             catch (Exception ex)
             {
@@ -112,6 +121,35 @@ public static class CaptureRunner
         ctx.Recording.ScenarioName = null;
 
         return new CaptureResult(passed, failed, errors);
+    }
+
+    private static void PrintVerboseDetail(EndpointEntry entry, string? requestBody, int status, string responseBody)
+    {
+        Console.WriteLine($"    {"Name:",-10} {entry.Name}");
+
+        if (requestBody is not null)
+        {
+            Console.WriteLine($"    {"Request:",-10}");
+            Console.WriteLine(PrettyPrintJson(requestBody, "      "));
+        }
+
+        Console.WriteLine($"    {"Response:",-10} {status}");
+        Console.WriteLine(PrettyPrintJson(responseBody, "      "));
+        Console.WriteLine(new string('=', 72));
+    }
+
+    private static string PrettyPrintJson(string json, string indent)
+    {
+        try
+        {
+            var node = JsonNode.Parse(json);
+            var pretty = node?.ToJsonString(PrettyPrint) ?? json;
+            return string.Join('\n', pretty.Split('\n').Select(line => indent + line));
+        }
+        catch
+        {
+            return indent + json;
+        }
     }
 
     /// <summary>
