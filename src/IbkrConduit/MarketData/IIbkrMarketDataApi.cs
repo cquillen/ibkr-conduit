@@ -14,7 +14,7 @@ public interface IIbkrMarketDataApi
     /// <param name="fields">Comma-separated field IDs (see <see cref="MarketDataFields"/>).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [Get("/v1/api/iserver/marketdata/snapshot")]
-    Task<List<MarketDataSnapshotRaw>> GetSnapshotAsync(
+    Task<IApiResponse<List<MarketDataSnapshotRaw>>> GetSnapshotAsync(
         [Query] string conids, [Query] string fields,
         CancellationToken cancellationToken = default);
 
@@ -27,7 +27,7 @@ public interface IIbkrMarketDataApi
     /// <param name="outsideRth">Whether to include data outside regular trading hours.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [Get("/v1/api/iserver/marketdata/history")]
-    Task<HistoricalDataResponse> GetHistoryAsync(
+    Task<IApiResponse<HistoricalDataResponse>> GetHistoryAsync(
         [Query] string conid, [Query] string period,
         [Query] string bar, [Query] bool? outsideRth = null,
         CancellationToken cancellationToken = default);
@@ -42,7 +42,7 @@ public interface IIbkrMarketDataApi
     /// <param name="conid">The contract identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [Get("/v1/api/md/regsnapshot")]
-    Task<MarketDataSnapshotRaw> GetRegulatorySnapshotAsync(
+    Task<IApiResponse<MarketDataSnapshotRaw>> GetRegulatorySnapshotAsync(
         [Query] int conid,
         CancellationToken cancellationToken = default);
 
@@ -52,7 +52,7 @@ public interface IIbkrMarketDataApi
     /// <param name="request">The unsubscribe request containing the contract ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [Post("/v1/api/iserver/marketdata/unsubscribe")]
-    Task<UnsubscribeResponse> UnsubscribeAsync(
+    Task<IApiResponse<UnsubscribeResponse>> UnsubscribeAsync(
         [Body] UnsubscribeRequest request,
         CancellationToken cancellationToken = default);
 
@@ -61,7 +61,7 @@ public interface IIbkrMarketDataApi
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     [Get("/v1/api/iserver/marketdata/unsubscribeall")]
-    Task<UnsubscribeAllResponse> UnsubscribeAllAsync(
+    Task<IApiResponse<UnsubscribeAllResponse>> UnsubscribeAllAsync(
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -71,7 +71,7 @@ public interface IIbkrMarketDataApi
     /// <param name="request">The scanner request parameters.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [Post("/v1/api/iserver/scanner/run")]
-    Task<ScannerResponse> RunScannerAsync(
+    Task<IApiResponse<ScannerResponse>> RunScannerAsync(
         [Body] ScannerRequest request,
         CancellationToken cancellationToken = default);
 
@@ -81,7 +81,7 @@ public interface IIbkrMarketDataApi
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     [Get("/v1/api/iserver/scanner/params")]
-    Task<ScannerParameters> GetScannerParametersAsync(
+    Task<IApiResponse<ScannerParameters>> GetScannerParametersAsync(
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -91,7 +91,7 @@ public interface IIbkrMarketDataApi
     /// <param name="request">The HMDS scanner request parameters.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [Post("/v1/api/hmds/scanner")]
-    Task<HmdsScannerResponse> RunHmdsScannerAsync(
+    Task<IApiResponse<HmdsScannerResponse>> RunHmdsScannerAsync(
         [Body] HmdsScannerRequest request,
         CancellationToken cancellationToken = default);
 }

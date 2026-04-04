@@ -1,4 +1,5 @@
 using IbkrConduit.Contracts;
+using IbkrConduit.Errors;
 
 namespace IbkrConduit.Client;
 
@@ -10,19 +11,19 @@ public interface IContractOperations
     /// <summary>
     /// Searches for contracts matching the given symbol.
     /// </summary>
-    Task<List<ContractSearchResult>> SearchBySymbolAsync(
+    Task<Result<List<ContractSearchResult>>> SearchBySymbolAsync(
         string symbol, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves detailed contract information by contract ID.
     /// </summary>
-    Task<ContractDetails> GetContractDetailsAsync(
+    Task<Result<ContractDetails>> GetContractDetailsAsync(
         string conid, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves security definition info for derivatives (options, warrants, futures).
     /// </summary>
-    Task<List<SecurityDefinitionInfo>> GetSecurityDefinitionInfoAsync(
+    Task<Result<List<SecurityDefinitionInfo>>> GetSecurityDefinitionInfoAsync(
         string conid, string sectype, string month,
         string? exchange = null, string? strike = null, string? right = null, string? issuerId = null,
         CancellationToken cancellationToken = default);
@@ -30,7 +31,7 @@ public interface IContractOperations
     /// <summary>
     /// Retrieves available option strike prices.
     /// </summary>
-    Task<OptionStrikes> GetOptionStrikesAsync(
+    Task<Result<OptionStrikes>> GetOptionStrikesAsync(
         string conid, string sectype, string month,
         string? exchange = null,
         CancellationToken cancellationToken = default);
@@ -38,42 +39,42 @@ public interface IContractOperations
     /// <summary>
     /// Retrieves trading rules for a contract.
     /// </summary>
-    Task<TradingRules> GetTradingRulesAsync(
+    Task<Result<TradingRules>> GetTradingRulesAsync(
         TradingRulesRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves security definitions by contract IDs.
     /// </summary>
-    Task<SecurityDefinitionResponse> GetSecurityDefinitionsByConidAsync(
+    Task<Result<SecurityDefinitionResponse>> GetSecurityDefinitionsByConidAsync(
         string conids,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves all contract IDs for a given exchange.
     /// </summary>
-    Task<List<ExchangeConid>> GetAllConidsByExchangeAsync(
+    Task<Result<List<ExchangeConid>>> GetAllConidsByExchangeAsync(
         string exchange,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves futures contracts by symbol.
     /// </summary>
-    Task<Dictionary<string, List<FutureContract>>> GetFuturesBySymbolAsync(
+    Task<Result<Dictionary<string, List<FutureContract>>>> GetFuturesBySymbolAsync(
         string symbols,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves stock contracts by symbol.
     /// </summary>
-    Task<Dictionary<string, List<StockContract>>> GetStocksBySymbolAsync(
+    Task<Result<Dictionary<string, List<StockContract>>>> GetStocksBySymbolAsync(
         string symbols,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves trading schedule for a contract.
     /// </summary>
-    Task<List<TradingSchedule>> GetTradingScheduleAsync(
+    Task<Result<List<TradingSchedule>>> GetTradingScheduleAsync(
         string assetClass, string symbol, string conid,
         string? exchange = null, string? exchangeFilter = null,
         CancellationToken cancellationToken = default);
@@ -81,14 +82,14 @@ public interface IContractOperations
     /// <summary>
     /// Retrieves currency pairs for a given currency.
     /// </summary>
-    Task<Dictionary<string, List<CurrencyPair>>> GetCurrencyPairsAsync(
+    Task<Result<Dictionary<string, List<CurrencyPair>>>> GetCurrencyPairsAsync(
         string currency,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves the exchange rate between two currencies.
     /// </summary>
-    Task<ExchangeRateResponse> GetExchangeRateAsync(
+    Task<Result<ExchangeRateResponse>> GetExchangeRateAsync(
         string source, string target,
         CancellationToken cancellationToken = default);
 }

@@ -3,7 +3,9 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Text.Json;
 using IbkrConduit.Diagnostics;
+using IbkrConduit.Errors;
 using IbkrConduit.Orders;
+using IbkrConduit.Session;
 using Microsoft.Extensions.Logging;
 using OneOf;
 
@@ -28,6 +30,7 @@ public partial class OrderOperations : IOrderOperations
         IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.order.question.count");
 
     private readonly IIbkrOrderApi _orderApi;
+    private readonly IbkrClientOptions _options;
     private readonly ILogger<OrderOperations> _logger;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _accountLocks = new();
 
@@ -35,15 +38,17 @@ public partial class OrderOperations : IOrderOperations
     /// Creates a new <see cref="OrderOperations"/> instance.
     /// </summary>
     /// <param name="orderApi">The Refit order API client.</param>
+    /// <param name="options">Client options.</param>
     /// <param name="logger">The logger instance.</param>
-    public OrderOperations(IIbkrOrderApi orderApi, ILogger<OrderOperations> logger)
+    public OrderOperations(IIbkrOrderApi orderApi, IbkrClientOptions options, ILogger<OrderOperations> logger)
     {
         _orderApi = orderApi;
+        _options = options;
         _logger = logger;
     }
 
     /// <inheritdoc />
-    public async Task<OneOf<OrderSubmitted, OrderConfirmationRequired>> PlaceOrderAsync(
+    public async Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> PlaceOrderAsync(
         string accountId, OrderRequest order, CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Place");
@@ -58,14 +63,23 @@ public partial class OrderOperations : IOrderOperations
         try
         {
             var payload = new OrdersPayload([ToWireModel(order)]);
-            var responses = await _orderApi.PlaceOrderAsync(accountId, payload, cancellationToken);
-            var result = ClassifyResponse(responses[0]);
+            var response = await _orderApi.PlaceOrderAsync(accountId, payload, cancellationToken);
+            var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+            if (!apiResult.IsSuccess)
+            {
+                var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(apiResult.Error);
+                return _options.ThrowOnApiError ? failResult.EnsureSuccess() : failResult;
+            }
+
+            var classified = ClassifyResponse(apiResult.Value[0]);
 
             _submissionDuration.Record(sw.Elapsed.TotalMilliseconds);
             _submissionCount.Add(1,
                 new KeyValuePair<string, object?>(LogFields.Side, order.Side),
                 new KeyValuePair<string, object?>(LogFields.OrderType, order.OrderType));
-            return result;
+
+            var result = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(classified);
+            return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
         }
         finally
         {
@@ -74,35 +88,41 @@ public partial class OrderOperations : IOrderOperations
     }
 
     /// <inheritdoc />
-    public async Task<CancelOrderResponse> CancelOrderAsync(
+    public async Task<Result<CancelOrderResponse>> CancelOrderAsync(
         string accountId, string orderId, CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Cancel");
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag(LogFields.OrderId, orderId);
         _cancelCount.Add(1);
-        return await _orderApi.CancelOrderAsync(accountId, orderId, cancellationToken);
+        var response = await _orderApi.CancelOrderAsync(accountId, orderId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<List<LiveOrder>> GetLiveOrdersAsync(
+    public async Task<Result<List<LiveOrder>>> GetLiveOrdersAsync(
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetLiveOrders");
         var response = await _orderApi.GetLiveOrdersAsync(cancellationToken);
-        return response.Orders ?? [];
+        var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = apiResult.Map(r => r.Orders ?? new List<LiveOrder>());
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<List<Trade>> GetTradesAsync(
+    public async Task<Result<List<Trade>>> GetTradesAsync(
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetTrades");
-        return await _orderApi.GetTradesAsync(cancellationToken);
+        var response = await _orderApi.GetTradesAsync(cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<OneOf<OrderSubmitted, OrderConfirmationRequired>> ModifyOrderAsync(
+    public async Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> ModifyOrderAsync(
         string accountId, string orderId, OrderRequest order,
         CancellationToken cancellationToken = default)
     {
@@ -119,14 +139,23 @@ public partial class OrderOperations : IOrderOperations
         try
         {
             var payload = new OrdersPayload([ToWireModel(order)]);
-            var responses = await _orderApi.ModifyOrderAsync(accountId, orderId, payload, cancellationToken);
-            var result = ClassifyResponse(responses[0]);
+            var response = await _orderApi.ModifyOrderAsync(accountId, orderId, payload, cancellationToken);
+            var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+            if (!apiResult.IsSuccess)
+            {
+                var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(apiResult.Error);
+                return _options.ThrowOnApiError ? failResult.EnsureSuccess() : failResult;
+            }
+
+            var classified = ClassifyResponse(apiResult.Value[0]);
 
             _submissionDuration.Record(sw.Elapsed.TotalMilliseconds);
             _submissionCount.Add(1,
                 new KeyValuePair<string, object?>(LogFields.Side, order.Side),
                 new KeyValuePair<string, object?>(LogFields.OrderType, order.OrderType));
-            return result;
+
+            var result = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(classified);
+            return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
         }
         finally
         {
@@ -135,7 +164,7 @@ public partial class OrderOperations : IOrderOperations
     }
 
     /// <inheritdoc />
-    public async Task<OneOf<OrderSubmitted, OrderConfirmationRequired>> ReplyAsync(
+    public async Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> ReplyAsync(
         string replyId, bool confirmed, CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Reply");
@@ -150,17 +179,21 @@ public partial class OrderOperations : IOrderOperations
 
         if (!replyApiResponse.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException(
-                $"IBKR reply endpoint returned HTTP {(int)replyApiResponse.StatusCode}: {replyApiResponse.Error?.Content}");
+            var rawBody = replyApiResponse.Error?.Content ?? "";
+            var error = new IbkrApiError(replyApiResponse.StatusCode, rawBody, rawBody, replyApiResponse.RequestMessage?.RequestUri?.AbsolutePath);
+            var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(error);
+            return _options.ThrowOnApiError ? failResult.EnsureSuccess() : failResult;
         }
 
         LogReplyRawContent(replyApiResponse.Content ?? string.Empty);
         var replyResponses = DeserializeReplyResponse(replyApiResponse.Content!);
-        return ClassifyResponse(replyResponses[0]);
+        var classified = ClassifyResponse(replyResponses[0]);
+        var result = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(classified);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<WhatIfResponse> WhatIfOrderAsync(
+    public async Task<Result<WhatIfResponse>> WhatIfOrderAsync(
         string accountId, OrderRequest order,
         CancellationToken cancellationToken = default)
     {
@@ -169,16 +202,20 @@ public partial class OrderOperations : IOrderOperations
         activity?.SetTag(LogFields.Conid, order.Conid);
 
         var payload = new OrdersPayload([ToWireModel(order)]);
-        return await _orderApi.WhatIfOrderAsync(accountId, payload, cancellationToken);
+        var response = await _orderApi.WhatIfOrderAsync(accountId, payload, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
-    public async Task<OrderStatus> GetOrderStatusAsync(
+    public async Task<Result<OrderStatus>> GetOrderStatusAsync(
         string orderId, CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetStatus");
         activity?.SetTag(LogFields.OrderId, orderId);
-        return await _orderApi.GetOrderStatusAsync(orderId, cancellationToken);
+        var response = await _orderApi.GetOrderStatusAsync(orderId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <summary>

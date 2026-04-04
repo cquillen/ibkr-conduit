@@ -1,3 +1,4 @@
+using IbkrConduit.Errors;
 using IbkrConduit.Fyi;
 
 namespace IbkrConduit.Client;
@@ -11,13 +12,13 @@ public interface IFyiOperations
     /// Returns the total number of unread FYI bulletins.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<UnreadBulletinCountResponse> GetUnreadCountAsync(CancellationToken cancellationToken = default);
+    Task<Result<UnreadBulletinCountResponse>> GetUnreadCountAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Returns the current notification subscription settings.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<FyiSettingItem>> GetSettingsAsync(CancellationToken cancellationToken = default);
+    Task<Result<List<FyiSettingItem>>> GetSettingsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Enables or disables a specific FYI subscription type.
@@ -25,7 +26,7 @@ public interface IFyiOperations
     /// <param name="typecode">The FYI typecode.</param>
     /// <param name="enabled">Whether to enable or disable.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<FyiAcknowledgementResponse> UpdateSettingAsync(string typecode, bool enabled,
+    Task<Result<FyiAcknowledgementResponse>> UpdateSettingAsync(string typecode, bool enabled,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -33,7 +34,7 @@ public interface IFyiOperations
     /// </summary>
     /// <param name="typecode">The FYI typecode.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<FyiDisclaimerResponse> GetDisclaimerAsync(string typecode,
+    Task<Result<FyiDisclaimerResponse>> GetDisclaimerAsync(string typecode,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -41,21 +42,21 @@ public interface IFyiOperations
     /// </summary>
     /// <param name="typecode">The FYI typecode.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<FyiAcknowledgementResponse> MarkDisclaimerReadAsync(string typecode,
+    Task<Result<FyiAcknowledgementResponse>> MarkDisclaimerReadAsync(string typecode,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the FYI delivery options (email and device settings).
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<FyiDeliveryOptionsResponse> GetDeliveryOptionsAsync(CancellationToken cancellationToken = default);
+    Task<Result<FyiDeliveryOptionsResponse>> GetDeliveryOptionsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Enables or disables email delivery for FYI notifications.
     /// </summary>
     /// <param name="enabled">Whether to enable or disable email delivery.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<FyiAcknowledgementResponse> SetEmailDeliveryAsync(bool enabled,
+    Task<Result<FyiAcknowledgementResponse>> SetEmailDeliveryAsync(bool enabled,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -63,7 +64,7 @@ public interface IFyiOperations
     /// </summary>
     /// <param name="request">The device registration request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<FyiAcknowledgementResponse> RegisterDeviceAsync(FyiDeviceRequest request,
+    Task<Result<FyiAcknowledgementResponse>> RegisterDeviceAsync(FyiDeviceRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -71,7 +72,7 @@ public interface IFyiOperations
     /// </summary>
     /// <param name="deviceId">The device identifier to remove.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task DeleteDeviceAsync(string deviceId,
+    Task<Result<bool>> DeleteDeviceAsync(string deviceId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -79,7 +80,7 @@ public interface IFyiOperations
     /// </summary>
     /// <param name="max">Maximum number of notifications to retrieve.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<FyiNotification>> GetNotificationsAsync(string? max = null,
+    Task<Result<List<FyiNotification>>> GetNotificationsAsync(string? max = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -87,7 +88,7 @@ public interface IFyiOperations
     /// </summary>
     /// <param name="id">The notification ID to paginate from.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<FyiNotification>> GetMoreNotificationsAsync(string id,
+    Task<Result<List<FyiNotification>>> GetMoreNotificationsAsync(string id,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -95,6 +96,6 @@ public interface IFyiOperations
     /// </summary>
     /// <param name="notificationId">The notification identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<FyiNotificationReadResponse> MarkNotificationReadAsync(string notificationId,
+    Task<Result<FyiNotificationReadResponse>> MarkNotificationReadAsync(string notificationId,
         CancellationToken cancellationToken = default);
 }

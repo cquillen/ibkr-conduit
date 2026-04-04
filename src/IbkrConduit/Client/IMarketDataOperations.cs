@@ -1,3 +1,4 @@
+using IbkrConduit.Errors;
 using IbkrConduit.MarketData;
 
 namespace IbkrConduit.Client;
@@ -15,7 +16,7 @@ public interface IMarketDataOperations
     /// <param name="conids">The contract IDs to request data for.</param>
     /// <param name="fields">The field IDs to request (see <see cref="MarketDataFields"/>).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<MarketDataSnapshot>> GetSnapshotAsync(int[] conids, string[] fields,
+    Task<Result<List<MarketDataSnapshot>>> GetSnapshotAsync(int[] conids, string[] fields,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -26,7 +27,7 @@ public interface IMarketDataOperations
     /// <param name="bar">Bar size (e.g., "1min", "5min", "1h", "1d").</param>
     /// <param name="outsideRth">Whether to include data outside regular trading hours.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<HistoricalDataResponse> GetHistoryAsync(int conid, string period, string bar,
+    Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, string period, string bar,
         bool? outsideRth = null, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -38,7 +39,7 @@ public interface IMarketDataOperations
     /// </summary>
     /// <param name="conid">The contract identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<MarketDataSnapshot> GetRegulatorySnapshotAsync(int conid,
+    Task<Result<MarketDataSnapshot>> GetRegulatorySnapshotAsync(int conid,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -46,14 +47,14 @@ public interface IMarketDataOperations
     /// </summary>
     /// <param name="conid">The contract identifier to unsubscribe.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<UnsubscribeResponse> UnsubscribeAsync(int conid,
+    Task<Result<UnsubscribeResponse>> UnsubscribeAsync(int conid,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Unsubscribes from all market data subscriptions.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<UnsubscribeAllResponse> UnsubscribeAllAsync(
+    Task<Result<UnsubscribeAllResponse>> UnsubscribeAllAsync(
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -62,7 +63,7 @@ public interface IMarketDataOperations
     /// </summary>
     /// <param name="request">The scanner request parameters.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<ScannerResponse> RunScannerAsync(ScannerRequest request,
+    Task<Result<ScannerResponse>> RunScannerAsync(ScannerRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -70,7 +71,7 @@ public interface IMarketDataOperations
     /// locations, and filters.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<ScannerParameters> GetScannerParametersAsync(
+    Task<Result<ScannerParameters>> GetScannerParametersAsync(
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -79,6 +80,6 @@ public interface IMarketDataOperations
     /// </summary>
     /// <param name="request">The HMDS scanner request parameters.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<HmdsScannerResponse> RunHmdsScannerAsync(HmdsScannerRequest request,
+    Task<Result<HmdsScannerResponse>> RunHmdsScannerAsync(HmdsScannerRequest request,
         CancellationToken cancellationToken = default);
 }

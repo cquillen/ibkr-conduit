@@ -1,4 +1,5 @@
 using IbkrConduit.Alerts;
+using IbkrConduit.Errors;
 
 namespace IbkrConduit.Client;
 
@@ -13,7 +14,7 @@ public interface IAlertOperations
     /// <param name="accountId">The account identifier.</param>
     /// <param name="request">The alert definition.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<CreateAlertResponse> CreateOrModifyAlertAsync(string accountId, CreateAlertRequest request,
+    Task<Result<CreateAlertResponse>> CreateOrModifyAlertAsync(string accountId, CreateAlertRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -21,21 +22,21 @@ public interface IAlertOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<AlertSummary>> GetAlertsAsync(string accountId,
+    Task<Result<List<AlertSummary>>> GetAlertsAsync(string accountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves all Market Trading Alerts (MTA) across accounts.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<AlertSummary>> GetMtaAlertAsync(CancellationToken cancellationToken = default);
+    Task<Result<List<AlertSummary>>> GetMtaAlertAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves details for a specific alert.
     /// </summary>
     /// <param name="alertId">The alert identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<AlertDetail> GetAlertDetailAsync(string alertId,
+    Task<Result<AlertDetail>> GetAlertDetailAsync(string alertId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -44,7 +45,7 @@ public interface IAlertOperations
     /// <param name="accountId">The account identifier.</param>
     /// <param name="request">The activation request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<AlertActivationResponse> ActivateAlertAsync(string accountId, AlertActivationRequest request,
+    Task<Result<AlertActivationResponse>> ActivateAlertAsync(string accountId, AlertActivationRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -53,6 +54,6 @@ public interface IAlertOperations
     /// <param name="accountId">The account identifier.</param>
     /// <param name="alertId">The alert identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<DeleteAlertResponse> DeleteAlertAsync(string accountId, string alertId,
+    Task<Result<DeleteAlertResponse>> DeleteAlertAsync(string accountId, string alertId,
         CancellationToken cancellationToken = default);
 }
