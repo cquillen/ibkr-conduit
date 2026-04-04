@@ -53,6 +53,10 @@ appsettings.*.json
 # Generated intermediate outputs (DTO generator)
 generated/
 
+# Python
+__pycache__/
+*.pyc
+
 # Claude Code worktrees
 .claude/worktrees/
 
