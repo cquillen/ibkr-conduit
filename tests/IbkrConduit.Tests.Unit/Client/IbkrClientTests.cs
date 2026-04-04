@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Accounts;
 using IbkrConduit.Alerts;
-using IbkrConduit.Allocation;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
 using IbkrConduit.Flex;
@@ -109,7 +108,6 @@ public class IbkrClientTests
         IAlertOperations? alerts = null,
         IWatchlistOperations? watchlists = null,
         IFyiOperations? notifications = null,
-        IAllocationOperations? allocations = null,
         ISessionManager? sessionManager = null) =>
         new(
             portfolio ?? new FakePortfolioOperations(),
@@ -122,7 +120,6 @@ public class IbkrClientTests
             alerts ?? new FakeAlertOperations(),
             watchlists ?? new FakeWatchlistOperations(),
             notifications ?? new FakeFyiOperations(),
-            allocations ?? new FakeAllocationOperations(),
             sessionManager ?? new FakeSessionManager());
 
     private class FakePortfolioOperations : IPortfolioOperations
@@ -453,33 +450,6 @@ public class IbkrClientTests
             throw new NotImplementedException();
 
         public Task<FyiNotificationReadResponse> MarkNotificationReadAsync(string notificationId, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-    }
-
-    private class FakeAllocationOperations : IAllocationOperations
-    {
-        public Task<AllocationAccountsResponse> GetAccountsAsync(CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationGroupListResponse> GetGroupsAsync(CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationSuccessResponse> AddGroupAsync(AllocationGroupRequest request, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationGroupDetail> GetGroupAsync(string name, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationSuccessResponse> DeleteGroupAsync(string name, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationSuccessResponse> ModifyGroupAsync(AllocationGroupRequest request, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationPresetsResponse> GetPresetsAsync(CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-
-        public Task<AllocationSuccessResponse> SetPresetsAsync(AllocationPresetsRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 

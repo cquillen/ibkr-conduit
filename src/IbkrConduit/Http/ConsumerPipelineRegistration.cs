@@ -5,7 +5,6 @@ using System.Net.Http;
 using System.Threading.RateLimiting;
 using IbkrConduit.Accounts;
 using IbkrConduit.Alerts;
-using IbkrConduit.Allocation;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
@@ -29,7 +28,7 @@ namespace IbkrConduit.Http;
 internal static class ConsumerPipelineRegistration
 {
     /// <summary>
-    /// Registers the 9 consumer Refit clients and 9 operations singletons.
+    /// Registers the 8 consumer Refit clients and 8 operations singletons.
     /// </summary>
     public static void Register(
         IServiceCollection services,
@@ -49,7 +48,6 @@ internal static class ConsumerPipelineRegistration
         RegisterConsumerRefitClient<IIbkrAlertApi>(services, credentials, clientOptions, endpointMap, baseUrl);
         RegisterConsumerRefitClient<IIbkrWatchlistApi>(services, credentials, clientOptions, endpointMap, baseUrl);
         RegisterConsumerRefitClient<IIbkrFyiApi>(services, credentials, clientOptions, endpointMap, baseUrl);
-        RegisterConsumerRefitClient<IIbkrAllocationApi>(services, credentials, clientOptions, endpointMap, baseUrl);
 
         // Operations implementations
         services.AddSingleton<IPortfolioOperations, PortfolioOperations>();
@@ -60,7 +58,6 @@ internal static class ConsumerPipelineRegistration
         services.AddSingleton<IAlertOperations, AlertOperations>();
         services.AddSingleton<IWatchlistOperations, WatchlistOperations>();
         services.AddSingleton<IFyiOperations, FyiOperations>();
-        services.AddSingleton<IAllocationOperations, AllocationOperations>();
     }
 
     /// <summary>

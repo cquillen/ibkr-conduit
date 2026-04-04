@@ -56,11 +56,6 @@ public interface IIbkrClient : IAsyncDisposable
     IFyiOperations Notifications { get; }
 
     /// <summary>
-    /// FA allocation operations (groups, presets, sub-accounts).
-    /// </summary>
-    IAllocationOperations Allocations { get; }
-
-    /// <summary>
     /// Validates that the configured credentials can establish a session with the IBKR API.
     /// Performs LST acquisition, session initialization, and auth status verification.
     /// Call at startup for fail-fast credential validation.
