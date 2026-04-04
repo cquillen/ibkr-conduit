@@ -3,6 +3,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Accounts;
 using IbkrConduit.Client;
+using IbkrConduit.Session;
+using IbkrConduit.Tests.Unit.TestHelpers;
 using NSubstitute;
 using Shouldly;
 
@@ -13,17 +15,17 @@ public class AccountOperationsTests
     private readonly IIbkrAccountApi _api = Substitute.For<IIbkrAccountApi>();
     private readonly AccountOperations _sut;
 
-    public AccountOperationsTests() => _sut = new AccountOperations(_api);
+    public AccountOperationsTests() => _sut = new AccountOperations(_api, new IbkrClientOptions());
 
     [Fact]
     public async Task GetAccountsAsync_DelegatesToApi()
     {
         var expected = new IserverAccountsResponse(["U123"], "U123");
-        _api.GetAccountsAsync(Arg.Any<CancellationToken>()).Returns(expected);
+        _api.GetAccountsAsync(Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetAccountsAsync(TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetAccountsAsync(TestContext.Current.CancellationToken);
     }
 
@@ -31,11 +33,11 @@ public class AccountOperationsTests
     public async Task SwitchAccountAsync_DelegatesToApi()
     {
         var expected = new SwitchAccountResponse("Account already set");
-        _api.SwitchAccountAsync(Arg.Any<SwitchAccountRequest>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.SwitchAccountAsync(Arg.Any<SwitchAccountRequest>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.SwitchAccountAsync("U456", TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).SwitchAccountAsync(
             Arg.Is<SwitchAccountRequest>(r => r.AcctId == "U456"),
             TestContext.Current.CancellationToken);

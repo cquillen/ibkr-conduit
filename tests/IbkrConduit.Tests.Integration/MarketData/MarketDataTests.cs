@@ -24,8 +24,8 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/marketdata/snapshot",
             FixtureLoader.LoadBody("MarketData", "GET-snapshot"));
 
-        var snapshots = await _harness.Client.MarketData.GetSnapshotAsync(
-            [756733], ["31", "84", "86"], TestContext.Current.CancellationToken);
+        var snapshots = (await _harness.Client.MarketData.GetSnapshotAsync(
+            [756733], ["31", "84", "86"], TestContext.Current.CancellationToken)).Value;
 
         snapshots.ShouldNotBeEmpty();
         var snap = snapshots[0];
@@ -65,8 +65,8 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("MarketData", "GET-snapshot")));
 
-        var snapshots = await _harness.Client.MarketData.GetSnapshotAsync(
-            [756733], ["31", "84", "86"], TestContext.Current.CancellationToken);
+        var snapshots = (await _harness.Client.MarketData.GetSnapshotAsync(
+            [756733], ["31", "84", "86"], TestContext.Current.CancellationToken)).Value;
 
         snapshots.ShouldNotBeEmpty();
         _harness.VerifyReauthenticationOccurred();
@@ -79,8 +79,8 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/marketdata/history",
             FixtureLoader.LoadBody("MarketData", "GET-history"));
 
-        var history = await _harness.Client.MarketData.GetHistoryAsync(
-            756733, "1d", "1min", cancellationToken: TestContext.Current.CancellationToken);
+        var history = (await _harness.Client.MarketData.GetHistoryAsync(
+            756733, "1d", "1min", cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         history.ShouldNotBeNull();
         history.Symbol.ShouldBe("SPY");
@@ -125,8 +125,8 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("MarketData", "GET-history")));
 
-        var history = await _harness.Client.MarketData.GetHistoryAsync(
-            756733, "1d", "1min", cancellationToken: TestContext.Current.CancellationToken);
+        var history = (await _harness.Client.MarketData.GetHistoryAsync(
+            756733, "1d", "1min", cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         history.Symbol.ShouldBe("SPY");
         _harness.VerifyReauthenticationOccurred();
@@ -139,8 +139,8 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/scanner/params",
             FixtureLoader.LoadBody("MarketData", "GET-scanner-params"));
 
-        var parameters = await _harness.Client.MarketData.GetScannerParametersAsync(
-            TestContext.Current.CancellationToken);
+        var parameters = (await _harness.Client.MarketData.GetScannerParametersAsync(
+            TestContext.Current.CancellationToken)).Value;
 
         parameters.ShouldNotBeNull();
         parameters.ScanTypeList.ShouldNotBeNull();
@@ -161,9 +161,9 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/scanner/run",
             FixtureLoader.LoadBody("MarketData", "POST-scanner-run"));
 
-        var result = await _harness.Client.MarketData.RunScannerAsync(
+        var result = (await _harness.Client.MarketData.RunScannerAsync(
             new ScannerRequest("STK", "TOP_PERC_GAIN", "STK.US.MAJOR", []),
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Contracts.ShouldNotBeNull();
@@ -205,9 +205,9 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("MarketData", "POST-scanner-run")));
 
-        var result = await _harness.Client.MarketData.RunScannerAsync(
+        var result = (await _harness.Client.MarketData.RunScannerAsync(
             new ScannerRequest("STK", "TOP_PERC_GAIN", "STK.US.MAJOR", []),
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken)).Value;
 
         result.Contracts.ShouldNotBeNull();
         _harness.VerifyReauthenticationOccurred();
@@ -220,8 +220,8 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/marketdata/unsubscribeall",
             FixtureLoader.LoadBody("MarketData", "GET-unsubscribeall"));
 
-        var result = await _harness.Client.MarketData.UnsubscribeAllAsync(
-            TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.MarketData.UnsubscribeAllAsync(
+            TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Unsubscribed.ShouldBeTrue();
@@ -236,8 +236,8 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/marketdata/unsubscribe",
             FixtureLoader.LoadBody("MarketData", "POST-unsubscribe"));
 
-        var result = await _harness.Client.MarketData.UnsubscribeAsync(
-            756733, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.MarketData.UnsubscribeAsync(
+            756733, TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Success.ShouldBeTrue();
@@ -271,8 +271,8 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("MarketData", "POST-unsubscribe")));
 
-        var result = await _harness.Client.MarketData.UnsubscribeAsync(
-            756733, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.MarketData.UnsubscribeAsync(
+            756733, TestContext.Current.CancellationToken)).Value;
 
         result.Success.ShouldBeTrue();
         _harness.VerifyReauthenticationOccurred();

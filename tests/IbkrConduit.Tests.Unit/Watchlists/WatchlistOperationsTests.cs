@@ -3,6 +3,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Watchlists;
+using IbkrConduit.Session;
+using IbkrConduit.Tests.Unit.TestHelpers;
 using NSubstitute;
 using Shouldly;
 
@@ -13,18 +15,18 @@ public class WatchlistOperationsTests
     private readonly IIbkrWatchlistApi _api = Substitute.For<IIbkrWatchlistApi>();
     private readonly WatchlistOperations _sut;
 
-    public WatchlistOperationsTests() => _sut = new WatchlistOperations(_api);
+    public WatchlistOperationsTests() => _sut = new WatchlistOperations(_api, new IbkrClientOptions());
 
     [Fact]
     public async Task CreateWatchlistAsync_DelegatesToApi()
     {
         var request = new CreateWatchlistRequest("MyList", "My List", new List<WatchlistRow>());
         var expected = new CreateWatchlistResponse("MyList", "hash1", "My List", false, new List<WatchlistInstrument>());
-        _api.CreateWatchlistAsync(Arg.Any<CreateWatchlistRequest>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.CreateWatchlistAsync(Arg.Any<CreateWatchlistRequest>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.CreateWatchlistAsync(request, TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).CreateWatchlistAsync(request, TestContext.Current.CancellationToken);
     }
 
@@ -38,11 +40,11 @@ public class WatchlistOperationsTests
             }),
             "content",
             "1");
-        _api.GetWatchlistsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.GetWatchlistsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetWatchlistsAsync(TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetWatchlistsAsync(cancellationToken: TestContext.Current.CancellationToken);
     }
 
@@ -50,11 +52,11 @@ public class WatchlistOperationsTests
     public async Task GetWatchlistAsync_DelegatesToApi()
     {
         var expected = new WatchlistDetail("wl1", "hash1", "My Watchlist", false, new List<WatchlistInstrument>());
-        _api.GetWatchlistAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.GetWatchlistAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetWatchlistAsync("wl1", TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetWatchlistAsync("wl1", TestContext.Current.CancellationToken);
     }
 
@@ -65,11 +67,11 @@ public class WatchlistOperationsTests
             new DeleteWatchlistData("wl1"),
             "context",
             "2");
-        _api.DeleteWatchlistAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.DeleteWatchlistAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.DeleteWatchlistAsync("wl1", TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).DeleteWatchlistAsync("wl1", TestContext.Current.CancellationToken);
     }
 }

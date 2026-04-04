@@ -3,6 +3,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Portfolio;
+using IbkrConduit.Session;
+using IbkrConduit.Tests.Unit.TestHelpers;
+using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Portfolio;
@@ -14,7 +17,7 @@ public class PortfolioOperationsTests
 
     public PortfolioOperationsTests()
     {
-        _sut = new PortfolioOperations(_fakeApi);
+        _sut = new PortfolioOperations(_fakeApi, new IbkrClientOptions());
     }
 
     [Fact]
@@ -29,10 +32,10 @@ public class PortfolioOperationsTests
 
         var result = await _sut.GetPositionsAsync("DU123", cancellationToken: TestContext.Current.CancellationToken);
 
-        result.Count.ShouldBe(1);
-        result[0].AccountId.ShouldBe("DU123");
-        result[0].Conid.ShouldBe(265598);
-        result[0].Ticker.ShouldBe("SPY");
+        result.Value.Count.ShouldBe(1);
+        result.Value[0].AccountId.ShouldBe("DU123");
+        result.Value[0].Conid.ShouldBe(265598);
+        result.Value[0].Ticker.ShouldBe("SPY");
     }
 
     [Fact]
@@ -45,8 +48,8 @@ public class PortfolioOperationsTests
 
         var result = await _sut.GetAccountSummaryAsync("DU123", TestContext.Current.CancellationToken);
 
-        result.ShouldContainKey("netliquidationvalue");
-        result["netliquidationvalue"].Amount.ShouldBe(100000.50m);
+        result.Value.ShouldContainKey("netliquidationvalue");
+        result.Value["netliquidationvalue"].Amount.ShouldBe(100000.50m);
     }
 
     [Fact]
@@ -71,8 +74,8 @@ public class PortfolioOperationsTests
 
         var result = await _sut.GetLedgerAsync("DU123", TestContext.Current.CancellationToken);
 
-        result.ShouldContainKey("USD");
-        result["USD"].CashBalance.ShouldBe(50000m);
+        result.Value.ShouldContainKey("USD");
+        result.Value["USD"].CashBalance.ShouldBe(50000m);
     }
 
     [Fact]
@@ -83,7 +86,7 @@ public class PortfolioOperationsTests
         var result = await _sut.GetAccountPerformanceAsync(
             ["DU123"], "1M", TestContext.Current.CancellationToken);
 
-        result.CurrencyType.ShouldBe("USD");
+        result.Value.CurrencyType.ShouldBe("USD");
         _fakeApi.LastPerformanceRequest.ShouldNotBeNull();
         _fakeApi.LastPerformanceRequest!.AccountIds[0].ShouldBe("DU123");
         _fakeApi.LastPerformanceRequest.Period.ShouldBe("1M");
@@ -97,7 +100,7 @@ public class PortfolioOperationsTests
         var result = await _sut.GetTransactionHistoryAsync(
             ["DU123"], ["265598"], "USD", 7, TestContext.Current.CancellationToken);
 
-        result.Id.ShouldBe("txn1");
+        result.Value.Id.ShouldBe("txn1");
         _fakeApi.LastTransactionRequest.ShouldNotBeNull();
         _fakeApi.LastTransactionRequest!.AccountIds[0].ShouldBe("DU123");
         _fakeApi.LastTransactionRequest.Conids[0].ShouldBe("265598");
@@ -121,7 +124,7 @@ public class PortfolioOperationsTests
         var result = await _sut.GetConsolidatedAllocationAsync(
             ["DU123", "DU456"], TestContext.Current.CancellationToken);
 
-        result.ShouldNotBeNull();
+        result.IsSuccess.ShouldBeTrue();
         _fakeApi.LastConsolidatedAllocationRequest.ShouldNotBeNull();
         _fakeApi.LastConsolidatedAllocationRequest!.AccountIds[0].ShouldBe("DU123");
         _fakeApi.LastConsolidatedAllocationRequest.AccountIds[1].ShouldBe("DU456");
@@ -134,8 +137,8 @@ public class PortfolioOperationsTests
 
         var result = await _sut.GetComboPositionsAsync("DU123", true, TestContext.Current.CancellationToken);
 
-        result.Count.ShouldBe(1);
-        result[0].Name.ShouldBe("CP.Test");
+        result.Value.Count.ShouldBe(1);
+        result.Value[0].Name.ShouldBe("CP.Test");
     }
 
     [Fact]
@@ -151,8 +154,8 @@ public class PortfolioOperationsTests
         var result = await _sut.GetRealTimePositionsAsync("DU123",
             cancellationToken: TestContext.Current.CancellationToken);
 
-        result.Count.ShouldBe(1);
-        result[0].Ticker.ShouldBe("SPY");
+        result.Value.Count.ShouldBe(1);
+        result.Value[0].Ticker.ShouldBe("SPY");
     }
 
     [Fact]
@@ -162,8 +165,8 @@ public class PortfolioOperationsTests
 
         var result = await _sut.GetSubAccountsAsync(TestContext.Current.CancellationToken);
 
-        result.Count.ShouldBe(1);
-        result[0].Id.ShouldBe("DU123");
+        result.Value.Count.ShouldBe(1);
+        result.Value[0].Id.ShouldBe("DU123");
     }
 
     [Fact]
@@ -173,8 +176,8 @@ public class PortfolioOperationsTests
 
         var result = await _sut.GetSubAccountsPagedAsync(0, TestContext.Current.CancellationToken);
 
-        result.Count.ShouldBe(1);
-        result[0].Id.ShouldBe("DU123");
+        result.Value.Count.ShouldBe(1);
+        result.Value[0].Id.ShouldBe("DU123");
     }
 
     [Fact]
@@ -185,7 +188,7 @@ public class PortfolioOperationsTests
         var result = await _sut.GetAllPeriodsPerformanceAsync(
             ["DU123"], TestContext.Current.CancellationToken);
 
-        result.CurrencyType.ShouldBe("base");
+        result.Value.CurrencyType.ShouldBe("base");
         _fakeApi.LastAllPeriodsRequest.ShouldNotBeNull();
         _fakeApi.LastAllPeriodsRequest!.AccountIds[0].ShouldBe("DU123");
     }
@@ -201,9 +204,9 @@ public class PortfolioOperationsTests
 
         var result = await _sut.GetPartitionedPnlAsync(TestContext.Current.CancellationToken);
 
-        result.Upnl.ShouldNotBeNull();
-        result.Upnl!.ShouldContainKey("U1234567.Core");
-        result.Upnl["U1234567.Core"].Dpl.ShouldBe(15.7m);
+        result.Value.Upnl.ShouldNotBeNull();
+        result.Value.Upnl!.ShouldContainKey("U1234567.Core");
+        result.Value.Upnl["U1234567.Core"].Dpl.ShouldBe(15.7m);
     }
 
     private class FakePortfolioApi : IIbkrPortfolioApi
@@ -224,90 +227,90 @@ public class PortfolioOperationsTests
         public AllPeriodsRequest? LastAllPeriodsRequest { get; private set; }
         public bool InvalidateCalled { get; private set; }
 
-        public Task<List<Account>> GetAccountsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new List<Account>());
+        public Task<IApiResponse<List<Account>>> GetAccountsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(FakeApiResponse.Success(new List<Account>()));
 
-        public Task<List<Position>> GetPositionsAsync(string accountId, int page = 0,
+        public Task<IApiResponse<List<Position>>> GetPositionsAsync(string accountId, int page = 0,
             string? model = null, string? sort = null, string? direction = null,
             string? period = null, CancellationToken cancellationToken = default) =>
-            Task.FromResult(PositionsResponse!);
+            Task.FromResult(FakeApiResponse.Success(PositionsResponse!));
 
-        public Task<Dictionary<string, AccountSummaryEntry>> GetAccountSummaryAsync(
+        public Task<IApiResponse<Dictionary<string, AccountSummaryEntry>>> GetAccountSummaryAsync(
             string accountId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(SummaryResponse!);
+            Task.FromResult(FakeApiResponse.Success(SummaryResponse!));
 
-        public Task<Dictionary<string, LedgerEntry>> GetLedgerAsync(
+        public Task<IApiResponse<Dictionary<string, LedgerEntry>>> GetLedgerAsync(
             string accountId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(LedgerResponse!);
+            Task.FromResult(FakeApiResponse.Success(LedgerResponse!));
 
-        public Task<AccountInfo> GetAccountInfoAsync(
+        public Task<IApiResponse<AccountInfo>> GetAccountInfoAsync(
             string accountId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AccountInfo("DU123", "DU123", "Test", null, "INDIVIDUAL", "USD"));
+            Task.FromResult(FakeApiResponse.Success(new AccountInfo("DU123", "DU123", "Test", null, "INDIVIDUAL", "USD")));
 
-        public Task<AccountAllocation> GetAccountAllocationAsync(
+        public Task<IApiResponse<AccountAllocation>> GetAccountAllocationAsync(
             string accountId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AccountAllocation(null, null, null));
+            Task.FromResult(FakeApiResponse.Success(new AccountAllocation(null, null, null)));
 
-        public Task<List<Position>> GetPositionByConidAsync(
+        public Task<IApiResponse<List<Position>>> GetPositionByConidAsync(
             string accountId, string conid, CancellationToken cancellationToken = default) =>
-            Task.FromResult(PositionsResponse ?? new List<Position>());
+            Task.FromResult(FakeApiResponse.Success(PositionsResponse ?? new List<Position>()));
 
-        public Task<PositionContractInfo> GetPositionAndContractInfoAsync(
+        public Task<IApiResponse<PositionContractInfo>> GetPositionAndContractInfoAsync(
             string conid, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new PositionContractInfo(265598, "SPY", "SPDR S&P 500", "STK", "ARCA", "USD"));
+            Task.FromResult(FakeApiResponse.Success(new PositionContractInfo(265598, "SPY", "SPDR S&P 500", "STK", "ARCA", "USD")));
 
-        public Task InvalidatePortfolioCacheAsync(
+        public Task<IApiResponse<string>> InvalidatePortfolioCacheAsync(
             string accountId, CancellationToken cancellationToken = default)
         {
             InvalidateCalled = true;
-            return Task.CompletedTask;
+            return Task.FromResult(FakeApiResponse.Success("ok"));
         }
 
-        public Task<AccountPerformance> GetAccountPerformanceAsync(
+        public Task<IApiResponse<AccountPerformance>> GetAccountPerformanceAsync(
             PerformanceRequest request, CancellationToken cancellationToken = default)
         {
             LastPerformanceRequest = request;
-            return Task.FromResult(PerformanceResponse!);
+            return Task.FromResult(FakeApiResponse.Success(PerformanceResponse!));
         }
 
-        public Task<TransactionHistory> GetTransactionHistoryAsync(
+        public Task<IApiResponse<TransactionHistory>> GetTransactionHistoryAsync(
             TransactionHistoryRequest request, CancellationToken cancellationToken = default)
         {
             LastTransactionRequest = request;
-            return Task.FromResult(TransactionResponse!);
+            return Task.FromResult(FakeApiResponse.Success(TransactionResponse!));
         }
 
-        public Task<AccountAllocation> GetConsolidatedAllocationAsync(
+        public Task<IApiResponse<AccountAllocation>> GetConsolidatedAllocationAsync(
             ConsolidatedAllocationRequest request, CancellationToken cancellationToken = default)
         {
             LastConsolidatedAllocationRequest = request;
-            return Task.FromResult(ConsolidatedAllocationResponse!);
+            return Task.FromResult(FakeApiResponse.Success(ConsolidatedAllocationResponse!));
         }
 
-        public Task<List<ComboPosition>> GetComboPositionsAsync(
+        public Task<IApiResponse<List<ComboPosition>>> GetComboPositionsAsync(
             string accountId, bool? nocache = null, CancellationToken cancellationToken = default) =>
-            Task.FromResult(ComboPositionsResponse!);
+            Task.FromResult(FakeApiResponse.Success(ComboPositionsResponse!));
 
-        public Task<List<Position>> GetRealTimePositionsAsync(
+        public Task<IApiResponse<List<Position>>> GetRealTimePositionsAsync(
             string accountId, string? model = null, string? sort = null,
             string? direction = null, CancellationToken cancellationToken = default) =>
-            Task.FromResult(PositionsResponse!);
+            Task.FromResult(FakeApiResponse.Success(PositionsResponse!));
 
-        public Task<List<SubAccount>> GetSubAccountsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(SubAccountsResponse!);
+        public Task<IApiResponse<List<SubAccount>>> GetSubAccountsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(FakeApiResponse.Success(SubAccountsResponse!));
 
-        public Task<List<SubAccount>> GetSubAccountsPagedAsync(
+        public Task<IApiResponse<List<SubAccount>>> GetSubAccountsPagedAsync(
             int page = 0, CancellationToken cancellationToken = default) =>
-            Task.FromResult(SubAccountsResponse!);
+            Task.FromResult(FakeApiResponse.Success(SubAccountsResponse!));
 
-        public Task<AllPeriodsPerformance> GetAllPeriodsPerformanceAsync(
+        public Task<IApiResponse<AllPeriodsPerformance>> GetAllPeriodsPerformanceAsync(
             AllPeriodsRequest request, CancellationToken cancellationToken = default)
         {
             LastAllPeriodsRequest = request;
-            return Task.FromResult(AllPeriodsResponse!);
+            return Task.FromResult(FakeApiResponse.Success(AllPeriodsResponse!));
         }
 
-        public Task<PartitionedPnl> GetPartitionedPnlAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(PartitionedPnlResponse!);
+        public Task<IApiResponse<PartitionedPnl>> GetPartitionedPnlAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(FakeApiResponse.Success(PartitionedPnlResponse!));
     }
 }

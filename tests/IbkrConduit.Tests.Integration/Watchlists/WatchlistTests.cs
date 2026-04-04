@@ -27,7 +27,7 @@ public class WatchlistTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("Watchlists", "POST-create-watchlist"));
 
         var request = new CreateWatchlistRequest("99999", "Capture Test", new List<WatchlistRow>());
-        var result = await _harness.Client.Watchlists.CreateWatchlistAsync(request, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Watchlists.CreateWatchlistAsync(request, TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Id.ShouldBe("99999");
@@ -47,7 +47,7 @@ public class WatchlistTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/watchlists",
             FixtureLoader.LoadBody("Watchlists", "GET-watchlists"));
 
-        var result = await _harness.Client.Watchlists.GetWatchlistsAsync(TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Watchlists.GetWatchlistsAsync(TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Action.ShouldBe("content");
@@ -78,7 +78,7 @@ public class WatchlistTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/watchlist",
             FixtureLoader.LoadBody("Watchlists", "GET-watchlist-by-id"));
 
-        var result = await _harness.Client.Watchlists.GetWatchlistAsync("99999", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Watchlists.GetWatchlistAsync("99999", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Id.ShouldBe("99999");
@@ -110,7 +110,7 @@ public class WatchlistTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/watchlist",
             FixtureLoader.LoadBody("Watchlists", "DELETE-watchlist"));
 
-        var result = await _harness.Client.Watchlists.DeleteWatchlistAsync("99999", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Watchlists.DeleteWatchlistAsync("99999", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Data.ShouldNotBeNull();
@@ -149,7 +149,7 @@ public class WatchlistTests : IAsyncLifetime, IDisposable
                     .WithBody(FixtureLoader.LoadBody("Watchlists", "POST-create-watchlist")));
 
         var request = new CreateWatchlistRequest("99999", "Capture Test", new List<WatchlistRow>());
-        var result = await _harness.Client.Watchlists.CreateWatchlistAsync(request, TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Watchlists.CreateWatchlistAsync(request, TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Id.ShouldBe("99999");
@@ -184,7 +184,7 @@ public class WatchlistTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Watchlists", "GET-watchlists")));
 
-        var result = await _harness.Client.Watchlists.GetWatchlistsAsync(TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Watchlists.GetWatchlistsAsync(TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Data.UserLists.ShouldNotBeEmpty();
@@ -218,7 +218,7 @@ public class WatchlistTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Watchlists", "GET-watchlist-by-id")));
 
-        var result = await _harness.Client.Watchlists.GetWatchlistAsync("99999", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Watchlists.GetWatchlistAsync("99999", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Id.ShouldBe("99999");
@@ -253,7 +253,7 @@ public class WatchlistTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Watchlists", "DELETE-watchlist")));
 
-        var result = await _harness.Client.Watchlists.DeleteWatchlistAsync("99999", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Watchlists.DeleteWatchlistAsync("99999", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Data.Deleted.ShouldBe("99999");

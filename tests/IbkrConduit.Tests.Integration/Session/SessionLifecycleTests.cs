@@ -115,8 +115,8 @@ public class SessionLifecycleTests : IAsyncDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts")));
 
-        var first = await _harness.Client.Portfolio.GetAccountsAsync(
-            TestContext.Current.CancellationToken);
+        var first = (await _harness.Client.Portfolio.GetAccountsAsync(
+            TestContext.Current.CancellationToken)).Value;
         first.ShouldNotBeEmpty();
 
         // Second call: 401 again -> re-auth -> success
@@ -144,8 +144,8 @@ public class SessionLifecycleTests : IAsyncDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts")));
 
-        var second = await _harness.Client.Portfolio.GetAccountsAsync(
-            TestContext.Current.CancellationToken);
+        var second = (await _harness.Client.Portfolio.GetAccountsAsync(
+            TestContext.Current.CancellationToken)).Value;
         second.ShouldNotBeEmpty();
 
         // LST should have been called at least 3 times (initial + 2 re-auths)

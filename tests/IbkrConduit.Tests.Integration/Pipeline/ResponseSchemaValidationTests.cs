@@ -63,8 +63,8 @@ public class ResponseSchemaValidationTests : IAsyncDisposable
         var result = await _harness.Client.Accounts.GetAccountsAsync(
             TestContext.Current.CancellationToken);
 
-        result.ShouldNotBeNull();
-        result.Accounts.ShouldContain("U1234567");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Accounts.ShouldContain("U1234567");
     }
 
     [Fact]
@@ -89,8 +89,8 @@ public class ResponseSchemaValidationTests : IAsyncDisposable
         var result = await _harness.Client.Accounts.GetAccountsAsync(
             TestContext.Current.CancellationToken);
 
-        result.ShouldNotBeNull();
-        result.Accounts.ShouldContain("U1234567");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Accounts.ShouldContain("U1234567");
     }
 
     [Fact]
@@ -108,8 +108,8 @@ public class ResponseSchemaValidationTests : IAsyncDisposable
         var result = await _harness.Client.Accounts.GetAccountsAsync(
             TestContext.Current.CancellationToken);
 
-        result.ShouldNotBeNull();
-        result.Accounts.ShouldContain("U1234567");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Accounts.ShouldContain("U1234567");
     }
 
     /// <inheritdoc />

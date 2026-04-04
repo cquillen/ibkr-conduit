@@ -9,6 +9,8 @@ using IbkrConduit.Orders;
 using Microsoft.Extensions.Logging.Abstractions;
 using OneOf;
 using Refit;
+using IbkrConduit.Session;
+using IbkrConduit.Tests.Unit.TestHelpers;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Orders;
@@ -20,7 +22,7 @@ public class OrderOperationsModifyTests
 
     public OrderOperationsModifyTests()
     {
-        _sut = new OrderOperations(_fakeApi, NullLogger<OrderOperations>.Instance);
+        _sut = new OrderOperations(_fakeApi, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance);
     }
 
     [Fact]
@@ -43,8 +45,8 @@ public class OrderOperationsModifyTests
 
         var result = await _sut.ModifyOrderAsync("DU1234567", "99999", order, TestContext.Current.CancellationToken);
 
-        result.AsT0.OrderId.ShouldBe("12345");
-        result.AsT0.OrderStatus.ShouldBe("PreSubmitted");
+        result.Value.AsT0.OrderId.ShouldBe("12345");
+        result.Value.AsT0.OrderStatus.ShouldBe("PreSubmitted");
     }
 
     [Fact]
@@ -73,7 +75,7 @@ public class OrderOperationsModifyTests
 
         var result = await _sut.ModifyOrderAsync("DU1234567", "99999", order, TestContext.Current.CancellationToken);
 
-        var confirmation = result.AsT1;
+        var confirmation = result.Value.AsT1;
         confirmation.ReplyId.ShouldBe("reply-id-1");
         confirmation.Messages.ShouldContain("Are you sure you want to modify this order?");
         confirmation.MessageIds.ShouldContain("msg-id-1");
@@ -125,7 +127,7 @@ public class OrderOperationsModifyTests
         var semaphore2 = new SemaphoreSlim(0, 1);
 
         var api = new BlockingModifyOrderApi(callOrder, semaphore1, semaphore2);
-        var ops = new OrderOperations(api, NullLogger<OrderOperations>.Instance);
+        var ops = new OrderOperations(api, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance);
 
         var order = new OrderRequest
         {
@@ -156,16 +158,16 @@ public class OrderOperationsModifyTests
         public string? LastModifyOrderId { get; private set; }
         public int ReplyCallCount { get; private set; }
 
-        public Task<List<OrderSubmissionResponse>> PlaceOrderAsync(
+        public Task<IApiResponse<List<OrderSubmissionResponse>>> PlaceOrderAsync(
             string accountId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
-            Task.FromResult(PlaceOrderResponses.Dequeue());
+            Task.FromResult(FakeApiResponse.Success(PlaceOrderResponses.Dequeue()));
 
-        public Task<List<OrderSubmissionResponse>> ModifyOrderAsync(
+        public Task<IApiResponse<List<OrderSubmissionResponse>>> ModifyOrderAsync(
             string accountId, string orderId, OrdersPayload orders, CancellationToken cancellationToken = default)
         {
             LastModifyOrderPayload = orders;
             LastModifyOrderId = orderId;
-            return Task.FromResult(ModifyOrderResponses.Dequeue());
+            return Task.FromResult(FakeApiResponse.Success(ModifyOrderResponses.Dequeue()));
         }
 
         public Task<IApiResponse<string>> ReplyAsync(
@@ -182,20 +184,20 @@ public class OrderOperationsModifyTests
             return Task.FromResult(apiResponse);
         }
 
-        public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<List<Trade>>> GetTradesAsync(CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<WhatIfResponse> WhatIfOrderAsync(
+        public Task<IApiResponse<WhatIfResponse>> WhatIfOrderAsync(
             string accountId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<OrderStatus> GetOrderStatusAsync(
+        public Task<IApiResponse<OrderStatus>> GetOrderStatusAsync(
             string orderId, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
     }
@@ -217,18 +219,18 @@ public class OrderOperationsModifyTests
             _semaphore2 = semaphore2;
         }
 
-        public Task<List<OrderSubmissionResponse>> PlaceOrderAsync(
+        public Task<IApiResponse<List<OrderSubmissionResponse>>> PlaceOrderAsync(
             string accountId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public async Task<List<OrderSubmissionResponse>> ModifyOrderAsync(
+        public async Task<IApiResponse<List<OrderSubmissionResponse>>> ModifyOrderAsync(
             string accountId, string orderId, OrdersPayload orders, CancellationToken cancellationToken = default)
         {
             var call = Interlocked.Increment(ref _callCount);
             var semaphore = call == 1 ? _semaphore1 : _semaphore2;
             await semaphore.WaitAsync(cancellationToken);
             _callOrder.Add($"call-{call}");
-            return [new OrderSubmissionResponse(null, null, null, null, $"order-{call}", "Submitted")];
+            return FakeApiResponse.Success<List<OrderSubmissionResponse>>([new OrderSubmissionResponse(null, null, null, null, $"order-{call}", "Submitted")]);
         }
 
         public Task<IApiResponse<string>> ReplyAsync(
@@ -242,20 +244,20 @@ public class OrderOperationsModifyTests
             return Task.FromResult(apiResponse);
         }
 
-        public Task<CancelOrderResponse> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<OrdersResponse> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<List<Trade>> GetTradesAsync(CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<List<Trade>>> GetTradesAsync(CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<WhatIfResponse> WhatIfOrderAsync(
+        public Task<IApiResponse<WhatIfResponse>> WhatIfOrderAsync(
             string accountId, OrdersPayload orders, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<OrderStatus> GetOrderStatusAsync(
+        public Task<IApiResponse<OrderStatus>> GetOrderStatusAsync(
             string orderId, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
     }

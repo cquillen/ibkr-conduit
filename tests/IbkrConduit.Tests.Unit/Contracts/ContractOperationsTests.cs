@@ -3,6 +3,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.Session;
+using IbkrConduit.Tests.Unit.TestHelpers;
 using NSubstitute;
 using Shouldly;
 
@@ -13,7 +15,7 @@ public class ContractOperationsTests
     private readonly IIbkrContractApi _api = Substitute.For<IIbkrContractApi>();
     private readonly ContractOperations _sut;
 
-    public ContractOperationsTests() => _sut = new ContractOperations(_api);
+    public ContractOperationsTests() => _sut = new ContractOperations(_api, new IbkrClientOptions());
 
     [Fact]
     public async Task SearchBySymbolAsync_DelegatesToApi()
@@ -22,11 +24,11 @@ public class ContractOperationsTests
         {
             new(265598, "AAPL Inc.", "AAPL", "Apple Inc.", "AAPL", "265598", "STK", "NASDAQ", null),
         };
-        _api.SearchBySymbolAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.SearchBySymbolAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.SearchBySymbolAsync("AAPL", TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).SearchBySymbolAsync("AAPL", TestContext.Current.CancellationToken);
     }
 
@@ -34,11 +36,11 @@ public class ContractOperationsTests
     public async Task GetContractDetailsAsync_DelegatesToApi()
     {
         var expected = new ContractDetails(265598, "AAPL", "Apple Inc.", "SMART", "NASDAQ", "USD", "STK", "SMART,NASDAQ");
-        _api.GetContractDetailsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.GetContractDetailsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetContractDetailsAsync("265598", TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetContractDetailsAsync("265598", TestContext.Current.CancellationToken);
     }
 
@@ -52,13 +54,13 @@ public class ContractOperationsTests
         _api.GetSecurityDefinitionInfoAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
             Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(),
-            Arg.Any<CancellationToken>()).Returns(expected);
+            Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetSecurityDefinitionInfoAsync(
             "265598", "OPT", "DEC2024",
             cancellationToken: TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetSecurityDefinitionInfoAsync(
             "265598", "OPT", "DEC2024",
             null, null, null, null,
@@ -71,11 +73,11 @@ public class ContractOperationsTests
         var expected = new OptionStrikes(new List<decimal> { 150m, 155m }, new List<decimal> { 145m, 150m });
         _api.GetOptionStrikesAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-            Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(expected);
+            Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetOptionStrikesAsync("265598", "OPT", "DEC2024", cancellationToken: TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetOptionStrikesAsync(
             "265598", "OPT", "DEC2024", null,
             TestContext.Current.CancellationToken);
@@ -86,11 +88,11 @@ public class ContractOperationsTests
     {
         var request = new TradingRulesRequest(265598, null, null, null, null);
         var expected = new TradingRules(1m, 1m, 0m, "USD");
-        _api.GetTradingRulesAsync(Arg.Any<TradingRulesRequest>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.GetTradingRulesAsync(Arg.Any<TradingRulesRequest>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetTradingRulesAsync(request, TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetTradingRulesAsync(request, TestContext.Current.CancellationToken);
     }
 
@@ -98,11 +100,11 @@ public class ContractOperationsTests
     public async Task GetSecurityDefinitionsByConidAsync_DelegatesToApi()
     {
         var expected = new SecurityDefinitionResponse(new List<SecurityDefinition>());
-        _api.GetSecurityDefinitionsByConidAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.GetSecurityDefinitionsByConidAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetSecurityDefinitionsByConidAsync("265598", TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetSecurityDefinitionsByConidAsync("265598", TestContext.Current.CancellationToken);
     }
 
@@ -110,11 +112,11 @@ public class ContractOperationsTests
     public async Task GetAllConidsByExchangeAsync_DelegatesToApi()
     {
         var expected = new List<ExchangeConid> { new("AAPL", 265598, "NASDAQ") };
-        _api.GetAllConidsByExchangeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.GetAllConidsByExchangeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetAllConidsByExchangeAsync("NASDAQ", TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetAllConidsByExchangeAsync("NASDAQ", TestContext.Current.CancellationToken);
     }
 
@@ -125,11 +127,11 @@ public class ContractOperationsTests
         {
             ["ES"] = new List<FutureContract> { new("ES", 495512551, 11004968, 20241220L, 20241220L) },
         };
-        _api.GetFuturesBySymbolAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.GetFuturesBySymbolAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetFuturesBySymbolAsync("ES", TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetFuturesBySymbolAsync("ES", TestContext.Current.CancellationToken);
     }
 
@@ -140,11 +142,11 @@ public class ContractOperationsTests
         {
             ["AAPL"] = new List<StockContract> { new("Apple Inc.", null, "STK", new List<StockContractDetail>()) },
         };
-        _api.GetStocksBySymbolAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.GetStocksBySymbolAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetStocksBySymbolAsync("AAPL", TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetStocksBySymbolAsync("AAPL", TestContext.Current.CancellationToken);
     }
 
@@ -154,13 +156,13 @@ public class ContractOperationsTests
         var expected = new List<TradingSchedule> { new("SCH1", new List<TradeTiming>()) };
         _api.GetTradingScheduleAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(expected);
+            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetTradingScheduleAsync(
             "STK", "AAPL", "265598",
             cancellationToken: TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetTradingScheduleAsync(
             "STK", "AAPL", "265598",
             null, null,
@@ -174,11 +176,11 @@ public class ContractOperationsTests
         {
             ["EUR"] = new List<CurrencyPair> { new("EUR.USD", 12087792, "EUR") },
         };
-        _api.GetCurrencyPairsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.GetCurrencyPairsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetCurrencyPairsAsync("EUR", TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetCurrencyPairsAsync("EUR", TestContext.Current.CancellationToken);
     }
 
@@ -186,11 +188,11 @@ public class ContractOperationsTests
     public async Task GetExchangeRateAsync_DelegatesToApi()
     {
         var expected = new ExchangeRateResponse(1.08m);
-        _api.GetExchangeRateAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
+        _api.GetExchangeRateAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetExchangeRateAsync("USD", "EUR", TestContext.Current.CancellationToken);
 
-        result.ShouldBeSameAs(expected);
+        result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetExchangeRateAsync("USD", "EUR", TestContext.Current.CancellationToken);
     }
 }

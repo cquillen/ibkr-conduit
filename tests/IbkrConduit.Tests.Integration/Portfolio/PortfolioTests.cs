@@ -23,7 +23,7 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio/accounts",
             FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts"));
 
-        var accounts = await _harness.Client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = (await _harness.Client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken)).Value;
 
         accounts.ShouldNotBeEmpty();
         var account = accounts[0];
@@ -78,7 +78,7 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts")));
 
-        var accounts = await _harness.Client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var accounts = (await _harness.Client.Portfolio.GetAccountsAsync(TestContext.Current.CancellationToken)).Value;
 
         accounts.ShouldNotBeEmpty();
         accounts[0].Id.ShouldBe("U1234567");
@@ -93,8 +93,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio/U1234567/positions/0",
             FixtureLoader.LoadBody("Portfolio", "GET-portfolio-positions-page0"));
 
-        var positions = await _harness.Client.Portfolio.GetPositionsAsync(
-            "U1234567", 0, TestContext.Current.CancellationToken);
+        var positions = (await _harness.Client.Portfolio.GetPositionsAsync(
+            "U1234567", 0, TestContext.Current.CancellationToken)).Value;
 
         positions.ShouldNotBeEmpty();
         var pos = positions[0];
@@ -146,8 +146,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-positions-page0")));
 
-        var positions = await _harness.Client.Portfolio.GetPositionsAsync(
-            "U1234567", 0, TestContext.Current.CancellationToken);
+        var positions = (await _harness.Client.Portfolio.GetPositionsAsync(
+            "U1234567", 0, TestContext.Current.CancellationToken)).Value;
 
         positions.ShouldNotBeEmpty();
         positions[0].Conid.ShouldBe(320227571L);
@@ -162,8 +162,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio/U1234567/positions/999",
             FixtureLoader.LoadBody("Portfolio", "GET-portfolio-positions-empty"));
 
-        var positions = await _harness.Client.Portfolio.GetPositionsAsync(
-            "U1234567", 999, TestContext.Current.CancellationToken);
+        var positions = (await _harness.Client.Portfolio.GetPositionsAsync(
+            "U1234567", 999, TestContext.Current.CancellationToken)).Value;
 
         positions.ShouldBeEmpty();
     }
@@ -175,8 +175,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio/U1234567/summary",
             FixtureLoader.LoadBody("Portfolio", "GET-portfolio-summary"));
 
-        var summary = await _harness.Client.Portfolio.GetAccountSummaryAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var summary = (await _harness.Client.Portfolio.GetAccountSummaryAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         summary.ShouldNotBeEmpty();
         summary.Count.ShouldBe(5);
@@ -229,8 +229,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-summary")));
 
-        var summary = await _harness.Client.Portfolio.GetAccountSummaryAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var summary = (await _harness.Client.Portfolio.GetAccountSummaryAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         summary.ShouldNotBeEmpty();
         summary.ShouldContainKey("netliquidation");
@@ -245,8 +245,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio/U1234567/ledger",
             FixtureLoader.LoadBody("Portfolio", "GET-portfolio-ledger"));
 
-        var ledger = await _harness.Client.Portfolio.GetLedgerAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var ledger = (await _harness.Client.Portfolio.GetLedgerAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         ledger.ShouldNotBeEmpty();
         ledger.Count.ShouldBe(2);
@@ -305,8 +305,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-ledger")));
 
-        var ledger = await _harness.Client.Portfolio.GetLedgerAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var ledger = (await _harness.Client.Portfolio.GetLedgerAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         ledger.ShouldNotBeEmpty();
         ledger.ShouldContainKey("USD");
@@ -321,8 +321,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/pnl/partitioned",
             FixtureLoader.LoadBody("Portfolio", "GET-iserver-account-pnl-partitioned"));
 
-        var pnl = await _harness.Client.Portfolio.GetPartitionedPnlAsync(
-            TestContext.Current.CancellationToken);
+        var pnl = (await _harness.Client.Portfolio.GetPartitionedPnlAsync(
+            TestContext.Current.CancellationToken)).Value;
 
         pnl.ShouldNotBeNull();
         pnl.Upnl.ShouldNotBeNull();
@@ -357,8 +357,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-iserver-account-pnl-partitioned")));
 
-        var pnl = await _harness.Client.Portfolio.GetPartitionedPnlAsync(
-            TestContext.Current.CancellationToken);
+        var pnl = (await _harness.Client.Portfolio.GetPartitionedPnlAsync(
+            TestContext.Current.CancellationToken)).Value;
 
         pnl.ShouldNotBeNull();
         pnl.Upnl.ShouldNotBeNull();
@@ -373,8 +373,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio/U1234567/meta",
             FixtureLoader.LoadBody("Portfolio", "GET-portfolio-meta"));
 
-        var info = await _harness.Client.Portfolio.GetAccountInfoAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var info = (await _harness.Client.Portfolio.GetAccountInfoAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         info.ShouldNotBeNull();
         info.Id.ShouldBe("U1234567");
@@ -414,8 +414,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-meta")));
 
-        var info = await _harness.Client.Portfolio.GetAccountInfoAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var info = (await _harness.Client.Portfolio.GetAccountInfoAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         info.Id.ShouldBe("U1234567");
         _harness.VerifyReauthenticationOccurred();
@@ -428,8 +428,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio/U1234567/allocation",
             FixtureLoader.LoadBody("Portfolio", "GET-portfolio-allocation"));
 
-        var allocation = await _harness.Client.Portfolio.GetAccountAllocationAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var allocation = (await _harness.Client.Portfolio.GetAccountAllocationAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         allocation.ShouldNotBeNull();
         allocation.AssetClass.ShouldNotBeNull();
@@ -471,8 +471,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-allocation")));
 
-        var allocation = await _harness.Client.Portfolio.GetAccountAllocationAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var allocation = (await _harness.Client.Portfolio.GetAccountAllocationAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         allocation.AssetClass.ShouldNotBeNull();
         _harness.VerifyReauthenticationOccurred();
@@ -485,8 +485,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio/U1234567/position/756733",
             FixtureLoader.LoadBody("Portfolio", "GET-portfolio-position-by-conid"));
 
-        var positions = await _harness.Client.Portfolio.GetPositionByConidAsync(
-            "U1234567", "756733", TestContext.Current.CancellationToken);
+        var positions = (await _harness.Client.Portfolio.GetPositionByConidAsync(
+            "U1234567", "756733", TestContext.Current.CancellationToken)).Value;
 
         positions.ShouldNotBeEmpty();
         var pos = positions[0];
@@ -531,8 +531,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-position-by-conid")));
 
-        var positions = await _harness.Client.Portfolio.GetPositionByConidAsync(
-            "U1234567", "756733", TestContext.Current.CancellationToken);
+        var positions = (await _harness.Client.Portfolio.GetPositionByConidAsync(
+            "U1234567", "756733", TestContext.Current.CancellationToken)).Value;
 
         positions.ShouldNotBeEmpty();
         _harness.VerifyReauthenticationOccurred();
@@ -545,8 +545,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio/positions/756733",
             FixtureLoader.LoadBody("Portfolio", "GET-portfolio-positions-by-conid"));
 
-        var result = await _harness.Client.Portfolio.GetPositionAndContractInfoAsync(
-            "756733", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Portfolio.GetPositionAndContractInfoAsync(
+            "756733", TestContext.Current.CancellationToken)).Value;
 
         // The endpoint returns a dictionary { "accountId": [...] } but the DTO is PositionContractInfo.
         // The account-keyed data goes into AdditionalData.
@@ -564,8 +564,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio/U1234567/combo/positions",
             FixtureLoader.LoadBody("Portfolio", "GET-portfolio-combo-positions-empty"));
 
-        var combos = await _harness.Client.Portfolio.GetComboPositionsAsync(
-            "U1234567", cancellationToken: TestContext.Current.CancellationToken);
+        var combos = (await _harness.Client.Portfolio.GetComboPositionsAsync(
+            "U1234567", cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         combos.ShouldBeEmpty();
         _harness.VerifyHandshakeOccurred();
@@ -578,8 +578,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio2/U1234567/positions",
             FixtureLoader.LoadBody("Portfolio", "GET-portfolio2-positions"));
 
-        var positions = await _harness.Client.Portfolio.GetRealTimePositionsAsync(
-            "U1234567", cancellationToken: TestContext.Current.CancellationToken);
+        var positions = (await _harness.Client.Portfolio.GetRealTimePositionsAsync(
+            "U1234567", cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         positions.ShouldNotBeEmpty();
         positions.Count.ShouldBe(2);
@@ -622,8 +622,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio2-positions")));
 
-        var positions = await _harness.Client.Portfolio.GetRealTimePositionsAsync(
-            "U1234567", cancellationToken: TestContext.Current.CancellationToken);
+        var positions = (await _harness.Client.Portfolio.GetRealTimePositionsAsync(
+            "U1234567", cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         positions.ShouldNotBeEmpty();
         _harness.VerifyReauthenticationOccurred();
@@ -636,8 +636,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio/subaccounts",
             FixtureLoader.LoadBody("Portfolio", "GET-portfolio-subaccounts"));
 
-        var subAccounts = await _harness.Client.Portfolio.GetSubAccountsAsync(
-            TestContext.Current.CancellationToken);
+        var subAccounts = (await _harness.Client.Portfolio.GetSubAccountsAsync(
+            TestContext.Current.CancellationToken)).Value;
 
         subAccounts.ShouldNotBeEmpty();
         var sub = subAccounts[0];
@@ -671,8 +671,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/pa/performance",
             FixtureLoader.LoadBody("Portfolio", "POST-pa-performance"));
 
-        var perf = await _harness.Client.Portfolio.GetAccountPerformanceAsync(
-            ["U1234567"], "1M", TestContext.Current.CancellationToken);
+        var perf = (await _harness.Client.Portfolio.GetAccountPerformanceAsync(
+            ["U1234567"], "1M", TestContext.Current.CancellationToken)).Value;
 
         perf.ShouldNotBeNull();
         perf.CurrencyType.ShouldBe("base");
@@ -693,8 +693,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/pa/transactions",
             FixtureLoader.LoadBody("Portfolio", "POST-pa-transactions"));
 
-        var txns = await _harness.Client.Portfolio.GetTransactionHistoryAsync(
-            ["U1234567"], ["756733"], "USD", 30, TestContext.Current.CancellationToken);
+        var txns = (await _harness.Client.Portfolio.GetTransactionHistoryAsync(
+            ["U1234567"], ["756733"], "USD", 30, TestContext.Current.CancellationToken)).Value;
 
         txns.ShouldNotBeNull();
         txns.Id.ShouldBe("getTransactions");
@@ -713,8 +713,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/portfolio/allocation",
             FixtureLoader.LoadBody("Portfolio", "POST-portfolio-consolidated-allocation"));
 
-        var allocation = await _harness.Client.Portfolio.GetConsolidatedAllocationAsync(
-            ["U1234567"], TestContext.Current.CancellationToken);
+        var allocation = (await _harness.Client.Portfolio.GetConsolidatedAllocationAsync(
+            ["U1234567"], TestContext.Current.CancellationToken)).Value;
 
         allocation.ShouldNotBeNull();
         allocation.AssetClass.ShouldNotBeNull();
@@ -732,8 +732,8 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             "/v1/api/pa/allperiods",
             FixtureLoader.LoadBody("Portfolio", "POST-pa-allperiods"));
 
-        var perf = await _harness.Client.Portfolio.GetAllPeriodsPerformanceAsync(
-            ["U1234567"], TestContext.Current.CancellationToken);
+        var perf = (await _harness.Client.Portfolio.GetAllPeriodsPerformanceAsync(
+            ["U1234567"], TestContext.Current.CancellationToken)).Value;
 
         perf.ShouldNotBeNull();
         perf.CurrencyType.ShouldBe("base");

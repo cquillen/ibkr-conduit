@@ -23,7 +23,7 @@ public class AccountsTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/accounts",
             FixtureLoader.LoadBody("Accounts", "GET-iserver-accounts"));
 
-        var result = await _harness.Client.Accounts.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetAccountsAsync(TestContext.Current.CancellationToken)).Value;
 
         result.Accounts.ShouldNotBeEmpty();
         result.Accounts[0].ShouldBe("U1234567");
@@ -69,7 +69,7 @@ public class AccountsTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Accounts", "GET-iserver-accounts")));
 
-        var result = await _harness.Client.Accounts.GetAccountsAsync(TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetAccountsAsync(TestContext.Current.CancellationToken)).Value;
 
         result.Accounts.ShouldNotBeEmpty();
         result.Accounts[0].ShouldBe("U1234567");
@@ -85,8 +85,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account",
             FixtureLoader.LoadBody("Accounts", "POST-switch-account"));
 
-        var result = await _harness.Client.Accounts.SwitchAccountAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.SwitchAccountAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.Success.ShouldBe("Account already set");
 
@@ -120,8 +120,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Accounts", "POST-switch-account")));
 
-        var result = await _harness.Client.Accounts.SwitchAccountAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.SwitchAccountAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.Success.ShouldBe("Account already set");
 
@@ -135,8 +135,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
             "/v1/api/acesws/U1234567/signatures-and-owners",
             FixtureLoader.LoadBody("Accounts", "GET-signatures-and-owners"));
 
-        var result = await _harness.Client.Accounts.GetSignaturesAndOwnersAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetSignaturesAndOwnersAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.AccountId.ShouldBe("U1234567");
         result.Users.ShouldNotBeEmpty();
@@ -183,8 +183,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Accounts", "GET-signatures-and-owners")));
 
-        var result = await _harness.Client.Accounts.GetSignaturesAndOwnersAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetSignaturesAndOwnersAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.AccountId.ShouldBe("U1234567");
         result.Users.ShouldNotBeEmpty();
@@ -199,8 +199,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/search/U123",
             FixtureLoader.LoadBody("Accounts", "GET-search-dynamic-account"));
 
-        var result = await _harness.Client.Accounts.SearchDynamicAccountAsync(
-            "U123", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.SearchDynamicAccountAsync(
+            "U123", TestContext.Current.CancellationToken)).Value;
 
         result.Pattern.ShouldBe("U123");
         result.MatchedAccounts.ShouldNotBeEmpty();
@@ -238,8 +238,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Accounts", "GET-search-dynamic-account")));
 
-        var result = await _harness.Client.Accounts.SearchDynamicAccountAsync(
-            "U123", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.SearchDynamicAccountAsync(
+            "U123", TestContext.Current.CancellationToken)).Value;
 
         result.MatchedAccounts.ShouldNotBeEmpty();
 
@@ -253,8 +253,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/dynaccount",
             FixtureLoader.LoadBody("Accounts", "POST-set-dynamic-account"));
 
-        var result = await _harness.Client.Accounts.SetDynamicAccountAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.SetDynamicAccountAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.Set.ShouldNotBeNull();
         result.Set!.Value.ShouldBeTrue();
@@ -290,8 +290,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Accounts", "POST-set-dynamic-account")));
 
-        var result = await _harness.Client.Accounts.SetDynamicAccountAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.SetDynamicAccountAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.Set.ShouldNotBeNull();
         result.Set!.Value.ShouldBeTrue();
@@ -306,8 +306,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/U1234567/summary",
             FixtureLoader.LoadBody("Accounts", "GET-account-summary"));
 
-        var result = await _harness.Client.Accounts.GetAccountSummaryAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetAccountSummaryAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.Balance.ShouldBe(994831.0);
         result.BuyingPower.ShouldBe(3979324.0);
@@ -354,8 +354,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Accounts", "GET-account-summary")));
 
-        var result = await _harness.Client.Accounts.GetAccountSummaryAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetAccountSummaryAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.NetLiquidationValue.ShouldBe(1005254.0);
 
@@ -369,8 +369,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/U1234567/summary/available_funds",
             FixtureLoader.LoadBody("Accounts", "GET-account-summary-available-funds"));
 
-        var result = await _harness.Client.Accounts.GetAccountSummaryAvailableFundsAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetAccountSummaryAvailableFundsAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldContainKey("total");
         result.ShouldContainKey("securities");
@@ -410,8 +410,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Accounts", "GET-account-summary-available-funds")));
 
-        var result = await _harness.Client.Accounts.GetAccountSummaryAvailableFundsAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetAccountSummaryAvailableFundsAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldContainKey("total");
 
@@ -425,8 +425,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/U1234567/summary/balances",
             FixtureLoader.LoadBody("Accounts", "GET-account-summary-balances"));
 
-        var result = await _harness.Client.Accounts.GetAccountSummaryBalancesAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetAccountSummaryBalancesAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldContainKey("total");
         result.ShouldContainKey("securities");
@@ -466,8 +466,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Accounts", "GET-account-summary-balances")));
 
-        var result = await _harness.Client.Accounts.GetAccountSummaryBalancesAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetAccountSummaryBalancesAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldContainKey("total");
 
@@ -481,8 +481,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/U1234567/summary/margins",
             FixtureLoader.LoadBody("Accounts", "GET-account-summary-margins"));
 
-        var result = await _harness.Client.Accounts.GetAccountSummaryMarginsAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetAccountSummaryMarginsAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldContainKey("total");
         result.ShouldContainKey("securities");
@@ -522,8 +522,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Accounts", "GET-account-summary-margins")));
 
-        var result = await _harness.Client.Accounts.GetAccountSummaryMarginsAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetAccountSummaryMarginsAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldContainKey("total");
 
@@ -537,8 +537,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/U1234567/summary/market_value",
             FixtureLoader.LoadBody("Accounts", "GET-account-summary-market-value"));
 
-        var result = await _harness.Client.Accounts.GetAccountSummaryMarketValueAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetAccountSummaryMarketValueAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldContainKey("USD");
         result["USD"]["total_cash"].ShouldBe("971,870");
@@ -576,8 +576,8 @@ public class AccountsTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Accounts", "GET-account-summary-market-value")));
 
-        var result = await _harness.Client.Accounts.GetAccountSummaryMarketValueAsync(
-            "U1234567", TestContext.Current.CancellationToken);
+        var result = (await _harness.Client.Accounts.GetAccountSummaryMarketValueAsync(
+            "U1234567", TestContext.Current.CancellationToken)).Value;
 
         result.ShouldContainKey("USD");
 
