@@ -258,6 +258,9 @@ public static class EndpointTable
         new("Watchlists", "CreateWatchlist_DuplicateId", HttpMethod.Post,
             "/v1/api/iserver/watchlist", 200,
             """{"id":"99999","name":"Duplicate Test","rows":[{"C":8314}]}"""),
+        // Verify duplicate overwrote: should show "Duplicate Test" with IBM (8314), not original
+        new("Watchlists", "GetWatchlist_AfterDuplicate", HttpMethod.Get,
+            "/v1/api/iserver/watchlist?id=99999", 200),
         // Clean up
         new("Watchlists", "DeleteWatchlist_Success", HttpMethod.Delete,
             "/v1/api/iserver/watchlist?id=99999", 200),
