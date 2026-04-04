@@ -21,4 +21,28 @@ public interface IAccountOperations
     Task<SwitchAccountResponse> SwitchAccountAsync(string accountId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Retrieves signature and ownership information for an account.
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<SignaturesAndOwnersResponse> GetSignaturesAndOwnersAsync(string accountId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Searches for accounts matching a pattern (DYNACCT feature required).
+    /// </summary>
+    /// <param name="pattern">The account search pattern.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<DynamicAccountSearchResponse> SearchDynamicAccountAsync(string pattern,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the active dynamic account (DYNACCT feature required).
+    /// </summary>
+    /// <param name="accountId">The account identifier to set.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<SetDynamicAccountResponse> SetDynamicAccountAsync(string accountId,
+        CancellationToken cancellationToken = default);
+
 }

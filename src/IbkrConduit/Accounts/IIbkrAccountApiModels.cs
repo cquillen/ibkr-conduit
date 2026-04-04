@@ -64,3 +64,93 @@ public record SwitchAccountResponse(
     public Dictionary<string, JsonElement>? AdditionalData { get; init; }
 }
 
+/// <summary>
+/// Response from GET /acesws/{accountId}/signatures-and-owners.
+/// </summary>
+/// <param name="AccountId">The account identifier.</param>
+/// <param name="Users">List of users associated with the account.</param>
+/// <param name="Applicant">Applicant signature information.</param>
+[ExcludeFromCodeCoverage]
+public record SignaturesAndOwnersResponse(
+    [property: JsonPropertyName("accountId")] string AccountId,
+    [property: JsonPropertyName("users")] List<AccountUser> Users,
+    [property: JsonPropertyName("applicant")] AccountApplicant? Applicant = null);
+
+/// <summary>
+/// A user associated with an account.
+/// </summary>
+/// <param name="RoleId">The user's role (e.g., "OWNER").</param>
+/// <param name="HasRightCodeInd">Whether the user has right code indicator.</param>
+/// <param name="UserName">The user's login name.</param>
+/// <param name="Entity">Entity details for the user.</param>
+[ExcludeFromCodeCoverage]
+public record AccountUser(
+    [property: JsonPropertyName("roleId")] string RoleId,
+    [property: JsonPropertyName("hasRightCodeInd")] bool HasRightCodeInd,
+    [property: JsonPropertyName("userName")] string UserName,
+    [property: JsonPropertyName("entity")] AccountEntity? Entity = null);
+
+/// <summary>
+/// Entity details for an account user (individual or organization).
+/// </summary>
+/// <param name="FirstName">First name (for individuals).</param>
+/// <param name="LastName">Last name (for individuals).</param>
+/// <param name="EntityType">The entity type (e.g., "INDIVIDUAL").</param>
+/// <param name="EntityName">The full entity name.</param>
+/// <param name="DateOfBirth">Date of birth in YYYY-MM-DD format.</param>
+[ExcludeFromCodeCoverage]
+public record AccountEntity(
+    [property: JsonPropertyName("firstName")] string? FirstName = null,
+    [property: JsonPropertyName("lastName")] string? LastName = null,
+    [property: JsonPropertyName("entityType")] string? EntityType = null,
+    [property: JsonPropertyName("entityName")] string? EntityName = null,
+    [property: JsonPropertyName("dateOfBirth")] string? DateOfBirth = null);
+
+/// <summary>
+/// Applicant information with signatures.
+/// </summary>
+/// <param name="Signatures">List of signature strings.</param>
+[ExcludeFromCodeCoverage]
+public record AccountApplicant(
+    [property: JsonPropertyName("signatures")] List<string> Signatures);
+
+/// <summary>
+/// Request body for POST /iserver/dynaccount to set the dynamic account.
+/// </summary>
+/// <param name="AcctId">The account identifier to set.</param>
+[ExcludeFromCodeCoverage]
+public record SetDynamicAccountRequest(
+    [property: JsonPropertyName("acctId")] string AcctId);
+
+/// <summary>
+/// Response from POST /iserver/dynaccount.
+/// </summary>
+/// <param name="Set">Whether the account change was set.</param>
+/// <param name="AcctId">The account that was switched to.</param>
+[ExcludeFromCodeCoverage]
+public record SetDynamicAccountResponse(
+    [property: JsonPropertyName("set")] bool? Set = null,
+    [property: JsonPropertyName("acctId")] string? AcctId = null);
+
+/// <summary>
+/// Response from GET /iserver/account/search/{pattern}.
+/// </summary>
+/// <param name="MatchedAccounts">Accounts matching the search pattern.</param>
+/// <param name="Pattern">The search pattern used for the request.</param>
+[ExcludeFromCodeCoverage]
+public record DynamicAccountSearchResponse(
+    [property: JsonPropertyName("matchedAccounts")] List<DynamicAccountSearchResult> MatchedAccounts,
+    [property: JsonPropertyName("pattern")] string? Pattern = null);
+
+/// <summary>
+/// An account entry returned from a dynamic account search.
+/// </summary>
+/// <param name="AccountId">The account identifier.</param>
+/// <param name="Alias">Alternative name for the account (often same as AccountId).</param>
+/// <param name="AllocationId">Internal allocation identifier for the account.</param>
+[ExcludeFromCodeCoverage]
+public record DynamicAccountSearchResult(
+    [property: JsonPropertyName("accountId")] string? AccountId = null,
+    [property: JsonPropertyName("alias")] string? Alias = null,
+    [property: JsonPropertyName("allocationId")] string? AllocationId = null);
+

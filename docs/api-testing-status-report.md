@@ -52,12 +52,14 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 
 | Endpoint | Method | DTO Source | Integration Tests | Notes |
 |----------|--------|-----------|-------------------|-------|
-| `/iserver/accounts` | GET | Recording | Yes + 401 | Existing tests, needs DTO review |
-| `/iserver/account` | POST | Recording | Yes | Switch account |
+| `/iserver/accounts` | GET | Recording | Yes + 401 | Full response with acctProps, allowFeatures, chartPeriods |
+| `/iserver/account` | POST | Recording | Yes + 401 | Switch account — returns "Account already set" for same account |
 | `/iserver/account/pnl/partitioned` | GET | Recording | Yes + 401 | Existing tests |
-| `/iserver/account/search/{pattern}` | GET | Not captured | Not Tested | DYNACCT only |
-| `/iserver/dynaccount` | POST | Not captured | Not Tested | DYNACCT only |
-| `/acesws/{id}/signatures-and-owners` | GET | Not captured | Not Tested | |
+| `/iserver/account/search/{pattern}` | GET | OpenAPI | Not Tested | DYNACCT only — returns 503 on non-DYNACCT accounts |
+| `/iserver/dynaccount` | POST | OpenAPI | Not Tested | DYNACCT only — returns 401 on non-DYNACCT accounts |
+| `/acesws/{id}/signatures-and-owners` | GET | Recording | Yes + 401 | Contains PII (name, DOB) — fixtures sanitized |
+
+**Findings:** DYNACCT endpoints return 503/401 for non-DYNACCT accounts. Signatures endpoint returns full owner entity details including DOB. Switch account with invalid ID returns 500, missing body returns 400.
 
 ## Contract (16 endpoints)
 
@@ -192,7 +194,7 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 | Watchlists | 4 | 4 | 0 | 0 | 8 (4+4 401) |
 | Alerts | 6 | 1 | 5 | 0 | 12 (6+6 401) |
 | Session | 6 | 4 | 0 | 2 | 6 |
-| Accounts | 6 | 3 | 0 | 3 | 4 |
+| Accounts | 6 | 4 | 2 | 0 | 6 (3+3 401) |
 | Contract | 16 | 11 | 0 | 5 | 20 |
 | Market Data | 5 | 4 | 0 | 1 | 8 |
 | Orders | 7 | 5 | 0 | 2 | 10 |
@@ -203,4 +205,4 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 | Scanner | 3 | 2 | 0 | 1 | 0 |
 | FA Allocation | 8 | 0 | 0 | 8 | 0 |
 | Event Contracts | 5 | 0 | 0 | 5 | 0 |
-| **Total** | **98** | **58** | **5** | **35** | **102** |
+| **Total** | **98** | **59** | **7** | **32** | **104** |

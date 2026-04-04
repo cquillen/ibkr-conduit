@@ -1,0 +1,32 @@
+{
+  "Request": {
+    "Path": "/v1/api/acesws/U1234567/signatures-and-owners",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "accountId": "U1234567",
+      "users": [
+        {
+          "roleId": "OWNER",
+          "hasRightCodeInd": true,
+          "userName": "testuser01",
+          "entity": {
+            "firstName": "Jane",
+            "lastName": "Doe",
+            "entityType": "INDIVIDUAL",
+            "entityName": "Ms. Jane A Doe",
+            "dateOfBirth": "1990-01-15"
+          }
+        }
+      ],
+      "applicant": {
+        "signatures": [
+          "Jane A Doe"
+        ]
+      }
+    }
+  }
+}

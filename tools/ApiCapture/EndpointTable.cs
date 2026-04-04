@@ -55,6 +55,19 @@ public static class EndpointTable
         new("Accounts", "SwitchAccount_MissingBody", HttpMethod.Post,
             "/v1/api/iserver/account", 400,
             """{}"""),
+        new("Accounts", "SignaturesAndOwners_Success", HttpMethod.Get,
+            "/v1/api/acesws/{accountId}/signatures-and-owners", 200),
+
+        // Accounts — DYNACCT endpoints (account doesn't have DYNACCT feature)
+        new("Accounts", "SearchDynamicAccount_NoDynacct", HttpMethod.Get,
+            "/v1/api/iserver/account/search/DU", 503),
+        new("Accounts", "SetDynamicAccount_NoDynacct", HttpMethod.Post,
+            "/v1/api/iserver/dynaccount", 401,
+            """{"acctId":"DU1234567"}"""),
+
+        // Accounts — Additional failures
+        new("Accounts", "SignaturesAndOwners_InvalidAccount", HttpMethod.Get,
+            "/v1/api/acesws/INVALID999/signatures-and-owners", 401),
 
         // ---------------------------------------------------------------
         // Portfolio — Success
