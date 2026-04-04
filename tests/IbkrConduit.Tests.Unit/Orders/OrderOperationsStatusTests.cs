@@ -3,10 +3,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Orders;
-using Microsoft.Extensions.Logging.Abstractions;
-using Refit;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
+using Microsoft.Extensions.Logging.Abstractions;
+using Refit;
 using Refit;
 using Shouldly;
 

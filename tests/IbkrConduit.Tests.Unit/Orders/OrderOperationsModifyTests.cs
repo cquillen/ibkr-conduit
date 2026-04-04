@@ -6,11 +6,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Orders;
+using IbkrConduit.Session;
+using IbkrConduit.Tests.Unit.TestHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using OneOf;
 using Refit;
-using IbkrConduit.Session;
-using IbkrConduit.Tests.Unit.TestHelpers;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Orders;
