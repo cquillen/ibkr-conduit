@@ -248,16 +248,54 @@ public static class EndpointTable
             """{"id":"99999","name":"Capture Test","rows":[{"C":756733},{"C":265598}]}"""),
         new("Watchlists", "GetWatchlists_Success", HttpMethod.Get,
             "/v1/api/iserver/watchlists?SC=USER_WATCHLIST", 200),
-        new("Watchlists", "GetWatchlist_ById", HttpMethod.Get,
+        // First call returns limited fields (C, conid, name)
+        new("Watchlists", "GetWatchlist_ById_FirstCall", HttpMethod.Get,
             "/v1/api/iserver/watchlist?id=99999", 200),
+        // Second call returns full contract info (assetClass, ticker, chineseName, etc.)
+        new("Watchlists", "GetWatchlist_ById_SecondCall", HttpMethod.Get,
+            "/v1/api/iserver/watchlist?id=99999", 200),
+        // Create duplicate — same ID again to see if it overwrites or errors
+        new("Watchlists", "CreateWatchlist_DuplicateId", HttpMethod.Post,
+            "/v1/api/iserver/watchlist", 200,
+            """{"id":"99999","name":"Duplicate Test","rows":[{"C":8314}]}"""),
+        // Clean up
         new("Watchlists", "DeleteWatchlist_Success", HttpMethod.Delete,
             "/v1/api/iserver/watchlist?id=99999", 200),
 
+        // Watchlists — Edge cases
+        new("Watchlists", "CreateWatchlist_EmptyRows", HttpMethod.Post,
+            "/v1/api/iserver/watchlist", 200,
+            """{"id":"88880","name":"Empty Rows Test","rows":[]}"""),
+        new("Watchlists", "DeleteWatchlist_EmptyRows", HttpMethod.Delete,
+            "/v1/api/iserver/watchlist?id=88880", 200),
+        new("Watchlists", "CreateWatchlist_NoRowsField", HttpMethod.Post,
+            "/v1/api/iserver/watchlist", 200,
+            """{"id":"88881","name":"No Rows Field Test"}"""),
+        new("Watchlists", "DeleteWatchlist_NoRowsField", HttpMethod.Delete,
+            "/v1/api/iserver/watchlist?id=88881", 200),
+        new("Watchlists", "CreateWatchlist_InvalidConid", HttpMethod.Post,
+            "/v1/api/iserver/watchlist", 200,
+            """{"id":"88882","name":"Invalid Conid Test","rows":[{"C":0},{"C":999999999}]}"""),
+        new("Watchlists", "DeleteWatchlist_InvalidConid", HttpMethod.Delete,
+            "/v1/api/iserver/watchlist?id=88882", 200),
+
         // Watchlists — Failures
+        new("Watchlists", "CreateWatchlist_EmptyBody", HttpMethod.Post,
+            "/v1/api/iserver/watchlist", 400,
+            """{}"""),
+        new("Watchlists", "CreateWatchlist_MissingName", HttpMethod.Post,
+            "/v1/api/iserver/watchlist", 503,
+            """{"id":"88888","rows":[{"C":756733}]}"""),
+        new("Watchlists", "CreateWatchlist_NonNumericId", HttpMethod.Post,
+            "/v1/api/iserver/watchlist", 503,
+            """{"id":"not_a_number","name":"Bad ID Test","rows":[{"C":756733}]}"""),
         new("Watchlists", "GetWatchlist_NonExistent", HttpMethod.Get,
-            "/v1/api/iserver/watchlist?id=NONEXISTENT99999", 503),
+            "/v1/api/iserver/watchlist?id=77777777", 503),
+        // NOTE: IBKR returns 200 for deleting nonexistent watchlists when
+        // other watchlist calls have been made in the same session.
+        // Returns 503 only on a cold session.
         new("Watchlists", "DeleteWatchlist_NonExistent", HttpMethod.Delete,
-            "/v1/api/iserver/watchlist?id=NONEXISTENT99999", 500),
+            "/v1/api/iserver/watchlist?id=77777777", 200),
 
         // ---------------------------------------------------------------
         // Fyi — Success
@@ -348,5 +386,15 @@ public static class EndpointTable
         // ---------------------------------------------------------------
         new("Test", "AccountBalances_Success", HttpMethod.Get,
             "/v1/api/iserver/account/{accountId}/summary/balances", 200),
+
+        // ---------------------------------------------------------------
+        // WatchlistBug — Validate that delete-nonexistent returns 200
+        // after a warm-up call vs 503 on a cold session.
+        // Run this category in isolation to test cold-vs-warm behavior.
+        // ---------------------------------------------------------------
+        new("WatchlistBug", "WarmUp_GetAllWatchlists", HttpMethod.Get,
+            "/v1/api/iserver/watchlists?SC=USER_WATCHLIST", 200),
+        new("WatchlistBug", "DeleteNonExistent_AfterWarmUp", HttpMethod.Delete,
+            "/v1/api/iserver/watchlist?id=77777777", 200),
     ];
 }
