@@ -225,17 +225,46 @@ public static class EndpointTable
             """{"conid":999999999}"""),
 
         // ---------------------------------------------------------------
-        // Alerts — Success (create, list, detail, delete)
+        // Alerts — Success
         // ---------------------------------------------------------------
+        // KNOWN LIMITATION: Alert creation (POST /alert) returns 403 on paper
+        // accounts with OAuth authentication. This is a confirmed IBKR server-side
+        // restriction — the request is well-formed but the server rejects it for
+        // paper/demo accounts. As a result, all dependent operations (get detail,
+        // deactivate, delete by captured alertId) are excluded since they require
+        // a successfully created alert.
+        // ---------------------------------------------------------------
+
+        // 1. List alerts — may be empty initially
+        new("Alerts", "ListAlerts_Initial", HttpMethod.Get,
+            "/v1/api/iserver/account/{accountId}/alerts", 200),
+
+        // 2. Get MTA alert — should always exist
+        new("Alerts", "GetMtaAlert_Success", HttpMethod.Get,
+            "/v1/api/iserver/account/mta", 200),
+
+        // 3. Create alert — 403 on paper accounts (see comment block above)
         new("Alerts", "CreateAlert_SPY_Price", HttpMethod.Post,
             "/v1/api/iserver/account/{accountId}/alert", 403,
-            """{"alertName":"CaptureTest","alertMessage":"Test alert","outsideRth":0,"alertRepeatable":0,"conditions":[{"type":1,"conidex":"756733","operator":">=","triggerMethod":"0","value":"999999"}]}"""),
-        new("Alerts", "GetAlerts_Success", HttpMethod.Get,
-            "/v1/api/iserver/account/mta", 200),
-        new("Alerts", "GetAlertDetail_0", HttpMethod.Get,
-            "/v1/api/iserver/account/alert/0", 400),
+            """{"alertName":"CaptureTest","alertMessage":"API capture test alert","alertRepeatable":0,"outsideRth":0,"tif":"GTC","conditions":[{"conidex":"756733@SMART","logicBind":"n","operator":"<=","triggerMethod":"0","type":1,"value":"1.00"}]}"""),
+
+        // 4. List alerts again — still empty since create returned 403
+        new("Alerts", "ListAlerts_AfterCreate", HttpMethod.Get,
+            "/v1/api/iserver/account/{accountId}/alerts", 200),
 
         // Alerts — Failures
+        new("Alerts", "CreateAlert_EmptyBody", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/alert", 400,
+            """{}"""),
+        new("Alerts", "CreateAlert_MissingRequiredFields", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/alert", 500,
+            """{"alertName":"Incomplete"}"""),
+        // IBKR returns 200 with error body "MTA alert tool ID is wrong =0" for nonexistent alert IDs
+        new("Alerts", "GetAlertDetail_NonExistent", HttpMethod.Get,
+            "/v1/api/iserver/account/alert/0?type=Q", 200),
+        new("Alerts", "ActivateAlert_NonExistent", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/alert/activate", 503,
+            """{"alertId":0,"alertActive":1}"""),
         new("Alerts", "DeleteAlert_NonExistent", HttpMethod.Delete,
             "/v1/api/iserver/account/{accountId}/alert/0", 503),
 
