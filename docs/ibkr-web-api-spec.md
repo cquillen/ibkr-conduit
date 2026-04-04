@@ -138,6 +138,9 @@ Endpoints for managing and retrieving information about your Interactive Brokers
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Account Profit and Loss
 
 Returns an object containing PnL for the selected account and its models (if any).
@@ -180,6 +183,9 @@ Returns an object containing PnL for the selected account and its models (if any
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Search Dynamic Account
 
@@ -228,6 +234,9 @@ Returns a list of accounts matching a query pattern set in the request. Broker a
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Set Dynamic Account
 
 Set the active dynamic account. Values retrieved from Search Dynamic Account. Broker accounts configured with the DYNACCT property will not receive account information at login. Instead, they must dynamically query then set their account number.
@@ -268,6 +277,9 @@ Set the active dynamic account. Values retrieved from Search Dynamic Account. Br
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Signatures and Owners
 
@@ -354,6 +366,9 @@ Receive a list of all applicant names on the account and for which account and e
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Switch Account
 
 Switch the active account for how you request data. Only available for financial advisors and multi-account structures.
@@ -392,6 +407,9 @@ Switch the active account for how you request data. Only available for financial
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Receive Brokerage Accounts
 
@@ -521,6 +539,9 @@ Alerts allow users to set up notifications to pop-up in their Trader Workstation
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Get a list of available alerts
 
 Retrieve a list of all alerts attached to the provided account.
@@ -565,6 +586,9 @@ Returns an array of objects.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Get details of a specific alert
 
@@ -670,6 +694,9 @@ Request details of a specific alert by providing the assigned order ID.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Create or Modify Alert
 
 Endpoint used to create a new alert, or modify an existing alert.
@@ -764,6 +791,9 @@ Endpoint used to create a new alert, or modify an existing alert.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Get MTA Alert
 
 Retrieve information about your MTA alert.
@@ -852,6 +882,9 @@ Each login user only has one mobile trading assistant (MTA) alert with its own u
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Activate or deactivate an alert
 
 Activate or Deactivate existing alerts created for this account. This does not delete alerts, but disables notifications until reactivated.
@@ -905,6 +938,9 @@ Activate or Deactivate existing alerts created for this account. This does not d
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Delete an alert
 
 Permanently delete an existing alert. If alertId is 0, it will delete all alerts. If you delete an MTA alert, it will reset to the default state.
@@ -946,6 +982,9 @@ Permanently delete an existing alert. If alertId is 0, it will delete all alerts
 Endpoints for searching, retrieving, and inspecting contract definitions including stocks, futures, options, warrants, bonds, and currency pairs. Provides security definitions, trading rules, algo parameters, strike prices, and trading schedules.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Search the security definition by Contract ID
 
@@ -1074,6 +1113,9 @@ Returns a list of security definitions for the given conids.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### All Conids by Exchange
 
 Send out a request to retrieve all contracts made available on a requested exchange. This returns all contracts that are tradable on the exchange, even those that are not using the exchange as their primary listing.
@@ -1117,6 +1159,9 @@ Returns an array of objects.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Contract information by Contract ID
 
@@ -1197,6 +1242,9 @@ Requests full contract details for the given conid.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Currency Pairs
 
 Obtains available currency pairs corresponding to the given target currency.
@@ -1245,6 +1293,9 @@ Obtains available currency pairs corresponding to the given target currency.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Currency Exchange Rate
 
 Obtains the exchange rates of the currency pair.
@@ -1274,6 +1325,9 @@ Obtains the exchange rates of the currency pair.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Find all Info and Rules for a given contract
 
@@ -1420,6 +1474,9 @@ The response includes the same contract info fields as the Contract information 
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Search Algo Params by Contract ID
 
 Returns supported IB Algos for contract. A pre-flight request must be submitted before retrieving information.
@@ -1514,6 +1571,9 @@ Returns supported IB Algos for contract. A pre-flight request must be submitted 
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Search Bond Filter Information
 
 Request a list of filters relating to a given Bond issuerID. The issuerId is retrieved from /iserver/secdef/search and can be used in /iserver/secdef/info for retrieving conIds.
@@ -1585,6 +1645,9 @@ Request a list of filters relating to a given Bond issuerID. The issuerId is ret
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Search Contract by Symbol
 
 Search by underlying symbol or company name. Relays back what derivative contract(s) it has. This endpoint must be called before using /secdef/info. For bonds, enter the family type in the symbol field to receive the issuerID used in the /iserver/secdef/info endpoint.
@@ -1650,6 +1713,9 @@ Returns an array of objects.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Search Contract Rules
 
@@ -1756,6 +1822,9 @@ Returns trading related rules for a specific contract and side.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Search SecDef information by conid
 
 Provides Contract Details of Futures, Options, Warrants, Cash and CFDs based on conid. For all instruments, /iserver/secdef/search must be called first. For derivatives such as Options, Warrants, and Futures Options, you will need to query /iserver/secdef/strikes as well.
@@ -1825,6 +1894,9 @@ Returns an array of objects.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Search Strikes by Underlying Contract ID
 
 Query to receive a list of potential strikes supported for a given underlying. This endpoint will always return empty arrays unless /iserver/secdef/search is called for the same underlying symbol beforehand. The inclusion of the name field with /iserver/secdef/search will prohibit the strikes endpoint from returning data.
@@ -1858,6 +1930,9 @@ Query to receive a list of potential strikes supported for a given underlying. T
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Security Future by Symbol
 
@@ -1918,6 +1993,9 @@ Response is an object with dynamic keys matching the requested symbols. Each key
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Security Stocks by Symbol
 
@@ -1992,6 +2070,9 @@ Response is an object with dynamic keys matching the requested symbols. Each key
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Trading Schedule by Symbol
 
@@ -2079,6 +2160,9 @@ Returns an array of objects.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Trading Schedule (NEW)
 
@@ -2189,6 +2273,9 @@ IB's Event Contract instrument records use the following fields inherited from t
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Categorization
 
 Returns event contract category and market tree. ForecastEx forecast contracts are sorted into a three-level category hierarchy for organizational purposes. These categories are metadata rather than immutable attributes of the tradable instruments themselves and can be expected to change slightly over time. The leaf categories (level 3) contain forecast contract "Markets" — groups of tradable contracts sharing questions of the same form.
@@ -2243,6 +2330,9 @@ Returns event contract category and market tree. ForecastEx forecast contracts a
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Markets and Strikes
 
@@ -2322,6 +2412,9 @@ Note that YES and NO contracts each have their own bid/ask/last data.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Contract Rules
 
 Provides contract rules for specific binary options.
@@ -2379,6 +2472,9 @@ Provides contract rules for specific binary options.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Contract Details
 
 Provides contract details for specific event binary options.
@@ -2435,6 +2531,9 @@ Provides contract details for specific event binary options.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Trading Schedule
 
@@ -2508,6 +2607,9 @@ Provides contract trading schedules for event contracts.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Order Submission
 
 Submission of orders for Event Contracts via the Web API functions like orders for any other instrument. However, it is important to note the differing mechanics between CME Group products and ForecastEx instruments:
@@ -2518,6 +2620,9 @@ Submission of orders for Event Contracts via the Web API functions like orders f
 In both cases, no short selling is permitted. See the Orders category for order placement endpoints.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Executions and Netting
 
@@ -2536,6 +2641,9 @@ The netting execution reports arrive within milliseconds of the first Bot execut
 Endpoints for financial advisors to manage allocation groups and presets across sub-accounts. Allows creating, modifying, and deleting groups with configurable allocation methods (equal, net liquidation, ratios, percentages, etc.), querying sub-account balances, and controlling preset behaviors such as auto-close and proportional allocation.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Allocatable Sub-Accounts
 
@@ -2601,6 +2709,9 @@ Retrieves a list of all sub-accounts and returns their net liquidity and availab
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Retrieve Single Allocation Group
 
 Retrieves the configuration of a single account group. This describes the name of the allocation group, the specific accounts contained in the group, and the allocation method in use along with any relevant quantities.
@@ -2658,6 +2769,9 @@ Retrieves the configuration of a single account group. This describes the name o
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### List All Allocation Groups
 
 Retrieves a list of all of the advisor's allocation groups. This describes the name of the allocation group, number of subaccounts within the group, and the method in use for the group.
@@ -2694,6 +2808,9 @@ Retrieves a list of all of the advisor's allocation groups. This describes the n
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Add Allocation Group
 
@@ -2751,6 +2868,9 @@ Add a new allocation group. This group can be used to trade.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Modify Allocation Group
 
@@ -2811,6 +2931,9 @@ Modify an existing allocation group.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Delete Allocation Group
 
 Remove an existing allocation group. This group will no longer be accessible.
@@ -2848,6 +2971,9 @@ Remove an existing allocation group. This group will no longer be accessible.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Retrieve Allocation Presets
 
 Retrieve the preset behavior for allocation groups for specific events.
@@ -2878,6 +3004,9 @@ Retrieve the preset behavior for allocation groups for specific events.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Set Allocation Presets
 
@@ -2924,6 +3053,9 @@ Set the preset behavior for allocation groups for specific events.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Allocation Method Codes
 
 Interactive Brokers supports two forms of allocation methods: methods with calculations completed by Interactive Brokers, and methods calculated by the user and then specified.
@@ -2951,6 +3083,9 @@ Interactive Brokers supports two forms of allocation methods: methods with calcu
 </details>
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Allocation Preset Combinations
 
@@ -2982,6 +3117,9 @@ Endpoints for managing FYI (For Your Information) notifications, subscriptions, 
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Unread Bulletins
 
 Returns the total number of unread FYIs.
@@ -3004,6 +3142,9 @@ Returns the total number of unread FYIs.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Get a List of Subscriptions
 
@@ -3046,6 +3187,9 @@ Returns an array of objects.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Enable/Disable Specified Subscription
 
@@ -3092,6 +3236,9 @@ Configure which typecode you would like to enable/disable.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### FYI Typecodes
 
 Many FYI endpoints reference a "typecode" value. The table below lists the available codes and what they correspond to.
@@ -3129,6 +3276,9 @@ Many FYI endpoints reference a "typecode" value. The table below lists the avail
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Get disclaimer for a certain kind of FYI
 
 Receive additional disclaimers based on the specified typecode.
@@ -3160,6 +3310,9 @@ Receive additional disclaimers based on the specified typecode.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Mark Disclaimer Read
 
 Mark disclaimer message read.
@@ -3190,6 +3343,9 @@ Mark disclaimer message read.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Get Delivery Options
 
@@ -3231,6 +3387,9 @@ Options for sending FYIs to email and other devices.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Enable/Disable Device Option
 
@@ -3277,6 +3436,9 @@ Choose whether a particular device is enabled or disabled.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Delete a Device
 
 Delete a specific device from our saved list of notification devices.
@@ -3295,6 +3457,9 @@ Delete a specific device from our saved list of notification devices.
 No response message is returned. Instead, you will only receive an empty string with a 200 OK status code indicating a successfully deleted device.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Enable/Disable Email Option
 
@@ -3326,6 +3491,9 @@ Enable or disable your account's primary email to receive notifications.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Get a list of notifications
 
@@ -3371,6 +3539,9 @@ Returns an array of objects.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Mark Notification Read
 
@@ -3418,6 +3589,9 @@ Mark a particular notification message as read or unread.
 Endpoints for retrieving live and historical market data snapshots, regulatory snapshots, and managing market data subscriptions.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Live Market Data Snapshot
 
@@ -3469,6 +3643,9 @@ Returns an array of objects. Each object contains the standard fields below plus
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Market Data Update Frequency
 
 Watchlist market data at Interactive Brokers is derived from time-based snapshot intervals which vary by product and region. This means that a given tick will only update as frequently as its interval allows.
@@ -3480,6 +3657,9 @@ The Web API retains a standard pacing limit of 10 requests per second. For more 
 | All Products | 500ms |
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Regulatory Snapshot
 
@@ -3544,6 +3724,9 @@ The integer fields returned below also correspond to the Market Data Field value
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Market Data Availability
 
 The field 6509 may contain three characters:
@@ -3566,6 +3749,9 @@ The field 6509 may contain three characters:
 | d | Performance Details Enabled | Additional performance details are available for this contract. Internal use intended |
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Market Data Fields
 
@@ -3689,6 +3875,9 @@ The field 6509 may contain three characters:
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Unavailable Historical Data
 
 The following types of historical data are not available:
@@ -3705,6 +3894,9 @@ The following types of historical data are not available:
 - Studies and indicators such as Weighted Moving Averages or Bollinger Bands are not available from the API.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Historical Market Data
 
@@ -3834,6 +4026,9 @@ A step size is the permitted minimum and maximum bar size for any given period.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### HMDS Period and Bar Size
 
 **Valid Period Units** (case sensitive):
@@ -3862,6 +4057,9 @@ A step size is the permitted minimum and maximum bar size for any given period.
 > **Note:** A step size is defined as the ratio between the historical data request's duration period and its granularity (i.e., bar size). Historical Data requests need to be assembled in such a way that only a few thousand bars are returned at a time.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Unsubscribe (Single)
 
@@ -3910,6 +4108,9 @@ A status 500 response will be sent when attempting to unsubscribe from a market 
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Unsubscribe (All)
 
 Cancel all market data request(s). To cancel market data for a specific conid, see /iserver/marketdata/unsubscribe.
@@ -3936,6 +4137,9 @@ Cancel all market data request(s). To cancel market data for a specific conid, s
 Endpoints for retrieving live orders, individual order status, and trade execution history.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Live Orders
 
@@ -4037,6 +4241,9 @@ To retrieve order information for a specific account, clients must first query t
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Order Status
 
@@ -4141,6 +4348,9 @@ The Order Status endpoint may be used to monitor a single specific order while i
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Order Status Values
 
 For many orders, customers will see orders return an order status with an array of potential values. The values returned from the `order_status` field of the Live Orders object will vary slightly from the format used while using the `filters` parameter from GET /iserver/account/orders.
@@ -4159,6 +4369,9 @@ For many orders, customers will see orders return an order status with an array 
 | N/A | sort_by_time | There is an initial sort by order state performed so active orders are always above inactive and filled then orders are sorted chronologically |
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Trades
 
@@ -4246,6 +4459,9 @@ Returns an array of objects.
 Endpoints for placing, modifying, cancelling, and previewing orders. Includes reply confirmation workflow, message suppression, combo/spread orders, overnight orders, and cash quantity orders.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Place Order
 
@@ -4376,6 +4592,9 @@ In the event an order is placed that can not be completed based on account detai
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Cash Quantity Orders in the Web API
 
 Cash Quantity orders are only supported for Cryptocurrency, Forex, and Stock contracts.
@@ -4384,6 +4603,9 @@ Cash Quantity orders are only supported for Cryptocurrency, Forex, and Stock con
 - Orders submitted for Crypto or Forex will be traded directly as submitted.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Place Order Reply Confirmation
 
@@ -4440,6 +4662,9 @@ Returns an array of objects.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Respond to a Server Prompt
 
 Respond to a server prompt received via ntf websocket message.
@@ -4470,6 +4695,9 @@ Respond to a server prompt received via ntf websocket message.
 Returns status text string (e.g., "Success").
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Preview Order / WhatIf Order
 
@@ -4556,6 +4784,9 @@ The body content of the /whatif endpoint follows the same structure as the stand
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Overnight Order Submission
 
 Trading with the WebAPI allows users to submit orders in the OVERNIGHT market using both OVERNIGHT exclusive orders as well as OVERNIGHT+DAY orders. This is handled by submitting the affiliated Time-In-Force value when Placing an Order.
@@ -4573,6 +4804,9 @@ Trading with the WebAPI allows users to submit orders in the OVERNIGHT market us
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Combo / Spread Orders
 
@@ -4607,6 +4841,9 @@ Following the spread_conid, add three semicolons (;;;), then the first leg_conid
 Price formula: `[({Cost of Leg 1} * {Ratio of Leg 1}) + ({Cost of Leg n} * {Ratio of Leg n}) + ...]`
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Bracket Orders and OCA Groups
 
@@ -4713,6 +4950,9 @@ An OCA group follows the same structure as a bracket order. However, in addition
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Cancel Order
 
 Cancels an open order. Must call /iserver/accounts endpoint prior to cancelling an order. Use /iserver/account/orders endpoint to review open-order(s) and get latest order status.
@@ -4758,6 +4998,9 @@ Cancels an open order. Must call /iserver/accounts endpoint prior to cancelling 
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Modify Order
 
@@ -4819,6 +5062,9 @@ In some instances, you will receive an ID along with a message about your order.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Suppress Messages
 
 Disables a messageId, or series of messageIds, that will no longer prompt the user.
@@ -4855,6 +5101,9 @@ Disables a messageId, or series of messageIds, that will no longer prompt the us
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Suppressible MessageIds
 
@@ -4893,6 +5142,9 @@ Disables a messageId, or series of messageIds, that will no longer prompt the us
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Reset Suppressed Messages
 
 Resets all messages disabled by the Suppress Messages endpoint.
@@ -4919,6 +5171,9 @@ Resets all messages disabled by the Suppress Messages endpoint.
 Endpoints for retrieving portfolio account information, sub-account listings, allocation breakdowns by asset class/sector/group, and combination positions.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Portfolio Accounts
 
@@ -4967,6 +5222,9 @@ Returns an array of PortfolioAccount objects. See the shared PortfolioAccount sc
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Portfolio Subaccounts
 
 Used in tiered account structures (such as Financial Advisor and IBroker Accounts) to return a list of up to 100 sub-accounts for which the user can view position and account-related information. This endpoint must be called prior to calling other /portfolio endpoints for those sub-accounts. If you have more than 100 sub-accounts use /portfolio/subaccounts2. To query a list of accounts the user can trade, see /iserver/accounts.
@@ -4979,6 +5237,9 @@ Used in tiered account structures (such as Financial Advisor and IBroker Account
 Returns an array of PortfolioAccount objects. Same schema as Portfolio Accounts.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Portfolio Subaccounts (Large Account Structures)
 
@@ -5010,6 +5271,9 @@ Used in tiered account structures (such as Financial Advisor and IBroker Account
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Specific Account's Portfolio Information
 
 Account information related to account Id. /portfolio/accounts or /portfolio/subaccounts must be called prior to this endpoint.
@@ -5028,6 +5292,9 @@ Account information related to account Id. /portfolio/accounts or /portfolio/sub
 Returns a single PortfolioAccount object. Same schema as Portfolio Accounts (returned as object, not array).
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### PortfolioAccount Schema
 
@@ -5066,6 +5333,9 @@ The following schema is shared across Portfolio Accounts, Portfolio Subaccounts,
 | isMultiplex | bool | Is a Multiplex Account. These are account models with individual account being parent and managed account being child |
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Portfolio Allocation (Single)
 
@@ -5130,6 +5400,9 @@ Information about the account's portfolio allocation by Asset Class, Industry an
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Combination Positions
 
@@ -5235,6 +5508,9 @@ Returns an array of objects.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Portfolio Allocation (All)
 
 Similar to /portfolio/{accountId}/allocation but returns a consolidated view of all the accounts returned by /portfolio/accounts. /portfolio/accounts or /portfolio/subaccounts must be called prior to this endpoint.
@@ -5261,6 +5537,9 @@ Similar to /portfolio/{accountId}/allocation but returns a consolidated view of 
 Same structure as Portfolio Allocation (Single) — contains `assetClass`, `sector`, and `group` objects, each with `long` and `short` sub-objects with dynamic keys mapped to float values. Values are consolidated across all specified accounts.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Positions
 
@@ -5315,6 +5594,9 @@ Returns an array of position objects. Each position includes portfolio data (pos
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Positions (NEW)
 
@@ -5384,6 +5666,9 @@ Returns an array of objects with a simplified position schema.
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Positions by Conid
 
 Returns a list containing position details only for the specified conid. The initial request will return exclusively the Portfolio information on the contract. Sequential requests for the contract will also return the contract's information and rules.
@@ -5404,6 +5689,9 @@ Returns an array of position objects. Same extended schema as the Positions endp
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Invalidate Backend Portfolio Cache
 
 Invalidates the cached value for your portfolio's positions and calls the /portfolio/{accountId}/positions/0 endpoint automatically.
@@ -5422,6 +5710,9 @@ Invalidates the cached value for your portfolio's positions and calls the /portf
 Returns an array of position objects. Same extended schema as the Positions endpoint — the cache is cleared and fresh position data is returned.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Portfolio Summary
 
@@ -5475,6 +5766,9 @@ Each value object has the following structure:
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Portfolio Ledger
 
@@ -5568,6 +5862,9 @@ Response is an object with dynamic currency keys (e.g., "USD", "EUR", "BASE"). E
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Position and Contract Info
 
 Returns an object containing information about a given position along with its contract details. This is a cross-account endpoint that does not require an accountId in the path.
@@ -5655,6 +5952,9 @@ Returns an array of objects. Each object contains the full position and contract
 Endpoints for analyzing portfolio performance, cumulative returns, and transaction history across accounts and time periods.
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### All Periods
 
@@ -5746,6 +6046,9 @@ Returns the performance across all available time periods for the given accounts
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Account Performance
 
@@ -5854,6 +6157,9 @@ Returns the performance (MTM) for the given accounts, if more than one account i
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Transaction History
 
@@ -5978,6 +6284,9 @@ Endpoints for running market scanners to search for contracts matching specific 
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Iserver Scanner Parameters
 
 Returns an object containing all available parameters to be sent for the Iserver scanner request.
@@ -6062,6 +6371,9 @@ Returns an object containing all available parameters to be sent for the Iserver
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Iserver Market Scanner
 
 Searches for contracts according to the filters specified in /iserver/scanner/params endpoint. Users can receive a maximum of 50 contracts from 1 request.
@@ -6144,6 +6456,9 @@ Searches for contracts according to the filters specified in /iserver/scanner/pa
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### HMDS Market Scanner
 
 Request a market scanner from the HMDS service. Can return a maximum of 250 contracts. Developers should first call the /hmds/auth/init endpoint prior to their request to avoid an initial 404 rejection.
@@ -6225,6 +6540,9 @@ Requests used to designate changes to the web session itself rather than endpoin
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Authentication Status
 
 Current Authentication status to the Brokerage system. Market Data and Trading is not possible if not authenticated, e.g. authenticated shows false.
@@ -6278,6 +6596,9 @@ Users that have been timed out or logged out of their session will result in a "
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Initialize Brokerage Session
 
 This is essential for using all endpoints besides /portfolio, including access to trading and market data.
@@ -6323,6 +6644,9 @@ Same structure as Authentication Status response — returns `authenticated`, `c
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Logout of the current session
 
 Logs the user out of the gateway session. Any further activity requires re-authentication.
@@ -6345,6 +6669,9 @@ Logs the user out of the gateway session. Any further activity requires re-authe
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Ping the server
 
@@ -6393,6 +6720,9 @@ If the gateway has not received any requests for several minutes an open session
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Re-authenticate the Brokerage Session (Deprecated)
 
 When using the CP Gateway, this endpoint provides a way to reauthenticate to the Brokerage system as long as there is a valid brokerage session. All interest in reauthenticating the gateway session should be handled using the /iserver/auth/ssodh/init endpoint.
@@ -6415,6 +6745,9 @@ When using the CP Gateway, this endpoint provides a way to reauthenticate to the
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Validate SSO
 
@@ -6483,6 +6816,9 @@ Manage watchlists that are used in both Trader Workstation and Client Portal. Ca
 
 ---
 
+[↑ Back to Table of Contents](#table-of-contents)
+
+
 ### Create a Watchlist
 
 Create a watchlist to monitor a series of contracts.
@@ -6541,6 +6877,9 @@ Create a watchlist to monitor a series of contracts.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Get All Watchlists
 
@@ -6609,6 +6948,9 @@ Retrieve a list of all available watchlists for the account.
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Get Watchlist Information
 
@@ -6680,6 +7022,9 @@ Request the contracts listed in a particular watchlist. The first request may on
 ```
 
 ---
+
+[↑ Back to Table of Contents](#table-of-contents)
+
 
 ### Delete a Watchlist
 
