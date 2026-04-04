@@ -26,10 +26,10 @@ public class WatchlistOperations : IWatchlistOperations
     }
 
     /// <inheritdoc />
-    public async Task<List<WatchlistSummary>> GetWatchlistsAsync(CancellationToken cancellationToken = default)
+    public async Task<GetWatchlistsResponse> GetWatchlistsAsync(CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Watchlists.GetWatchlists");
-        return await _api.GetWatchlistsAsync(cancellationToken);
+        return await _api.GetWatchlistsAsync(cancellationToken: cancellationToken);
     }
 
     /// <inheritdoc />

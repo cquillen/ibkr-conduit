@@ -1,0 +1,29 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/watchlists",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "data": {
+        "scanners_only": false,
+        "show_scanners": false,
+        "bulk_delete": false,
+        "user_lists": [
+          {
+            "is_open": false,
+            "read_only": false,
+            "name": "Capture Test",
+            "modified": 1775319529009,
+            "id": "99999",
+            "type": "watchlist"
+          }
+        ]
+      },
+      "action": "content",
+      "MID": "1"
+    }
+  }
+}

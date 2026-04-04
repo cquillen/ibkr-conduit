@@ -1,0 +1,28 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/watchlist",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "id": "99999",
+      "hash": "1775319529009",
+      "name": "Capture Test",
+      "readOnly": false,
+      "instruments": [
+        {
+          "ST": "STK",
+          "C": "756733",
+          "conid": 756733,
+          "name": "SS SPDR S&P 500 ETF TRUST-US",
+          "fullName": "SPY",
+          "assetClass": "STK",
+          "ticker": "SPY",
+          "chineseName": "SPDR\u6807\u666e500\u6307\u6570ETF"
+        }
+      ]
+    }
+  }
+}

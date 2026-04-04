@@ -18,8 +18,8 @@ public class WatchlistOperationsTests
     [Fact]
     public async Task CreateWatchlistAsync_DelegatesToApi()
     {
-        var request = new CreateWatchlistRequest("MyList", new List<WatchlistRow>());
-        var expected = new CreateWatchlistResponse("MyList");
+        var request = new CreateWatchlistRequest("MyList", "My List", new List<WatchlistRow>());
+        var expected = new CreateWatchlistResponse("MyList", "hash1", "My List", false, new List<WatchlistInstrument>());
         _api.CreateWatchlistAsync(Arg.Any<CreateWatchlistRequest>(), Arg.Any<CancellationToken>()).Returns(expected);
 
         var result = await _sut.CreateWatchlistAsync(request, TestContext.Current.CancellationToken);
@@ -31,19 +31,25 @@ public class WatchlistOperationsTests
     [Fact]
     public async Task GetWatchlistsAsync_DelegatesToApi()
     {
-        var expected = new List<WatchlistSummary> { new("wl1", "My Watchlist", 1712345678L, 3) };
-        _api.GetWatchlistsAsync(Arg.Any<CancellationToken>()).Returns(expected);
+        var expected = new GetWatchlistsResponse(
+            new GetWatchlistsData(false, false, false, new List<WatchlistSummary>
+            {
+                new("wl1", "My Watchlist", 1712345678L, false, false, "watchlist"),
+            }),
+            "content",
+            "1");
+        _api.GetWatchlistsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
 
         var result = await _sut.GetWatchlistsAsync(TestContext.Current.CancellationToken);
 
         result.ShouldBeSameAs(expected);
-        await _api.Received(1).GetWatchlistsAsync(TestContext.Current.CancellationToken);
+        await _api.Received(1).GetWatchlistsAsync(cancellationToken: TestContext.Current.CancellationToken);
     }
 
     [Fact]
     public async Task GetWatchlistAsync_DelegatesToApi()
     {
-        var expected = new WatchlistDetail("wl1", "My Watchlist", new List<WatchlistDetailRow>());
+        var expected = new WatchlistDetail("wl1", "hash1", "My Watchlist", false, new List<WatchlistInstrument>());
         _api.GetWatchlistAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
 
         var result = await _sut.GetWatchlistAsync("wl1", TestContext.Current.CancellationToken);
@@ -55,7 +61,10 @@ public class WatchlistOperationsTests
     [Fact]
     public async Task DeleteWatchlistAsync_DelegatesToApi()
     {
-        var expected = new DeleteWatchlistResponse(true, "wl1");
+        var expected = new DeleteWatchlistResponse(
+            new DeleteWatchlistData("wl1"),
+            "context",
+            "2");
         _api.DeleteWatchlistAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(expected);
 
         var result = await _sut.DeleteWatchlistAsync("wl1", TestContext.Current.CancellationToken);
