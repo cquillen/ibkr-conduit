@@ -1,0 +1,18 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/account/DU9999999/alert",
+    "Methods": ["POST"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "request_id": 1,
+      "order_id": 100003,
+      "success": true,
+      "text": "Alert has been created.",
+      "order_status": "PreSubmitted",
+      "warning_message": null
+    }
+  }
+}

@@ -378,10 +378,16 @@ public class IbkrClientTests
         public Task<CreateAlertResponse> CreateOrModifyAlertAsync(string accountId, CreateAlertRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<List<AlertSummary>> GetAlertsAsync(CancellationToken cancellationToken = default) =>
+        public Task<List<AlertSummary>> GetAlertsAsync(string accountId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<List<AlertSummary>> GetMtaAlertAsync(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
         public Task<AlertDetail> GetAlertDetailAsync(string alertId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<AlertActivationResponse> ActivateAlertAsync(string accountId, AlertActivationRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
         public Task<DeleteAlertResponse> DeleteAlertAsync(string accountId, string alertId, CancellationToken cancellationToken = default) =>

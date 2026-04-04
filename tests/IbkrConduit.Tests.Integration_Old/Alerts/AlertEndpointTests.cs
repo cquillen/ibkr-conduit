@@ -33,7 +33,7 @@ public class AlertEndpointTests : IDisposable
                 Response.Create()
                     .WithStatusCode(200)
                     .WithHeader("Content-Type", "application/json")
-                    .WithBody("""{"request_id":1,"order_id":12345,"order_status":"Submitted","text":"Alert created"}"""));
+                    .WithBody("""{"request_id":1,"order_id":12345,"success":true,"text":"Alert created","order_status":"Submitted"}"""));
 
         var api = CreateRefitClient<IIbkrAlertApi>();
         var request = new CreateAlertRequest(
@@ -42,6 +42,7 @@ public class AlertEndpointTests : IDisposable
             AlertMessage: "SPY above 500",
             AlertRepeatable: 1,
             OutsideRth: 0,
+            Tif: "GTC",
             Conditions: new List<AlertCondition>
             {
                 new(Type: 1, Conidex: "265598", Operator: ">=", TriggerMethod: "0", Value: "500"),
@@ -52,12 +53,12 @@ public class AlertEndpointTests : IDisposable
         result.ShouldNotBeNull();
         result.RequestId.ShouldBe(1);
         result.OrderId.ShouldBe(12345);
-        result.OrderStatus.ShouldBe("Submitted");
+        result.Success.ShouldBeTrue();
         result.Text.ShouldBe("Alert created");
     }
 
     [Fact]
-    public async Task GetAlertsAsync_ReturnsAlertList()
+    public async Task GetMtaAlertAsync_ReturnsAlertList()
     {
         _server.Given(
             Request.Create()
@@ -74,18 +75,18 @@ public class AlertEndpointTests : IDisposable
                                 "order_id": 12345,
                                 "alert_name": "Price Alert",
                                 "alert_active": 1,
-                                "order_status": "Submitted"
+                                "alert_repeatable": 0
                             }
                         ]
                         """));
 
         var api = CreateRefitClient<IIbkrAlertApi>();
 
-        var result = await api.GetAlertsAsync(TestContext.Current.CancellationToken);
+        var result = await api.GetMtaAlertAsync(TestContext.Current.CancellationToken);
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
-        result[0].AccountId.ShouldBe("DU1234567");
+        result[0].Account.ShouldBe("DU1234567");
         result[0].OrderId.ShouldBe(12345);
         result[0].AlertName.ShouldBe("Price Alert");
         result[0].AlertActive.ShouldBe(1);
@@ -110,13 +111,18 @@ public class AlertEndpointTests : IDisposable
                             "alert_message": "SPY above 500",
                             "alert_active": 1,
                             "alert_repeatable": 1,
+                            "condition_size": 1,
+                            "condition_outside_rth": 0,
                             "conditions": [
                                 {
-                                    "type": 1,
+                                    "condition_type": 1,
                                     "conidex": "265598",
-                                    "operator": ">=",
-                                    "triggerMethod": "0",
-                                    "value": "500"
+                                    "contract_description_1": "SPY",
+                                    "condition_operator": ">=",
+                                    "condition_trigger_method": "0",
+                                    "condition_value": "500",
+                                    "condition_logic_bind": "a",
+                                    "condition_time_zone": "US/Eastern"
                                 }
                             ]
                         }
@@ -124,13 +130,13 @@ public class AlertEndpointTests : IDisposable
 
         var api = CreateRefitClient<IIbkrAlertApi>();
 
-        var result = await api.GetAlertDetailAsync("12345", TestContext.Current.CancellationToken);
+        var result = await api.GetAlertDetailAsync("12345", cancellationToken: TestContext.Current.CancellationToken);
 
         result.ShouldNotBeNull();
-        result.AccountId.ShouldBe("DU1234567");
+        result.Account.ShouldBe("DU1234567");
         result.AlertName.ShouldBe("Price Alert");
         result.Conditions.Count.ShouldBe(1);
-        result.Conditions[0].Value.ShouldBe("500");
+        result.Conditions[0].ConditionValue.ShouldBe("500");
     }
 
     [Fact]
@@ -144,7 +150,7 @@ public class AlertEndpointTests : IDisposable
                 Response.Create()
                     .WithStatusCode(200)
                     .WithHeader("Content-Type", "application/json")
-                    .WithBody("""{"request_id":1,"order_id":12345,"msg":"Alert deleted","text":null}"""));
+                    .WithBody("""{"request_id":1,"order_id":12345,"success":true,"text":"Alert deleted","failure_list":null}"""));
 
         var api = CreateRefitClient<IIbkrAlertApi>();
 
@@ -153,7 +159,8 @@ public class AlertEndpointTests : IDisposable
         result.ShouldNotBeNull();
         result.RequestId.ShouldBe(1);
         result.OrderId.ShouldBe(12345);
-        result.Msg.ShouldBe("Alert deleted");
+        result.Success.ShouldBeTrue();
+        result.Text.ShouldBe("Alert deleted");
     }
 
     public void Dispose()

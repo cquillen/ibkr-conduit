@@ -1,0 +1,21 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/account/mta",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "account": "DU9999999",
+        "order_id": 100001,
+        "alert_name": "SPY Price Alert",
+        "alert_active": 1,
+        "alert_repeatable": 0,
+        "order_time": "20260403-14:30:00",
+        "alert_triggered": false
+      }
+    ]
+  }
+}

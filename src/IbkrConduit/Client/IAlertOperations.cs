@@ -17,10 +17,18 @@ public interface IAlertOperations
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieves alerts for a specific account.
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<List<AlertSummary>> GetAlertsAsync(string accountId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Retrieves all Market Trading Alerts (MTA) across accounts.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<List<AlertSummary>> GetAlertsAsync(CancellationToken cancellationToken = default);
+    Task<List<AlertSummary>> GetMtaAlertAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves details for a specific alert.
@@ -28,6 +36,15 @@ public interface IAlertOperations
     /// <param name="alertId">The alert identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<AlertDetail> GetAlertDetailAsync(string alertId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Activates or deactivates an alert for the specified account.
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="request">The activation request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<AlertActivationResponse> ActivateAlertAsync(string accountId, AlertActivationRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>
