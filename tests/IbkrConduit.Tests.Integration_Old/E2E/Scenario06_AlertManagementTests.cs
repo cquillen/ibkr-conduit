@@ -46,6 +46,7 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
                 AlertMessage: "E2E test alert",
                 AlertRepeatable: 0,
                 OutsideRth: 1,
+                Tif: "GTC",
                 Conditions: new List<AlertCondition>
                 {
                     new(
@@ -79,7 +80,7 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
             var alertId = createResponse.OrderId.ToString();
 
             // Step 4: List alerts — verify our alert appears
-            var alerts = await client.Alerts.GetAlertsAsync(CT);
+            var alerts = await client.Alerts.GetMtaAlertAsync(CT);
             alerts.ShouldNotBeNull();
             alerts.ShouldContain(a => a.AlertName == testId,
                 "Alert list should contain the newly created alert");
@@ -95,7 +96,7 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
             deleteResponse.ShouldNotBeNull();
 
             // Step 7: List alerts again — verify our alert is gone
-            var alertsAfterDelete = await client.Alerts.GetAlertsAsync(CT);
+            var alertsAfterDelete = await client.Alerts.GetMtaAlertAsync(CT);
             alertsAfterDelete.ShouldNotContain(a => a.AlertName == testId,
                 "Alert list should not contain the deleted alert");
 
@@ -120,7 +121,7 @@ public sealed class Scenario06_AlertManagementTests : E2eScenarioBase
             {
                 if (!string.IsNullOrEmpty(accountId))
                 {
-                    var alerts = await client.Alerts.GetAlertsAsync(CT);
+                    var alerts = await client.Alerts.GetMtaAlertAsync(CT);
                     foreach (var alert in alerts.Where(a => a.AlertName.StartsWith("E2E-", StringComparison.Ordinal)))
                     {
                         try

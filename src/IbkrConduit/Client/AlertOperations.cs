@@ -26,10 +26,19 @@ public class AlertOperations : IAlertOperations
     }
 
     /// <inheritdoc />
-    public async Task<List<AlertSummary>> GetAlertsAsync(CancellationToken cancellationToken = default)
+    public async Task<List<AlertSummary>> GetAlertsAsync(string accountId,
+        CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Alerts.GetAlerts");
-        return await _api.GetAlertsAsync(cancellationToken);
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.GetAlertsAsync(accountId, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<List<AlertSummary>> GetMtaAlertAsync(CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Alerts.GetMtaAlert");
+        return await _api.GetMtaAlertAsync(cancellationToken);
     }
 
     /// <inheritdoc />
@@ -38,7 +47,16 @@ public class AlertOperations : IAlertOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Alerts.GetAlertDetail");
         activity?.SetTag("alertId", alertId);
-        return await _api.GetAlertDetailAsync(alertId, cancellationToken);
+        return await _api.GetAlertDetailAsync(alertId, cancellationToken: cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<AlertActivationResponse> ActivateAlertAsync(string accountId, AlertActivationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Alerts.ActivateAlert");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        return await _api.ActivateAlertAsync(accountId, request, cancellationToken);
     }
 
     /// <inheritdoc />

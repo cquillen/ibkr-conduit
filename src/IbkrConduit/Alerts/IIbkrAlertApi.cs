@@ -16,17 +16,33 @@ public interface IIbkrAlertApi
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieves alerts for a specific account.
+    /// </summary>
+    [Get("/v1/api/iserver/account/{accountId}/alerts")]
+    Task<List<AlertSummary>> GetAlertsAsync(
+        string accountId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Retrieves all Market Trading Alerts (MTA) across accounts.
     /// </summary>
     [Get("/v1/api/iserver/account/mta")]
-    Task<List<AlertSummary>> GetAlertsAsync(CancellationToken cancellationToken = default);
+    Task<List<AlertSummary>> GetMtaAlertAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves details for a specific alert.
     /// </summary>
     [Get("/v1/api/iserver/account/alert/{alertId}")]
     Task<AlertDetail> GetAlertDetailAsync(
-        string alertId, CancellationToken cancellationToken = default);
+        string alertId, [Query] string type = "Q",
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Activates or deactivates an alert for the specified account.
+    /// </summary>
+    [Post("/v1/api/iserver/account/{accountId}/alert/activate")]
+    Task<AlertActivationResponse> ActivateAlertAsync(
+        string accountId, [Body] AlertActivationRequest request,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes an alert for the specified account.

@@ -1,0 +1,49 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/account/alert/100001",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "account": "DU9999999",
+      "order_id": 100001,
+      "alert_name": "SPY Price Alert",
+      "alert_message": "SPY crossed above 500",
+      "alert_active": 1,
+      "alert_repeatable": 0,
+      "tif": "GTC",
+      "expire_time": "",
+      "alert_email": "test@example.com",
+      "alert_send_message": 1,
+      "alert_show_popup": 1,
+      "alert_play_audio": null,
+      "order_status": "PreSubmitted",
+      "alert_triggered": false,
+      "fg_color": "#000000",
+      "bg_color": "#FFFFFF",
+      "order_not_editable": false,
+      "itws_orders_only": 0,
+      "alert_mta_currency": "USD",
+      "alert_mta_defaults": "audible=1",
+      "tool_id": 12345678,
+      "time_zone": "US/Eastern",
+      "alert_default_type": null,
+      "condition_size": 1,
+      "condition_outside_rth": 0,
+      "conditions": [
+        {
+          "condition_type": 1,
+          "conidex": "265598",
+          "contract_description_1": "SPDR S&P 500 ETF Trust",
+          "condition_operator": ">=",
+          "condition_trigger_method": "0",
+          "condition_value": "500.00",
+          "condition_logic_bind": "a",
+          "condition_time_zone": "US/Eastern"
+        }
+      ]
+    }
+  }
+}
