@@ -7,7 +7,7 @@ namespace IbkrConduit.Auth;
 /// Builds the standard OAuth base string: METHOD&amp;encoded_url&amp;encoded_params.
 /// Used for all regular API requests.
 /// </summary>
-public class StandardBaseStringBuilder : IBaseStringBuilder
+internal class StandardBaseStringBuilder : IBaseStringBuilder
 {
     /// <inheritdoc />
     public string Build(string method, string url, SortedDictionary<string, string> parameters)

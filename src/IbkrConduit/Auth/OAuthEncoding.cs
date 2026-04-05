@@ -6,7 +6,7 @@ namespace IbkrConduit.Auth;
 /// <summary>
 /// IBKR-compatible OAuth encoding utilities matching Python's urllib.parse.quote_plus behavior.
 /// </summary>
-public static class OAuthEncoding
+internal static class OAuthEncoding
 {
     private const string _alphanumericChars =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";

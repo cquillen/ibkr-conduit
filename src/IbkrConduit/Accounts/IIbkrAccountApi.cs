@@ -5,7 +5,7 @@ namespace IbkrConduit.Accounts;
 /// <summary>
 /// Refit interface for IBKR iserver account endpoints.
 /// </summary>
-public interface IIbkrAccountApi
+internal interface IIbkrAccountApi
 {
     /// <summary>
     /// Retrieves the list of brokerage accounts available for iserver endpoints.

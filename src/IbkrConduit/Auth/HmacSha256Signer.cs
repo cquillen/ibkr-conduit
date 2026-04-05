@@ -7,7 +7,7 @@ namespace IbkrConduit.Auth;
 /// <summary>
 /// HMAC-SHA256 signer used for all regular API requests after LST acquisition.
 /// </summary>
-public class HmacSha256Signer : IOAuthSigner
+internal class HmacSha256Signer : IOAuthSigner
 {
     private readonly byte[] _liveSessionToken;
 

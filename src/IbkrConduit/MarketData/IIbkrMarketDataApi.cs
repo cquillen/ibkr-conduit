@@ -5,7 +5,7 @@ namespace IbkrConduit.MarketData;
 /// <summary>
 /// Refit interface for IBKR market data endpoints.
 /// </summary>
-public interface IIbkrMarketDataApi
+internal interface IIbkrMarketDataApi
 {
     /// <summary>
     /// Retrieves market data snapshots for the specified contract IDs and fields.

@@ -4,7 +4,7 @@ namespace IbkrConduit.Auth;
 /// Strategy interface for OAuth signature computation.
 /// Returns base64-encoded signature (no percent-encoding — the caller handles that).
 /// </summary>
-public interface IOAuthSigner
+internal interface IOAuthSigner
 {
     /// <summary>
     /// The OAuth signature method identifier (e.g., "RSA-SHA256" or "HMAC-SHA256").

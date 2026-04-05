@@ -3,7 +3,7 @@ namespace IbkrConduit.Auth;
 /// <summary>
 /// Acquires a Live Session Token from the IBKR OAuth endpoint.
 /// </summary>
-public interface ILiveSessionTokenClient
+internal interface ILiveSessionTokenClient
 {
     /// <summary>
     /// Performs the full LST acquisition flow: decrypt, DH exchange, sign, HTTP request,

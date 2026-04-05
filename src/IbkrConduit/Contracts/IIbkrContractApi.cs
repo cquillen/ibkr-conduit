@@ -5,7 +5,7 @@ namespace IbkrConduit.Contracts;
 /// <summary>
 /// Refit interface for IBKR contract lookup endpoints.
 /// </summary>
-public interface IIbkrContractApi
+internal interface IIbkrContractApi
 {
     /// <summary>
     /// Searches for contracts by symbol name.

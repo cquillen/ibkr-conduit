@@ -9,7 +9,7 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// Portfolio operations that delegate to the underlying Refit API.
 /// </summary>
-public class PortfolioOperations : IPortfolioOperations
+internal class PortfolioOperations : IPortfolioOperations
 {
     private readonly IIbkrPortfolioApi _api;
     private readonly IbkrClientOptions _options;

@@ -9,7 +9,7 @@ namespace IbkrConduit.Auth;
 /// Pure cryptographic operations for the IBKR OAuth 1.0a protocol.
 /// Uses System.Security.Cryptography exclusively — no external crypto libraries.
 /// </summary>
-public static class OAuthCrypto
+internal static class OAuthCrypto
 {
     private const int _dhGenerator = 2;
 

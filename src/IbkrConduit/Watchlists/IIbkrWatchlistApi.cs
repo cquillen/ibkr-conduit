@@ -5,7 +5,7 @@ namespace IbkrConduit.Watchlists;
 /// <summary>
 /// Refit interface for IBKR watchlist endpoints.
 /// </summary>
-public interface IIbkrWatchlistApi
+internal interface IIbkrWatchlistApi
 {
     /// <summary>
     /// Creates a new watchlist.

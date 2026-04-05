@@ -7,7 +7,7 @@ namespace IbkrConduit.Auth;
 /// Prepends the decrypted access token secret hex to the standard base string.
 /// Used exclusively for LST requests.
 /// </summary>
-public class PrependingBaseStringBuilder : IBaseStringBuilder
+internal class PrependingBaseStringBuilder : IBaseStringBuilder
 {
     private readonly string _prependHex;
     private readonly StandardBaseStringBuilder _inner = new();

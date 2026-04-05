@@ -10,7 +10,7 @@ namespace IbkrConduit.Auth;
 /// Lazy-acquires and caches the Live Session Token. Thread-safe via semaphore.
 /// Supports forced refresh for re-authentication scenarios.
 /// </summary>
-public class SessionTokenProvider : ISessionTokenProvider, IDisposable
+internal class SessionTokenProvider : ISessionTokenProvider, IDisposable
 {
     private readonly IbkrOAuthCredentials _credentials;
     private readonly ILiveSessionTokenClient _lstClient;
