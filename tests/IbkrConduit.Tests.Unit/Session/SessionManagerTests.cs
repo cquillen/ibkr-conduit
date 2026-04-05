@@ -590,6 +590,36 @@ public class SessionManagerTests
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task ProactiveRefresh_CompletesReauthWithoutCancellation()
+    {
+        var deps = CreateDependencies();
+        deps.TokenProvider.TokenLifetime = TimeSpan.FromSeconds(2);
+        deps.TokenProvider.SimulateAsyncRefresh = true;
+        deps.Options.ProactiveRefreshMargin = TimeSpan.FromMilliseconds(1500);
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            NullLogger<SessionManager>.Instance);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        // Token expires in 2s, margin is 1.5s → refresh fires in ~0.5s
+        // Wait for the proactive refresh to complete
+        await Task.Delay(2000, TestContext.Current.CancellationToken);
+
+        // The refresh should have called RefreshAsync (re-acquire LST)
+        // and InitializeBrokerageSessionAsync (re-init session)
+        deps.TokenProvider.RefreshCallCount.ShouldBeGreaterThanOrEqualTo(1,
+            "Proactive refresh should have called RefreshAsync");
+        deps.SessionApi.InitCallCount.ShouldBeGreaterThanOrEqualTo(2,
+            "Proactive refresh should have re-initialized the session (1 init + 1 refresh)");
+    }
+
     private static TestDependencies CreateDependencies() => new();
 
     private class TestDependencies
@@ -603,12 +633,11 @@ public class SessionManagerTests
 
     internal class FakeSessionTokenProvider : ISessionTokenProvider
     {
-        private readonly LiveSessionToken _token = new(
-            new byte[] { 0x01, 0x02, 0x03 },
-            DateTimeOffset.UtcNow.AddHours(24));
-
         public int GetCallCount { get; private set; }
         public int RefreshCallCount { get; private set; }
+
+        /// <summary>Token expiry for newly created tokens. Default 24 hours.</summary>
+        public TimeSpan TokenLifetime { get; set; } = TimeSpan.FromHours(24);
 
         /// <summary>If set, GetLiveSessionTokenAsync throws this exception.</summary>
         public Exception? GetException { get; set; }
@@ -624,10 +653,15 @@ public class SessionManagerTests
                 throw GetException;
             }
 
-            return Task.FromResult(_token);
+            return Task.FromResult(new LiveSessionToken(
+                new byte[] { 0x01, 0x02, 0x03 },
+                DateTimeOffset.UtcNow.Add(TokenLifetime)));
         }
 
-        public Task<LiveSessionToken> RefreshAsync(CancellationToken cancellationToken)
+        /// <summary>When true, RefreshAsync yields before returning to simulate real async work.</summary>
+        public bool SimulateAsyncRefresh { get; set; }
+
+        public async Task<LiveSessionToken> RefreshAsync(CancellationToken cancellationToken)
         {
             RefreshCallCount++;
             if (RefreshException != null)
@@ -635,9 +669,16 @@ public class SessionManagerTests
                 throw RefreshException;
             }
 
-            return Task.FromResult(new LiveSessionToken(
+            if (SimulateAsyncRefresh)
+            {
+                // Yield to allow cancellation to propagate — simulates real HTTP call
+                await Task.Yield();
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            return new LiveSessionToken(
                 new byte[] { 0x04, 0x05, 0x06 },
-                DateTimeOffset.UtcNow.AddHours(24)));
+                DateTimeOffset.UtcNow.Add(TokenLifetime));
         }
     }
 
