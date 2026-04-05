@@ -7,7 +7,6 @@ using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Refit;
-using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Orders;
