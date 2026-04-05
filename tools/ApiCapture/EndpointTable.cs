@@ -432,16 +432,11 @@ public static class EndpointTable
         new("Orders", "GetLiveOrders_Success", HttpMethod.Get,
             "/v1/api/iserver/account/orders", 200),
 
-        // Place a limit order at $1.00 (won't fill) — captures replyId for confirmation
+        // Place a limit order at $1.00 (won't fill) — may go direct or need confirmation
+        // When direct: response has order_id. When confirmation needed: response has id (replyId).
         new("Orders", "PlaceOrder_LimitSPY", HttpMethod.Post,
             "/v1/api/iserver/account/{accountId}/orders", 200,
             """{"orders":[{"conid":756733,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC"}]}""",
-            CaptureAs: "replyId", CaptureJsonPath: "$[0].id"),
-
-        // Confirm the order (reply to the confirmation question)
-        new("Orders", "ReplyConfirm_LimitSPY", HttpMethod.Post,
-            "/v1/api/iserver/reply/{replyId}", 200,
-            """{"confirmed":true}""",
             CaptureAs: "orderId", CaptureJsonPath: "$[0].order_id"),
 
         // WhatIf preview
@@ -452,6 +447,12 @@ public static class EndpointTable
         // Get status of placed order
         new("Orders", "GetOrderStatus_Placed", HttpMethod.Get,
             "/v1/api/iserver/account/order/status/{orderId}", 200),
+
+        // Modify the placed order (change price from $1.00 to $1.01)
+        // Note: unlike place order, modify takes the order object directly, not wrapped in {"orders":[...]}
+        new("Orders", "ModifyOrder_ChangePrice", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/order/{orderId}", 200,
+            """{"conid":756733,"side":"BUY","quantity":1,"orderType":"LMT","price":1.01,"tif":"GTC"}"""),
 
         // Get trades (may be empty if order hasn't filled)
         new("Orders", "GetTrades_Success", HttpMethod.Get,
@@ -471,6 +472,45 @@ public static class EndpointTable
         new("Orders", "WhatIfOrder_InvalidConid", HttpMethod.Post,
             "/v1/api/iserver/account/{accountId}/orders/whatif", 400,
             """{"orders":[{"conid":0,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC"}]}"""),
+
+        // ---------------------------------------------------------------
+        // ComboTest — Place a stock combo (SPY+QQQ spread), capture combo
+        // positions, then close the position.
+        // US Stock spread_conid = 28812380
+        // SPY conid = 756733, QQQ conid = 320227571
+        // Format: {spread_conid};;;{leg1_conid}/{ratio},{leg2_conid}/{ratio}
+        // Positive ratio = Buy, Negative ratio = Sell
+        // ---------------------------------------------------------------
+
+        // 1. Place combo spread: Buy 1 SPY, Sell 1 QQQ at market
+        new("ComboTest", "PlaceCombo_SpyQqq", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/orders", 200,
+            """{"orders":[{"conidex":"28812380;;;756733/1,320227571/-1","orderType":"MKT","side":"BUY","tif":"DAY","quantity":1}]}""",
+            CaptureAs: "comboOrderId", CaptureJsonPath: "$[0].order_id"),
+
+        // 2. If confirmation needed, confirm it
+        new("ComboTest", "ReplyConfirm_Combo", HttpMethod.Post,
+            "/v1/api/iserver/reply/{comboOrderId}", 200,
+            """{"confirmed":true}"""),
+
+        // 3. Check combo positions (may need a moment to settle)
+        new("ComboTest", "GetComboPositions_AfterPlace", HttpMethod.Get,
+            "/v1/api/portfolio/{accountId}/combo/positions", 200),
+
+        // 4. Check combo positions again (warm-up may be needed)
+        new("ComboTest", "GetComboPositions_SecondCall", HttpMethod.Get,
+            "/v1/api/portfolio/{accountId}/combo/positions", 200),
+
+        // 5. Close the combo: Sell 1 SPY, Buy 1 QQQ (reverse the original)
+        new("ComboTest", "CloseCombo_SpyQqq", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/orders", 200,
+            """{"orders":[{"conidex":"28812380;;;756733/-1,320227571/1","orderType":"MKT","side":"SELL","tif":"DAY","quantity":1}]}""",
+            CaptureAs: "closeOrderId", CaptureJsonPath: "$[0].order_id"),
+
+        // 6. Confirm close if needed
+        new("ComboTest", "ReplyConfirm_Close", HttpMethod.Post,
+            "/v1/api/iserver/reply/{closeOrderId}", 200,
+            """{"confirmed":true}"""),
 
         // ---------------------------------------------------------------
         // Test — Exploratory captures for undocumented/new endpoints
