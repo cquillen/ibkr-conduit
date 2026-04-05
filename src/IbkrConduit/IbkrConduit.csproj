@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <PackageId>IbkrConduit</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>Robert Craig Quillen</Authors>
     <Description>A C#/.NET client library for the Interactive Brokers Client Portal Web API with OAuth 1.0a authentication, automatic session management, rate limiting, and Flex Web Service integration. Not affiliated with, endorsed by, or supported by Interactive Brokers LLC. The author is not a broker-dealer or investment advisor. This library does not provide investment advice or trading recommendations. Financial trading involves substantial risk of loss. This software is provided as-is with no warranty on the accuracy of financial data or order execution. You are solely responsible for all trading decisions. See the LICENSE and README for full terms.</Description>
     <PackageTags>ibkr;interactive-brokers;trading;oauth;client-portal-api;algorithmic-trading</PackageTags>
@@ -20,26 +20,26 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="../../README.md" Pack="true" PackagePath="" />
+    <None Include="../../README.md" Pack="true" PackagePath=""/>
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="IbkrConduit.Tests.Unit" />
-    <InternalsVisibleTo Include="IbkrConduit.Tests.Integration" />
-<InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+    <InternalsVisibleTo Include="IbkrConduit.Tests.Unit"/>
+    <InternalsVisibleTo Include="IbkrConduit.Tests.Integration"/>
+<InternalsVisibleTo Include="DynamicProxyGenAssembly2"/>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="OneOf" />
-    <PackageReference Include="Refit" />
-    <PackageReference Include="Refit.HttpClientFactory" />
-    <PackageReference Include="Microsoft.Extensions.Http" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
-    <PackageReference Include="Polly.Core" />
-    <PackageReference Include="System.Threading.RateLimiting" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    <PackageReference Include="OneOf"/>
+    <PackageReference Include="Refit"/>
+    <PackageReference Include="Refit.HttpClientFactory"/>
+    <PackageReference Include="Microsoft.Extensions.Http"/>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"/>
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory"/>
+    <PackageReference Include="Polly.Core"/>
+    <PackageReference Include="System.Threading.RateLimiting"/>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All"/>
   </ItemGroup>
 
 </Project>
