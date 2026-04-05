@@ -1,0 +1,29 @@
+{
+  "Request": {
+    "Path": "/v1/api/forecast/contract/rules?conid=722489372",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": {
+      "asset_class": "OPT",
+      "description": "The federal funds rate is the target interest rate range set by the FOMC.",
+      "market_name": "US Fed Funds Target Rate",
+      "measured_period": "Jan28'27",
+      "threshold": "3.125",
+      "source_agency": "U.S. Federal Reserve",
+      "data_and_resolution_link": "https://www.federalreserve.gov/monetarypolicy/openmarket.htm",
+      "last_trade_time": 1801076400,
+      "product_code": "FF",
+      "market_rules_link": "https://data.forecastex.com/regulatory/FFTermsandConditions.pdf",
+      "release_time": 1801076400,
+      "payout_time": 1801162800,
+      "payout": "$1.00",
+      "price_increment": "$0.01",
+      "exchange_timezone": "US/Central"
+    }
+  }
+}

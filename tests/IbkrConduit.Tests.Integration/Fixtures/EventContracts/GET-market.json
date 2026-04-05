@@ -1,0 +1,42 @@
+{
+  "Request": {
+    "Path": "/v1/api/forecast/contract/market?underlyingConid=658663572",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": {
+      "market_name": "US Fed Funds Target Rate",
+      "exchange": "FORECASTX",
+      "symbol": "FF",
+      "logo_category": "g13834",
+      "exclude_historical_data": false,
+      "payout": 1.0,
+      "contracts": [
+        {
+          "conid": 722489372,
+          "side": "Y",
+          "expiration": "20270127",
+          "strike": 3.125,
+          "strike_label": "Above 3.125%",
+          "expiry_label": "January 27, 2027",
+          "underlying_conid": 658663572,
+          "time_specifier": "2027.1.28"
+        },
+        {
+          "conid": 722489376,
+          "side": "N",
+          "expiration": "20270127",
+          "strike": 3.125,
+          "strike_label": "Above 3.125%",
+          "expiry_label": "January 27, 2027",
+          "underlying_conid": 658663572,
+          "time_specifier": "2027.1.28"
+        }
+      ]
+    }
+  }
+}

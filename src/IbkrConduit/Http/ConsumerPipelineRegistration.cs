@@ -8,6 +8,7 @@ using IbkrConduit.Alerts;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.EventContracts;
 using IbkrConduit.Fyi;
 using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
@@ -47,6 +48,7 @@ internal static class ConsumerPipelineRegistration
         RegisterConsumerRefitClient<IIbkrAlertApi>(services, credentials, clientOptions, endpointMap, baseUrl);
         RegisterConsumerRefitClient<IIbkrWatchlistApi>(services, credentials, clientOptions, endpointMap, baseUrl);
         RegisterConsumerRefitClient<IIbkrFyiApi>(services, credentials, clientOptions, endpointMap, baseUrl);
+        RegisterConsumerRefitClient<IIbkrEventContractApi>(services, credentials, clientOptions, endpointMap, baseUrl);
 
         // Operations implementations
         services.AddSingleton<IPortfolioOperations, PortfolioOperations>();
@@ -57,6 +59,7 @@ internal static class ConsumerPipelineRegistration
         services.AddSingleton<IAlertOperations, AlertOperations>();
         services.AddSingleton<IWatchlistOperations, WatchlistOperations>();
         services.AddSingleton<IFyiOperations, FyiOperations>();
+        services.AddSingleton<IEventContractOperations, EventContractOperations>();
     }
 
     /// <summary>

@@ -7,6 +7,7 @@ using IbkrConduit.Alerts;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
 using IbkrConduit.Errors;
+using IbkrConduit.EventContracts;
 using IbkrConduit.Flex;
 using IbkrConduit.Fyi;
 using IbkrConduit.MarketData;
@@ -99,6 +100,7 @@ public class IbkrClientTests
         IAlertOperations? alerts = null,
         IWatchlistOperations? watchlists = null,
         IFyiOperations? notifications = null,
+        IEventContractOperations? eventContracts = null,
         ISessionManager? sessionManager = null) =>
         new(
             portfolio ?? new FakePortfolioOperations(),
@@ -111,6 +113,7 @@ public class IbkrClientTests
             alerts ?? new FakeAlertOperations(),
             watchlists ?? new FakeWatchlistOperations(),
             notifications ?? new FakeFyiOperations(),
+            eventContracts ?? new FakeEventContractOperations(),
             sessionManager ?? new FakeSessionManager());
 
     private class FakePortfolioOperations : IPortfolioOperations
@@ -225,6 +228,15 @@ public class IbkrClientTests
         public Task<Result<GetWatchlistsResponse>> GetWatchlistsAsync(CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<WatchlistDetail>> GetWatchlistAsync(string id, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<DeleteWatchlistResponse>> DeleteWatchlistAsync(string id, CancellationToken ct = default) => throw new NotImplementedException();
+    }
+
+    private class FakeEventContractOperations : IEventContractOperations
+    {
+        public Task<Result<EventContractCategoryTreeResponse>> GetCategoryTreeAsync(CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<EventContractMarketResponse>> GetMarketAsync(int underlyingConid, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<EventContractRulesResponse>> GetContractRulesAsync(int conid, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<EventContractDetailsResponse>> GetContractDetailsAsync(int conid, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<EventContractSchedulesResponse>> GetContractSchedulesAsync(int conid, CancellationToken ct = default) => throw new NotImplementedException();
     }
 
     private class FakeFyiOperations : IFyiOperations
