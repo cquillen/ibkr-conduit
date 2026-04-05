@@ -1,6 +1,8 @@
 using System;
+using System.Net;
 using System.Threading.Tasks;
 using IbkrConduit.Contracts;
+using IbkrConduit.Errors;
 using IbkrConduit.Tests.Integration.Fixtures;
 using Shouldly;
 using WireMock.RequestBuilders;
@@ -365,6 +367,27 @@ public class ContractTests : IAsyncLifetime, IDisposable
 
         result.Rate.ShouldBe(0.86656614m);
         _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task SearchBySymbol_ServerError_ReturnsFailureResult()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/secdef/search")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(500)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"error":"Internal Server Error"}"""));
+
+        var result = await _harness.Client.Contracts.SearchBySymbolAsync(
+            "SPY", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var error = result.Error.ShouldBeOfType<IbkrApiError>();
+        error.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
     }
 
     public async ValueTask DisposeAsync()

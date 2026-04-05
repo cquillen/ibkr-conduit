@@ -1,5 +1,7 @@
 using System;
+using System.Net;
 using System.Threading.Tasks;
+using IbkrConduit.Errors;
 using IbkrConduit.MarketData;
 using IbkrConduit.Tests.Integration.Fixtures;
 using Shouldly;
@@ -276,6 +278,27 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
 
         result.Success.ShouldBeTrue();
         _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task GetSnapshot_ServerError_ReturnsFailureResult()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/marketdata/snapshot")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(500)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"error":"Internal Server Error"}"""));
+
+        var result = await _harness.Client.MarketData.GetSnapshotAsync(
+            [756733], ["31", "84", "86"], TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var error = result.Error.ShouldBeOfType<IbkrApiError>();
+        error.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
     }
 
     public async ValueTask DisposeAsync()

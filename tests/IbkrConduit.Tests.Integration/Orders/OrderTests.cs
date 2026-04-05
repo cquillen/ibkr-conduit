@@ -1,6 +1,8 @@
 using System;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using IbkrConduit.Errors;
 using IbkrConduit.Orders;
 using IbkrConduit.Tests.Integration.Fixtures;
 using Shouldly;
@@ -628,6 +630,26 @@ public class OrderTests : IAsyncLifetime, IDisposable
         result.AsT0.OrderId.ShouldBe("555666777");
 
         _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task GetLiveOrders_ServerError_ReturnsFailureResult()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/orders")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(500)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"error":"Internal Server Error"}"""));
+
+        var result = await _harness.Client.Orders.GetLiveOrdersAsync(TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var error = result.Error.ShouldBeOfType<IbkrApiError>();
+        error.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
     }
 
     public async ValueTask DisposeAsync()
