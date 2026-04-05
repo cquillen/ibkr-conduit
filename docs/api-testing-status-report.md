@@ -159,26 +159,26 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 
 | Endpoint | Method | Wrapper | DTO Source | Integration Tests | Notes |
 |----------|--------|---------|-----------|-------------------|-------|
-| `/fyi/unreadnumber` | GET | Yes | Recording | Not Tested | Needs integration tests |
-| `/fyi/settings` | GET | Yes | Recording | Not Tested | |
-| `/fyi/settings/{typecode}` | POST | Yes | Recording | Not Tested | |
-| `/fyi/disclaimer/{typecode}` | GET | Yes | Recording | Not Tested | |
-| `/fyi/disclaimer/{typecode}` | PUT | Yes | Recording | Not Tested | |
-| `/fyi/deliveryoptions` | GET | Yes | Recording | Not Tested | |
-| `/fyi/deliveryoptions/device` | POST | Yes | Not captured | Not Tested | |
-| `/fyi/deliveryoptions/{deviceId}` | DELETE | Yes | Not captured | Not Tested | |
-| `/fyi/deliveryoptions/email` | PUT | Yes | Not captured | Not Tested | |
-| `/fyi/notifications` | GET | Yes | Recording | Not Tested | |
-| `/fyi/notifications/{id}` | PUT | Yes | Recording | Not Tested | |
-| `/fyi/notifications` | GET | Yes | Recording | Not Tested | |
+| `/fyi/unreadnumber` | GET | Yes | Recording | Yes + 401 | Returns `{"BN": 0}` for zero unread |
+| `/fyi/settings` | GET | Yes | Recording | Yes + 401 | Array of ~27 notification setting items |
+| `/fyi/settings/{typecode}` | POST | Yes | Recording | Yes + 401 | Succeeds even for invalid typecodes |
+| `/fyi/disclaimer/{typecode}` | GET | Yes | Recording | Yes + 401 | |
+| `/fyi/disclaimer/{typecode}` | PUT | Yes | Recording | Yes + 401 | |
+| `/fyi/deliveryoptions` | GET | Yes | Recording | Yes + 401 | |
+| `/fyi/deliveryoptions/device` | POST | Yes | OpenAPI | Yes + 401 | Synthetic fixture; same ack response shape |
+| `/fyi/deliveryoptions/{deviceId}` | DELETE | Yes | OpenAPI | Yes + 401 | Returns 404 HTML for nonexistent; facade returns Result\<bool\> |
+| `/fyi/deliveryoptions/email` | PUT | Yes | OpenAPI | Yes + 401 | Synthetic fixture; same ack response shape |
+| `/fyi/notifications` | GET | Yes | Recording | Yes + 401 | |
+| `/fyi/notifications/{id}` | PUT | Yes | Recording | Yes + 401 | |
+| `/fyi/notifications` | GET | Yes | Recording | Yes + 401 | GetMoreNotifications variant |
 
 ## Scanner (3 endpoints)
 
 | Endpoint | Method | Wrapper | DTO Source | Integration Tests | Notes |
 |----------|--------|---------|-----------|-------------------|-------|
-| `/iserver/scanner/params` | GET | Yes | Recording | Not Tested | Needs integration tests |
-| `/iserver/scanner/run` | POST | Yes | Recording | Not Tested | |
-| `/hmds/scanner` | POST | Yes | Not captured | Not Tested | Not in OpenAPI |
+| `/iserver/scanner/params` | GET | Yes | Recording | Yes + 401 | Large params response; rate limited 1 req/15 min |
+| `/iserver/scanner/run` | POST | Yes | Recording | Yes + 401 | Returns up to 50 contracts |
+| `/hmds/scanner` | POST | Yes | OpenAPI | Yes + 401 | Returns 404 on live API; synthetic fixture |
 
 ## Event Contracts (5 endpoints)
 
@@ -339,10 +339,10 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 | Order Monitoring | 3 | 3 | 3 | 0 | 0 | 6 |
 | Portfolio | 14 | 14 | 14 | 0 | 0 | 27 |
 | Portfolio Analyst | 3 | 3 | 3 | 0 | 0 | 6 |
-| FYIs | 12 | 12 | 8 | 0 | 4 | 0 |
-| Scanner | 3 | 3 | 2 | 0 | 1 | 0 |
+| FYIs | 12 | 12 | 8 | 3 | 0 | 24 (12+12 401) |
+| Scanner | 3 | 3 | 2 | 1 | 0 | 6 (3+3 401) |
 | Event Contracts | 5 | 0 | 0 | 0 | 5 | 0 |
-| **Subtotal** | **97** | **81 + 6 int** | **74** | **7** | **15** | **131** |
+| **Subtotal** | **97** | **81 + 6 int** | **74** | **11** | **10** | **161** |
 
 ### Not Currently Supported
 
