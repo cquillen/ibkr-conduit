@@ -275,16 +275,20 @@ internal sealed partial class SessionManager : ISessionManager
         }
 
         _proactiveRefreshCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
-        var token = _proactiveRefreshCts.Token;
+        var delayToken = _proactiveRefreshCts.Token;
 
         _ = Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(timeUntilRefresh, token);
-                if (!token.IsCancellationRequested)
+                await Task.Delay(timeUntilRefresh, delayToken);
+                if (!_disposeCts.IsCancellationRequested)
                 {
-                    await ReauthenticateAsync(token);
+                    // Use the dispose token for re-auth, not the proactive refresh token.
+                    // ReauthenticateAsync calls CancelProactiveRefresh() which cancels
+                    // _proactiveRefreshCts — using that token here would cancel the
+                    // very operation we're trying to perform.
+                    await ReauthenticateAsync(_disposeCts.Token);
                 }
             }
             catch (OperationCanceledException)
@@ -295,7 +299,7 @@ internal sealed partial class SessionManager : ISessionManager
             {
                 LogProactiveRefreshFailed(ex);
             }
-        }, token);
+        }, delayToken);
     }
 
     private void CancelProactiveRefresh()
