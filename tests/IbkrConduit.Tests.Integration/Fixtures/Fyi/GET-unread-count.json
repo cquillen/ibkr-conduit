@@ -1,0 +1,13 @@
+{
+  "Request": {
+    "Path": "/v1/api/fyi/unreadnumber",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "BN": 0
+    }
+  }
+}

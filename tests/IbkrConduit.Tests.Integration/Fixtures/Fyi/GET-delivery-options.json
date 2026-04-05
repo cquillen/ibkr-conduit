@@ -1,0 +1,21 @@
+{
+  "Request": {
+    "Path": "/v1/api/fyi/deliveryoptions",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "E": [
+        {
+          "NM": "Test-Device",
+          "I": "test-device-id-001",
+          "UI": "Test Device UI",
+          "A": 1
+        }
+      ],
+      "M": 1
+    }
+  }
+}

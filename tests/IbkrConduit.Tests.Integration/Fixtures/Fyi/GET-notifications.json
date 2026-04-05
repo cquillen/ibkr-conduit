@@ -1,0 +1,21 @@
+{
+  "Request": {
+    "Path": "/v1/api/fyi/notifications",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "R": 1,
+        "D": "1775041875.0",
+        "MS": "IBKR FYI: Mutual Fund/ETF Advisory",
+        "MD": "There may be ETFs available with similar historical performance and lower fees than certain Mutual Funds/ETFs you hold.",
+        "ID": "2026040190532092",
+        "HT": 0,
+        "FC": "MF"
+      }
+    ]
+  }
+}

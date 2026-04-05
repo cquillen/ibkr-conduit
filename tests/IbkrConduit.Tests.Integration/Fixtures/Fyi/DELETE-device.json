@@ -1,0 +1,11 @@
+{
+  "Request": {
+    "Path": "/v1/api/fyi/deliveryoptions/test-device-001",
+    "Methods": ["DELETE"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": ""
+  }
+}

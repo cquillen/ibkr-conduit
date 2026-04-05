@@ -1,0 +1,14 @@
+{
+  "Request": {
+    "Path": "/v1/api/fyi/disclaimer/BA",
+    "Methods": ["PUT"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "V": 1,
+      "T": 10
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "Request": {
+    "Path": "/v1/api/fyi/notifications/more",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "R": 0,
+        "D": "1775000000.0",
+        "MS": "IBKR FYI: Option Expiration",
+        "MD": "Your option position is expiring in 3 days.",
+        "ID": "2026040100000001",
+        "HT": 0,
+        "FC": "OE"
+      }
+    ]
+  }
+}
