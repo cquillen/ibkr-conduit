@@ -117,7 +117,7 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 | `/iserver/notification` | POST | No | Not captured | Not Tested | Server prompt response |
 | `/iserver/account/{id}/orders/whatif` | POST | Yes | Recording | Yes + 401 | Preview/WhatIf |
 | `/iserver/account/{id}/order/{id}` | DELETE | Yes | Recording | Yes + 401 | Cancel order |
-| `/iserver/account/{id}/order/{id}` | POST | Yes | Not captured | Yes + 401 | Modify order |
+| `/iserver/account/{id}/order/{id}` | POST | Yes | Recording | Yes + 401 | Modify order — body is direct object, not wrapped in orders array |
 | `/iserver/questions/suppress` | POST | Internal | Recording | Yes | Used by session lifecycle |
 
 ## Order Monitoring (3 endpoints)
@@ -134,13 +134,13 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 |----------|--------|---------|-----------|-------------------|-------|
 | `/portfolio/accounts` | GET | Yes | Recording | Yes + 401 | faclient vs faClient casing |
 | `/portfolio/subaccounts` | GET | Yes | Recording | Yes + 401 | |
-| `/portfolio/subaccounts2` | GET | Yes | Not captured | Not Tested | Not in OpenAPI |
+| `/portfolio/subaccounts2` | GET | Yes | Recording | Yes + 401 | Paged response with metadata; not in OpenAPI |
 | `/portfolio/{id}/meta` | GET | Yes | Recording | Yes + 401 | |
 | `/portfolio/{id}/allocation` | GET | Yes | Recording | Yes + 401 | |
-| `/portfolio/{id}/combo/positions` | GET | Yes | Not captured | Not Tested | Returns 500 |
-| `/portfolio/allocation` | POST | Yes | Not captured | Not Tested | Not in OpenAPI |
+| `/portfolio/{id}/combo/positions` | GET | Yes | Recording | Yes + 401 | Returns empty array when no combos held; needs market-hours capture for populated response |
+| `/portfolio/allocation` | POST | Yes | Recording | Yes + 401 | Consolidated allocation; not in OpenAPI |
 | `/portfolio/{id}/positions/{page}` | GET | Yes | Recording | Yes + 401 | |
-| `/portfolio2/{id}/positions` | GET | Yes | Not captured | Not Tested | Not in OpenAPI |
+| `/portfolio2/{id}/positions` | GET | Yes | Recording | Yes + 401 | Real-time positions; not in OpenAPI |
 | `/portfolio/{id}/position/{conid}` | GET | Yes | Recording | Yes + 401 | |
 | `/portfolio/{id}/positions/invalidate` | POST | Yes | Recording | Yes | |
 | `/portfolio/{id}/summary` | GET | Yes | Recording | Yes + 401 | OA has 120 fields, we have 6 |
@@ -335,14 +335,14 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 | Accounts | 11 | 11 | 9 | 2 | 0 | 20 (10+10 401) |
 | Contract | 17 | 16 | 15 | 0 | 1 | 26 |
 | Market Data | 5 | 5 | 4 | 0 | 1 | 8 |
-| Orders | 7 | 5 + 1 (int) | 5 | 0 | 2 | 10 |
+| Orders | 7 | 5 + 1 (int) | 6 | 0 | 1 | 12 |
 | Order Monitoring | 3 | 3 | 3 | 0 | 0 | 6 |
-| Portfolio | 14 | 14 | 10 | 0 | 4 | 22 |
+| Portfolio | 14 | 14 | 14 | 0 | 0 | 27 |
 | Portfolio Analyst | 3 | 3 | 3 | 0 | 0 | 6 |
 | FYIs | 12 | 12 | 8 | 0 | 4 | 0 |
 | Scanner | 3 | 3 | 2 | 0 | 1 | 0 |
 | Event Contracts | 5 | 0 | 0 | 0 | 5 | 0 |
-| **Subtotal** | **97** | **81 + 6 int** | **69** | **7** | **20** | **124** |
+| **Subtotal** | **97** | **81 + 6 int** | **74** | **7** | **15** | **131** |
 
 ### Not Currently Supported
 
