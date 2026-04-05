@@ -203,6 +203,34 @@ public static class EndpointTable
         new("Contracts", "GetExchangeRate_USD_EUR", HttpMethod.Get,
             "/v1/api/iserver/exchangerate?source=USD&target=EUR", 200),
 
+        // Contracts — New endpoints (previously missing)
+        new("Contracts", "GetInfoAndRules_AAPL", HttpMethod.Get,
+            "/v1/api/iserver/contract/265598/info-and-rules?isBuy=true", 200),
+        new("Contracts", "GetInfoAndRules_SPY_Sell", HttpMethod.Get,
+            "/v1/api/iserver/contract/756733/info-and-rules?isBuy=false", 200),
+        new("Contracts", "GetAlgos_AAPL", HttpMethod.Get,
+            "/v1/api/iserver/contract/265598/algos?addDescription=1&addParams=1", 200),
+        new("Contracts", "GetBondFilters_IBKR", HttpMethod.Get,
+            "/v1/api/iserver/secdef/bond-filters?symbol=BOND&issuerId=e1400715", 200),
+        new("Contracts", "SearchBySymbolPost_AAPL", HttpMethod.Post,
+            "/v1/api/iserver/secdef/search", 200,
+            """{"symbol":"AAPL"}"""),
+        new("Contracts", "SearchBySymbolPost_Bond", HttpMethod.Post,
+            "/v1/api/iserver/secdef/search", 200,
+            """{"symbol":"IBKR","secType":"BOND"}"""),
+        new("Contracts", "GetTradingScheduleNew_SPY", HttpMethod.Get,
+            "/v1/api/contract/trading-schedule?conid=756733", 200),
+
+        // Contracts — New endpoint failures
+        new("Contracts", "GetInfoAndRules_InvalidConid", HttpMethod.Get,
+            "/v1/api/iserver/contract/999999999/info-and-rules?isBuy=true", 400),
+        new("Contracts", "GetAlgos_InvalidConid", HttpMethod.Get,
+            "/v1/api/iserver/contract/999999999/algos", 503),
+        new("Contracts", "GetBondFilters_InvalidIssuer", HttpMethod.Get,
+            "/v1/api/iserver/secdef/bond-filters?symbol=BOND&issuerId=INVALID", 200),
+        new("Contracts", "GetTradingScheduleNew_InvalidConid", HttpMethod.Get,
+            "/v1/api/contract/trading-schedule?conid=0", 400),
+
         // Contracts — Failures
         new("Contracts", "SearchBySymbol_NonExistent", HttpMethod.Get,
             "/v1/api/iserver/secdef/search?symbol=ZZZZNOTREAL99", 200),

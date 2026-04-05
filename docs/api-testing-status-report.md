@@ -85,18 +85,18 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 | `/iserver/contract/{id}/info` | GET | Yes | Recording | Yes + 401 | |
 | `/iserver/currency/pairs` | GET | Yes | Recording | Yes + 401 | |
 | `/iserver/exchangerate` | GET | Yes | Recording | Yes + 401 | |
-| `/iserver/contract/{id}/info-and-rules` | GET | No | Not captured | Yes + 401 | Existing tests, needs Refit + DTO |
-| `/iserver/contract/{id}/algos` | GET | No | Not captured | Not Tested | OA has 1 field, we have 13 |
-| `/iserver/secdef/bond-filters` | GET | No | Not captured | Not Tested | |
+| `/iserver/contract/{id}/info-and-rules` | GET | Yes | Recording | Yes + 401 | Full contract details + rules in one call |
+| `/iserver/contract/{id}/algos` | GET | Yes | Recording | Yes + 401 | Returns algo list with params; invalid conid returns 503 |
+| `/iserver/secdef/bond-filters` | GET | Yes | Recording | Yes + 401 | Invalid issuerId returns 200 (IBKR quirk) |
 | `/iserver/secdef/search` | GET | Yes | Recording | Yes + 401 | |
-| `/iserver/secdef/search` | POST | No | Not captured | Not Tested | OpenAPI lists POST variant for body-based search |
+| `/iserver/secdef/search` | POST | Yes | Recording | Yes + 401 | POST variant; same response shape as GET |
 | `/iserver/contract/rules` | POST | Yes | Recording | Yes + 401 | Field naming mismatches with OA |
 | `/iserver/secdef/info` | GET | Yes | Recording | Yes + 401 | |
 | `/iserver/secdef/strikes` | GET | Yes | Recording | Yes + 401 | |
 | `/trsrv/futures` | GET | Yes | Recording | Yes + 401 | |
 | `/trsrv/stocks` | GET | Yes | Recording | Yes + 401 | |
 | `/trsrv/secdef/schedule` | GET | Yes | Not captured | Not Tested | |
-| `/contract/trading-schedule` | GET | No | Not captured | Not Tested | |
+| `/contract/trading-schedule` | GET | Yes | Recording | Yes + 401 | Dynamic date keys; distinct from /trsrv/secdef/schedule |
 
 ## Market Data (5 endpoints)
 
@@ -333,7 +333,7 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 | Alerts | 6 | 6 | 1 | 5 | 0 | 12 (6+6 401) |
 | Session | 7 | 5 (int) | 5 | 0 | 2 | 6 |
 | Accounts | 11 | 11 | 9 | 2 | 0 | 20 (10+10 401) |
-| Contract | 17 | 12 | 11 | 0 | 6 | 20 |
+| Contract | 17 | 16 | 15 | 0 | 1 | 26 |
 | Market Data | 5 | 5 | 4 | 0 | 1 | 8 |
 | Orders | 7 | 5 + 1 (int) | 5 | 0 | 2 | 10 |
 | Order Monitoring | 3 | 3 | 3 | 0 | 0 | 6 |
@@ -342,7 +342,7 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 | FYIs | 12 | 12 | 8 | 0 | 4 | 0 |
 | Scanner | 3 | 3 | 2 | 0 | 1 | 0 |
 | Event Contracts | 5 | 0 | 0 | 0 | 5 | 0 |
-| **Subtotal** | **97** | **77 + 6 int** | **65** | **7** | **25** | **118** |
+| **Subtotal** | **97** | **81 + 6 int** | **69** | **7** | **20** | **124** |
 
 ### Not Currently Supported
 
@@ -363,6 +363,6 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 
 | | Endpoints | Wrapped | Not Supported |
 |-|-----------|--------:|--------------:|
-| **All** | **169** | **77 + 10 int** | **68 (N/S)** |
+| **All** | **169** | **81 + 10 int** | **68 (N/S)** |
 
-**Not wrapped (14 in Client Portal):** 5 event contract endpoints, 4 contract endpoints (algos, bond-filters, trading-schedule, POST secdef/search), 1 order endpoint (notification), 2 deprecated session endpoints (reauthenticate, sso/validate).
+**Not wrapped (9 in Client Portal):** 5 event contract endpoints, 1 order endpoint (notification), 1 contract endpoint (trsrv/secdef/schedule — not captured), 2 deprecated session endpoints (reauthenticate, sso/validate).
