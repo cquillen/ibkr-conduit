@@ -474,6 +474,35 @@ public static class EndpointTable
             """{"orders":[{"conid":0,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC"}]}"""),
 
         // ---------------------------------------------------------------
+        // EventContracts — Forecast/prediction market endpoints
+        // Category tree has no params. Other endpoints need conids from
+        // the tree response. Using known ForecastEx conids:
+        // - FF (Federal Funds Rate) underlying conid varies by market
+        // - We'll capture the tree first, then use captured conids
+        // ---------------------------------------------------------------
+        new("EventContracts", "GetCategoryTree_Success", HttpMethod.Get,
+            "/v1/api/forecast/category/tree", 200),
+
+        // US Fed Funds Target Rate: underlying conid=658663572
+        new("EventContracts", "GetMarket_FedFunds", HttpMethod.Get,
+            "/v1/api/forecast/contract/market?underlyingConid=658663572", 200),
+
+        // Contract rules, details, schedules — use specific contract conid from market response
+        // Fed Funds "Above 3.125%" Jan 2027: conid=722489372
+        new("EventContracts", "GetContractRules_FedFunds", HttpMethod.Get,
+            "/v1/api/forecast/contract/rules?conid=722489372", 200),
+        new("EventContracts", "GetContractDetails_FedFunds", HttpMethod.Get,
+            "/v1/api/forecast/contract/details?conid=722489372", 200),
+        new("EventContracts", "GetContractSchedules_FedFunds", HttpMethod.Get,
+            "/v1/api/forecast/contract/schedules?conid=722489372", 200),
+
+        // Failures
+        new("EventContracts", "GetMarket_InvalidConid", HttpMethod.Get,
+            "/v1/api/forecast/contract/market?underlyingConid=0", 500),
+        new("EventContracts", "GetContractRules_InvalidConid", HttpMethod.Get,
+            "/v1/api/forecast/contract/rules?conid=0", 500),
+
+        // ---------------------------------------------------------------
         // ComboTest — Place a stock combo (SPY+QQQ spread), capture combo
         // positions, then close the position.
         // US Stock spread_conid = 28812380

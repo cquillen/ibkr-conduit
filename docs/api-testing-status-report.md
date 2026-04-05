@@ -184,11 +184,11 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 
 | Endpoint | Method | Wrapper | DTO Source | Integration Tests | Notes |
 |----------|--------|---------|-----------|-------------------|-------|
-| `/forecast/category/tree` | GET | No | Not captured | Not Tested | |
-| `/forecast/contract/market` | GET | No | Not captured | Not Tested | |
-| `/forecast/contract/rules` | GET | No | Not captured | Not Tested | |
-| `/forecast/contract/details` | GET | No | Not captured | Not Tested | |
-| `/forecast/contract/schedules` | GET | No | Not captured | Not Tested | |
+| `/forecast/category/tree` | GET | Yes | Recording | Yes + 401 | Large response; 3-level category hierarchy with markets |
+| `/forecast/contract/market` | GET | Yes | Recording | Yes + 401 | Returns contracts with conid, strike, expiry for an underlying |
+| `/forecast/contract/rules` | GET | Yes | Recording | Yes + 401 | Trading rules for specific event contract |
+| `/forecast/contract/details` | GET | Yes | Recording | Yes + 401 | Yes/No conids, question, resolution details |
+| `/forecast/contract/schedules` | GET | Yes | Recording | Yes + 401 | Daily trading schedules with open/close times |
 
 ## OAuth (4 endpoints)
 
@@ -341,8 +341,8 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 | Portfolio Analyst | 3 | 3 | 3 | 0 | 0 | 6 |
 | FYIs | 12 | 12 | 8 | 3 | 0 | 24 (12+12 401) |
 | Scanner | 3 | 3 | 2 | 1 | 0 | 6 (3+3 401) |
-| Event Contracts | 5 | 0 | 0 | 0 | 5 | 0 |
-| **Subtotal** | **97** | **81 + 6 int** | **74** | **11** | **10** | **161** |
+| Event Contracts | 5 | 5 | 5 | 0 | 0 | 10 (5+5 401) |
+| **Subtotal** | **97** | **86 + 6 int** | **79** | **11** | **5** | **171** |
 
 ### Not Currently Supported
 
@@ -363,6 +363,6 @@ Tracks the validation status of each endpoint's response schema. Endpoints are v
 
 | | Endpoints | Wrapped | Not Supported |
 |-|-----------|--------:|--------------:|
-| **All** | **169** | **81 + 10 int** | **68 (N/S)** |
+| **All** | **169** | **86 + 10 int** | **68 (N/S)** |
 
-**Not wrapped (9 in Client Portal):** 5 event contract endpoints, 1 order endpoint (notification), 1 contract endpoint (trsrv/secdef/schedule — not captured), 2 deprecated session endpoints (reauthenticate, sso/validate).
+**Not wrapped (4 in Client Portal):** 1 order endpoint (notification — needs WebSocket trigger), 1 contract endpoint (trsrv/secdef/schedule — not captured), 2 deprecated session endpoints (reauthenticate, sso/validate).
