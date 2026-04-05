@@ -194,6 +194,86 @@ public class FlexTests : IDisposable
         ex.Message.ShouldBe("Query ID not found");
     }
 
+    [Fact]
+    public async Task ExecuteQueryAsync_WithDateRange_PassesDatesToRequest()
+    {
+        // Step 1: SendRequest returns reference code (match with date params)
+        _server.Given(
+            Request.Create()
+                .WithPath("/AccountManagement/FlexWebService/SendRequest")
+                .WithParam("q", "12345")
+                .WithParam("fd", "20260101")
+                .WithParam("td", "20260331")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/xml")
+                    .WithBody("""
+                        <FlexStatementResponse timestamp="1234567890">
+                            <Status>Success</Status>
+                            <ReferenceCode>REF_DATE_RANGE</ReferenceCode>
+                            <Url>https://example.com</Url>
+                        </FlexStatementResponse>
+                        """));
+
+        // Step 2: GetStatement returns report
+        _server.Given(
+            Request.Create()
+                .WithPath("/AccountManagement/FlexWebService/GetStatement")
+                .WithParam("q", "REF_DATE_RANGE")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/xml")
+                    .WithBody("""
+                        <FlexQueryResponse queryName="DateRangeTest" type="AF">
+                          <FlexStatements count="1">
+                            <FlexStatement accountId="U1234567">
+                              <Trades>
+                                <Trade accountId="U1234567" symbol="MSFT" conid="272093"
+                                       description="MICROSOFT CORP" buySell="BUY" quantity="50"
+                                       price="420.00" proceeds="-21000" commission="-0.50"
+                                       currency="USD" tradeDate="20260115" tradeTime="100000"
+                                       orderType="LMT" exchange="SMART" orderId="ORD2" execId="EX2" />
+                              </Trades>
+                            </FlexStatement>
+                          </FlexStatements>
+                        </FlexQueryResponse>
+                        """));
+
+        var flexClient = CreateFlexClient();
+        var ops = new FlexOperations(flexClient);
+
+        var result = await ops.ExecuteQueryAsync("12345", "20260101", "20260331", TestContext.Current.CancellationToken);
+
+        result.RawXml.ShouldNotBeNull();
+        result.Trades.Count.ShouldBe(1);
+        result.Trades[0].Symbol.ShouldBe("MSFT");
+
+        // Verify the SendRequest included date params
+        var sendRequests = _server.FindLogEntries(
+            Request.Create()
+                .WithPath("/AccountManagement/FlexWebService/SendRequest")
+                .UsingGet());
+        sendRequests.Count.ShouldBe(1);
+        var requestUrl = sendRequests[0].RequestMessage.Url;
+        requestUrl.ShouldContain("fd=20260101");
+        requestUrl.ShouldContain("td=20260331");
+    }
+
+    [Fact]
+    public async Task ExecuteQueryAsync_NoFlexToken_ThrowsInvalidOperationException()
+    {
+        var ops = new FlexOperations(null);
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(
+            () => ops.ExecuteQueryAsync("12345", TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("FlexToken");
+    }
+
     public void Dispose()
     {
         _server.Dispose();

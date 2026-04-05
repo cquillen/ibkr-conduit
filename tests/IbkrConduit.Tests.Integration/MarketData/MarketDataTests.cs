@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using IbkrConduit.Errors;
@@ -299,6 +300,54 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
         result.IsSuccess.ShouldBeFalse();
         var error = result.Error.ShouldBeOfType<IbkrApiError>();
         error.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+    }
+
+    [Fact]
+    public async Task GetSnapshot_PreflightRequired_RetriesAndReturnsFullData()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        // First call returns metadata-only snapshot (only keys in _nonDataKeys)
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/marketdata/snapshot")
+                .UsingGet())
+            .InScenario("preflight")
+            .WillSetStateTo("ready")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""[{"conid":756733,"server_id":"q1234","_updated":1234567890,"conidEx":"756733","6509":"q1234"}]"""));
+
+        // Second call returns full field data
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/marketdata/snapshot")
+                .UsingGet())
+            .InScenario("preflight")
+            .WhenStateIs("ready")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""[{"conid":756733,"server_id":"q1234","_updated":1234567891,"conidEx":"756733","6509":"S","31":"655.50","84":"655.00","86":"656.00"}]"""));
+
+        var snapshots = (await _harness.Client.MarketData.GetSnapshotAsync(
+            [756733], ["31", "84", "86"], ct)).Value;
+
+        snapshots.ShouldNotBeEmpty();
+        var snap = snapshots[0];
+        snap.Conid.ShouldBe(756733);
+        snap.LastPrice.ShouldBe("655.50");
+        snap.BidPrice.ShouldBe("655.00");
+        snap.AskPrice.ShouldBe("656.00");
+
+        // Verify WireMock received 2 requests to the snapshot endpoint
+        var snapshotRequests = _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/marketdata/snapshot").UsingGet());
+        snapshotRequests.Count.ShouldBeGreaterThanOrEqualTo(2,
+            "Preflight should have triggered a second snapshot request");
     }
 
     public async ValueTask DisposeAsync()
