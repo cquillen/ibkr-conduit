@@ -1,0 +1,33 @@
+{
+  "Request": {
+    "Path": "/v1/api/fyi/settings",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "FC": "BA",
+        "H": 1,
+        "A": 1,
+        "FD": "Notify me when shares have been located on stocks that had previously been rejected for short sale orders.",
+        "FN": "Borrow Availability"
+      },
+      {
+        "FC": "OE",
+        "H": 0,
+        "A": 1,
+        "FD": "Notify me three days before my options or futures expire.",
+        "FN": "Option or Future expiration"
+      },
+      {
+        "FC": "EA",
+        "H": 0,
+        "A": 1,
+        "FD": "Notify me of upcoming earnings announcements from any of my holdings.",
+        "FN": "Upcoming Earnings"
+      }
+    ]
+  }
+}

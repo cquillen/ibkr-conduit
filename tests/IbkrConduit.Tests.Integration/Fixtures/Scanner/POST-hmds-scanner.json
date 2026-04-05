@@ -1,0 +1,29 @@
+{
+  "Request": {
+    "Path": "/v1/api/hmds/scanner",
+    "Methods": ["POST"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "total": "250",
+      "size": "2",
+      "offset": "0",
+      "scanTime": "20260404-07:10:12",
+      "id": "scanner-001",
+      "Contracts": {
+        "Contract": [
+          {
+            "inScanTime": "20260404-07:10:12",
+            "contractID": "706149062"
+          },
+          {
+            "inScanTime": "20260404-07:10:12",
+            "contractID": "863831941"
+          }
+        ]
+      }
+    }
+  }
+}

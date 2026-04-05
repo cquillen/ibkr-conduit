@@ -1,0 +1,56 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/scanner/params",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "scan_type_list": [
+        {
+          "display_name": "Top % Gainers",
+          "code": "TOP_PERC_GAIN",
+          "instruments": ["STK", "ETF.EQ.US", "FUT.US"]
+        },
+        {
+          "display_name": "Top % Losers",
+          "code": "TOP_PERC_LOSE",
+          "instruments": ["STK", "ETF.EQ.US", "FUT.US"]
+        }
+      ],
+      "instrument_list": [
+        {
+          "display_name": "US Stocks",
+          "type": "STK",
+          "filters": ["afterHoursChangePerc", "avgOptVolume"]
+        },
+        {
+          "display_name": "US Equity ETFs",
+          "type": "ETF.EQ.US",
+          "filters": ["afterHoursChangePerc"]
+        }
+      ],
+      "filter_list": [
+        {
+          "group": "afterHoursChangePerc",
+          "display_name": "After-Hours Change %",
+          "code": "afterHoursChangePerc",
+          "type": "range"
+        }
+      ],
+      "location_tree": [
+        {
+          "display_name": "US Stocks",
+          "type": "STK.US",
+          "locations": [
+            {
+              "display_name": "US Major",
+              "type": "STK.US.MAJOR"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
