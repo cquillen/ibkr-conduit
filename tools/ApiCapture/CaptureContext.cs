@@ -55,8 +55,8 @@ public sealed class CaptureContext : IAsyncDisposable
 
         // Use the library client to init session and discover account
         var client = _provider.GetRequiredService<IIbkrClient>();
-        var accounts = await client.Portfolio.GetAccountsAsync();
-        AccountId = accounts[0].Id;
+        var accountsResult = await client.Portfolio.GetAccountsAsync();
+        AccountId = accountsResult.Value[0].Id;
 
         Console.WriteLine($"Session initialized. Account: {AccountId}");
 
