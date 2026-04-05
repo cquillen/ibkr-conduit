@@ -5,6 +5,7 @@ using IbkrConduit.Client;
 using IbkrConduit.Fyi;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Shouldly;
 
@@ -15,7 +16,7 @@ public class FyiOperationsTests
     private readonly IIbkrFyiApi _api = Substitute.For<IIbkrFyiApi>();
     private readonly FyiOperations _sut;
 
-    public FyiOperationsTests() => _sut = new FyiOperations(_api, new IbkrClientOptions());
+    public FyiOperationsTests() => _sut = new FyiOperations(_api, new IbkrClientOptions(), NullLogger<FyiOperations>.Instance);
 
     [Fact]
     public async Task GetUnreadCountAsync_DelegatesToApi()

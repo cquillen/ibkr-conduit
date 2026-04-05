@@ -5,6 +5,7 @@ using IbkrConduit.Alerts;
 using IbkrConduit.Client;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Shouldly;
 
@@ -15,7 +16,7 @@ public class AlertOperationsTests
     private readonly IIbkrAlertApi _api = Substitute.For<IIbkrAlertApi>();
     private readonly AlertOperations _sut;
 
-    public AlertOperationsTests() => _sut = new AlertOperations(_api, new IbkrClientOptions());
+    public AlertOperationsTests() => _sut = new AlertOperations(_api, new IbkrClientOptions(), NullLogger<AlertOperations>.Instance);
 
     [Fact]
     public async Task CreateOrModifyAlertAsync_DelegatesToApi()

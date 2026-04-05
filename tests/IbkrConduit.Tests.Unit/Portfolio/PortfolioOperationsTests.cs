@@ -5,6 +5,7 @@ using IbkrConduit.Client;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
+using Microsoft.Extensions.Logging.Abstractions;
 using Refit;
 using Shouldly;
 
@@ -17,7 +18,7 @@ public class PortfolioOperationsTests
 
     public PortfolioOperationsTests()
     {
-        _sut = new PortfolioOperations(_fakeApi, new IbkrClientOptions());
+        _sut = new PortfolioOperations(_fakeApi, new IbkrClientOptions(), NullLogger<PortfolioOperations>.Instance);
     }
 
     [Fact]

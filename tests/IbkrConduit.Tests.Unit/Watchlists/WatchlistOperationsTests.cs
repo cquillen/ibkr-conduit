@@ -5,6 +5,7 @@ using IbkrConduit.Client;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
 using IbkrConduit.Watchlists;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Shouldly;
 
@@ -15,7 +16,7 @@ public class WatchlistOperationsTests
     private readonly IIbkrWatchlistApi _api = Substitute.For<IIbkrWatchlistApi>();
     private readonly WatchlistOperations _sut;
 
-    public WatchlistOperationsTests() => _sut = new WatchlistOperations(_api, new IbkrClientOptions());
+    public WatchlistOperationsTests() => _sut = new WatchlistOperations(_api, new IbkrClientOptions(), NullLogger<WatchlistOperations>.Instance);
 
     [Fact]
     public async Task CreateWatchlistAsync_DelegatesToApi()

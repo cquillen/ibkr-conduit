@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Errors;
 using IbkrConduit.Session;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Session;
@@ -23,7 +24,7 @@ public class TokenRefreshHandlerTests
             return new HttpResponseMessage(HttpStatusCode.OK);
         });
 
-        var handler = new TokenRefreshHandler(sessionManager)
+        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -59,7 +60,7 @@ public class TokenRefreshHandlerTests
             };
         });
 
-        var handler = new TokenRefreshHandler(sessionManager)
+        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -87,7 +88,7 @@ public class TokenRefreshHandlerTests
             return new HttpResponseMessage(HttpStatusCode.Unauthorized);
         });
 
-        var handler = new TokenRefreshHandler(sessionManager)
+        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -115,7 +116,7 @@ public class TokenRefreshHandlerTests
             return new HttpResponseMessage(HttpStatusCode.Unauthorized);
         });
 
-        var handler = new TokenRefreshHandler(sessionManager)
+        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -146,7 +147,7 @@ public class TokenRefreshHandlerTests
             return new HttpResponseMessage(HttpStatusCode.Unauthorized);
         });
 
-        var handler = new TokenRefreshHandler(sessionManager)
+        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -188,7 +189,7 @@ public class TokenRefreshHandlerTests
             return new HttpResponseMessage(HttpStatusCode.OK);
         });
 
-        var handler = new TokenRefreshHandler(sessionManager)
+        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };

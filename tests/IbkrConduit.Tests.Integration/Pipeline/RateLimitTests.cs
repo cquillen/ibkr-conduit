@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using IbkrConduit.Http;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
@@ -46,7 +47,7 @@ public class RateLimitTests : IDisposable
             QueueLimit = 0,
         });
 
-        var globalHandler = new GlobalRateLimitingHandler(tightLimiter)
+        var globalHandler = new GlobalRateLimitingHandler(tightLimiter, NullLogger<GlobalRateLimitingHandler>.Instance)
         {
             InnerHandler = new HttpClientHandler(),
         };
