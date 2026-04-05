@@ -8,9 +8,17 @@ A C#/.NET client library for the Interactive Brokers Client Portal Web API (CPAP
 
 ## Disclaimer
 
-**IbkrConduit is an independent, community-developed open source library. It is not affiliated with, endorsed by, or supported by Interactive Brokers LLC or any of its subsidiaries.** Interactive Brokers, IBKR, and related marks are trademarks of Interactive Brokers LLC.
+**IbkrConduit is an independent, community-developed open source library. It is not affiliated with, endorsed by, or supported by Interactive Brokers LLC or any of its subsidiaries.** "Interactive Brokers," "IBKR," "TWS," "Client Portal," and all related product and service names are trademarks or registered trademarks of Interactive Brokers LLC. Their use herein is for identification purposes only and does not imply endorsement.
 
-Financial trading involves substantial risk of loss. IbkrConduit is provided as infrastructure software only — it does not provide investment advice and is not responsible for trading decisions or financial outcomes. Use at your own risk. Always test thoroughly with a paper trading account before connecting to a live account.
+**Not a financial service.** The author and contributors of IbkrConduit are not broker-dealers, registered investment advisors, or financial service providers. This library does not provide investment advice, trading recommendations, or portfolio management services of any kind.
+
+**Trading risk.** Financial trading, including trading in securities, options, futures, and event contracts, involves substantial risk of loss and is not suitable for all investors. You may lose more than your initial investment. Past performance of any trading system, methodology, or strategy is not indicative of future results.
+
+**No warranty on financial data or execution.** IbkrConduit transmits data to and from the Interactive Brokers API without independent verification. The author and contributors make no representations or warranties regarding the accuracy, completeness, or timeliness of market data, account information, order execution, or any other financial data passing through this library. The software is provided "as is" under the terms of the [MIT License](LICENSE).
+
+**Limitation of liability.** In no event shall the author or contributors be liable for any direct, indirect, incidental, special, consequential, or exemplary damages arising from the use of this software, including but not limited to trading losses, missed opportunities, data inaccuracies, or system failures, regardless of the cause of action or the theory of liability.
+
+**Your responsibility.** You are solely responsible for evaluating the suitability of this software for your purposes, for all trading decisions made using this software, and for compliance with all applicable laws and regulations. Consult a qualified financial professional before making investment decisions. Always test thoroughly with a paper trading account before connecting to a live account.
 
 ## Features
 
