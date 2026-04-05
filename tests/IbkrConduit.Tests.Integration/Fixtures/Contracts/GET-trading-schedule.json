@@ -1,0 +1,42 @@
+{
+  "Request": { "Path": "/v1/api/contract/trading-schedule", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "exchange_time_zone": "US/Eastern",
+      "schedules": {
+        "20260402": {
+          "liquid_hours": [
+            {
+              "opening": 1775136600,
+              "closing": 1775160000
+            }
+          ],
+          "extended_hours": [
+            {
+              "cancel_daily_orders": true,
+              "opening": 1775116800,
+              "closing": 1775174400
+            }
+          ]
+        },
+        "20260406": {
+          "liquid_hours": [
+            {
+              "opening": 1775482200,
+              "closing": 1775505600
+            }
+          ],
+          "extended_hours": [
+            {
+              "cancel_daily_orders": true,
+              "opening": 1775462400,
+              "closing": 1775520000
+            }
+          ]
+        }
+      }
+    }
+  }
+}

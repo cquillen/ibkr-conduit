@@ -392,3 +392,264 @@ public record ExchangeRateResponse(
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtensionData { get; init; }
 }
+
+/// <summary>
+/// Combined contract info and trading rules from the /iserver/contract/{conid}/info-and-rules endpoint.
+/// </summary>
+/// <param name="ConId">The IBKR contract identifier.</param>
+/// <param name="Symbol">The ticker symbol.</param>
+/// <param name="CompanyName">The company name.</param>
+/// <param name="Exchange">The exchange.</param>
+/// <param name="InstrumentType">The instrument type (e.g., "STK").</param>
+/// <param name="Currency">The trading currency.</param>
+/// <param name="ValidExchanges">Comma-separated list of valid exchanges.</param>
+/// <param name="TradingClass">The trading class.</param>
+/// <param name="Category">The instrument category.</param>
+/// <param name="Industry">The industry.</param>
+/// <param name="Rules">The trading rules detail.</param>
+[ExcludeFromCodeCoverage]
+public record ContractInfoAndRules(
+    [property: JsonPropertyName("con_id")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    int ConId,
+    [property: JsonPropertyName("symbol")] string? Symbol,
+    [property: JsonPropertyName("company_name")] string? CompanyName,
+    [property: JsonPropertyName("exchange")] string? Exchange,
+    [property: JsonPropertyName("instrument_type")] string? InstrumentType,
+    [property: JsonPropertyName("currency")] string? Currency,
+    [property: JsonPropertyName("valid_exchanges")] string? ValidExchanges,
+    [property: JsonPropertyName("trading_class")] string? TradingClass,
+    [property: JsonPropertyName("category")] string? Category,
+    [property: JsonPropertyName("industry")] string? Industry,
+    [property: JsonPropertyName("rules")] TradingRulesDetail? Rules)
+{
+    /// <summary>
+    /// Captures any additional JSON properties not mapped to named parameters.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+}
+
+/// <summary>
+/// Detailed trading rules nested within the info-and-rules response.
+/// </summary>
+/// <param name="OrderTypes">Supported order types.</param>
+/// <param name="TifTypes">Supported time-in-force types.</param>
+/// <param name="DefaultSize">The default order size.</param>
+/// <param name="SizeIncrement">The order size increment.</param>
+/// <param name="CashSize">The cash order size.</param>
+/// <param name="CashCcy">The cash currency.</param>
+/// <param name="LimitPrice">The current limit price.</param>
+/// <param name="StopPrice">The current stop price.</param>
+/// <param name="Preview">Whether order preview is required.</param>
+/// <param name="AlgoEligible">Whether algo orders are eligible.</param>
+[ExcludeFromCodeCoverage]
+public record TradingRulesDetail(
+    [property: JsonPropertyName("orderTypes")] List<string>? OrderTypes,
+    [property: JsonPropertyName("tifTypes")] List<string>? TifTypes,
+    [property: JsonPropertyName("defaultSize")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal DefaultSize,
+    [property: JsonPropertyName("sizeIncrement")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal SizeIncrement,
+    [property: JsonPropertyName("cashSize")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal CashSize,
+    [property: JsonPropertyName("cashCcy")] string? CashCcy,
+    [property: JsonPropertyName("limitPrice")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal? LimitPrice,
+    [property: JsonPropertyName("stopprice")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    decimal? StopPrice,
+    [property: JsonPropertyName("preview")] bool? Preview,
+    [property: JsonPropertyName("algoEligible")] bool? AlgoEligible)
+{
+    /// <summary>
+    /// Captures any additional JSON properties not mapped to named parameters.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+}
+
+/// <summary>
+/// Response from the /iserver/contract/{conid}/algos endpoint.
+/// </summary>
+/// <param name="Algos">The list of available algos.</param>
+[ExcludeFromCodeCoverage]
+public record AlgoListResponse(
+    [property: JsonPropertyName("algos")] List<AlgoInfo>? Algos)
+{
+    /// <summary>
+    /// Captures any additional JSON properties not mapped to named parameters.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+}
+
+/// <summary>
+/// An individual algorithm available for a contract.
+/// </summary>
+/// <param name="Name">The display name of the algorithm.</param>
+/// <param name="Id">The algorithm identifier.</param>
+/// <param name="Parameters">Optional list of parameters for the algorithm.</param>
+[ExcludeFromCodeCoverage]
+public record AlgoInfo(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("parameters")] List<AlgoParameter>? Parameters)
+{
+    /// <summary>
+    /// Captures any additional JSON properties not mapped to named parameters.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+}
+
+/// <summary>
+/// A parameter for an algorithm.
+/// </summary>
+/// <param name="Name">The display name of the parameter.</param>
+/// <param name="Id">The parameter identifier.</param>
+/// <param name="ValueClassName">The value type (e.g., "String", "Boolean", "Double").</param>
+/// <param name="Required">Whether the parameter is required.</param>
+/// <param name="DefaultValue">The default value, if any.</param>
+/// <param name="Description">The parameter description, if any.</param>
+/// <param name="LegalStrings">Allowed string values, if constrained.</param>
+[ExcludeFromCodeCoverage]
+public record AlgoParameter(
+    [property: JsonPropertyName("name")] string? Name,
+    [property: JsonPropertyName("id")] string? Id,
+    [property: JsonPropertyName("valueClassName")] string? ValueClassName,
+    [property: JsonPropertyName("required")] string? Required,
+    [property: JsonPropertyName("defaultValue")] JsonElement? DefaultValue,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("legalStrings")] List<string>? LegalStrings)
+{
+    /// <summary>
+    /// Captures any additional JSON properties not mapped to named parameters.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+}
+
+/// <summary>
+/// Response from the /iserver/secdef/bond-filters endpoint.
+/// </summary>
+/// <param name="BondFilters">The list of bond filter categories.</param>
+[ExcludeFromCodeCoverage]
+public record BondFilterResponse(
+    [property: JsonPropertyName("bondFilters")] List<BondFilter>? BondFilters)
+{
+    /// <summary>
+    /// Captures any additional JSON properties not mapped to named parameters.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+}
+
+/// <summary>
+/// A bond filter category with selectable options.
+/// </summary>
+/// <param name="DisplayText">The display label for the filter.</param>
+/// <param name="ColumnId">The column identifier.</param>
+/// <param name="Options">The available filter options.</param>
+[ExcludeFromCodeCoverage]
+public record BondFilter(
+    [property: JsonPropertyName("displayText")] string? DisplayText,
+    [property: JsonPropertyName("columnId")] int ColumnId,
+    [property: JsonPropertyName("options")] List<BondFilterOption>? Options)
+{
+    /// <summary>
+    /// Captures any additional JSON properties not mapped to named parameters.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+}
+
+/// <summary>
+/// An option within a bond filter.
+/// </summary>
+/// <param name="Text">The display text, if available.</param>
+/// <param name="Value">The filter value.</param>
+[ExcludeFromCodeCoverage]
+public record BondFilterOption(
+    [property: JsonPropertyName("text")] string? Text,
+    [property: JsonPropertyName("value")] string? Value)
+{
+    /// <summary>
+    /// Captures any additional JSON properties not mapped to named parameters.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+}
+
+/// <summary>
+/// Request body for the POST /iserver/secdef/search endpoint.
+/// </summary>
+/// <param name="Symbol">The symbol to search for.</param>
+/// <param name="Name">Whether to search by name (optional).</param>
+/// <param name="SecType">Security type filter (optional).</param>
+[ExcludeFromCodeCoverage]
+public record ContractSearchRequest(
+    [property: JsonPropertyName("symbol")] string Symbol,
+    [property: JsonPropertyName("name")] bool? Name = null,
+    [property: JsonPropertyName("secType")] string? SecType = null);
+
+/// <summary>
+/// Response from the /v1/api/contract/trading-schedule endpoint.
+/// </summary>
+/// <param name="ExchangeTimeZone">The exchange time zone identifier.</param>
+/// <param name="Schedules">Trading schedules keyed by date (YYYYMMDD).</param>
+[ExcludeFromCodeCoverage]
+public record TradingScheduleResponse(
+    [property: JsonPropertyName("exchange_time_zone")] string? ExchangeTimeZone,
+    [property: JsonPropertyName("schedules")] Dictionary<string, TradingScheduleDay>? Schedules)
+{
+    /// <summary>
+    /// Captures any additional JSON properties not mapped to named parameters.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+}
+
+/// <summary>
+/// A single day's trading schedule with liquid and extended hours.
+/// </summary>
+/// <param name="LiquidHours">The liquid (regular) trading hours.</param>
+/// <param name="ExtendedHours">The extended trading hours.</param>
+[ExcludeFromCodeCoverage]
+public record TradingScheduleDay(
+    [property: JsonPropertyName("liquid_hours")] List<TradingHoursEntry>? LiquidHours,
+    [property: JsonPropertyName("extended_hours")] List<TradingHoursEntry>? ExtendedHours)
+{
+    /// <summary>
+    /// Captures any additional JSON properties not mapped to named parameters.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+}
+
+/// <summary>
+/// A trading hours entry with opening and closing times.
+/// </summary>
+/// <param name="Opening">The opening time as a Unix timestamp in seconds.</param>
+/// <param name="Closing">The closing time as a Unix timestamp in seconds.</param>
+/// <param name="CancelDailyOrders">Whether daily orders are cancelled at this boundary.</param>
+[ExcludeFromCodeCoverage]
+public record TradingHoursEntry(
+    [property: JsonPropertyName("opening")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    long Opening,
+    [property: JsonPropertyName("closing")]
+    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    long Closing,
+    [property: JsonPropertyName("cancel_daily_orders")] bool? CancelDailyOrders)
+{
+    /// <summary>
+    /// Captures any additional JSON properties not mapped to named parameters.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+}

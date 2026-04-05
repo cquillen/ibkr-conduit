@@ -1,0 +1,28 @@
+{
+  "Request": { "Path": "/v1/api/iserver/secdef/bond-filters", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "bondFilters": [
+        {
+          "displayText": "Maturity Date",
+          "columnId": 27,
+          "options": [
+            { "text": "Dec 2028", "value": "202812" },
+            { "text": "Jan 2029", "value": "202901" }
+          ]
+        },
+        {
+          "displayText": "Currency",
+          "columnId": 5,
+          "options": [
+            { "value": "CHF" },
+            { "value": "EUR" },
+            { "value": "USD" }
+          ]
+        }
+      ]
+    }
+  }
+}

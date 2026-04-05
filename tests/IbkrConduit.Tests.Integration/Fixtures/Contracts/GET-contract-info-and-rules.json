@@ -1,0 +1,54 @@
+{
+  "Request": { "Path": "/v1/api/iserver/contract/265598/info-and-rules", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "cfi_code": "",
+      "symbol": "AAPL",
+      "cusip": null,
+      "expiry_full": null,
+      "con_id": 265598,
+      "maturity_date": null,
+      "industry": "Computers",
+      "instrument_type": "STK",
+      "has_related_contracts": true,
+      "trading_class": "NMS",
+      "valid_exchanges": "SMART,AMEX,NYSE,CBOE,PHLX,ISE,CHX,ARCA,NASDAQ",
+      "allow_sell_long": false,
+      "is_zero_commission_security": false,
+      "local_symbol": "AAPL",
+      "currency": "USD",
+      "underlying_con_id": 0,
+      "r_t_h": true,
+      "company_name": "APPLE INC",
+      "smart_available": true,
+      "exchange": "SMART",
+      "category": "Computers",
+      "rules": {
+        "algoEligible": true,
+        "allOrNoneEligible": true,
+        "orderTypes": [
+          "limit",
+          "midprice",
+          "market",
+          "stop",
+          "stop_limit"
+        ],
+        "tifTypes": [
+          "DAY/o,a",
+          "GTC/o,a"
+        ],
+        "defaultSize": 100,
+        "cashSize": 0.0,
+        "sizeIncrement": 100,
+        "limitPrice": 255.63,
+        "stopprice": 255.63,
+        "preview": true,
+        "cashCcy": "USD",
+        "increment": 0.01,
+        "incrementDigits": 2
+      }
+    }
+  }
+}

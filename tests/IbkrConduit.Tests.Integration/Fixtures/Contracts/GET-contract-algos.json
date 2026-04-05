@@ -1,0 +1,46 @@
+{
+  "Request": { "Path": "/v1/api/iserver/contract/265598/algos", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "algos": [
+        {
+          "name": "Adaptive",
+          "id": "Adaptive",
+          "parameters": [
+            {
+              "guiRank": 1,
+              "defaultValue": "Normal",
+              "name": "Adaptive order priority/urgency",
+              "id": "adaptivePriority",
+              "legalStrings": ["Urgent", "Normal", "Patient"],
+              "required": "true",
+              "valueClassName": "String"
+            }
+          ]
+        },
+        {
+          "name": "VWAP",
+          "id": "Vwap",
+          "parameters": [
+            {
+              "guiRank": 1,
+              "minValue": 0.01,
+              "maxValue": 50,
+              "name": "Max Percentage",
+              "description": "From 0.01 to 50.0",
+              "id": "maxPctVol",
+              "valueClassName": "Double"
+            }
+          ]
+        },
+        {
+          "name": "TWAP",
+          "id": "Twap",
+          "parameters": []
+        }
+      ]
+    }
+  }
+}

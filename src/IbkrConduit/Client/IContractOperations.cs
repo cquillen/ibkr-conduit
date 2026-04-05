@@ -92,4 +92,39 @@ public interface IContractOperations
     Task<Result<ExchangeRateResponse>> GetExchangeRateAsync(
         string source, string target,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves combined contract info and trading rules.
+    /// </summary>
+    Task<Result<ContractInfoAndRules>> GetContractInfoAndRulesAsync(
+        string conid, bool? isBuy = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves available algorithms for a contract.
+    /// </summary>
+    Task<Result<AlgoListResponse>> GetAlgosAsync(
+        string conid, string? algos = null, int? addDescription = null, int? addParams = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves bond filter options.
+    /// </summary>
+    Task<Result<BondFilterResponse>> GetBondFiltersAsync(
+        string symbol, string issuerId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Searches for contracts by symbol using a POST request body.
+    /// </summary>
+    Task<Result<List<ContractSearchResult>>> SearchBySymbolPostAsync(
+        ContractSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves trading schedule for a contract (new-style endpoint).
+    /// </summary>
+    Task<Result<TradingScheduleResponse>> GetTradingScheduleNewAsync(
+        string conid, string? exchange = null,
+        CancellationToken cancellationToken = default);
 }

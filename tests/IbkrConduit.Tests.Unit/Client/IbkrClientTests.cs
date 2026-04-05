@@ -149,6 +149,11 @@ public class IbkrClientTests
         public Task<Result<List<TradingSchedule>>> GetTradingScheduleAsync(string assetClass, string symbol, string conid, string? exchange = null, string? exchangeFilter = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<Dictionary<string, List<CurrencyPair>>>> GetCurrencyPairsAsync(string currency, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<ExchangeRateResponse>> GetExchangeRateAsync(string source, string target, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<ContractInfoAndRules>> GetContractInfoAndRulesAsync(string conid, bool? isBuy = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<AlgoListResponse>> GetAlgosAsync(string conid, string? algos = null, int? addDescription = null, int? addParams = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<BondFilterResponse>> GetBondFiltersAsync(string symbol, string issuerId, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<List<ContractSearchResult>>> SearchBySymbolPostAsync(ContractSearchRequest request, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<TradingScheduleResponse>> GetTradingScheduleNewAsync(string conid, string? exchange = null, CancellationToken ct = default) => throw new NotImplementedException();
     }
 
     private class FakeOrderOperations : IOrderOperations

@@ -112,4 +112,50 @@ public interface IIbkrContractApi
         [Query] string source,
         [Query] string target,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves combined contract info and trading rules.
+    /// </summary>
+    [Get("/v1/api/iserver/contract/{conid}/info-and-rules")]
+    Task<IApiResponse<ContractInfoAndRules>> GetContractInfoAndRulesAsync(
+        string conid,
+        [Query] bool? isBuy = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves available algorithms for a contract.
+    /// </summary>
+    [Get("/v1/api/iserver/contract/{conid}/algos")]
+    Task<IApiResponse<AlgoListResponse>> GetAlgosAsync(
+        string conid,
+        [Query] string? algos = null,
+        [Query] int? addDescription = null,
+        [Query] int? addParams = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves bond filter options.
+    /// </summary>
+    [Get("/v1/api/iserver/secdef/bond-filters")]
+    Task<IApiResponse<BondFilterResponse>> GetBondFiltersAsync(
+        [Query] string symbol,
+        [Query] string issuerId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Searches for contracts by symbol using a POST request body.
+    /// </summary>
+    [Post("/v1/api/iserver/secdef/search")]
+    Task<IApiResponse<List<ContractSearchResult>>> SearchBySymbolPostAsync(
+        [Body] ContractSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves trading schedule for a contract (new-style endpoint).
+    /// </summary>
+    [Get("/v1/api/contract/trading-schedule")]
+    Task<IApiResponse<TradingScheduleResponse>> GetTradingScheduleNewAsync(
+        [Query] string conid,
+        [Query] string? exchange = null,
+        CancellationToken cancellationToken = default);
 }
