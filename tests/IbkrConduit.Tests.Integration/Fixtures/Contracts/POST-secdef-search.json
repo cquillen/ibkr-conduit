@@ -1,0 +1,36 @@
+{
+  "Request": { "Path": "/v1/api/iserver/secdef/search", "Methods": ["POST"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "conid": "265598",
+        "companyHeader": "APPLE INC - NASDAQ",
+        "companyName": "APPLE INC",
+        "symbol": "AAPL",
+        "description": "NASDAQ",
+        "restricted": null,
+        "sections": [
+          { "secType": "STK" },
+          {
+            "secType": "OPT",
+            "months": "APR26;MAY26;JUN26",
+            "exchange": "SMART;AMEX;CBOE"
+          }
+        ]
+      },
+      {
+        "conid": "38708077",
+        "companyHeader": "APPLE INC - MEXI",
+        "companyName": "APPLE INC",
+        "symbol": "AAPL",
+        "description": "MEXI",
+        "restricted": null,
+        "sections": [
+          { "secType": "STK", "exchange": "MEXI;" }
+        ]
+      }
+    ]
+  }
+}

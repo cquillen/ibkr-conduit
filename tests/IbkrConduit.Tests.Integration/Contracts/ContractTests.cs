@@ -370,6 +370,306 @@ public class ContractTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task GetContractInfoAndRules_ReturnsAllFields()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/contract/265598/info-and-rules",
+            FixtureLoader.LoadBody("Contracts", "GET-contract-info-and-rules"));
+
+        var info = (await _harness.Client.Contracts.GetContractInfoAndRulesAsync(
+            "265598", isBuy: true, cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        info.ShouldNotBeNull();
+        info.ConId.ShouldBe(265598);
+        info.Symbol.ShouldBe("AAPL");
+        info.CompanyName.ShouldBe("APPLE INC");
+        info.Exchange.ShouldBe("SMART");
+        info.Currency.ShouldBe("USD");
+        info.InstrumentType.ShouldBe("STK");
+        info.ValidExchanges.ShouldContain("NASDAQ");
+        info.Rules.ShouldNotBeNull();
+        info.Rules!.DefaultSize.ShouldBe(100m);
+        info.Rules!.SizeIncrement.ShouldBe(100m);
+        info.Rules!.OrderTypes.ShouldNotBeNull();
+        info.Rules!.OrderTypes!.ShouldContain("limit");
+        info.Rules!.AlgoEligible.ShouldBe(true);
+        info.Rules!.CashCcy.ShouldBe("USD");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetContractInfoAndRules_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/contract/265598/info-and-rules")
+                .UsingGet())
+            .InScenario("info-and-rules-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/contract/265598/info-and-rules")
+                .UsingGet())
+            .InScenario("info-and-rules-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Contracts", "GET-contract-info-and-rules")));
+
+        var info = (await _harness.Client.Contracts.GetContractInfoAndRulesAsync(
+            "265598", isBuy: true, cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        info.ConId.ShouldBe(265598);
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task GetAlgos_ReturnsAlgoList()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/contract/265598/algos",
+            FixtureLoader.LoadBody("Contracts", "GET-contract-algos"));
+
+        var result = (await _harness.Client.Contracts.GetAlgosAsync(
+            "265598", addDescription: 1, addParams: 1, cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        result.ShouldNotBeNull();
+        result.Algos.ShouldNotBeNull();
+        result.Algos!.Count.ShouldBe(3);
+        var adaptive = result.Algos[0];
+        adaptive.Name.ShouldBe("Adaptive");
+        adaptive.Id.ShouldBe("Adaptive");
+        adaptive.Parameters.ShouldNotBeNull();
+        adaptive.Parameters!.Count.ShouldBe(1);
+        adaptive.Parameters![0].Id.ShouldBe("adaptivePriority");
+        adaptive.Parameters![0].Required.ShouldBe("true");
+        adaptive.Parameters![0].LegalStrings.ShouldNotBeNull();
+        adaptive.Parameters![0].LegalStrings!.ShouldContain("Urgent");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetAlgos_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/contract/265598/algos")
+                .UsingGet())
+            .InScenario("algos-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/contract/265598/algos")
+                .UsingGet())
+            .InScenario("algos-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Contracts", "GET-contract-algos")));
+
+        var result = (await _harness.Client.Contracts.GetAlgosAsync(
+            "265598", addDescription: 1, addParams: 1, cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        result.Algos.ShouldNotBeNull();
+        result.Algos!.Count.ShouldBe(3);
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task GetBondFilters_ReturnsFilters()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/secdef/bond-filters",
+            FixtureLoader.LoadBody("Contracts", "GET-bond-filters"));
+
+        var result = (await _harness.Client.Contracts.GetBondFiltersAsync(
+            "BOND", "e1400715", TestContext.Current.CancellationToken)).Value;
+
+        result.ShouldNotBeNull();
+        result.BondFilters.ShouldNotBeNull();
+        result.BondFilters!.Count.ShouldBe(2);
+        var maturity = result.BondFilters[0];
+        maturity.DisplayText.ShouldBe("Maturity Date");
+        maturity.ColumnId.ShouldBe(27);
+        maturity.Options.ShouldNotBeNull();
+        maturity.Options!.Count.ShouldBe(2);
+        maturity.Options![0].Text.ShouldBe("Dec 2028");
+        maturity.Options![0].Value.ShouldBe("202812");
+        var currency = result.BondFilters[1];
+        currency.DisplayText.ShouldBe("Currency");
+        currency.Options!.ShouldContain(o => o.Value == "USD");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetBondFilters_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/secdef/bond-filters")
+                .UsingGet())
+            .InScenario("bond-filters-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/secdef/bond-filters")
+                .UsingGet())
+            .InScenario("bond-filters-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Contracts", "GET-bond-filters")));
+
+        var result = (await _harness.Client.Contracts.GetBondFiltersAsync(
+            "BOND", "e1400715", TestContext.Current.CancellationToken)).Value;
+
+        result.BondFilters.ShouldNotBeNull();
+        result.BondFilters!.Count.ShouldBe(2);
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task SearchBySymbolPost_ReturnsResults()
+    {
+        _harness.StubAuthenticatedPost(
+            "/v1/api/iserver/secdef/search",
+            FixtureLoader.LoadBody("Contracts", "POST-secdef-search"));
+
+        var results = (await _harness.Client.Contracts.SearchBySymbolPostAsync(
+            new ContractSearchRequest("AAPL"), TestContext.Current.CancellationToken)).Value;
+
+        results.ShouldNotBeEmpty();
+        results.Count.ShouldBe(2);
+        var first = results[0];
+        first.Conid.ShouldBe(265598);
+        first.CompanyName.ShouldBe("APPLE INC");
+        first.Symbol.ShouldBe("AAPL");
+        first.Description.ShouldBe("NASDAQ");
+        first.Sections.ShouldNotBeNull();
+        first.Sections!.Count.ShouldBe(2);
+        first.Sections![0].SecurityType.ShouldBe("STK");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task SearchBySymbolPost_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/secdef/search")
+                .UsingPost())
+            .InScenario("post-search-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/secdef/search")
+                .UsingPost())
+            .InScenario("post-search-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Contracts", "POST-secdef-search")));
+
+        var results = (await _harness.Client.Contracts.SearchBySymbolPostAsync(
+            new ContractSearchRequest("AAPL"), TestContext.Current.CancellationToken)).Value;
+
+        results.ShouldNotBeEmpty();
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task GetTradingScheduleNew_ReturnsSchedule()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/contract/trading-schedule",
+            FixtureLoader.LoadBody("Contracts", "GET-trading-schedule"));
+
+        var result = (await _harness.Client.Contracts.GetTradingScheduleNewAsync(
+            "756733", cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        result.ShouldNotBeNull();
+        result.ExchangeTimeZone.ShouldBe("US/Eastern");
+        result.Schedules.ShouldNotBeNull();
+        result.Schedules!.Count.ShouldBe(2);
+        result.Schedules.ShouldContainKey("20260402");
+        var day = result.Schedules["20260402"];
+        day.LiquidHours.ShouldNotBeNull();
+        day.LiquidHours!.Count.ShouldBe(1);
+        day.LiquidHours![0].Opening.ShouldBe(1775136600L);
+        day.LiquidHours![0].Closing.ShouldBe(1775160000L);
+        day.ExtendedHours.ShouldNotBeNull();
+        day.ExtendedHours!.Count.ShouldBe(1);
+        day.ExtendedHours![0].CancelDailyOrders.ShouldBe(true);
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetTradingScheduleNew_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/contract/trading-schedule")
+                .UsingGet())
+            .InScenario("trading-schedule-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/contract/trading-schedule")
+                .UsingGet())
+            .InScenario("trading-schedule-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Contracts", "GET-trading-schedule")));
+
+        var result = (await _harness.Client.Contracts.GetTradingScheduleNewAsync(
+            "756733", cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        result.ExchangeTimeZone.ShouldBe("US/Eastern");
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
     public async Task SearchBySymbol_ServerError_ReturnsFailureResult()
     {
         _harness.Server.Given(

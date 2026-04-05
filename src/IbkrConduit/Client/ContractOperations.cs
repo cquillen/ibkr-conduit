@@ -170,4 +170,64 @@ public class ContractOperations : IContractOperations
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
+
+    /// <inheritdoc />
+    public async Task<Result<ContractInfoAndRules>> GetContractInfoAndRulesAsync(
+        string conid, bool? isBuy = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetInfoAndRules");
+        activity?.SetTag(LogFields.Conid, conid);
+        var response = await _api.GetContractInfoAndRulesAsync(conid, isBuy, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<AlgoListResponse>> GetAlgosAsync(
+        string conid, string? algos = null, int? addDescription = null, int? addParams = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetAlgos");
+        activity?.SetTag(LogFields.Conid, conid);
+        var response = await _api.GetAlgosAsync(conid, algos, addDescription, addParams, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<BondFilterResponse>> GetBondFiltersAsync(
+        string symbol, string issuerId,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetBondFilters");
+        activity?.SetTag(LogFields.Symbol, symbol);
+        var response = await _api.GetBondFiltersAsync(symbol, issuerId, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<List<ContractSearchResult>>> SearchBySymbolPostAsync(
+        ContractSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.SearchBySymbolPost");
+        activity?.SetTag(LogFields.Symbol, request.Symbol);
+        var response = await _api.SearchBySymbolPostAsync(request, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<TradingScheduleResponse>> GetTradingScheduleNewAsync(
+        string conid, string? exchange = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetTradingScheduleNew");
+        activity?.SetTag(LogFields.Conid, conid);
+        var response = await _api.GetTradingScheduleNewAsync(conid, exchange, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+    }
 }
