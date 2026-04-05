@@ -6,7 +6,7 @@ namespace IbkrConduit.Client;
 /// Default implementation of <see cref="IIbkrClient"/> that delegates to
 /// typed operations interfaces and manages session lifecycle.
 /// </summary>
-public class IbkrClient : IIbkrClient
+internal class IbkrClient : IIbkrClient
 {
     private readonly ISessionManager _sessionManager;
 

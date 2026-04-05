@@ -6,7 +6,7 @@ namespace IbkrConduit.Auth;
 /// <summary>
 /// Abstracts Live Session Token acquisition, caching, and refresh from the signing handler.
 /// </summary>
-public interface ISessionTokenProvider
+internal interface ISessionTokenProvider
 {
     /// <summary>
     /// Gets the current Live Session Token, acquiring it if necessary.

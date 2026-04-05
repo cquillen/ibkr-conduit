@@ -15,7 +15,7 @@ namespace IbkrConduit.Client;
 /// Market data operations that delegate to the underlying Refit API.
 /// Handles IBKR pre-flight requirements transparently for snapshot requests.
 /// </summary>
-public partial class MarketDataOperations : IMarketDataOperations, IDisposable
+internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
 {
     private const int _preflightDelayMs = 500;
 

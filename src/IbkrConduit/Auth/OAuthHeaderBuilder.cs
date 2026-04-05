@@ -7,7 +7,7 @@ namespace IbkrConduit.Auth;
 /// Composes an <see cref="IOAuthSigner"/> and <see cref="IBaseStringBuilder"/>
 /// to produce the full OAuth Authorization header value.
 /// </summary>
-public class OAuthHeaderBuilder
+internal class OAuthHeaderBuilder
 {
     private readonly IOAuthSigner _signer;
     private readonly IBaseStringBuilder _baseStringBuilder;

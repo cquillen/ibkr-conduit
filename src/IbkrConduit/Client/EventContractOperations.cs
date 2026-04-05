@@ -8,7 +8,7 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// Event contract (ForecastEx) operations that delegate to the underlying Refit API.
 /// </summary>
-public class EventContractOperations : IEventContractOperations
+internal class EventContractOperations : IEventContractOperations
 {
     private readonly IIbkrEventContractApi _api;
     private readonly IbkrClientOptions _options;

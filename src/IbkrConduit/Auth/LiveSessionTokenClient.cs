@@ -14,7 +14,7 @@ namespace IbkrConduit.Auth;
 /// Uses a plain HttpClient (not the Refit pipeline) since the LST endpoint
 /// has unique signing requirements.
 /// </summary>
-public partial class LiveSessionTokenClient : ILiveSessionTokenClient
+internal partial class LiveSessionTokenClient : ILiveSessionTokenClient
 {
     private const string _lstEndpoint = "oauth/live_session_token";
 

@@ -8,7 +8,7 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// Account operations that delegate to the underlying Refit API.
 /// </summary>
-public class AccountOperations : IAccountOperations
+internal class AccountOperations : IAccountOperations
 {
     private readonly IIbkrAccountApi _api;
     private readonly IbkrClientOptions _options;

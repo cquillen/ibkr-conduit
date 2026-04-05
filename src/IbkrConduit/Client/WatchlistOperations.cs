@@ -8,7 +8,7 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// Watchlist operations that delegate to the underlying Refit API.
 /// </summary>
-public class WatchlistOperations : IWatchlistOperations
+internal class WatchlistOperations : IWatchlistOperations
 {
     private readonly IIbkrWatchlistApi _api;
     private readonly IbkrClientOptions _options;

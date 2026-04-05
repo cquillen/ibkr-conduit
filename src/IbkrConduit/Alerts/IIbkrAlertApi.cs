@@ -5,7 +5,7 @@ namespace IbkrConduit.Alerts;
 /// <summary>
 /// Refit interface for IBKR alert (MTA) endpoints.
 /// </summary>
-public interface IIbkrAlertApi
+internal interface IIbkrAlertApi
 {
     /// <summary>
     /// Creates or modifies an alert for the specified account.

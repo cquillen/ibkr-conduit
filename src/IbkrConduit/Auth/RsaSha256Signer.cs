@@ -8,7 +8,7 @@ namespace IbkrConduit.Auth;
 /// RSA-SHA256 signer used exclusively for LST requests.
 /// Signs via RSASSA-PKCS1-v1_5 with SHA-256.
 /// </summary>
-public class RsaSha256Signer : IOAuthSigner
+internal class RsaSha256Signer : IOAuthSigner
 {
     private readonly RSA _signaturePrivateKey;
 

@@ -5,7 +5,7 @@ namespace IbkrConduit.EventContracts;
 /// <summary>
 /// Refit interface for IBKR ForecastEx event contract endpoints.
 /// </summary>
-public interface IIbkrEventContractApi
+internal interface IIbkrEventContractApi
 {
     /// <summary>
     /// Retrieves the full category tree for event contracts.

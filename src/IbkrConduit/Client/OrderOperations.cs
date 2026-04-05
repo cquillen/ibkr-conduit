@@ -15,7 +15,7 @@ namespace IbkrConduit.Client;
 /// Order management operations with caller-controlled question/reply handling.
 /// Uses per-account semaphore serialization to prevent concurrent order submissions.
 /// </summary>
-public partial class OrderOperations : IOrderOperations
+internal partial class OrderOperations : IOrderOperations
 {
     private static readonly Histogram<double> _submissionDuration =
         IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.order.submission.duration", "ms");

@@ -5,7 +5,7 @@ namespace IbkrConduit.Fyi;
 /// <summary>
 /// Refit interface for IBKR FYI/Notifications endpoints.
 /// </summary>
-public interface IIbkrFyiApi
+internal interface IIbkrFyiApi
 {
     /// <summary>
     /// Returns the total number of unread FYI bulletins.

@@ -8,7 +8,7 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// Alert operations that delegate to the underlying Refit API.
 /// </summary>
-public class AlertOperations : IAlertOperations
+internal class AlertOperations : IAlertOperations
 {
     private readonly IIbkrAlertApi _api;
     private readonly IbkrClientOptions _options;

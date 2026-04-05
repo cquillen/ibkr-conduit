@@ -8,7 +8,7 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// FYI notification operations that delegate to the underlying Refit API.
 /// </summary>
-public class FyiOperations : IFyiOperations
+internal class FyiOperations : IFyiOperations
 {
     private readonly IIbkrFyiApi _api;
     private readonly IbkrClientOptions _options;

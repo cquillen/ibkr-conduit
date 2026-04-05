@@ -5,7 +5,7 @@ namespace IbkrConduit.Orders;
 /// <summary>
 /// Refit interface for IBKR order management endpoints.
 /// </summary>
-public interface IIbkrOrderApi
+internal interface IIbkrOrderApi
 {
     /// <summary>
     /// Submits one or more orders for the specified account.

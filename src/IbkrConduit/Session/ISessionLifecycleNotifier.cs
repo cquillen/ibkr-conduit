@@ -4,7 +4,7 @@ namespace IbkrConduit.Session;
 /// Notifies subscribers when the brokerage session has been refreshed.
 /// Used by the WebSocket client to reconnect after session re-authentication.
 /// </summary>
-public interface ISessionLifecycleNotifier
+internal interface ISessionLifecycleNotifier
 {
     /// <summary>
     /// Subscribes to session refresh notifications.

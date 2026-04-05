@@ -6,7 +6,7 @@ namespace IbkrConduit.Session;
 /// Refit interface for IBKR session management endpoints.
 /// Used internally to initialize, maintain, and tear down brokerage sessions.
 /// </summary>
-public interface IIbkrSessionApi
+internal interface IIbkrSessionApi
 {
     /// <summary>
     /// Initializes a brokerage session via SSO/DH.

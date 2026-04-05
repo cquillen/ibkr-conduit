@@ -15,7 +15,7 @@ namespace IbkrConduit.Auth;
 /// before signing. Also sets required HTTP headers that the IBKR API gateway
 /// (Akamai CDN) expects on every request.
 /// </summary>
-public class OAuthSigningHandler : DelegatingHandler
+internal class OAuthSigningHandler : DelegatingHandler
 {
     private static readonly ProductInfoHeaderValue _defaultUserAgent = new("IbkrConduit", "1.0");
 

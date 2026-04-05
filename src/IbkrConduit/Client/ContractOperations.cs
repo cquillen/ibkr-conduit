@@ -8,7 +8,7 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// Contract lookup operations that delegate to the underlying Refit API.
 /// </summary>
-public class ContractOperations : IContractOperations
+internal class ContractOperations : IContractOperations
 {
     private readonly IIbkrContractApi _api;
     private readonly IbkrClientOptions _options;
