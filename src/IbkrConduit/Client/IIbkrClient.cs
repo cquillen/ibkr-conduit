@@ -56,6 +56,11 @@ public interface IIbkrClient : IAsyncDisposable
     IFyiOperations Notifications { get; }
 
     /// <summary>
+    /// Event contract (ForecastEx) operations (category tree, markets, rules, details, schedules).
+    /// </summary>
+    IEventContractOperations EventContracts { get; }
+
+    /// <summary>
     /// Validates that the configured credentials can establish a session with the IBKR API.
     /// Performs LST acquisition, session initialization, and auth status verification.
     /// Call at startup for fail-fast credential validation.

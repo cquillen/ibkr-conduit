@@ -1,0 +1,46 @@
+{
+  "Request": {
+    "Path": "/v1/api/forecast/category/tree",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": {
+      "categories": {
+        "g78664": {
+          "name": "Northeast",
+          "parent_id": "g17457",
+          "markets": [
+            {
+              "name": "Northeastern US CPI",
+              "symbol": "RCNET",
+              "exchange": "FORECASTX",
+              "conid": 831072285,
+              "product_conid": 831072289
+            }
+          ]
+        },
+        "g22973": {
+          "name": "Agriculture",
+          "parent_id": "g5351"
+        },
+        "g78668": {
+          "name": "Germany",
+          "parent_id": "g17465",
+          "markets": [
+            {
+              "name": "Germany GDP",
+              "symbol": "GDPGE",
+              "exchange": "FORECASTX",
+              "conid": 831072111,
+              "product_conid": 831072113
+            }
+          ]
+        }
+      }
+    }
+  }
+}

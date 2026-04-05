@@ -1,0 +1,43 @@
+{
+  "Request": {
+    "Path": "/v1/api/forecast/contract/schedules?conid=722489372",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": {
+      "timezone": "US/Central",
+      "trading_schedules": [
+        {
+          "day_of_week": "Saturday",
+          "trading_times": [
+            {
+              "open": "12:00 AM",
+              "close": "4:15 PM"
+            },
+            {
+              "open": "4:16 PM",
+              "close": "11:59 PM"
+            }
+          ]
+        },
+        {
+          "day_of_week": "Monday",
+          "trading_times": [
+            {
+              "open": "12:00 AM",
+              "close": "4:15 PM"
+            },
+            {
+              "open": "4:16 PM",
+              "close": "11:59 PM"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

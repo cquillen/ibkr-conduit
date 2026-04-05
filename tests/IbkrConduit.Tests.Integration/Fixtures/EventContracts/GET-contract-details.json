@@ -1,0 +1,31 @@
+{
+  "Request": {
+    "Path": "/v1/api/forecast/contract/details?conid=722489372",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": {
+      "conid_yes": 722489372,
+      "conid_no": 722489376,
+      "question": "Will the US Fed Funds Target Rate be set above 3.125% at the FOMC meeting ending January 27, 2027?",
+      "side": "Y",
+      "strike_label": "Above 3.125%",
+      "strike": 3.125,
+      "exchange": "FORECASTX",
+      "expiration": "20270127",
+      "symbol": "FF",
+      "category": "g1003",
+      "logo_category": "g13834",
+      "measured_period": "Jan28'27",
+      "market_name": "US Fed Funds Target Rate",
+      "underlying_conid": 658663572,
+      "payout": 1.0,
+      "product_conid": 658663579,
+      "is_restricted": false
+    }
+  }
+}

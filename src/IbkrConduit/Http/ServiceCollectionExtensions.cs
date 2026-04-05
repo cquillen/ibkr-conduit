@@ -3,6 +3,7 @@ using IbkrConduit.Accounts;
 using IbkrConduit.Alerts;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.EventContracts;
 using IbkrConduit.Fyi;
 using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
@@ -50,6 +51,7 @@ public static class ServiceCollectionExtensions
             typeof(IIbkrAlertApi),
             typeof(IIbkrWatchlistApi),
             typeof(IIbkrFyiApi),
+            typeof(IIbkrEventContractApi),
         ]);
         services.AddSingleton(endpointMap);
 
