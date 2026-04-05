@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using IbkrConduit.Errors;
 using IbkrConduit.Tests.Integration.Fixtures;
 using IbkrConduit.Watchlists;
 using Shouldly;
@@ -259,6 +261,26 @@ public class WatchlistTests : IAsyncLifetime, IDisposable
         result.Data.Deleted.ShouldBe("99999");
 
         _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task GetWatchlists_ServerError_ReturnsFailureResult()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/watchlists")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(500)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"error":"Internal Server Error"}"""));
+
+        var result = await _harness.Client.Watchlists.GetWatchlistsAsync(TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var error = result.Error.ShouldBeOfType<IbkrApiError>();
+        error.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
     }
 
     public async ValueTask DisposeAsync()

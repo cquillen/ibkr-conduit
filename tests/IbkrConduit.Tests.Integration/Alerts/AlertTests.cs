@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using IbkrConduit.Alerts;
+using IbkrConduit.Errors;
 using IbkrConduit.Tests.Integration.Fixtures;
 using Shouldly;
 using WireMock.RequestBuilders;
@@ -409,6 +411,27 @@ public class AlertTests : IAsyncLifetime, IDisposable
         result.Success.ShouldBeTrue();
 
         _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task GetAlerts_ServerError_ReturnsFailureResult()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/DU9999999/alerts")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(500)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"error":"Internal Server Error"}"""));
+
+        var result = await _harness.Client.Alerts.GetAlertsAsync(
+            "DU9999999", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var error = result.Error.ShouldBeOfType<IbkrApiError>();
+        error.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
     }
 
     public async ValueTask DisposeAsync()
