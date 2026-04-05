@@ -574,6 +574,39 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task GetComboPositions_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/U1234567/combo/positions")
+                .UsingGet())
+            .InScenario("combo-positions-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/U1234567/combo/positions")
+                .UsingGet())
+            .InScenario("combo-positions-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-combo-positions-empty")));
+
+        var combos = (await _harness.Client.Portfolio.GetComboPositionsAsync(
+            "U1234567", cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        combos.ShouldBeEmpty();
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
     public async Task GetRealTimePositions_ReturnsPositions()
     {
         _harness.StubAuthenticatedGet(
@@ -653,6 +686,95 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task GetSubAccounts_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/subaccounts")
+                .UsingGet())
+            .InScenario("subaccounts-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/subaccounts")
+                .UsingGet())
+            .InScenario("subaccounts-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-subaccounts")));
+
+        var subAccounts = (await _harness.Client.Portfolio.GetSubAccountsAsync(
+            TestContext.Current.CancellationToken)).Value;
+
+        subAccounts.ShouldNotBeEmpty();
+        subAccounts[0].Id.ShouldBe("U1234567");
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
+    public async Task GetSubAccountsPaged_ReturnsAllFields()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/portfolio/subaccounts2",
+            FixtureLoader.LoadBody("Portfolio", "GET-subaccounts2"));
+
+        var subAccounts = (await _harness.Client.Portfolio.GetSubAccountsPagedAsync(
+            0, TestContext.Current.CancellationToken)).Value;
+
+        subAccounts.ShouldNotBeEmpty();
+        var sub = subAccounts[0];
+        sub.Id.ShouldBe("U1234567");
+        sub.AccountId.ShouldBe("U1234567");
+        sub.AccountTitle.ShouldBe("Test User");
+        sub.AccountType.ShouldBe("DEMO");
+        sub.Description.ShouldBe("U1234567");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetSubAccountsPaged_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/subaccounts2")
+                .UsingGet())
+            .InScenario("subaccounts2-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/subaccounts2")
+                .UsingGet())
+            .InScenario("subaccounts2-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-subaccounts2")));
+
+        var subAccounts = (await _harness.Client.Portfolio.GetSubAccountsPagedAsync(
+            0, TestContext.Current.CancellationToken)).Value;
+
+        subAccounts.ShouldNotBeEmpty();
+        subAccounts[0].Id.ShouldBe("U1234567");
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
     public async Task InvalidatePortfolioCache_Succeeds()
     {
         _harness.StubAuthenticatedPost(
@@ -725,6 +847,39 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
         allocation.Group.ShouldNotBeNull();
 
         _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetConsolidatedAllocation_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/allocation")
+                .UsingPost())
+            .InScenario("consolidated-allocation-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/portfolio/allocation")
+                .UsingPost())
+            .InScenario("consolidated-allocation-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Portfolio", "POST-portfolio-consolidated-allocation")));
+
+        var allocation = (await _harness.Client.Portfolio.GetConsolidatedAllocationAsync(
+            ["U1234567"], TestContext.Current.CancellationToken)).Value;
+
+        allocation.AssetClass.ShouldNotBeNull();
+        _harness.VerifyReauthenticationOccurred();
     }
 
     [Fact]
