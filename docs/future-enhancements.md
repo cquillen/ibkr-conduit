@@ -1,6 +1,6 @@
 # Future Enhancements
 
-Ideas that aren't worth building now but may be valuable later. Each entry should describe the enhancement, why it's deferred, and what would trigger building it.
+Ideas that aren't worth building now but may be valuable later. Each entry describes the enhancement, why it's deferred, and what would trigger building it.
 
 ---
 
@@ -20,59 +20,11 @@ Ideas that aren't worth building now but may be valuable later. Each entry shoul
 
 **What:** Dynamically tighten the local rate limiter by 10-20% on 429 response, run at tightened rate for 60 seconds, then gradually relax back to configured limits. A control loop, not a permanent ratchet.
 
-**Current behavior:** Local token bucket prevents most 429s. If one slips through, Polly retries with exponential backoff.
+**Current behavior:** Local token bucket prevents most 429s. The `ResilienceHandler` (Polly retry) was removed because IBKR's misuse of 5xx codes made retries counterproductive. 429 responses now flow through as `Result.Failure` with `IbkrRateLimitError` including `RetryAfter`. Consumers handle retry at the application level.
 
 **Why deferred:** YAGNI — the local rate limiter should prevent 429s entirely. The adaptive loop adds significant complexity for a scenario that shouldn't occur.
 
 **Trigger to build:** Observing repeated 429s in production despite correct rate limiter configuration, suggesting drift between local and server-side enforcement.
-
----
-
-## Circuit Breaker
-
-**What:** Polly circuit breaker that opens after N consecutive failures, preventing request storms during extended outages.
-
-**Current behavior:** SessionManager handles session-level failures (re-auth on 401, tickle detects dead sessions). Polly retries transient errors.
-
-**Why deferred:** Two competing recovery mechanisms (circuit breaker + SessionManager) add complexity. SessionManager already handles the recovery path.
-
-**Trigger to build:** Observing cascading failure patterns where rapid retries during an outage cause additional problems (e.g., IP penalty box from retry storms).
-
----
-
-## Multi-Tenant Session Registry
-
-**What:** A registry that manages N independent `SessionManager` instances, one per tenant. Consumers register multiple tenants and the registry handles lifecycle for all of them.
-
-**Current behavior:** Single-tenant `SessionManager` with clean interfaces. Multi-tenant requires multiple `AddIbkrClient` registrations.
-
-**Why deferred:** Single-tenant is sufficient for initial consumers. The per-tenant `SessionManager` has clean interfaces that make a registry wrapper straightforward when needed.
-
-**Trigger to build:** A consumer needs to manage 3+ tenant sessions concurrently with shared infrastructure (e.g., an advisor managing multiple client accounts).
-
----
-
-## OpenTelemetry + Structured Logging
-
-**What:** OTel spans for LST acquisition, session init, re-auth flows, and structured log fields (tenant ID, endpoint, duration) across all components.
-
-**Current behavior:** Basic `ILogger` with `LoggerMessage` source generation in TickleTimer and SessionManager.
-
-**Why deferred:** Core functionality takes priority. The logging infrastructure is in place (`Microsoft.Extensions.Logging.Abstractions`) — adding OTel is additive, not a redesign.
-
-**Trigger to build:** Moving toward production deployment where observability is required for operations.
-
----
-
-## Sub-account Support (FA/IBroker)
-
-**What:** Support for tiered account structures — Financial Advisors and IBroker accounts managing multiple sub-accounts. Endpoints: `/portfolio/subaccounts`, `/portfolio/subaccounts2` (paginated).
-
-**Current behavior:** Only individual accounts supported via `/portfolio/accounts`.
-
-**Why deferred:** Sub-accounts are specific to FA/IBroker account types. Individual traders don't need this. Adding it requires pagination handling and a different account discovery flow.
-
-**Trigger to build:** A consumer with an FA or IBroker account needs to manage sub-accounts programmatically.
 
 ---
 
@@ -88,47 +40,50 @@ Ideas that aren't worth building now but may be valuable later. Each entry shoul
 
 ---
 
-## AccountSummaryFields Static Constants
+## Combo Position Capture
 
-**What:** A static class with named constants for all account summary field keys (e.g., `NetLiquidationValue = "netliquidationvalue"`, `TotalCashValue = "totalcashvalue"`) so consumers don't need to hardcode string keys.
+**What:** Capture a populated combo/positions response by placing a combo/spread order during market hours, waiting for fill, then capturing the response.
 
-**Current behavior:** The `/portfolio/{accountId}/summary` endpoint returns `Dictionary<string, AccountSummaryEntry>` with dynamic string keys. Consumers must know the key names.
+**Current behavior:** The combo/positions endpoint has a wrapper and integration tests, but the recording returns an empty array `[]` because the paper account has no combo positions. The `ComboTest` category in the capture tool has the order flow scaffolded but needs market hours to execute.
 
-**Why deferred:** The IBKR documentation does not exhaustively list all possible summary field keys. Building constants from incomplete documentation risks missing fields or including incorrect names. Real API responses are needed to discover the full set of keys.
+**Why deferred:** Markets were closed when we tested. The combo order placement requires confirmation (message ID `o451`), and market orders won't fill on weekends.
 
-**Trigger to build:** Observe real API responses to catalog all summary field keys, then create a `AccountSummaryFields` static class similar to `MarketDataFields`.
-
----
-
-## Hand-Crafted WireMock Fixtures for Untriggerable Scenarios
-
-**What:** WireMock fixture files for API scenarios that can't be captured from the real API on demand. These would be hand-crafted based on observed behavior and API documentation, then used in integration tests.
-
-Scenarios to cover:
-
-- **429 Rate Limiting** — Response with `{"error":"rate limited"}` and `Retry-After` header. Validates resilience handler retries with backoff.
-- **401 Session Expiry** — Mid-session auth failure. Validates TokenRefreshHandler re-authenticates and retries.
-- **500 "Not ready"** — `{"error":"Not ready"}` from endpoints that need cache warm-up (e.g., combo/positions). Validates retry behavior.
-- **Competing Session** — Auth status returning `{"authenticated":false,"competing":true}`. Validates session recovery.
-- **Order Confirmation Flow** — Place order returning the confirmation shape `[{"id":"...","message":["warning"]}]` vs success `[{"order_id":"..."}]` vs rejection `{"error":"rejected"}`. Three distinct response shapes for the same endpoint.
-- **Pagination Edge Cases** — Positions page 0 with data vs page 999 returning empty results.
-- **Large Response Payloads** — Account summary with all 143 fields populated. Validates deserialization handles the full payload.
-- **Empty Collection Responses** — `[]` or `{"orders":[]}` when no data exists. Different from an error response.
-
-**Current behavior:** WireMock tests use minimal inline JSON or captured fixtures. Error scenarios use guessed response shapes.
-
-**Why deferred:** The capture tool can't trigger these conditions on demand. Hand-crafting requires careful analysis of recorded error responses and API documentation.
-
-**Trigger to build:** After the capture tool has populated fixtures for all success paths and capturable error paths. The hand-crafted fixtures fill the remaining gaps.
+**Trigger to build:** Run `dotnet run --project tools/ApiCapture -- combotest -v` during market hours. May need to suppress `o451` or adjust the capture flow to handle the confirmation step.
 
 ---
 
-## Refactor ServiceCollectionExtensions
+## Notification Endpoint (WebSocket-Triggered)
 
-**What:** Break up `ServiceCollectionExtensions.cs` which has grown into a monolith handling LST client setup, session token provider, rate limiter creation, resilience pipeline, session API pipeline, all consumer Refit client registrations, operations registrations, WebSocket, Flex, and the unified facade. Split into focused registration methods or separate extension classes by concern.
+**What:** Add wrapper for `POST /iserver/notification` — responds to server prompts received via WebSocket `ntf` messages.
 
-**Current behavior:** Single 290+ line file with one large `AddIbkrClient` method that does everything. Hard to navigate, hard to modify one concern without reading the whole file.
+**Current behavior:** Endpoint exists in the API spec but has no Refit interface, no wrapper, and no tests. It requires an active WebSocket connection to receive the `ntf` message containing `orderId`, `reqId`, and response options.
 
-**Why deferred:** It works correctly and the structure is stable. Refactoring it risks introducing registration order bugs. Better to do when the API surface is settled.
+**Why deferred:** Can't be tested without WebSocket integration. The endpoint is part of an asynchronous prompt flow that doesn't fit the standard request/response capture model.
 
-**Trigger to build:** When adding new features or pipelines becomes difficult due to the file size, or when the base URL override pattern (added for testing) needs to evolve into something more configurable.
+**Trigger to build:** When WebSocket streaming is integration-tested and consumers need to respond to server prompts programmatically.
+
+---
+
+## WebSocket Integration Tests
+
+**What:** Integration tests for the WebSocket streaming pipeline — `IStreamingOperations` methods (MarketData, OrderUpdates, ProfitAndLoss, AccountSummary, AccountLedger).
+
+**Current behavior:** `StreamingOperations` has zero integration tests. The WebSocket client, topic subscription, `ChannelObservable`, and all five streaming methods are completely untested at the integration level.
+
+**Why deferred:** WebSocket testing requires a mock WebSocket server, which is more complex than WireMock HTTP stubs. The streaming implementation works at the unit level.
+
+**Trigger to build:** When a WebSocket mock framework is evaluated, or when streaming reliability becomes critical for production use.
+
+---
+
+## Completed (removed from active list)
+
+These items were previously on this list and have been implemented:
+
+- **AccountSummaryFields Static Constants** — implemented with all observed field names from live recordings, grouped by endpoint (Segments, Balances, AvailableFunds, Margins, MarketValue)
+- **OpenTelemetry + Structured Logging** — Activity spans on every facade method, histograms for latency, counters for operations and retries, gauges for rate limiter queue depth
+- **Sub-account Support (FA/IBroker)** — subaccounts, subaccounts2 (paginated), combo positions all have wrappers, recordings, and integration tests
+- **Hand-Crafted WireMock Fixtures** — ErrorResultTests covers all error body patterns (JSON, empty, text, HTML, hidden 200 errors, 429 with Retry-After); AuthFailureTests covers persistent 401 and re-auth failures; preflight test covers metadata-only retry
+- **Refactor ServiceCollectionExtensions** — split into ConsumerPipelineRegistration, SessionServiceRegistration, RateLimitingAndResilienceRegistration, StreamingAndFlexRegistration
+- **Circuit Breaker** — removed along with ResilienceHandler; IBKR's misuse of 5xx codes made automated retry counterproductive
+- **Multi-Tenant Session Registry** — decided not to implement in this library
