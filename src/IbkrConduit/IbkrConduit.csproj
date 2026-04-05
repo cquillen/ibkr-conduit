@@ -13,6 +13,10 @@
     <RepositoryUrl>https://github.com/cquillen/ibkr-conduit</RepositoryUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>embedded</DebugType>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <ItemGroup>
@@ -35,6 +39,7 @@
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
     <PackageReference Include="Polly.Core" />
     <PackageReference Include="System.Threading.RateLimiting" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>
