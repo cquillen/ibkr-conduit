@@ -4,7 +4,7 @@
 [![NuGet](https://img.shields.io/nuget/v/IbkrConduit)](https://www.nuget.org/packages/IbkrConduit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A C#/.NET client library for the Interactive Brokers Client Portal Web API (CPAPI 1.0) with OAuth 1.0a authentication, multi-tenant session management, rate limiting, and Flex Web Service integration.
+A C#/.NET client library for the Interactive Brokers Client Portal Web API (CPAPI 1.0) with OAuth 1.0a authentication, automatic session management, rate limiting, and Flex Web Service integration.
 
 ## Disclaimer
 
@@ -23,7 +23,6 @@ A C#/.NET client library for the Interactive Brokers Client Portal Web API (CPAP
 ## Features
 
 - **OAuth 1.0a authentication** — fully headless, no browser or Selenium required
-- **Multi-tenant session management** — multiple IBKR accounts in a single process
 - **Automatic session lifecycle** — token refresh, tickle keepalive, brokerage session init
 - **Result-based error handling** — `Result<T>` pattern with `IbkrError` hierarchy for pattern matching; optional exception mode via `ThrowOnApiError`
 - **Rate limiting** — global and per-endpoint token bucket limiters
@@ -257,7 +256,7 @@ catch (IbkrApiException ex) when (ex.Error is IbkrRateLimitError rle)
 | API target | Web API 1.0 (CPAPI 1.0) | Web API 2.0 (newer, beta) |
 | Auth method | OAuth 1.0a (first-party self-service) | OAuth 2.0 (private_key_jwt) |
 | Status | Targets stable, fully documented API | Targets API still in beta |
-| Multi-tenant | First-class design consideration | Not specifically documented |
+| Session management | Automatic lifecycle (tickle, refresh, init) | Manual |
 | Error handling | Result\<T\> + IbkrError pattern matching | Exceptions |
 | Flex Web Service | Included | Not included |
 | Open source | MIT licensed, community driven | Unclear governance |
