@@ -155,6 +155,57 @@ public class SessionLifecycleTests : IAsyncDisposable
                 "LST should have been called at least 3 times (initial + 2 re-auths)");
     }
 
+    /// <summary>
+    /// Verifies that when a short-lived token is issued, the proactive refresh timer
+    /// fires before token expiry. The timer triggers re-authentication, and a subsequent
+    /// API call succeeds — proving the session recovers and re-initializes.
+    /// </summary>
+    [Fact]
+    public async Task ProactiveRefresh_BeforeExpiry_ReauthenticatesAutomatically()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        // Token expires in ~7.2 seconds, refresh margin is 6 seconds
+        // so proactive refresh should fire ~1.2 seconds after initialization
+        var harness = await TestHarness.CreateAsync(
+            configureOptions: opts =>
+            {
+                opts.ProactiveRefreshMargin = TimeSpan.FromSeconds(6);
+                opts.TickleIntervalSeconds = 300; // Avoid tickle interference
+            },
+            tokenExpiryHours: 0.002);
+
+        // Stub an endpoint for API calls
+        harness.StubAuthenticatedGet(
+            "/v1/api/portfolio/accounts",
+            FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts"));
+
+        // First API call triggers initialization and schedules proactive refresh
+        var firstResult = (await harness.Client.Portfolio.GetAccountsAsync(ct)).Value;
+        firstResult.ShouldNotBeEmpty();
+
+        var ssodhCountAfterInit = harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/auth/ssodh/init").UsingPost()).Count;
+        ssodhCountAfterInit.ShouldBe(1, "Only the initial ssodh/init should have occurred");
+
+        // Wait for the proactive refresh timer to fire (1.2s scheduled delay + buffer)
+        await Task.Delay(4000, ct);
+
+        // After the proactive refresh fires, the session state changes from Ready to
+        // Reauthenticating. A subsequent API call goes through EnsureInitializedAsync
+        // which detects the non-Ready state and re-initializes the session.
+        var secondResult = (await harness.Client.Portfolio.GetAccountsAsync(ct)).Value;
+        secondResult.ShouldNotBeEmpty();
+
+        // ssodh/init should have been called again during re-initialization
+        var ssodhCountAfterRefresh = harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/auth/ssodh/init").UsingPost()).Count;
+        ssodhCountAfterRefresh.ShouldBeGreaterThanOrEqualTo(2,
+            "Proactive refresh should have caused re-initialization (ssodh/init called at least twice)");
+
+        await harness.DisposeAsync();
+    }
+
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
