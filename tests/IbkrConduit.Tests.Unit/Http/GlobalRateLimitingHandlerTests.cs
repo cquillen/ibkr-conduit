@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using IbkrConduit.Http;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Http;
@@ -24,7 +25,7 @@ public class GlobalRateLimitingHandlerTests
             QueueLimit = 0,
         });
 
-        var handler = new GlobalRateLimitingHandler(limiter)
+        var handler = new GlobalRateLimitingHandler(limiter, NullLogger<GlobalRateLimitingHandler>.Instance)
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };
@@ -48,7 +49,7 @@ public class GlobalRateLimitingHandlerTests
             QueueLimit = 0,
         });
 
-        var handler = new GlobalRateLimitingHandler(limiter)
+        var handler = new GlobalRateLimitingHandler(limiter, NullLogger<GlobalRateLimitingHandler>.Instance)
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };
@@ -76,7 +77,7 @@ public class GlobalRateLimitingHandlerTests
             QueueLimit = 0,
         });
 
-        var handler = new GlobalRateLimitingHandler(limiter)
+        var handler = new GlobalRateLimitingHandler(limiter, NullLogger<GlobalRateLimitingHandler>.Instance)
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };

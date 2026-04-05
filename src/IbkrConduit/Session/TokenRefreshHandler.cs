@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
+using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Session;
 
@@ -14,17 +15,20 @@ namespace IbkrConduit.Session;
 /// via <see cref="ISessionManager"/>, and retries the request once. Tickle requests
 /// are excluded from retry to avoid masking dead session detection.
 /// </summary>
-internal sealed class TokenRefreshHandler : DelegatingHandler
+internal sealed partial class TokenRefreshHandler : DelegatingHandler
 {
     private readonly ISessionManager _sessionManager;
+    private readonly ILogger<TokenRefreshHandler> _logger;
 
     /// <summary>
     /// Creates a new token refresh handler.
     /// </summary>
     /// <param name="sessionManager">Session manager for re-authentication.</param>
-    public TokenRefreshHandler(ISessionManager sessionManager)
+    /// <param name="logger">Logger for 401 retry events.</param>
+    public TokenRefreshHandler(ISessionManager sessionManager, ILogger<TokenRefreshHandler> logger)
     {
         _sessionManager = sessionManager;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -55,6 +59,9 @@ internal sealed class TokenRefreshHandler : DelegatingHandler
         }
 
         // Trigger re-authentication
+        var requestPath = request.RequestUri?.AbsolutePath ?? "unknown";
+        LogReceived401(requestPath);
+
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.TokenRefreshRetry");
         activity?.SetTag("original_status_code", (int)response.StatusCode);
 
@@ -64,6 +71,7 @@ internal sealed class TokenRefreshHandler : DelegatingHandler
         }
         catch (Exception ex)
         {
+            LogReauthFailed(ex, requestPath);
             response.Dispose();
             throw new IbkrApiException(
                 new IbkrSessionError(
@@ -86,9 +94,29 @@ internal sealed class TokenRefreshHandler : DelegatingHandler
         // If retry also returns 401, this is likely IBKR returning 401 for a
         // non-auth reason (e.g., invalid account ID). Return the response as-is
         // so the facade can interpret it via ResultFactory.
+        if (retryResponse.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            LogRetryStillUnauthorized(requestPath);
+        }
+        else
+        {
+            LogRetrySucceeded(requestPath, (int)retryResponse.StatusCode);
+        }
 
         return retryResponse;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Received 401 for {RequestPath}, triggering re-authentication")]
+    private partial void LogReceived401(string requestPath);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Re-authentication failed, request to {RequestPath} still unauthorized")]
+    private partial void LogRetryStillUnauthorized(string requestPath);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Re-authentication failed with exception for {RequestPath}")]
+    private partial void LogReauthFailed(Exception exception, string requestPath);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "401 retry succeeded for {RequestPath} with status {StatusCode}")]
+    private partial void LogRetrySucceeded(string requestPath, int statusCode);
 
     private static HttpRequestMessage CloneRequest(
         HttpRequestMessage original, byte[]? bufferedContent, string? contentType)

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using IbkrConduit.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Http;
 
@@ -13,7 +14,7 @@ namespace IbkrConduit.Http;
 /// Requests wait asynchronously for a token; if the queue is full, a
 /// <see cref="RateLimitRejectedException"/> is thrown.
 /// </summary>
-internal sealed class GlobalRateLimitingHandler : DelegatingHandler
+internal sealed partial class GlobalRateLimitingHandler : DelegatingHandler
 {
     private static readonly Histogram<double> _waitDuration =
         IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.ratelimiter.global.wait_duration", "ms");
@@ -22,14 +23,17 @@ internal sealed class GlobalRateLimitingHandler : DelegatingHandler
         IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.ratelimiter.global.rejected.count");
 
     private readonly RateLimiter _limiter;
+    private readonly ILogger<GlobalRateLimitingHandler> _logger;
 
     /// <summary>
     /// Creates a new global rate limiting handler.
     /// </summary>
     /// <param name="limiter">The shared token bucket rate limiter instance.</param>
-    public GlobalRateLimitingHandler(RateLimiter limiter)
+    /// <param name="logger">Logger for rate limit events.</param>
+    public GlobalRateLimitingHandler(RateLimiter limiter, ILogger<GlobalRateLimitingHandler> logger)
     {
         _limiter = limiter;
+        _logger = logger;
 
         IbkrConduitDiagnostics.Meter.CreateObservableGauge(
             "ibkr.conduit.ratelimiter.global.queue_depth",
@@ -48,17 +52,27 @@ internal sealed class GlobalRateLimitingHandler : DelegatingHandler
 
         if (sw.ElapsedMilliseconds > 0)
         {
+            var requestPath = request.RequestUri?.AbsolutePath ?? "unknown";
+            LogGlobalRateLimiterWait(requestPath, sw.ElapsedMilliseconds);
             using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.GlobalRateLimit.Wait");
             activity?.SetTag("wait_ms", sw.ElapsedMilliseconds);
         }
 
         if (!lease.IsAcquired)
         {
+            var requestPath = request.RequestUri?.AbsolutePath ?? "unknown";
             _rejectedCount.Add(1);
+            LogGlobalRateLimiterRejected(requestPath);
             throw new RateLimitRejectedException(
                 "Global rate limit exceeded — queue is full.");
         }
 
         return await base.SendAsync(request, cancellationToken);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Global rate limiter rejected request to {RequestPath} — queue full")]
+    private partial void LogGlobalRateLimiterRejected(string requestPath);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Global rate limiter wait for {RequestPath}: {WaitDurationMs}ms")]
+    private partial void LogGlobalRateLimiterWait(string requestPath, long waitDurationMs);
 }

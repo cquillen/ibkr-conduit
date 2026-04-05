@@ -80,6 +80,7 @@ internal sealed partial class FlexClient
 
         _queryDuration.Record(sw.Elapsed.TotalMilliseconds);
         activity?.SetTag(LogFields.PollCount, _lastPollCount);
+        LogFlexQueryExecuted(queryId);
         return result;
     }
 
@@ -205,6 +206,9 @@ internal sealed partial class FlexClient
             throw new FlexQueryException(errorCode, errorMessage);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Flex query {QueryId} executed successfully")]
+    private partial void LogFlexQueryExecuted(string queryId);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Flex SendRequest succeeded, reference code: {ReferenceCode}")]
     private partial void LogSendRequestSucceeded(string referenceCode);

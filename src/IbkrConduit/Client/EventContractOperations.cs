@@ -2,27 +2,37 @@ using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.EventContracts;
 using IbkrConduit.Session;
+using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Client;
 
 /// <summary>
 /// Event contract (ForecastEx) operations that delegate to the underlying Refit API.
 /// </summary>
-internal class EventContractOperations : IEventContractOperations
+internal partial class EventContractOperations : IEventContractOperations
 {
     private readonly IIbkrEventContractApi _api;
     private readonly IbkrClientOptions _options;
+    private readonly ILogger<EventContractOperations> _logger;
 
     /// <summary>
     /// Creates a new <see cref="EventContractOperations"/> instance.
     /// </summary>
     /// <param name="api">The Refit event contract API client.</param>
     /// <param name="options">Client options.</param>
-    public EventContractOperations(IIbkrEventContractApi api, IbkrClientOptions options)
+    /// <param name="logger">Logger instance.</param>
+    public EventContractOperations(IIbkrEventContractApi api, IbkrClientOptions options, ILogger<EventContractOperations> logger)
     {
         _api = api;
         _options = options;
+        _logger = logger;
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "{Operation} completed with status {StatusCode}")]
+    private static partial void LogOperationCompleted(ILogger logger, string operation, int statusCode);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{Operation} failed: {ErrorType} (status {StatusCode})")]
+    private static partial void LogOperationFailed(ILogger logger, string operation, string errorType, int? statusCode);
 
     /// <inheritdoc />
     public async Task<Result<EventContractCategoryTreeResponse>> GetCategoryTreeAsync(
@@ -31,6 +41,7 @@ internal class EventContractOperations : IEventContractOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.EventContracts.GetCategoryTree");
         var response = await _api.GetCategoryTreeAsync(cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        LogResult(result, "GetCategoryTree");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -42,6 +53,7 @@ internal class EventContractOperations : IEventContractOperations
         activity?.SetTag("underlyingConid", underlyingConid);
         var response = await _api.GetMarketAsync(underlyingConid, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        LogResult(result, "GetMarket");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -53,6 +65,7 @@ internal class EventContractOperations : IEventContractOperations
         activity?.SetTag("conid", conid);
         var response = await _api.GetContractRulesAsync(conid, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        LogResult(result, "GetContractRules");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -64,6 +77,7 @@ internal class EventContractOperations : IEventContractOperations
         activity?.SetTag("conid", conid);
         var response = await _api.GetContractDetailsAsync(conid, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        LogResult(result, "GetContractDetails");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -75,6 +89,19 @@ internal class EventContractOperations : IEventContractOperations
         activity?.SetTag("conid", conid);
         var response = await _api.GetContractSchedulesAsync(conid, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        LogResult(result, "GetContractSchedules");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+    }
+
+    private void LogResult<T>(Result<T> result, string operation)
+    {
+        if (result.IsSuccess)
+        {
+            LogOperationCompleted(_logger, operation, 200);
+        }
+        else
+        {
+            LogOperationFailed(_logger, operation, result.Error.GetType().Name, (int?)result.Error.StatusCode);
+        }
     }
 }

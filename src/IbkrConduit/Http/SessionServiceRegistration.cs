@@ -68,10 +68,12 @@ internal static class SessionServiceRegistration
             })
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
-                    sp.GetRequiredService<RateLimiter>()))
+                    sp.GetRequiredService<RateLimiter>(),
+                    sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>()))
             .AddHttpMessageHandler(sp =>
                 new EndpointRateLimitingHandler(
-                    sp.GetRequiredService<IReadOnlyDictionary<string, RateLimiter>>()))
+                    sp.GetRequiredService<IReadOnlyDictionary<string, RateLimiter>>(),
+                    sp.GetRequiredService<ILogger<EndpointRateLimitingHandler>>()))
             .AddHttpMessageHandler(sp =>
                 new OAuthSigningHandler(
                     sp.GetRequiredService<ISessionTokenProvider>(),
