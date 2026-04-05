@@ -22,8 +22,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="IbkrConduit.Tests.Unit" />
     <InternalsVisibleTo Include="IbkrConduit.Tests.Integration" />
-    <InternalsVisibleTo Include="IbkrConduit.Tests.Integration_Old" />
-    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+<InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
   <ItemGroup>
