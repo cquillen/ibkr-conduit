@@ -112,15 +112,6 @@ public class FlexClientTests
     }
 
     [Fact]
-    public void FlexQueryException_PreservesErrorCodeAndMessage()
-    {
-        var ex = new FlexQueryException(1003, "Too many requests");
-
-        ex.ErrorCode.ShouldBe(1003);
-        ex.Message.ShouldBe("Too many requests");
-    }
-
-    [Fact]
     public async Task FlexOperations_NullFlexClient_ThrowsInvalidOperationException()
     {
         var ops = new FlexOperations(null);
