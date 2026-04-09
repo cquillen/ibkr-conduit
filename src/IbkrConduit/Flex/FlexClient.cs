@@ -29,12 +29,13 @@ internal sealed partial class FlexClient
         IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.flex.error.count");
 
     private static readonly int[] _pollDelaysMs = [1000, 2000, 3000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000];
-    private const int _maxTotalWaitMs = 60000;
+    private const int _defaultMaxTotalWaitMs = 60000;
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly string _clientName;
     private readonly string _flexToken;
     private readonly string _baseUrl;
+    private readonly int _maxTotalWaitMs;
     private readonly ILogger<FlexClient> _logger;
     private int _lastPollCount;
 
@@ -47,12 +48,14 @@ internal sealed partial class FlexClient
     /// <param name="flexToken">The Flex Web Service access token.</param>
     /// <param name="logger">Logger for poll progress.</param>
     /// <param name="baseUrl">Optional base URL override (used for testing).</param>
-    public FlexClient(IHttpClientFactory httpClientFactory, string clientName, string flexToken, ILogger<FlexClient> logger, string? baseUrl = null)
+    /// <param name="pollTimeout">Maximum time to wait for a report to finish generating. Defaults to 60 seconds.</param>
+    public FlexClient(IHttpClientFactory httpClientFactory, string clientName, string flexToken, ILogger<FlexClient> logger, string? baseUrl = null, TimeSpan? pollTimeout = null)
     {
         _httpClientFactory = httpClientFactory;
         _clientName = clientName;
         _flexToken = flexToken;
         _baseUrl = baseUrl ?? _defaultBaseUrl;
+        _maxTotalWaitMs = pollTimeout is null ? _defaultMaxTotalWaitMs : (int)pollTimeout.Value.TotalMilliseconds;
         _logger = logger;
     }
 
@@ -130,13 +133,8 @@ internal sealed partial class FlexClient
         var totalWaited = 0;
         var attempt = 0;
 
-        foreach (var delayMs in _pollDelaysMs)
+        while (totalWaited < _maxTotalWaitMs)
         {
-            if (totalWaited >= _maxTotalWaitMs)
-            {
-                break;
-            }
-
             attempt++;
             _pollCount.Add(1);
             var responseStr = await httpClient.GetStringAsync(url, cancellationToken);
@@ -151,26 +149,27 @@ internal sealed partial class FlexClient
                 return doc;
             }
 
-            LogStatementInProgress(delayMs, totalWaited);
-            await Task.Delay(delayMs, cancellationToken);
-            totalWaited += delayMs;
+            // Pick delay for this attempt: use the ramp-up schedule for the first N attempts,
+            // then cap at 5s for subsequent attempts to avoid unbounded waits.
+            var delayMs = attempt <= _pollDelaysMs.Length
+                ? _pollDelaysMs[attempt - 1]
+                : 5000;
+
+            // Don't sleep past the timeout
+            var remaining = _maxTotalWaitMs - totalWaited;
+            if (remaining <= 0)
+            {
+                break;
+            }
+
+            var actualDelay = Math.Min(delayMs, remaining);
+            LogStatementInProgress(actualDelay, totalWaited);
+            await Task.Delay(actualDelay, cancellationToken);
+            totalWaited += actualDelay;
         }
 
-        // One final attempt after all delays
-        attempt++;
-        var finalResponseStr = await httpClient.GetStringAsync(url, cancellationToken);
-        var finalDoc = XDocument.Parse(finalResponseStr);
-
-        if (IsInProgress(finalDoc))
-        {
-            throw new TimeoutException(
-                $"Flex statement generation did not complete within {_maxTotalWaitMs / 1000}s for reference code '{referenceCode}'.");
-        }
-
-        CheckForError(finalDoc);
-        _lastPollCount = attempt;
-        activity?.SetTag(LogFields.Attempt, attempt);
-        return finalDoc;
+        throw new TimeoutException(
+            $"Flex statement generation did not complete within {_maxTotalWaitMs / 1000}s for reference code '{referenceCode}'.");
     }
 
     private static bool IsInProgress(XDocument doc)
