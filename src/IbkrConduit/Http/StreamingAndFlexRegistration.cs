@@ -56,15 +56,20 @@ internal static class StreamingAndFlexRegistration
                     sp.GetRequiredService<IHttpClientFactory>(),
                     flexClientName,
                     flexToken,
-                    sp.GetRequiredService<ILogger<FlexClient>>(),
-                    baseUrl: null,
-                    pollTimeout: clientOptions.FlexPollTimeout));
+                    sp.GetRequiredService<ILogger<FlexClient>>()));
             services.AddSingleton<IFlexOperations>(sp =>
-                new FlexOperations(sp.GetRequiredService<FlexClient>()));
+                new FlexOperations(
+                    sp.GetRequiredService<FlexClient>(),
+                    clientOptions,
+                    sp.GetRequiredService<ILogger<FlexOperations>>()));
         }
         else
         {
-            services.AddSingleton<IFlexOperations>(_ => new FlexOperations(null));
+            services.AddSingleton<IFlexOperations>(sp =>
+                new FlexOperations(
+                    null,
+                    clientOptions,
+                    sp.GetRequiredService<ILogger<FlexOperations>>()));
         }
     }
 }

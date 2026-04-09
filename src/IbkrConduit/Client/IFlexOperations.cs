@@ -1,3 +1,4 @@
+using IbkrConduit.Errors;
 using IbkrConduit.Flex;
 
 namespace IbkrConduit.Client;
@@ -13,8 +14,9 @@ public interface IFlexOperations
     /// </summary>
     /// <param name="queryId">The Flex Query template ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The parsed Flex Query result containing typed sections and raw XML.</returns>
-    Task<FlexQueryResult> ExecuteQueryAsync(
+    /// <returns>A <see cref="Result{T}"/> wrapping the parsed Flex Query result on success,
+    /// or an <see cref="IbkrError"/> subtype on failure.</returns>
+    Task<Result<FlexQueryResult>> ExecuteQueryAsync(
         string queryId, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -25,8 +27,9 @@ public interface IFlexOperations
     /// <param name="fromDate">Start date in yyyyMMdd format.</param>
     /// <param name="toDate">End date in yyyyMMdd format.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The parsed Flex Query result containing typed sections and raw XML.</returns>
-    Task<FlexQueryResult> ExecuteQueryAsync(
+    /// <returns>A <see cref="Result{T}"/> wrapping the parsed Flex Query result on success,
+    /// or an <see cref="IbkrError"/> subtype on failure.</returns>
+    Task<Result<FlexQueryResult>> ExecuteQueryAsync(
         string queryId, string fromDate, string toDate,
         CancellationToken cancellationToken = default);
 }
