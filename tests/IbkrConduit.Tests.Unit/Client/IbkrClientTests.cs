@@ -194,8 +194,8 @@ public class IbkrClientTests
 
     private class FakeFlexOperations : IFlexOperations
     {
-        public Task<FlexQueryResult> ExecuteQueryAsync(string queryId, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<FlexQueryResult> ExecuteQueryAsync(string queryId, string fromDate, string toDate, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<FlexQueryResult>> ExecuteQueryAsync(string queryId, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<FlexQueryResult>> ExecuteQueryAsync(string queryId, string fromDate, string toDate, CancellationToken ct = default) => throw new NotImplementedException();
     }
 
     private class FakeAccountOperations : IAccountOperations
