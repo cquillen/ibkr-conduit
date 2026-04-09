@@ -35,18 +35,47 @@ public class FlexClientPollingTests
         </FlexQueryResponse>
         """;
 
-    private const string _errorResponse1004 = """
+    // 1015 "Token is invalid" — permanent per IBKR docs
+    private const string _errorResponse1015 = """
         <FlexStatementResponse>
+            <Status>Fail</Status>
+            <ErrorCode>1015</ErrorCode>
+            <ErrorMessage>Token is invalid.</ErrorMessage>
+        </FlexStatementResponse>
+        """;
+
+    // 1004 "Statement is incomplete at this time" — retryable per IBKR docs
+    private const string _retryableResponse1004 = """
+        <FlexStatementResponse>
+            <Status>Warn</Status>
             <ErrorCode>1004</ErrorCode>
-            <ErrorMessage>Invalid token</ErrorMessage>
+            <ErrorMessage>Statement is incomplete at this time. Please try again shortly.</ErrorMessage>
+        </FlexStatementResponse>
+        """;
+
+    // 1018 "Too many requests" — retryable per IBKR docs
+    private const string _retryableResponse1018 = """
+        <FlexStatementResponse>
+            <Status>Warn</Status>
+            <ErrorCode>1018</ErrorCode>
+            <ErrorMessage>Too many requests have been made from this token.</ErrorMessage>
+        </FlexStatementResponse>
+        """;
+
+    // Unknown code with Status=Fail — should be classified as permanent
+    private const string _unknownFailResponse = """
+        <FlexStatementResponse>
+            <Status>Fail</Status>
+            <ErrorCode>9999</ErrorCode>
+            <ErrorMessage>Something went wrong</ErrorMessage>
         </FlexStatementResponse>
         """;
 
     private const string _failSendRequest = """
         <FlexStatementResponse>
             <Status>Fail</Status>
-            <ErrorCode>1018</ErrorCode>
-            <ErrorMessage>Invalid query ID</ErrorMessage>
+            <ErrorCode>1015</ErrorCode>
+            <ErrorMessage>Token is invalid.</ErrorMessage>
         </FlexStatementResponse>
         """;
 
@@ -131,19 +160,77 @@ public class FlexClientPollingTests
     }
 
     [Fact]
-    public async Task ExecuteQueryAsync_NonRetryableError_ThrowsFlexQueryException()
+    public async Task ExecuteQueryAsync_KnownPermanentErrorDuringPoll_ThrowsFlexQueryException()
     {
+        // 1015 "Token is invalid" is documented as permanent — should throw immediately.
         var handler = new SequentialFakeHttpHandler(
             _successSendRequest,
-            _errorResponse1004);
+            _errorResponse1015);
 
         var client = CreateClient(handler);
 
         var ex = await Should.ThrowAsync<FlexQueryException>(
             () => client.ExecuteQueryAsync("Q1", null, null, CancellationToken.None));
 
-        ex.ErrorCode.ShouldBe(1004);
-        ex.Message.ShouldBe("Invalid token");
+        ex.ErrorCode.ShouldBe(1015);
+        ex.Message.ShouldBe("Token is invalid.");
+    }
+
+    [Fact]
+    public async Task ExecuteQueryAsync_KnownRetryableError1004_RetriesUntilSuccess()
+    {
+        // 1004 "Statement is incomplete at this time" is documented as retryable.
+        // The old implementation only retried 1019; this test verifies the new table-driven classifier.
+        var handler = new SequentialFakeHttpHandler(
+            _successSendRequest,
+            _retryableResponse1004,
+            _retryableResponse1004,
+            _successStatement);
+
+        var client = CreateClient(handler);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var doc = await client.ExecuteQueryAsync("Q1", null, null, cts.Token);
+
+        doc.ShouldNotBeNull();
+        doc.Root!.Name.LocalName.ShouldBe("FlexQueryResponse");
+        handler.CallCount.ShouldBe(4); // SendRequest + 3 GetStatement polls
+    }
+
+    [Fact]
+    public async Task ExecuteQueryAsync_RateLimit1018_RetriesUntilSuccess()
+    {
+        // 1018 is retryable but should use a longer backoff to respect the 10/min/token limit.
+        // This test just verifies the classification works; timing is not asserted to keep the test fast.
+        var handler = new SequentialFakeHttpHandler(
+            _successSendRequest,
+            _retryableResponse1018,
+            _successStatement);
+
+        var client = CreateClient(handler);
+
+        // Generous cancellation to allow the longer 1018 delay (10s)
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var doc = await client.ExecuteQueryAsync("Q1", null, null, cts.Token);
+
+        doc.ShouldNotBeNull();
+        handler.CallCount.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task ExecuteQueryAsync_UnknownErrorCodeWithStatusFail_ThrowsFlexQueryException()
+    {
+        // Unknown codes fall back to the Status element. Status=Fail → permanent → throw.
+        var handler = new SequentialFakeHttpHandler(
+            _successSendRequest,
+            _unknownFailResponse);
+
+        var client = CreateClient(handler);
+
+        var ex = await Should.ThrowAsync<FlexQueryException>(
+            () => client.ExecuteQueryAsync("Q1", null, null, CancellationToken.None));
+
+        ex.ErrorCode.ShouldBe(9999);
     }
 
     [Fact]
@@ -155,7 +242,7 @@ public class FlexClientPollingTests
         var ex = await Should.ThrowAsync<FlexQueryException>(
             () => client.ExecuteQueryAsync("BADID", null, null, CancellationToken.None));
 
-        ex.ErrorCode.ShouldBe(1018);
+        ex.ErrorCode.ShouldBe(1015);
     }
 
     [Fact]

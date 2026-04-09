@@ -8,14 +8,16 @@ using Microsoft.Extensions.Logging;
 //   dotnet run --project tools/CaptureFlexQuery -- <queryId> [options]
 //
 // Options:
-//   --from <yyyyMMdd>   Override query start date (must be used with --to)
-//   --to <yyyyMMdd>     Override query end date (must be used with --from)
-//   --output <path>     Output file path (default: recordings/flex/{timestamp}-{queryId}.xml)
+//   --from <yyyyMMdd>     Override query start date (requires --to)
+//   --to <yyyyMMdd>       Override query end date (requires --from)
+//   --output <path>       Output file path
+//   --poll-timeout <sec>  Max seconds to wait for report generation (default: 60)
 //
-// Examples:
-//   dotnet run --project tools/CaptureFlexQuery -- 1464458
-//   dotnet run --project tools/CaptureFlexQuery -- 1464458 --from 20260101 --to 20260409
-//   dotnet run --project tools/CaptureFlexQuery -- 1464458 --output /tmp/result.xml
+// NOTE: Multi-day --from/--to overrides on the IBKR Flex service can hang
+// indefinitely (server returns code 1019 "in progress" forever) depending on
+// the query template. Single-day overrides and no-override (uses template
+// period) are reliable. Prefer changing the query's period in the IBKR portal
+// over runtime overrides for wide ranges.
 
 if (args.Length == 0)
 {
@@ -88,6 +90,11 @@ Console.WriteLine($"Flex Query ID: {queryId}");
 if (fromDate is not null)
 {
     Console.WriteLine($"Date range:    {fromDate} → {toDate}");
+    if (fromDate != toDate)
+    {
+        Console.WriteLine("WARNING: Multi-day runtime date overrides may hang server-side. If the poll");
+        Console.WriteLine("         times out, configure the period in the query template instead.");
+    }
 }
 Console.WriteLine($"Output path:   {outputPath}");
 Console.WriteLine();
@@ -143,6 +150,9 @@ static void PrintUsage()
     Console.Error.WriteLine("  --to <yyyyMMdd>       Override query end date (requires --from)");
     Console.Error.WriteLine("  --output <path>       Output file path");
     Console.Error.WriteLine("  --poll-timeout <sec>  Max seconds to wait for report generation (default: 60)");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("NOTE: Multi-day runtime date overrides can hang server-side. For wide date");
+    Console.Error.WriteLine("      ranges, configure the period in the query template in the IBKR portal.");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Required environment variables:");
     Console.Error.WriteLine("  IBKR_CONSUMER_KEY, IBKR_ACCESS_TOKEN, IBKR_ACCESS_TOKEN_SECRET,");
