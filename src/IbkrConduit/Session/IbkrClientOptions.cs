@@ -70,4 +70,12 @@ public class IbkrClientOptions
     /// throwing <see cref="Errors.IbkrApiException"/> on API errors. Default false.
     /// </summary>
     public bool ThrowOnApiError { get; set; }
+
+    /// <summary>
+    /// Maximum time to wait for a Flex Web Service report to finish generating.
+    /// Wider date ranges and reports with many sections can take minutes to generate.
+    /// Default is 60 seconds — sufficient for built-in period queries (e.g., LastBusinessDay)
+    /// but often too short for custom date ranges. Increase for year-scale historical reports.
+    /// </summary>
+    public TimeSpan FlexPollTimeout { get; set; } = TimeSpan.FromSeconds(60);
 }
