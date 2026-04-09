@@ -139,8 +139,12 @@ internal sealed partial class FlexClient
             attempt++;
             _pollCount.Add(1);
             var responseStr = await httpClient.GetStringAsync(url, cancellationToken);
-            var doc = XDocument.Parse(responseStr);
 
+            // Trace-level: full raw response body for each poll attempt. Only materialized
+            // when Trace logging is enabled for this category, so the cost is nil otherwise.
+            LogPollResponseBody(attempt, responseStr);
+
+            var doc = XDocument.Parse(responseStr);
             var classification = ClassifyPollResponse(doc, out var errorCode, out var errorMessage);
 
             if (classification == FlexResponseClass.Success)
@@ -154,6 +158,7 @@ internal sealed partial class FlexClient
             if (classification == FlexResponseClass.Permanent)
             {
                 _errorCount.Add(1, new KeyValuePair<string, object?>(LogFields.ErrorCode, errorCode));
+                LogPermanentError(attempt, errorCode, errorMessage ?? "(none)");
                 throw new FlexQueryException(errorCode, errorMessage ?? "Unknown Flex query error");
             }
 
@@ -174,7 +179,7 @@ internal sealed partial class FlexClient
             }
 
             var actualDelay = Math.Min(delayMs, remaining);
-            LogStatementInProgress(actualDelay, totalWaited);
+            LogTransientResponse(attempt, errorCode, errorMessage ?? "(none)", actualDelay, totalWaited);
             await Task.Delay(actualDelay, cancellationToken);
             totalWaited += actualDelay;
         }
@@ -257,6 +262,18 @@ internal sealed partial class FlexClient
     [LoggerMessage(Level = LogLevel.Debug, Message = "Flex GetStatement completed after {TotalWaited}ms")]
     private partial void LogGetStatementCompleted(int totalWaited);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Flex statement generation in progress, waiting {DelayMs}ms (total waited: {TotalWaited}ms)")]
-    private partial void LogStatementInProgress(int delayMs, int totalWaited);
+    [LoggerMessage(
+        Level = LogLevel.Debug,
+        Message = "Flex GetStatement poll #{Attempt} returned transient error {ErrorCode}: {ErrorMessage} — waiting {DelayMs}ms before retry (total waited: {TotalWaited}ms)")]
+    private partial void LogTransientResponse(int attempt, int errorCode, string errorMessage, int delayMs, int totalWaited);
+
+    [LoggerMessage(
+        Level = LogLevel.Debug,
+        Message = "Flex GetStatement poll #{Attempt} returned permanent error {ErrorCode}: {ErrorMessage}")]
+    private partial void LogPermanentError(int attempt, int errorCode, string errorMessage);
+
+    [LoggerMessage(
+        Level = LogLevel.Trace,
+        Message = "Flex GetStatement poll #{Attempt} response body: {ResponseBody}")]
+    private partial void LogPollResponseBody(int attempt, string responseBody);
 }
