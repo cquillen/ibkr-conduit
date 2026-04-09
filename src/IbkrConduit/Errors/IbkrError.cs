@@ -59,6 +59,22 @@ public record IbkrOrderRejectedError(
     : IbkrError(HttpStatusCode.OK, RejectionMessage, RawBody, RequestPath);
 
 /// <summary>
+/// Error from a Flex Web Service query. Carries the numeric error code,
+/// the canonical description from IBKR's documentation, and whether the
+/// error is retryable. StatusCode is null because Flex returns all logical
+/// errors with HTTP 200 — the actual error information is in the XML body.
+/// </summary>
+[ExcludeFromCodeCoverage]
+public record IbkrFlexError(
+    int ErrorCode,
+    string? CodeDescription,
+    bool IsRetryable,
+    string? Message,
+    string? RawBody,
+    string? RequestPath)
+    : IbkrError(null, Message, RawBody, RequestPath);
+
+/// <summary>
 /// Hidden error — IBKR returned 200 OK with an error body on a non-order endpoint.
 /// </summary>
 [ExcludeFromCodeCoverage]
