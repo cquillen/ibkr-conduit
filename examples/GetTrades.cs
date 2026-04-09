@@ -39,12 +39,12 @@ IbkrConduit.Flex.FlexQueryResult result;
 if (args.Length >= 2)
 {
     Console.WriteLine($"Executing Flex Query {flexQueryId} ({args[0]} to {args[1]})...");
-    result = await client.Flex.ExecuteQueryAsync(flexQueryId, args[0], args[1]);
+    result = (await client.Flex.ExecuteQueryAsync(flexQueryId, args[0], args[1])).EnsureSuccess().Value;
 }
 else
 {
     Console.WriteLine($"Executing Flex Query {flexQueryId} (default period)...");
-    result = await client.Flex.ExecuteQueryAsync(flexQueryId);
+    result = (await client.Flex.ExecuteQueryAsync(flexQueryId)).EnsureSuccess().Value;
 }
 
 if (result.Trades.Count == 0)

@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Flex;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -13,124 +14,120 @@ namespace IbkrConduit.Tests.Unit.Flex;
 
 public class FlexClientTests
 {
-    [Fact]
-    public async Task SendRequestAsync_SuccessResponse_ReturnsReferenceCode()
-    {
-        var handler = new FakeHttpHandler("""
-            <FlexStatementResponse timestamp="12345">
-                <Status>Success</Status>
-                <ReferenceCode>9876543210</ReferenceCode>
-                <Url>https://example.com</Url>
-            </FlexStatementResponse>
-            """);
+    private const string _validXml = """
+        <FlexStatementResponse timestamp="12345">
+            <Status>Success</Status>
+            <ReferenceCode>REF123</ReferenceCode>
+        </FlexStatementResponse>
+        """;
 
+    [Fact]
+    public async Task SendRequestAsync_SuccessXml_ReturnsSuccessResult()
+    {
+        var handler = new FakeHttpHandler(_validXml);
         var client = CreateClient(handler);
 
-        var result = await client.SendRequestAsync("12345", null, null, CancellationToken.None);
+        var result = await client.SendRequestAsync("12345", null, null, TestContext.Current.CancellationToken);
 
-        result.ShouldBe("9876543210");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Root!.Name.LocalName.ShouldBe("FlexStatementResponse");
     }
 
     [Fact]
-    public async Task SendRequestAsync_ErrorResponse_ThrowsFlexQueryException()
+    public async Task SendRequestAsync_HttpRequestException_ReturnsFailureResult()
     {
-        var handler = new FakeHttpHandler("""
-            <FlexStatementResponse timestamp="12345">
-                <Status>Fail</Status>
-                <ErrorCode>1004</ErrorCode>
-                <ErrorMessage>Invalid token</ErrorMessage>
-            </FlexStatementResponse>
-            """);
-
+        var handler = new ThrowingHttpHandler(new HttpRequestException("boom", inner: null, HttpStatusCode.InternalServerError));
         var client = CreateClient(handler);
 
-        var ex = await Should.ThrowAsync<FlexQueryException>(
-            () => client.SendRequestAsync("12345", null, null, CancellationToken.None));
+        var result = await client.SendRequestAsync("12345", null, null, TestContext.Current.CancellationToken);
 
-        ex.ErrorCode.ShouldBe(1004);
-        ex.Message.ShouldBe("Invalid token");
+        result.IsSuccess.ShouldBeFalse();
+        var err = result.Error.ShouldBeOfType<IbkrApiError>();
+        err.RequestPath.ShouldBe("flex/SendRequest?q=12345");
     }
 
     [Fact]
-    public async Task SendRequestAsync_WithDateRange_IncludesDatesInUrl()
+    public async Task SendRequestAsync_MalformedXml_ReturnsFailureResultWithRawBody()
     {
-        var handler = new FakeHttpHandler("""
-            <FlexStatementResponse>
-                <Status>Success</Status>
-                <ReferenceCode>ABC123</ReferenceCode>
-            </FlexStatementResponse>
-            """);
-
+        var handler = new FakeHttpHandler("not xml at all <<<");
         var client = CreateClient(handler);
 
-        await client.SendRequestAsync("Q1", "20260101", "20260301", CancellationToken.None);
+        var result = await client.SendRequestAsync("12345", null, null, TestContext.Current.CancellationToken);
 
-        var requestUrl = handler.LastRequestUri!.ToString();
-        requestUrl.ShouldContain("fd=20260101");
-        requestUrl.ShouldContain("td=20260301");
+        result.IsSuccess.ShouldBeFalse();
+        var err = result.Error.ShouldBeOfType<IbkrApiError>();
+        err.RawBody.ShouldBe("not xml at all <<<");
+        err.Message.ShouldContain("not valid XML");
     }
 
     [Fact]
-    public async Task PollForStatementAsync_ImmediateSuccess_ReturnsDocument()
+    public async Task SendRequestAsync_WithDateRange_IncludesFdTdInUrl()
+    {
+        var handler = new FakeHttpHandler(_validXml);
+        var client = CreateClient(handler);
+
+        await client.SendRequestAsync("Q1", "20260101", "20260301", TestContext.Current.CancellationToken);
+
+        var url = handler.LastRequestUri!.ToString();
+        url.ShouldContain("fd=20260101");
+        url.ShouldContain("td=20260301");
+    }
+
+    [Fact]
+    public async Task SendRequestAsync_WithNullDates_DoesNotIncludeFdTdInUrl()
+    {
+        var handler = new FakeHttpHandler(_validXml);
+        var client = CreateClient(handler);
+
+        await client.SendRequestAsync("Q1", null, null, TestContext.Current.CancellationToken);
+
+        var url = handler.LastRequestUri!.ToString();
+        url.ShouldNotContain("fd=");
+        url.ShouldNotContain("td=");
+    }
+
+    [Fact]
+    public async Task GetStatementAsync_SuccessXml_ReturnsSuccessResult()
     {
         var handler = new FakeHttpHandler("""
             <FlexQueryResponse>
               <FlexStatements count="1">
-                <FlexStatement accountId="U1234567" />
+                <FlexStatement accountId="U1" />
               </FlexStatements>
             </FlexQueryResponse>
             """);
-
         var client = CreateClient(handler);
 
-        var doc = await client.PollForStatementAsync("REF123", CancellationToken.None);
+        var result = await client.GetStatementAsync("REF123", TestContext.Current.CancellationToken);
 
-        doc.ShouldNotBeNull();
-        doc.Root!.Name.LocalName.ShouldBe("FlexQueryResponse");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Root!.Name.LocalName.ShouldBe("FlexQueryResponse");
     }
 
     [Fact]
-    public async Task PollForStatementAsync_ErrorResponse_ThrowsFlexQueryException()
+    public async Task GetStatementAsync_HttpRequestException_ReturnsFailureResult()
     {
-        // Use 1015 "Token is invalid" which is documented as permanent (non-retryable).
-        // Previously this test used 1004, but 1004 is actually retryable per the IBKR
-        // docs so it no longer causes an immediate throw under the table-driven classifier.
-        var handler = new FakeHttpHandler("""
-            <FlexStatementResponse>
-                <Status>Fail</Status>
-                <ErrorCode>1015</ErrorCode>
-                <ErrorMessage>Token is invalid.</ErrorMessage>
-            </FlexStatementResponse>
-            """);
-
+        var handler = new ThrowingHttpHandler(new HttpRequestException("network down"));
         var client = CreateClient(handler);
 
-        var ex = await Should.ThrowAsync<FlexQueryException>(
-            () => client.PollForStatementAsync("REF123", CancellationToken.None));
+        var result = await client.GetStatementAsync("REF123", TestContext.Current.CancellationToken);
 
-        ex.ErrorCode.ShouldBe(1015);
+        result.IsSuccess.ShouldBeFalse();
+        var err = result.Error.ShouldBeOfType<IbkrApiError>();
+        err.RequestPath.ShouldBe("flex/GetStatement?q=REF123");
     }
 
     [Fact]
-    public async Task FlexOperations_NullFlexClient_ThrowsInvalidOperationException()
+    public async Task GetStatementAsync_MalformedXml_ReturnsFailureResultWithRawBody()
     {
-        var ops = new FlexOperations(null);
+        var handler = new FakeHttpHandler("<<<broken>");
+        var client = CreateClient(handler);
 
-        var ex = await Should.ThrowAsync<InvalidOperationException>(
-            () => ops.ExecuteQueryAsync("12345", CancellationToken.None));
+        var result = await client.GetStatementAsync("REF123", TestContext.Current.CancellationToken);
 
-        ex.Message.ShouldContain("FlexToken");
-    }
-
-    [Fact]
-    public async Task FlexOperations_NullFlexClient_WithDateRange_ThrowsInvalidOperationException()
-    {
-        var ops = new FlexOperations(null);
-
-        var ex = await Should.ThrowAsync<InvalidOperationException>(
-            () => ops.ExecuteQueryAsync("12345", "20260101", "20260301", CancellationToken.None));
-
-        ex.Message.ShouldContain("FlexToken");
+        result.IsSuccess.ShouldBeFalse();
+        var err = result.Error.ShouldBeOfType<IbkrApiError>();
+        err.RawBody.ShouldBe("<<<broken>");
     }
 
     private static FlexClient CreateClient(HttpMessageHandler handler)
@@ -139,7 +136,7 @@ public class FlexClientTests
         return new FlexClient(factory, "test-flex", "FAKE_TOKEN", NullLogger<FlexClient>.Instance);
     }
 
-    private class FakeHttpHandler : HttpMessageHandler
+    private sealed class FakeHttpHandler : HttpMessageHandler
     {
         private readonly Queue<string> _responses;
 
@@ -154,24 +151,32 @@ public class FlexClientTests
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastRequestUri = request.RequestUri;
-            var body = _responses.Count > 0 ? _responses.Dequeue() : _responses.Peek();
+            var body = _responses.Count > 1 ? _responses.Dequeue() : _responses.Peek();
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/xml"),
+                Content = new StringContent(body, Encoding.UTF8, "application/xml"),
             });
         }
+    }
+
+    private sealed class ThrowingHttpHandler : HttpMessageHandler
+    {
+        private readonly Exception _exception;
+
+        public ThrowingHttpHandler(Exception exception) => _exception = exception;
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw _exception;
     }
 
     private sealed class FakeHttpClientFactory : IHttpClientFactory
     {
         private readonly HttpMessageHandler _handler;
 
-        public FakeHttpClientFactory(HttpMessageHandler handler)
-        {
-            _handler = handler;
-        }
+        public FakeHttpClientFactory(HttpMessageHandler handler) => _handler = handler;
 
         public HttpClient CreateClient(string name) =>
-            new HttpClient(_handler, disposeHandler: false);
+            new(_handler, disposeHandler: false);
     }
 }

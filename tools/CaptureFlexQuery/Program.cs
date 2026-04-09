@@ -120,10 +120,29 @@ await using var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<IIbkrClient>();
 
 Console.WriteLine("Executing Flex query (two-step: SendRequest → poll GetStatement)...");
-var result = fromDate is not null
+var queryResult = fromDate is not null
     ? await client.Flex.ExecuteQueryAsync(queryId, fromDate, toDate!)
     : await client.Flex.ExecuteQueryAsync(queryId);
 
+if (!queryResult.IsSuccess)
+{
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("Flex query failed.");
+    if (queryResult.Error is IbkrConduit.Errors.IbkrFlexError flexErr)
+    {
+        Console.Error.WriteLine($"  ErrorCode:       {flexErr.ErrorCode}");
+        Console.Error.WriteLine($"  CodeDescription: {flexErr.CodeDescription ?? "(none)"}");
+        Console.Error.WriteLine($"  IsRetryable:     {flexErr.IsRetryable}");
+        Console.Error.WriteLine($"  Message:         {flexErr.Message ?? "(none)"}");
+    }
+    else
+    {
+        Console.Error.WriteLine($"  Error: {queryResult.Error.Message ?? queryResult.Error.GetType().Name}");
+    }
+    return 1;
+}
+
+var result = queryResult.Value;
 var xml = result.RawXml.ToString();
 await File.WriteAllTextAsync(outputPath, xml);
 

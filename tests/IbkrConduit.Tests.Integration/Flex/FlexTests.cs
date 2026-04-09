@@ -2,7 +2,9 @@ using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Flex;
+using IbkrConduit.Session;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using WireMock.RequestBuilders;
@@ -13,8 +15,9 @@ namespace IbkrConduit.Tests.Integration.Flex;
 
 /// <summary>
 /// Integration tests for the Flex Web Service two-step query flow.
-/// These tests create a <see cref="FlexClient"/> directly (not through TestHarness)
-/// because Flex uses its own HTTP pipeline, independent of the consumer Refit pipeline.
+/// These tests construct <see cref="FlexOperations"/> directly (wrapping a <see cref="FlexClient"/>
+/// pointed at a WireMock server) because Flex uses its own HTTP pipeline, independent of
+/// the consumer Refit pipeline.
 /// </summary>
 public class FlexTests : IDisposable
 {
@@ -28,7 +31,6 @@ public class FlexTests : IDisposable
     [Fact]
     public async Task ExecuteQueryAsync_TwoStepFlow_ReturnsParsedResult()
     {
-        // Step 1: SendRequest returns reference code
         _server.Given(
             Request.Create()
                 .WithPath("/AccountManagement/FlexWebService/SendRequest")
@@ -46,7 +48,6 @@ public class FlexTests : IDisposable
                         </FlexStatementResponse>
                         """));
 
-        // Step 2: GetStatement returns report
         _server.Given(
             Request.Create()
                 .WithPath("/AccountManagement/FlexWebService/GetStatement")
@@ -78,24 +79,23 @@ public class FlexTests : IDisposable
                         </FlexQueryResponse>
                         """));
 
-        var flexClient = CreateFlexClient();
-        var ops = new FlexOperations(flexClient);
+        var ops = CreateOperations();
 
         var result = await ops.ExecuteQueryAsync("12345", TestContext.Current.CancellationToken);
 
-        result.RawXml.ShouldNotBeNull();
-        result.Trades.Count.ShouldBe(1);
-        result.Trades[0].Symbol.ShouldBe("AAPL");
-        result.Trades[0].Quantity.ShouldBe(100m);
-        result.OpenPositions.Count.ShouldBe(1);
-        result.OpenPositions[0].Symbol.ShouldBe("SPY");
-        result.OpenPositions[0].Position.ShouldBe(200m);
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.RawXml.ShouldNotBeNull();
+        result.Value.Trades.Count.ShouldBe(1);
+        result.Value.Trades[0].Symbol.ShouldBe("AAPL");
+        result.Value.Trades[0].Quantity.ShouldBe(100m);
+        result.Value.OpenPositions.Count.ShouldBe(1);
+        result.Value.OpenPositions[0].Symbol.ShouldBe("SPY");
+        result.Value.OpenPositions[0].Position.ShouldBe(200m);
     }
 
     [Fact]
     public async Task ExecuteQueryAsync_PollsOnInProgress_ReturnsOnSecondAttempt()
     {
-        // Step 1: SendRequest returns reference code
         _server.Given(
             Request.Create()
                 .WithPath("/AccountManagement/FlexWebService/SendRequest")
@@ -112,7 +112,6 @@ public class FlexTests : IDisposable
                         </FlexStatementResponse>
                         """));
 
-        // Step 2: First GetStatement returns "in progress" (1019)
         _server.Given(
             Request.Create()
                 .WithPath("/AccountManagement/FlexWebService/GetStatement")
@@ -131,7 +130,6 @@ public class FlexTests : IDisposable
                         </FlexStatementResponse>
                         """));
 
-        // Second GetStatement returns data
         _server.Given(
             Request.Create()
                 .WithPath("/AccountManagement/FlexWebService/GetStatement")
@@ -155,17 +153,17 @@ public class FlexTests : IDisposable
                         </FlexQueryResponse>
                         """));
 
-        var flexClient = CreateFlexClient();
-        var ops = new FlexOperations(flexClient);
+        var ops = CreateOperations();
 
         var result = await ops.ExecuteQueryAsync("67890", TestContext.Current.CancellationToken);
 
-        result.Trades.Count.ShouldBe(1);
-        result.Trades[0].Symbol.ShouldBe("GOOG");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Trades.Count.ShouldBe(1);
+        result.Value.Trades[0].Symbol.ShouldBe("GOOG");
     }
 
     [Fact]
-    public async Task ExecuteQueryAsync_ErrorResponse_ThrowsFlexQueryException()
+    public async Task ExecuteQueryAsync_StrictModeOff_ErrorResponse_ReturnsFlexErrorFailure()
     {
         _server.Given(
             Request.Create()
@@ -184,20 +182,48 @@ public class FlexTests : IDisposable
                         </FlexStatementResponse>
                         """));
 
-        var flexClient = CreateFlexClient();
-        var ops = new FlexOperations(flexClient);
+        var ops = CreateOperations(throwOnApiError: false);
 
-        var ex = await Should.ThrowAsync<FlexQueryException>(
-            () => ops.ExecuteQueryAsync("BAD_QUERY", TestContext.Current.CancellationToken));
+        var result = await ops.ExecuteQueryAsync("BAD_QUERY", TestContext.Current.CancellationToken);
 
-        ex.ErrorCode.ShouldBe(1005);
-        ex.Message.ShouldBe("Query ID not found");
+        result.IsSuccess.ShouldBeFalse();
+        var err = result.Error.ShouldBeOfType<IbkrFlexError>();
+        err.ErrorCode.ShouldBe(1005);
+        err.Message.ShouldBe("Query ID not found");
+    }
+
+    [Fact]
+    public async Task ExecuteQueryAsync_StrictModeOn_ErrorResponse_ThrowsIbkrApiException()
+    {
+        _server.Given(
+            Request.Create()
+                .WithPath("/AccountManagement/FlexWebService/SendRequest")
+                .WithParam("q", "BAD_QUERY_STRICT")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/xml")
+                    .WithBody("""
+                        <FlexStatementResponse>
+                            <Status>Fail</Status>
+                            <ErrorCode>1005</ErrorCode>
+                            <ErrorMessage>Query ID not found</ErrorMessage>
+                        </FlexStatementResponse>
+                        """));
+
+        var ops = CreateOperations(throwOnApiError: true);
+
+        var ex = await Should.ThrowAsync<IbkrApiException>(
+            () => ops.ExecuteQueryAsync("BAD_QUERY_STRICT", TestContext.Current.CancellationToken));
+
+        var err = ex.Error.ShouldBeOfType<IbkrFlexError>();
+        err.ErrorCode.ShouldBe(1005);
     }
 
     [Fact]
     public async Task ExecuteQueryAsync_WithDateRange_PassesDatesToRequest()
     {
-        // Step 1: SendRequest returns reference code (match with date params)
         _server.Given(
             Request.Create()
                 .WithPath("/AccountManagement/FlexWebService/SendRequest")
@@ -217,7 +243,6 @@ public class FlexTests : IDisposable
                         </FlexStatementResponse>
                         """));
 
-        // Step 2: GetStatement returns report
         _server.Given(
             Request.Create()
                 .WithPath("/AccountManagement/FlexWebService/GetStatement")
@@ -243,16 +268,14 @@ public class FlexTests : IDisposable
                         </FlexQueryResponse>
                         """));
 
-        var flexClient = CreateFlexClient();
-        var ops = new FlexOperations(flexClient);
+        var ops = CreateOperations();
 
         var result = await ops.ExecuteQueryAsync("12345", "20260101", "20260331", TestContext.Current.CancellationToken);
 
-        result.RawXml.ShouldNotBeNull();
-        result.Trades.Count.ShouldBe(1);
-        result.Trades[0].Symbol.ShouldBe("MSFT");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Trades.Count.ShouldBe(1);
+        result.Value.Trades[0].Symbol.ShouldBe("MSFT");
 
-        // Verify the SendRequest included date params
         var sendRequests = _server.FindLogEntries(
             Request.Create()
                 .WithPath("/AccountManagement/FlexWebService/SendRequest")
@@ -266,7 +289,10 @@ public class FlexTests : IDisposable
     [Fact]
     public async Task ExecuteQueryAsync_NoFlexToken_ThrowsInvalidOperationException()
     {
-        var ops = new FlexOperations(null);
+        var ops = new FlexOperations(
+            null,
+            new IbkrClientOptions(),
+            NullLogger<FlexOperations>.Instance);
 
         var ex = await Should.ThrowAsync<InvalidOperationException>(
             () => ops.ExecuteQueryAsync("12345", TestContext.Current.CancellationToken));
@@ -279,11 +305,17 @@ public class FlexTests : IDisposable
         _server.Dispose();
     }
 
-    private FlexClient CreateFlexClient()
+    private FlexOperations CreateOperations(bool throwOnApiError = false)
     {
         var factory = new FakeHttpClientFactory();
         var baseUrl = _server.Url! + "/AccountManagement/FlexWebService/";
-        return new FlexClient(factory, "test-flex", "TEST_TOKEN", NullLogger<FlexClient>.Instance, baseUrl);
+        var flexClient = new FlexClient(factory, "test-flex", "TEST_TOKEN", NullLogger<FlexClient>.Instance, baseUrl);
+        var options = new IbkrClientOptions
+        {
+            FlexPollTimeout = TimeSpan.FromSeconds(30),
+            ThrowOnApiError = throwOnApiError,
+        };
+        return new FlexOperations(flexClient, options, NullLogger<FlexOperations>.Instance);
     }
 
     private sealed class FakeHttpClientFactory : IHttpClientFactory
