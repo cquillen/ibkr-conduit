@@ -14,7 +14,8 @@ namespace IbkrConduit.Flex;
 internal sealed partial class FlexClient
 {
     private const string _defaultBaseUrl = "https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService/";
-    private const int _inProgressErrorCode = 1019;
+    private const int _rateLimitErrorCode = 1018;
+    private const int _rateLimitDelayMs = 10000; // stay within IBKR's 10 requests/minute/token limit
 
     private static readonly Histogram<double> _queryDuration =
         IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.flex.query.duration", "ms");
@@ -140,20 +141,30 @@ internal sealed partial class FlexClient
             var responseStr = await httpClient.GetStringAsync(url, cancellationToken);
             var doc = XDocument.Parse(responseStr);
 
-            if (!IsInProgress(doc))
+            var classification = ClassifyPollResponse(doc, out var errorCode, out var errorMessage);
+
+            if (classification == FlexResponseClass.Success)
             {
-                CheckForError(doc);
                 LogGetStatementCompleted(totalWaited);
                 _lastPollCount = attempt;
                 activity?.SetTag(LogFields.Attempt, attempt);
                 return doc;
             }
 
-            // Pick delay for this attempt: use the ramp-up schedule for the first N attempts,
-            // then cap at 5s for subsequent attempts to avoid unbounded waits.
-            var delayMs = attempt <= _pollDelaysMs.Length
-                ? _pollDelaysMs[attempt - 1]
-                : 5000;
+            if (classification == FlexResponseClass.Permanent)
+            {
+                _errorCount.Add(1, new KeyValuePair<string, object?>(LogFields.ErrorCode, errorCode));
+                throw new FlexQueryException(errorCode, errorMessage ?? "Unknown Flex query error");
+            }
+
+            // Transient — choose the delay.
+            // Rate limit responses get a longer backoff to respect IBKR's 10 req/min/token limit.
+            // Other transient responses use the ramp-up schedule, capped at 5s after the initial attempts.
+            var delayMs = errorCode == _rateLimitErrorCode
+                ? _rateLimitDelayMs
+                : attempt <= _pollDelaysMs.Length
+                    ? _pollDelaysMs[attempt - 1]
+                    : 5000;
 
             // Don't sleep past the timeout
             var remaining = _maxTotalWaitMs - totalWaited;
@@ -172,38 +183,69 @@ internal sealed partial class FlexClient
             $"Flex statement generation did not complete within {_maxTotalWaitMs / 1000}s for reference code '{referenceCode}'.");
     }
 
-    private static bool IsInProgress(XDocument doc)
+    private enum FlexResponseClass
     {
-        var root = doc.Root;
-        if (root == null)
-        {
-            return false;
-        }
+        /// <summary>Root is <c>FlexQueryResponse</c> or <c>Status=Success</c> — the report is ready.</summary>
+        Success,
 
-        var errorCodeStr = root.Element("ErrorCode")?.Value;
-        if (int.TryParse(errorCodeStr, out var errorCode))
-        {
-            return errorCode == _inProgressErrorCode;
-        }
+        /// <summary>Known retryable error code or <c>Status=Warn</c> fallback — keep polling.</summary>
+        Transient,
 
-        return false;
+        /// <summary>Known non-retryable code, <c>Status=Fail</c>, or malformed response — fail immediately.</summary>
+        Permanent,
     }
 
-    private static void CheckForError(XDocument doc)
+    /// <summary>
+    /// Classifies a GetStatement response as success, transient (retry), or permanent (fail).
+    /// Uses the known error-code table first; falls back to the Status element for unknown codes.
+    /// </summary>
+    /// <param name="doc">The parsed XML response.</param>
+    /// <param name="errorCode">The parsed error code, or 0 if none.</param>
+    /// <param name="errorMessage">The error message from the response, or the documented description if none.</param>
+    private static FlexResponseClass ClassifyPollResponse(
+        XDocument doc, out int errorCode, out string? errorMessage)
     {
+        errorCode = 0;
+        errorMessage = null;
+
         var root = doc.Root;
-        if (root == null)
+        if (root is null)
         {
-            return;
+            errorMessage = "Flex response has no root element.";
+            return FlexResponseClass.Permanent;
         }
 
-        var errorCodeStr = root.Element("ErrorCode")?.Value;
-        if (int.TryParse(errorCodeStr, out var errorCode) && errorCode != 0)
+        // Successful report delivery: the root element is FlexQueryResponse (the actual report),
+        // not FlexStatementResponse (the control envelope).
+        if (string.Equals(root.Name.LocalName, "FlexQueryResponse", StringComparison.Ordinal))
         {
-            _errorCount.Add(1, new KeyValuePair<string, object?>(LogFields.ErrorCode, errorCode));
-            var errorMessage = root.Element("ErrorMessage")?.Value ?? "Unknown Flex query error";
-            throw new FlexQueryException(errorCode, errorMessage);
+            return FlexResponseClass.Success;
         }
+
+        var status = root.Element("Status")?.Value;
+        var errorCodeStr = root.Element("ErrorCode")?.Value;
+        errorMessage = root.Element("ErrorMessage")?.Value;
+
+        if (int.TryParse(errorCodeStr, out var parsedCode))
+        {
+            errorCode = parsedCode;
+        }
+
+        // Prefer the error code classification when the code is known.
+        var info = FlexErrorCodes.TryLookup(errorCode);
+        if (info is not null)
+        {
+            errorMessage ??= info.Description;
+            return info.IsRetryable ? FlexResponseClass.Transient : FlexResponseClass.Permanent;
+        }
+
+        // Unknown code (or no code): fall back to the Status element.
+        return status switch
+        {
+            "Success" => FlexResponseClass.Success,
+            "Warn" => FlexResponseClass.Transient, // Warn implies "try again"
+            _ => FlexResponseClass.Permanent,       // Fail, missing, or other → fail fast
+        };
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Flex query {QueryId} executed successfully")]

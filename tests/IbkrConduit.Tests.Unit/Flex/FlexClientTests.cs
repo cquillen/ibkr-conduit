@@ -92,10 +92,14 @@ public class FlexClientTests
     [Fact]
     public async Task PollForStatementAsync_ErrorResponse_ThrowsFlexQueryException()
     {
+        // Use 1015 "Token is invalid" which is documented as permanent (non-retryable).
+        // Previously this test used 1004, but 1004 is actually retryable per the IBKR
+        // docs so it no longer causes an immediate throw under the table-driven classifier.
         var handler = new FakeHttpHandler("""
             <FlexStatementResponse>
-                <ErrorCode>1004</ErrorCode>
-                <ErrorMessage>Invalid token</ErrorMessage>
+                <Status>Fail</Status>
+                <ErrorCode>1015</ErrorCode>
+                <ErrorMessage>Token is invalid.</ErrorMessage>
             </FlexStatementResponse>
             """);
 
@@ -104,7 +108,7 @@ public class FlexClientTests
         var ex = await Should.ThrowAsync<FlexQueryException>(
             () => client.PollForStatementAsync("REF123", CancellationToken.None));
 
-        ex.ErrorCode.ShouldBe(1004);
+        ex.ErrorCode.ShouldBe(1015);
     }
 
     [Fact]
