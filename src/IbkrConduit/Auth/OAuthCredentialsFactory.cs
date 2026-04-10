@@ -1,12 +1,15 @@
 using System.Globalization;
+using System.IO;
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using IbkrConduit.Errors;
 
 namespace IbkrConduit.Auth;
 
 /// <summary>
-/// Creates <see cref="IbkrOAuthCredentials"/> from environment variables.
+/// Creates <see cref="IbkrOAuthCredentials"/> from environment variables or a JSON credential file.
 /// </summary>
 public static class OAuthCredentialsFactory
 {
@@ -36,6 +39,79 @@ public static class OAuthCredentialsFactory
         return new IbkrOAuthCredentials(
             tenantId, consumerKey, accessToken, accessTokenSecret,
             signatureKey, encryptionKey, dhPrime);
+    }
+
+    /// <summary>
+    /// Loads OAuth credentials from a JSON file produced by the ibkr-conduit-setup tool.
+    /// </summary>
+    /// <param name="path">Absolute or relative path to the JSON credential file.</param>
+    /// <returns>A populated <see cref="IbkrOAuthCredentials"/> instance. The caller is responsible for disposing it.</returns>
+    /// <exception cref="FileNotFoundException">Thrown when the file at <paramref name="path"/> does not exist.</exception>
+    /// <exception cref="IbkrConfigurationException">Thrown when a required field is missing or a PEM key cannot be imported.</exception>
+    public static IbkrOAuthCredentials FromFile(string path)
+    {
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException($"Credential file not found: {path}", path);
+        }
+
+        var json = File.ReadAllText(path);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        var consumerKey = GetRequiredField(root, "consumerKey");
+        var accessToken = GetRequiredField(root, "accessToken");
+        var accessTokenSecret = GetRequiredField(root, "accessTokenSecret");
+        var signatureKeyPem = GetRequiredField(root, "signaturePrivateKey");
+        var encryptionKeyPem = GetRequiredField(root, "encryptionPrivateKey");
+        var dhPrimeHex = GetRequiredField(root, "dhPrime");
+
+        var signatureKey = ImportPemKey(signatureKeyPem, "signaturePrivateKey");
+        var encryptionKey = ImportPemKey(encryptionKeyPem, "encryptionPrivateKey");
+
+        var dhPrime = BigInteger.Parse("0" + dhPrimeHex, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+
+        return new IbkrOAuthCredentials(
+            consumerKey, consumerKey, accessToken, accessTokenSecret,
+            signatureKey, encryptionKey, dhPrime);
+    }
+
+    private static string GetRequiredField(JsonElement root, string fieldName)
+    {
+        if (!root.TryGetProperty(fieldName, out var element) || element.ValueKind == JsonValueKind.Null)
+        {
+            throw new IbkrConfigurationException(
+                $"Required field '{fieldName}' is missing from the credential file.",
+                fieldName);
+        }
+
+        var value = element.GetString();
+        if (string.IsNullOrEmpty(value))
+        {
+            throw new IbkrConfigurationException(
+                $"Required field '{fieldName}' is empty in the credential file.",
+                fieldName);
+        }
+
+        return value;
+    }
+
+    private static RSA ImportPemKey(string pem, string fieldName)
+    {
+        var key = RSA.Create();
+        try
+        {
+            key.ImportFromPem(pem);
+            return key;
+        }
+        catch (Exception ex) when (ex is not IbkrConfigurationException)
+        {
+            key.Dispose();
+            throw new IbkrConfigurationException(
+                $"Failed to import RSA key from field '{fieldName}'. Ensure it contains a valid PEM-encoded RSA private key.",
+                fieldName,
+                ex);
+        }
     }
 
     private static string GetRequired(string name) =>
