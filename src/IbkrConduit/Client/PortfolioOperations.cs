@@ -15,6 +15,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
     private readonly IIbkrPortfolioApi _api;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<PortfolioOperations> _logger;
+    private readonly ResultFactory _resultFactory;
 
     /// <summary>
     /// Creates a new <see cref="PortfolioOperations"/> instance.
@@ -22,11 +23,13 @@ internal partial class PortfolioOperations : IPortfolioOperations
     /// <param name="api">The Refit portfolio API client.</param>
     /// <param name="options">Client options.</param>
     /// <param name="logger">Logger instance.</param>
-    public PortfolioOperations(IIbkrPortfolioApi api, IbkrClientOptions options, ILogger<PortfolioOperations> logger)
+    /// <param name="resultFactory">Factory for converting API responses to results.</param>
+    public PortfolioOperations(IIbkrPortfolioApi api, IbkrClientOptions options, ILogger<PortfolioOperations> logger, ResultFactory resultFactory)
     {
         _api = api;
         _options = options;
         _logger = logger;
+        _resultFactory = resultFactory;
     }
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "{Operation} completed with status {StatusCode}")]
@@ -40,7 +43,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAccounts");
         var response = await _api.GetAccountsAsync(cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetAccounts");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -53,7 +56,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag("page", page);
         var response = await _api.GetPositionsAsync(accountId, page, cancellationToken: cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetPositions");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -65,7 +68,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAccountSummary");
         activity?.SetTag(LogFields.AccountId, accountId);
         var response = await _api.GetAccountSummaryAsync(accountId, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetAccountSummary");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -77,7 +80,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetLedger");
         activity?.SetTag(LogFields.AccountId, accountId);
         var response = await _api.GetLedgerAsync(accountId, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetLedger");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -89,7 +92,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAccountInfo");
         activity?.SetTag(LogFields.AccountId, accountId);
         var response = await _api.GetAccountInfoAsync(accountId, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetAccountInfo");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -101,7 +104,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAllocation");
         activity?.SetTag(LogFields.AccountId, accountId);
         var response = await _api.GetAccountAllocationAsync(accountId, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetAccountAllocation");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -114,7 +117,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag(LogFields.Conid, conid);
         var response = await _api.GetPositionByConidAsync(accountId, conid, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetPositionByConid");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -126,7 +129,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPositionContractInfo");
         activity?.SetTag(LogFields.Conid, conid);
         var response = await _api.GetPositionAndContractInfoAsync(conid, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetPositionAndContractInfo");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -159,7 +162,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPerformance");
         activity?.SetTag("period", period);
         var response = await _api.GetAccountPerformanceAsync(new PerformanceRequest(accountIds, period), cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetAccountPerformance");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -174,7 +177,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         activity?.SetTag("days", days);
         var response = await _api.GetTransactionHistoryAsync(
             new TransactionHistoryRequest(accountIds, conids, currency, days), cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetTransactionHistory");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -186,7 +189,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetConsolidatedAllocation");
         var response = await _api.GetConsolidatedAllocationAsync(
             new ConsolidatedAllocationRequest(accountIds), cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetConsolidatedAllocation");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -198,7 +201,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetComboPositions");
         activity?.SetTag(LogFields.AccountId, accountId);
         var response = await _api.GetComboPositionsAsync(accountId, nocache, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetComboPositions");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -211,7 +214,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetRealTimePositions");
         activity?.SetTag(LogFields.AccountId, accountId);
         var response = await _api.GetRealTimePositionsAsync(accountId, model, sort, direction, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetRealTimePositions");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -221,7 +224,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetSubAccounts");
         var response = await _api.GetSubAccountsAsync(cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetSubAccounts");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -233,7 +236,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetSubAccountsPaged");
         activity?.SetTag("page", page);
         var response = await _api.GetSubAccountsPagedAsync(page, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetSubAccountsPaged");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -245,7 +248,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAllPeriodsPerformance");
         var response = await _api.GetAllPeriodsPerformanceAsync(
             new AllPeriodsRequest(accountIds), cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetAllPeriodsPerformance");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -255,7 +258,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPartitionedPnl");
         var response = await _api.GetPartitionedPnlAsync(cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetPartitionedPnl");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }

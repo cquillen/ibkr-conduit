@@ -14,6 +14,7 @@ internal partial class WatchlistOperations : IWatchlistOperations
     private readonly IIbkrWatchlistApi _api;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<WatchlistOperations> _logger;
+    private readonly ResultFactory _resultFactory;
 
     /// <summary>
     /// Creates a new <see cref="WatchlistOperations"/> instance.
@@ -21,11 +22,13 @@ internal partial class WatchlistOperations : IWatchlistOperations
     /// <param name="api">The Refit watchlist API client.</param>
     /// <param name="options">Client options.</param>
     /// <param name="logger">Logger instance.</param>
-    public WatchlistOperations(IIbkrWatchlistApi api, IbkrClientOptions options, ILogger<WatchlistOperations> logger)
+    /// <param name="resultFactory">Factory for converting API responses to results.</param>
+    public WatchlistOperations(IIbkrWatchlistApi api, IbkrClientOptions options, ILogger<WatchlistOperations> logger, ResultFactory resultFactory)
     {
         _api = api;
         _options = options;
         _logger = logger;
+        _resultFactory = resultFactory;
     }
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "{Operation} completed with status {StatusCode}")]
@@ -41,7 +44,7 @@ internal partial class WatchlistOperations : IWatchlistOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Watchlists.CreateWatchlist");
         activity?.SetTag("watchlistId", request.Id);
         var response = await _api.CreateWatchlistAsync(request, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "CreateWatchlist");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -51,7 +54,7 @@ internal partial class WatchlistOperations : IWatchlistOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Watchlists.GetWatchlists");
         var response = await _api.GetWatchlistsAsync(cancellationToken: cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetWatchlists");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -63,7 +66,7 @@ internal partial class WatchlistOperations : IWatchlistOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Watchlists.GetWatchlist");
         activity?.SetTag("watchlistId", id);
         var response = await _api.GetWatchlistAsync(id, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetWatchlist");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -75,7 +78,7 @@ internal partial class WatchlistOperations : IWatchlistOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Watchlists.DeleteWatchlist");
         activity?.SetTag("watchlistId", id);
         var response = await _api.DeleteWatchlistAsync(id, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "DeleteWatchlist");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }

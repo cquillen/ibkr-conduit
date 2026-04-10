@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Fyi;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
@@ -16,7 +17,7 @@ public class FyiOperationsTests
     private readonly IIbkrFyiApi _api = Substitute.For<IIbkrFyiApi>();
     private readonly FyiOperations _sut;
 
-    public FyiOperationsTests() => _sut = new FyiOperations(_api, new IbkrClientOptions(), NullLogger<FyiOperations>.Instance);
+    public FyiOperationsTests() => _sut = new FyiOperations(_api, new IbkrClientOptions(), NullLogger<FyiOperations>.Instance, new ResultFactory(NullLogger<ResultFactory>.Instance));
 
     [Fact]
     public async Task GetUnreadCountAsync_DelegatesToApi()

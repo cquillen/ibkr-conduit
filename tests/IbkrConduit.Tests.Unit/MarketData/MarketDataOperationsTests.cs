@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.MarketData;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
@@ -22,7 +23,8 @@ public class MarketDataOperationsTests : IDisposable
         _sut = new MarketDataOperations(
             _fakeApi,
             new IbkrClientOptions(),
-            NullLogger<MarketDataOperations>.Instance);
+            NullLogger<MarketDataOperations>.Instance,
+            new ResultFactory(NullLogger<ResultFactory>.Instance));
     }
 
     [Fact]

@@ -14,6 +14,7 @@ internal partial class AlertOperations : IAlertOperations
     private readonly IIbkrAlertApi _api;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<AlertOperations> _logger;
+    private readonly ResultFactory _resultFactory;
 
     /// <summary>
     /// Creates a new <see cref="AlertOperations"/> instance.
@@ -21,11 +22,13 @@ internal partial class AlertOperations : IAlertOperations
     /// <param name="api">The Refit alert API client.</param>
     /// <param name="options">Client options.</param>
     /// <param name="logger">Logger instance.</param>
-    public AlertOperations(IIbkrAlertApi api, IbkrClientOptions options, ILogger<AlertOperations> logger)
+    /// <param name="resultFactory">Factory for converting API responses to results.</param>
+    public AlertOperations(IIbkrAlertApi api, IbkrClientOptions options, ILogger<AlertOperations> logger, ResultFactory resultFactory)
     {
         _api = api;
         _options = options;
         _logger = logger;
+        _resultFactory = resultFactory;
     }
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "{Operation} completed with status {StatusCode}")]
@@ -41,7 +44,7 @@ internal partial class AlertOperations : IAlertOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Alerts.CreateOrModifyAlert");
         activity?.SetTag(LogFields.AccountId, accountId);
         var response = await _api.CreateOrModifyAlertAsync(accountId, request, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "CreateOrModifyAlert");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -53,7 +56,7 @@ internal partial class AlertOperations : IAlertOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Alerts.GetAlerts");
         activity?.SetTag(LogFields.AccountId, accountId);
         var response = await _api.GetAlertsAsync(accountId, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetAlerts");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -63,7 +66,7 @@ internal partial class AlertOperations : IAlertOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Alerts.GetMtaAlert");
         var response = await _api.GetMtaAlertAsync(cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetMtaAlert");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -75,7 +78,7 @@ internal partial class AlertOperations : IAlertOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Alerts.GetAlertDetail");
         activity?.SetTag("alertId", alertId);
         var response = await _api.GetAlertDetailAsync(alertId, cancellationToken: cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetAlertDetail");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -87,7 +90,7 @@ internal partial class AlertOperations : IAlertOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Alerts.ActivateAlert");
         activity?.SetTag(LogFields.AccountId, accountId);
         var response = await _api.ActivateAlertAsync(accountId, request, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "ActivateAlert");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -100,7 +103,7 @@ internal partial class AlertOperations : IAlertOperations
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag("alertId", alertId);
         var response = await _api.DeleteAlertAsync(accountId, alertId, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "DeleteAlert");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }

@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.Errors;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -16,7 +17,7 @@ public class ContractOperationsTests
     private readonly IIbkrContractApi _api = Substitute.For<IIbkrContractApi>();
     private readonly ContractOperations _sut;
 
-    public ContractOperationsTests() => _sut = new ContractOperations(_api, new IbkrClientOptions(), NullLogger<ContractOperations>.Instance);
+    public ContractOperationsTests() => _sut = new ContractOperations(_api, new IbkrClientOptions(), NullLogger<ContractOperations>.Instance, new ResultFactory(NullLogger<ResultFactory>.Instance));
 
     [Fact]
     public async Task SearchBySymbolAsync_DelegatesToApi()

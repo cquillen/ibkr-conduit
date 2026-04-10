@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Accounts;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -16,7 +17,7 @@ public class AccountOperationsTests
     private readonly IIbkrAccountApi _api = Substitute.For<IIbkrAccountApi>();
     private readonly AccountOperations _sut;
 
-    public AccountOperationsTests() => _sut = new AccountOperations(_api, new IbkrClientOptions(), NullLogger<AccountOperations>.Instance);
+    public AccountOperationsTests() => _sut = new AccountOperations(_api, new IbkrClientOptions(), NullLogger<AccountOperations>.Instance, new ResultFactory(NullLogger<ResultFactory>.Instance));
 
     [Fact]
     public async Task GetAccountsAsync_DelegatesToApi()

@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Orders;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
@@ -22,7 +23,7 @@ public class OrderOperationsModifyTests
 
     public OrderOperationsModifyTests()
     {
-        _sut = new OrderOperations(_fakeApi, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance);
+        _sut = new OrderOperations(_fakeApi, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance, new ResultFactory(NullLogger<ResultFactory>.Instance));
     }
 
     [Fact]
@@ -127,7 +128,7 @@ public class OrderOperationsModifyTests
         var semaphore2 = new SemaphoreSlim(0, 1);
 
         var api = new BlockingModifyOrderApi(callOrder, semaphore1, semaphore2);
-        var ops = new OrderOperations(api, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance);
+        var ops = new OrderOperations(api, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance, new ResultFactory(NullLogger<ResultFactory>.Instance));
 
         var order = new OrderRequest
         {

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
 using IbkrConduit.Watchlists;
@@ -16,7 +17,7 @@ public class WatchlistOperationsTests
     private readonly IIbkrWatchlistApi _api = Substitute.For<IIbkrWatchlistApi>();
     private readonly WatchlistOperations _sut;
 
-    public WatchlistOperationsTests() => _sut = new WatchlistOperations(_api, new IbkrClientOptions(), NullLogger<WatchlistOperations>.Instance);
+    public WatchlistOperationsTests() => _sut = new WatchlistOperations(_api, new IbkrClientOptions(), NullLogger<WatchlistOperations>.Instance, new ResultFactory(NullLogger<ResultFactory>.Instance));
 
     [Fact]
     public async Task CreateWatchlistAsync_DelegatesToApi()

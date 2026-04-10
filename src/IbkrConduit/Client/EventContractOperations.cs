@@ -14,6 +14,7 @@ internal partial class EventContractOperations : IEventContractOperations
     private readonly IIbkrEventContractApi _api;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<EventContractOperations> _logger;
+    private readonly ResultFactory _resultFactory;
 
     /// <summary>
     /// Creates a new <see cref="EventContractOperations"/> instance.
@@ -21,11 +22,13 @@ internal partial class EventContractOperations : IEventContractOperations
     /// <param name="api">The Refit event contract API client.</param>
     /// <param name="options">Client options.</param>
     /// <param name="logger">Logger instance.</param>
-    public EventContractOperations(IIbkrEventContractApi api, IbkrClientOptions options, ILogger<EventContractOperations> logger)
+    /// <param name="resultFactory">Factory for converting API responses to results.</param>
+    public EventContractOperations(IIbkrEventContractApi api, IbkrClientOptions options, ILogger<EventContractOperations> logger, ResultFactory resultFactory)
     {
         _api = api;
         _options = options;
         _logger = logger;
+        _resultFactory = resultFactory;
     }
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "{Operation} completed with status {StatusCode}")]
@@ -40,7 +43,7 @@ internal partial class EventContractOperations : IEventContractOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.EventContracts.GetCategoryTree");
         var response = await _api.GetCategoryTreeAsync(cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetCategoryTree");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -52,7 +55,7 @@ internal partial class EventContractOperations : IEventContractOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.EventContracts.GetMarket");
         activity?.SetTag("underlyingConid", underlyingConid);
         var response = await _api.GetMarketAsync(underlyingConid, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetMarket");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -64,7 +67,7 @@ internal partial class EventContractOperations : IEventContractOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.EventContracts.GetContractRules");
         activity?.SetTag("conid", conid);
         var response = await _api.GetContractRulesAsync(conid, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetContractRules");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -76,7 +79,7 @@ internal partial class EventContractOperations : IEventContractOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.EventContracts.GetContractDetails");
         activity?.SetTag("conid", conid);
         var response = await _api.GetContractDetailsAsync(conid, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetContractDetails");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -88,7 +91,7 @@ internal partial class EventContractOperations : IEventContractOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.EventContracts.GetContractSchedules");
         activity?.SetTag("conid", conid);
         var response = await _api.GetContractSchedulesAsync(conid, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetContractSchedules");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }

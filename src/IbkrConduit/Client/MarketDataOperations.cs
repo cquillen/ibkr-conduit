@@ -42,6 +42,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     private readonly IIbkrMarketDataApi _api;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<MarketDataOperations> _logger;
+    private readonly ResultFactory _resultFactory;
     private readonly MemoryCache _preflightCache;
 
     /// <summary>
@@ -50,14 +51,17 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     /// <param name="api">The Refit market data API client.</param>
     /// <param name="options">Client options for pre-flight cache duration.</param>
     /// <param name="logger">Logger instance.</param>
+    /// <param name="resultFactory">Factory for converting API responses to results.</param>
     public MarketDataOperations(
         IIbkrMarketDataApi api,
         IbkrClientOptions options,
-        ILogger<MarketDataOperations> logger)
+        ILogger<MarketDataOperations> logger,
+        ResultFactory resultFactory)
     {
         _api = api;
         _options = options;
         _logger = logger;
+        _resultFactory = resultFactory;
         // MemoryCache doesn't support global default expiration — it's set per-entry
         // in GetSnapshotAsync using _options.PreflightCacheDuration
         _preflightCache = new MemoryCache(new MemoryCacheOptions());
@@ -78,7 +82,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         var fieldsStr = string.Join(",", fields);
 
         var apiResponse = await _api.GetSnapshotAsync(conidsStr, fieldsStr, cancellationToken);
-        var firstResult = ResultFactory.FromResponse(apiResponse, apiResponse.RequestMessage?.RequestUri?.AbsolutePath);
+        var firstResult = _resultFactory.FromResponse(apiResponse, apiResponse.RequestMessage?.RequestUri?.AbsolutePath);
         if (!firstResult.IsSuccess)
         {
             return _options.ThrowOnApiError ? firstResult.Map(MapSnapshots).EnsureSuccess() : firstResult.Map(MapSnapshots);
@@ -106,7 +110,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
             await Task.Delay(_preflightDelayMs, cancellationToken);
 
             var retryResponse = await _api.GetSnapshotAsync(conidsStr, fieldsStr, cancellationToken);
-            var retryResult = ResultFactory.FromResponse(retryResponse, retryResponse.RequestMessage?.RequestUri?.AbsolutePath);
+            var retryResult = _resultFactory.FromResponse(retryResponse, retryResponse.RequestMessage?.RequestUri?.AbsolutePath);
             if (!retryResult.IsSuccess)
             {
                 return _options.ThrowOnApiError ? retryResult.Map(MapSnapshots).EnsureSuccess() : retryResult.Map(MapSnapshots);
@@ -136,7 +140,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         var sw = Stopwatch.StartNew();
         var response = await _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period, bar, outsideRth, cancellationToken);
         _historyDuration.Record(sw.Elapsed.TotalMilliseconds);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -150,7 +154,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         LogRegulatorySnapshotWarning(conid);
 
         var response = await _api.GetRegulatorySnapshotAsync(conid, cancellationToken);
-        var rawResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var rawResult = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         var result = rawResult.Map(MapSnapshot);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -162,7 +166,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.Unsubscribe");
         activity?.SetTag(LogFields.Conid, conid);
         var response = await _api.UnsubscribeAsync(new UnsubscribeRequest(conid), cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -172,7 +176,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.UnsubscribeAll");
         var response = await _api.UnsubscribeAllAsync(cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -182,7 +186,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.RunScanner");
         var response = await _api.RunScannerAsync(request, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -192,7 +196,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.GetScannerParams");
         var response = await _api.GetScannerParametersAsync(cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -202,7 +206,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.RunHmdsScanner");
         var response = await _api.RunHmdsScannerAsync(request, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 

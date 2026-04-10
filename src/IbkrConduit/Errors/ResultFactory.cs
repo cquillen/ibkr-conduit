@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Refit;
 
 namespace IbkrConduit.Errors;
@@ -8,19 +9,32 @@ namespace IbkrConduit.Errors;
 /// Converts Refit <see cref="IApiResponse{T}"/> into <see cref="Result{T}"/>.
 /// Handles all three IBKR error body formats: JSON error objects, empty bodies, and plain text/HTML.
 /// </summary>
-internal static class ResultFactory
+internal sealed partial class ResultFactory
 {
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
     };
 
+    private readonly ILogger<ResultFactory> _logger;
+
+    /// <summary>
+    /// Creates a new <see cref="ResultFactory"/> instance.
+    /// </summary>
+    /// <param name="logger">Logger for debug-level response diagnostics.</param>
+    public ResultFactory(ILogger<ResultFactory> logger)
+    {
+        _logger = logger;
+    }
+
     /// <summary>
     /// Converts a Refit response with a pre-deserialized body into a Result.
     /// </summary>
-    public static Result<T> FromResponse<T>(IApiResponse<T> response, string? requestPath = null)
+    public Result<T> FromResponse<T>(IApiResponse<T> response, string? requestPath = null)
     {
         var rawBody = response.Error?.Content ?? "";
+
+        LogDeserializedResponse(requestPath ?? "unknown", (int)response.StatusCode, response.Content?.GetType().Name ?? "null", rawBody);
 
         if (response.IsSuccessStatusCode)
         {
@@ -48,9 +62,11 @@ internal static class ResultFactory
     /// Converts a Refit response with a raw string body into a Result using a custom parser.
     /// For <c>IApiResponse&lt;string&gt;</c>, the raw body is available via <c>Content</c>.
     /// </summary>
-    public static Result<T> FromResponse<T>(IApiResponse<string> response, Func<string, T> parser, string? requestPath = null)
+    public Result<T> FromResponse<T>(IApiResponse<string> response, Func<string, T> parser, string? requestPath = null)
     {
         var rawBody = response.Content ?? response.Error?.Content ?? "";
+
+        LogRawResponse(requestPath ?? "unknown", (int)response.StatusCode, rawBody, response.Error?.Content ?? "");
 
         if (response.IsSuccessStatusCode)
         {
@@ -66,6 +82,16 @@ internal static class ResultFactory
 
         return Result<T>.Failure(ParseError(response.StatusCode, rawBody, response.Headers, requestPath));
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Debug,
+        Message = "ResultFactory {RequestPath}: HTTP {StatusCode}, ContentType={ContentType}, ErrorBody={ErrorBody}")]
+    private partial void LogDeserializedResponse(string requestPath, int statusCode, string contentType, string errorBody);
+
+    [LoggerMessage(
+        Level = LogLevel.Debug,
+        Message = "ResultFactory {RequestPath}: HTTP {StatusCode}, Body={Body}, ErrorBody={ErrorBody}")]
+    private partial void LogRawResponse(string requestPath, int statusCode, string body, string errorBody);
 
     private static IbkrError ParseError(
         HttpStatusCode statusCode, string rawBody,

@@ -14,6 +14,7 @@ internal partial class FyiOperations : IFyiOperations
     private readonly IIbkrFyiApi _api;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<FyiOperations> _logger;
+    private readonly ResultFactory _resultFactory;
 
     /// <summary>
     /// Creates a new <see cref="FyiOperations"/> instance.
@@ -21,11 +22,13 @@ internal partial class FyiOperations : IFyiOperations
     /// <param name="api">The Refit FYI API client.</param>
     /// <param name="options">Client options.</param>
     /// <param name="logger">Logger instance.</param>
-    public FyiOperations(IIbkrFyiApi api, IbkrClientOptions options, ILogger<FyiOperations> logger)
+    /// <param name="resultFactory">Factory for converting API responses to results.</param>
+    public FyiOperations(IIbkrFyiApi api, IbkrClientOptions options, ILogger<FyiOperations> logger, ResultFactory resultFactory)
     {
         _api = api;
         _options = options;
         _logger = logger;
+        _resultFactory = resultFactory;
     }
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "{Operation} completed with status {StatusCode}")]
@@ -39,7 +42,7 @@ internal partial class FyiOperations : IFyiOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Fyi.GetUnreadCount");
         var response = await _api.GetUnreadCountAsync(cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetUnreadCount");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -49,7 +52,7 @@ internal partial class FyiOperations : IFyiOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Fyi.GetSettings");
         var response = await _api.GetSettingsAsync(cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetSettings");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -62,7 +65,7 @@ internal partial class FyiOperations : IFyiOperations
         activity?.SetTag("typecode", typecode);
         activity?.SetTag("enabled", enabled);
         var response = await _api.UpdateSettingAsync(typecode, new FyiSettingUpdateRequest(enabled), cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "UpdateSetting");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -74,7 +77,7 @@ internal partial class FyiOperations : IFyiOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Fyi.GetDisclaimer");
         activity?.SetTag("typecode", typecode);
         var response = await _api.GetDisclaimerAsync(typecode, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetDisclaimer");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -86,7 +89,7 @@ internal partial class FyiOperations : IFyiOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Fyi.MarkDisclaimerRead");
         activity?.SetTag("typecode", typecode);
         var response = await _api.MarkDisclaimerReadAsync(typecode, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "MarkDisclaimerRead");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -96,7 +99,7 @@ internal partial class FyiOperations : IFyiOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Fyi.GetDeliveryOptions");
         var response = await _api.GetDeliveryOptionsAsync(cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetDeliveryOptions");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -108,7 +111,7 @@ internal partial class FyiOperations : IFyiOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Fyi.SetEmailDelivery");
         activity?.SetTag("enabled", enabled);
         var response = await _api.SetEmailDeliveryAsync(enabled.ToString().ToLowerInvariant(), cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "SetEmailDelivery");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -119,7 +122,7 @@ internal partial class FyiOperations : IFyiOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Fyi.RegisterDevice");
         var response = await _api.RegisterDeviceAsync(request, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "RegisterDevice");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -151,7 +154,7 @@ internal partial class FyiOperations : IFyiOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Fyi.GetNotifications");
         var response = await _api.GetNotificationsAsync(max, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetNotifications");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -162,7 +165,7 @@ internal partial class FyiOperations : IFyiOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Fyi.GetMoreNotifications");
         var response = await _api.GetMoreNotificationsAsync(id, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetMoreNotifications");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -174,7 +177,7 @@ internal partial class FyiOperations : IFyiOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Fyi.MarkNotificationRead");
         activity?.SetTag("notificationId", notificationId);
         var response = await _api.MarkNotificationReadAsync(notificationId, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "MarkNotificationRead");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }

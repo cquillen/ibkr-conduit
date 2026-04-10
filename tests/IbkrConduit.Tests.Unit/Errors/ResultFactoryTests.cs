@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using IbkrConduit.Errors;
+using Microsoft.Extensions.Logging.Abstractions;
 using Refit;
 using Shouldly;
 
@@ -10,11 +11,13 @@ namespace IbkrConduit.Tests.Unit.Errors;
 
 public class ResultFactoryTests
 {
+    private readonly ResultFactory _sut = new(NullLogger<ResultFactory>.Instance);
+
     [Fact]
     public void FromResponse_Success_ReturnsSuccessResult()
     {
         var response = CreateApiResponse(HttpStatusCode.OK, "test-value", """{"field":"value"}""");
-        var result = ResultFactory.FromResponse(response, "/test");
+        var result = _sut.FromResponse(response, "/test");
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBe("test-value");
     }
@@ -23,7 +26,7 @@ public class ResultFactoryTests
     public void FromResponse_NonSuccess_ReturnsFailure()
     {
         var response = CreateApiResponse<string>(HttpStatusCode.BadRequest, null, """{"error":"bad input","statusCode":400}""");
-        var result = ResultFactory.FromResponse(response, "/test");
+        var result = _sut.FromResponse(response, "/test");
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<IbkrApiError>();
         result.Error.Message.ShouldBe("bad input");
@@ -34,7 +37,7 @@ public class ResultFactoryTests
     public void FromResponse_429_ReturnsRateLimitError()
     {
         var response = CreateApiResponse<string>(HttpStatusCode.TooManyRequests, null, """{"error":"rate limited"}""", retryAfterSeconds: 30);
-        var result = ResultFactory.FromResponse(response, "/test");
+        var result = _sut.FromResponse(response, "/test");
         result.IsSuccess.ShouldBeFalse();
         var rle = result.Error.ShouldBeOfType<IbkrRateLimitError>();
         rle.RetryAfter.ShouldBe(TimeSpan.FromSeconds(30));
@@ -44,7 +47,7 @@ public class ResultFactoryTests
     public void FromResponse_EmptyBody_ReturnsFailureWithStatusCode()
     {
         var response = CreateApiResponse<string>(HttpStatusCode.Unauthorized, null, "");
-        var result = ResultFactory.FromResponse(response, "/test");
+        var result = _sut.FromResponse(response, "/test");
         result.IsSuccess.ShouldBeFalse();
         result.Error.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         result.Error.RawBody.ShouldBe("");
@@ -55,7 +58,7 @@ public class ResultFactoryTests
     {
         var body = "<html><body><h1>Resource not found</h1></body></html>";
         var response = CreateApiResponse<string>(HttpStatusCode.NotFound, null, body);
-        var result = ResultFactory.FromResponse(response, "/test");
+        var result = _sut.FromResponse(response, "/test");
         result.IsSuccess.ShouldBeFalse();
         result.Error.RawBody.ShouldBe(body);
     }
@@ -65,7 +68,7 @@ public class ResultFactoryTests
     {
         // Hidden errors in 200 OK are detected via the string overload (custom parser path)
         var response = CreateStringApiResponse(HttpStatusCode.OK, """{"error":"something went wrong"}""");
-        var result = ResultFactory.FromResponse(response, body => body, "/test");
+        var result = _sut.FromResponse(response, body => body, "/test");
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<IbkrHiddenError>();
         result.Error.Message.ShouldBe("something went wrong");
@@ -76,7 +79,7 @@ public class ResultFactoryTests
     {
         // Hidden errors in 200 OK are detected via the string overload (custom parser path)
         var response = CreateStringApiResponse(HttpStatusCode.OK, """{"success":false,"failure_list":"validation failed"}""");
-        var result = ResultFactory.FromResponse(response, body => body, "/test");
+        var result = _sut.FromResponse(response, body => body, "/test");
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<IbkrHiddenError>();
     }
@@ -85,7 +88,7 @@ public class ResultFactoryTests
     public void FromResponse_CustomParser_Success_UsesParser()
     {
         var rawResponse = CreateStringApiResponse(HttpStatusCode.OK, """{"order_id":"123"}""");
-        var result = ResultFactory.FromResponse(rawResponse, body => $"parsed:{body}", "/test");
+        var result = _sut.FromResponse(rawResponse, body => $"parsed:{body}", "/test");
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldStartWith("parsed:");
     }
@@ -94,7 +97,7 @@ public class ResultFactoryTests
     public void FromResponse_CustomParser_NonSuccess_ReturnsFailure()
     {
         var rawResponse = CreateStringApiResponse(HttpStatusCode.InternalServerError, """{"error":"server error"}""");
-        var result = ResultFactory.FromResponse(rawResponse, body => body, "/test");
+        var result = _sut.FromResponse(rawResponse, body => body, "/test");
         result.IsSuccess.ShouldBeFalse();
         result.Error.Message.ShouldBe("server error");
     }

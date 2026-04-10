@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
@@ -18,7 +19,7 @@ public class PortfolioOperationsTests
 
     public PortfolioOperationsTests()
     {
-        _sut = new PortfolioOperations(_fakeApi, new IbkrClientOptions(), NullLogger<PortfolioOperations>.Instance);
+        _sut = new PortfolioOperations(_fakeApi, new IbkrClientOptions(), NullLogger<PortfolioOperations>.Instance, new ResultFactory(NullLogger<ResultFactory>.Instance));
     }
 
     [Fact]

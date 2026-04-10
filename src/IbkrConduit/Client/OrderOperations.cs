@@ -32,6 +32,7 @@ internal partial class OrderOperations : IOrderOperations
     private readonly IIbkrOrderApi _orderApi;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<OrderOperations> _logger;
+    private readonly ResultFactory _resultFactory;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _accountLocks = new();
 
     /// <summary>
@@ -40,11 +41,13 @@ internal partial class OrderOperations : IOrderOperations
     /// <param name="orderApi">The Refit order API client.</param>
     /// <param name="options">Client options.</param>
     /// <param name="logger">The logger instance.</param>
-    public OrderOperations(IIbkrOrderApi orderApi, IbkrClientOptions options, ILogger<OrderOperations> logger)
+    /// <param name="resultFactory">Factory for converting API responses to results.</param>
+    public OrderOperations(IIbkrOrderApi orderApi, IbkrClientOptions options, ILogger<OrderOperations> logger, ResultFactory resultFactory)
     {
         _orderApi = orderApi;
         _options = options;
         _logger = logger;
+        _resultFactory = resultFactory;
     }
 
     /// <inheritdoc />
@@ -64,7 +67,7 @@ internal partial class OrderOperations : IOrderOperations
         {
             var payload = new OrdersPayload([ToWireModel(order)]);
             var response = await _orderApi.PlaceOrderAsync(accountId, payload, cancellationToken);
-            var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+            var apiResult = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
             if (!apiResult.IsSuccess)
             {
                 var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(apiResult.Error);
@@ -96,7 +99,7 @@ internal partial class OrderOperations : IOrderOperations
         activity?.SetTag(LogFields.OrderId, orderId);
         _cancelCount.Add(1);
         var response = await _orderApi.CancelOrderAsync(accountId, orderId, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -106,7 +109,7 @@ internal partial class OrderOperations : IOrderOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetLiveOrders");
         var response = await _orderApi.GetLiveOrdersAsync(cancellationToken);
-        var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var apiResult = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         var result = apiResult.Map(r => r.Orders ?? new List<LiveOrder>());
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -117,7 +120,7 @@ internal partial class OrderOperations : IOrderOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetTrades");
         var response = await _orderApi.GetTradesAsync(cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -140,7 +143,7 @@ internal partial class OrderOperations : IOrderOperations
         {
             var payload = new OrdersPayload([ToWireModel(order)]);
             var response = await _orderApi.ModifyOrderAsync(accountId, orderId, payload, cancellationToken);
-            var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+            var apiResult = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
             if (!apiResult.IsSuccess)
             {
                 var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(apiResult.Error);
@@ -203,7 +206,7 @@ internal partial class OrderOperations : IOrderOperations
 
         var payload = new OrdersPayload([ToWireModel(order)]);
         var response = await _orderApi.WhatIfOrderAsync(accountId, payload, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -214,7 +217,7 @@ internal partial class OrderOperations : IOrderOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetStatus");
         activity?.SetTag(LogFields.OrderId, orderId);
         var response = await _orderApi.GetOrderStatusAsync(orderId, cancellationToken);
-        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        var result = _resultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
