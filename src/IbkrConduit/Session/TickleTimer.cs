@@ -4,6 +4,7 @@ using System.Diagnostics.Metrics;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Diagnostics;
+using IbkrConduit.Health;
 using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Session;
@@ -23,6 +24,7 @@ internal sealed partial class TickleTimer : ITickleTimer
 
     private readonly IIbkrSessionApi _sessionApi;
     private readonly Func<CancellationToken, Task> _onFailure;
+    private readonly SessionHealthState _sessionHealthState;
     private readonly ILogger<TickleTimer> _logger;
     private readonly int _intervalSeconds;
     private CancellationTokenSource? _cts;
@@ -33,16 +35,19 @@ internal sealed partial class TickleTimer : ITickleTimer
     /// </summary>
     /// <param name="sessionApi">Refit client for session endpoints.</param>
     /// <param name="onFailure">Callback invoked when the session is detected as dead.</param>
+    /// <param name="sessionHealthState">Shared session health state to update after each tickle.</param>
     /// <param name="logger">Logger for tickle events.</param>
     /// <param name="intervalSeconds">Interval between tickle requests in seconds. Default is 60.</param>
     public TickleTimer(
         IIbkrSessionApi sessionApi,
         Func<CancellationToken, Task> onFailure,
+        SessionHealthState sessionHealthState,
         ILogger<TickleTimer> logger,
         int intervalSeconds = 60)
     {
         _sessionApi = sessionApi;
         _onFailure = onFailure;
+        _sessionHealthState = sessionHealthState;
         _logger = logger;
         _intervalSeconds = intervalSeconds;
     }
@@ -92,6 +97,19 @@ internal sealed partial class TickleTimer : ITickleTimer
     [LoggerMessage(Level = LogLevel.Error, Message = "Failure callback threw an exception")]
     private partial void LogFailureCallbackError(Exception exception);
 
+    private void UpdateSessionHealthState(TickleAuthStatus? authStatus)
+    {
+        if (authStatus is null)
+        {
+            return;
+        }
+
+        _sessionHealthState.Authenticated = authStatus.Authenticated;
+        _sessionHealthState.Connected = authStatus.Connected;
+        _sessionHealthState.Competing = authStatus.Competing;
+        _sessionHealthState.Established = authStatus.Established;
+    }
+
     private async Task RunAsync(CancellationToken cancellationToken)
     {
         using var periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(_intervalSeconds));
@@ -103,8 +121,11 @@ internal sealed partial class TickleTimer : ITickleTimer
                 using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Tickle");
 
                 var response = await _sessionApi.TickleAsync(cancellationToken);
-                var isAuthenticated = response.Iserver?.AuthStatus?.Authenticated ?? false;
+                var authStatus = response.Iserver?.AuthStatus;
+                var isAuthenticated = authStatus?.Authenticated ?? false;
                 activity?.SetTag("authenticated", isAuthenticated);
+
+                UpdateSessionHealthState(authStatus);
 
                 if (!isAuthenticated)
                 {
@@ -146,19 +167,21 @@ internal sealed partial class TickleTimer : ITickleTimer
 /// </summary>
 internal sealed class TickleTimerFactory : ITickleTimerFactory
 {
+    private readonly SessionHealthState _sessionHealthState;
     private readonly ILogger<TickleTimer> _logger;
     private readonly int _intervalSeconds;
 
     /// <summary>
     /// Creates a new factory with the given logger and interval.
     /// </summary>
-    public TickleTimerFactory(ILogger<TickleTimer> logger, int intervalSeconds = 60)
+    public TickleTimerFactory(SessionHealthState sessionHealthState, ILogger<TickleTimer> logger, int intervalSeconds = 60)
     {
+        _sessionHealthState = sessionHealthState;
         _logger = logger;
         _intervalSeconds = intervalSeconds;
     }
 
     /// <inheritdoc />
     public ITickleTimer Create(IIbkrSessionApi sessionApi, Func<CancellationToken, Task> onFailure) =>
-        new TickleTimer(sessionApi, onFailure, _logger, _intervalSeconds);
+        new TickleTimer(sessionApi, onFailure, _sessionHealthState, _logger, _intervalSeconds);
 }

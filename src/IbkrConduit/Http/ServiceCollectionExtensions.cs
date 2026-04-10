@@ -64,6 +64,7 @@ public static class ServiceCollectionExtensions
         // Health check infrastructure
         services.AddSingleton<LastSuccessfulCallTracker>();
         services.AddSingleton(new HealthStatusOptions());
+        services.AddSingleton<SessionHealthState>();
         services.AddSingleton<IHealthStatusCollector, HealthStatusCollector>();
 
         // Unified facade

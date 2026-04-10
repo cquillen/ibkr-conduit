@@ -19,6 +19,13 @@ public class HealthStatusCollectorTests
     private readonly LastSuccessfulCallTracker _lastCallTracker = new();
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly HealthStatusOptions _options = new();
+    private readonly SessionHealthState _sessionHealthState = new()
+    {
+        Authenticated = true,
+        Connected = true,
+        Competing = false,
+        Established = true,
+    };
 
     public HealthStatusCollectorTests()
     {
@@ -185,7 +192,7 @@ public class HealthStatusCollectorTests
         await Task.Delay(10, TestContext.Current.CancellationToken);
 
         var collector = new HealthStatusCollector(
-            _sessionApi, _tokenProvider, _wsClient, staleTracker, _rateLimiter, options);
+            _sessionApi, _tokenProvider, _wsClient, staleTracker, _rateLimiter, options, _sessionHealthState);
         var result = await collector.GetHealthStatusAsync(
             activeProbe: false, cancellationToken: TestContext.Current.CancellationToken);
 
@@ -227,8 +234,62 @@ public class HealthStatusCollectorTests
         result.Streaming.ActiveSubscriptions.ShouldBe(2);
     }
 
+    [Fact]
+    public async Task GetHealthStatusAsync_Passive_SessionNotAuthenticated_ReturnsUnhealthy()
+    {
+        _tokenProvider.CurrentTokenExpiry.Returns(DateTimeOffset.UtcNow.AddHours(1));
+        _wsClient.IsConnected.Returns(false);
+        _wsClient.ActiveSubscriptionCount.Returns(0);
+
+        SetLastCallToNow();
+
+        var unhealthyState = new SessionHealthState
+        {
+            Authenticated = false,
+            Connected = false,
+            Competing = false,
+            Established = false,
+            FailReason = "Session lost",
+        };
+
+        var collector = new HealthStatusCollector(
+            _sessionApi, _tokenProvider, _wsClient, _lastCallTracker, _rateLimiter, _options, unhealthyState);
+        var result = await collector.GetHealthStatusAsync(
+            activeProbe: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.OverallStatus.ShouldBe(HealthState.Unhealthy);
+        result.Session.Authenticated.ShouldBeFalse();
+        result.Session.FailReason.ShouldBe("Session lost");
+    }
+
+    [Fact]
+    public async Task GetHealthStatusAsync_Passive_SessionCompeting_ReturnsDegraded()
+    {
+        _tokenProvider.CurrentTokenExpiry.Returns(DateTimeOffset.UtcNow.AddHours(1));
+        _wsClient.IsConnected.Returns(false);
+        _wsClient.ActiveSubscriptionCount.Returns(0);
+
+        SetLastCallToNow();
+
+        var competingState = new SessionHealthState
+        {
+            Authenticated = true,
+            Connected = true,
+            Competing = true,
+            Established = true,
+        };
+
+        var collector = new HealthStatusCollector(
+            _sessionApi, _tokenProvider, _wsClient, _lastCallTracker, _rateLimiter, _options, competingState);
+        var result = await collector.GetHealthStatusAsync(
+            activeProbe: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.OverallStatus.ShouldBe(HealthState.Degraded);
+        result.Session.Competing.ShouldBeTrue();
+    }
+
     private HealthStatusCollector CreateCollector() =>
-        new(_sessionApi, _tokenProvider, _wsClient, _lastCallTracker, _rateLimiter, _options);
+        new(_sessionApi, _tokenProvider, _wsClient, _lastCallTracker, _rateLimiter, _options, _sessionHealthState);
 
     private void SetLastCallToNow() => _lastCallTracker.RecordSuccess();
 }

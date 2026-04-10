@@ -2,6 +2,7 @@ using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -24,6 +25,7 @@ public class TickleTimerTests
         var timer = new TickleTimer(
             sessionApi,
             onFailure,
+            new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             intervalSeconds: 1);
 
@@ -53,6 +55,7 @@ public class TickleTimerTests
         var timer = new TickleTimer(
             sessionApi,
             onFailure,
+            new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             intervalSeconds: 1);
 
@@ -80,6 +83,7 @@ public class TickleTimerTests
         var timer = new TickleTimer(
             sessionApi,
             onFailure,
+            new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             intervalSeconds: 1);
 
@@ -101,6 +105,7 @@ public class TickleTimerTests
         var timer = new TickleTimer(
             sessionApi,
             onFailure,
+            new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             intervalSeconds: 1);
 

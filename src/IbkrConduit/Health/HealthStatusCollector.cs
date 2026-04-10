@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using IbkrConduit.Auth;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
 
@@ -19,6 +20,7 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
     private readonly LastSuccessfulCallTracker _lastCallTracker;
     private readonly RateLimiter _globalLimiter;
     private readonly HealthStatusOptions _options;
+    private readonly SessionHealthState _sessionHealthState;
 
     /// <summary>
     /// Creates a new <see cref="HealthStatusCollector"/>.
@@ -29,13 +31,15 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
     /// <param name="lastCallTracker">Tracker for last successful API call.</param>
     /// <param name="globalLimiter">Global rate limiter instance.</param>
     /// <param name="options">Health check threshold configuration.</param>
+    /// <param name="sessionHealthState">Cached session health state from tickle timer.</param>
     public HealthStatusCollector(
         IIbkrSessionApi sessionApi,
         ISessionTokenProvider tokenProvider,
         IIbkrWebSocketClient wsClient,
         LastSuccessfulCallTracker lastCallTracker,
         RateLimiter globalLimiter,
-        HealthStatusOptions options)
+        HealthStatusOptions options,
+        SessionHealthState sessionHealthState)
     {
         _sessionApi = sessionApi;
         _tokenProvider = tokenProvider;
@@ -43,12 +47,16 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
         _lastCallTracker = lastCallTracker;
         _globalLimiter = globalLimiter;
         _options = options;
+        _sessionHealthState = sessionHealthState;
     }
 
     /// <inheritdoc />
     public async Task<IbkrHealthStatus> GetHealthStatusAsync(
         bool activeProbe = false, CancellationToken cancellationToken = default)
     {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Health.GetHealthStatus");
+        activity?.SetTag("activeProbe", activeProbe);
+
         var session = activeProbe
             ? await CollectActiveSessionHealthAsync(cancellationToken)
             : CollectPassiveSessionHealth();
@@ -60,6 +68,7 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
         var now = DateTimeOffset.UtcNow;
 
         var overallStatus = EvaluateOverallStatus(session, streaming, token, rateLimiter, lastCall, now);
+        activity?.SetTag("overallStatus", overallStatus.ToString());
 
         return new IbkrHealthStatus
         {
@@ -73,8 +82,13 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
         };
     }
 
-    private static BrokerageSessionHealth CollectPassiveSessionHealth() =>
-        new(Authenticated: true, Connected: true, Competing: false, Established: true, FailReason: null);
+    private BrokerageSessionHealth CollectPassiveSessionHealth() =>
+        new(
+            Authenticated: _sessionHealthState.Authenticated,
+            Connected: _sessionHealthState.Connected,
+            Competing: _sessionHealthState.Competing,
+            Established: _sessionHealthState.Established,
+            FailReason: _sessionHealthState.FailReason);
 
     private async Task<BrokerageSessionHealth> CollectActiveSessionHealthAsync(CancellationToken cancellationToken)
     {
@@ -124,6 +138,8 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
         var used = _globalTokenLimit - available;
         var utilizationPercent = (double)used / _globalTokenLimit * 100;
 
+        // The library uses a single global token bucket rate limiter.
+        // Both burst and sustained fields report the same global limiter state.
         return new RateLimiterHealth(
             BurstRemaining: available,
             SustainedRemaining: available,
