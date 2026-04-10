@@ -136,7 +136,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
 
         _historyCount.Add(1);
         var sw = Stopwatch.StartNew();
-        var startTimeStr = startTime?.ToString("yyyyMMdd-HH:mm:ss", CultureInfo.InvariantCulture);
+        var startTimeStr = startTime?.UtcDateTime.ToString("yyyyMMdd-HH:mm:ss", CultureInfo.InvariantCulture);
         var response = await _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period, bar, outsideRth, exchange, startTimeStr, direction, source, cancellationToken);
         _historyDuration.Record(sw.Elapsed.TotalMilliseconds);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
