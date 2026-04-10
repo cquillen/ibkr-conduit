@@ -187,7 +187,7 @@ public class PortfolioOperationsTests
         _fakeApi.AllPeriodsResponse = new AllPeriodsPerformance("base", 0);
 
         var result = await _sut.GetAllPeriodsPerformanceAsync(
-            ["DU123"], TestContext.Current.CancellationToken);
+            ["DU123"], cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.CurrencyType.ShouldBe("base");
         _fakeApi.LastAllPeriodsRequest.ShouldNotBeNull();
@@ -233,7 +233,8 @@ public class PortfolioOperationsTests
 
         public Task<IApiResponse<List<Position>>> GetPositionsAsync(string accountId, int page = 0,
             string? model = null, string? sort = null, string? direction = null,
-            string? period = null, CancellationToken cancellationToken = default) =>
+            string? period = null, bool? waitForSecDef = null,
+            CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(PositionsResponse!));
 
         public Task<IApiResponse<Dictionary<string, AccountSummaryEntry>>> GetAccountSummaryAsync(
@@ -249,7 +250,7 @@ public class PortfolioOperationsTests
             Task.FromResult(FakeApiResponse.Success(new AccountInfo("DU123", "DU123", "Test", null, "INDIVIDUAL", "USD")));
 
         public Task<IApiResponse<AccountAllocation>> GetAccountAllocationAsync(
-            string accountId, CancellationToken cancellationToken = default) =>
+            string accountId, string? model = null, CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(new AccountAllocation(null, null, null)));
 
         public Task<IApiResponse<List<Position>>> GetPositionByConidAsync(
@@ -305,7 +306,7 @@ public class PortfolioOperationsTests
             Task.FromResult(FakeApiResponse.Success(SubAccountsResponse!));
 
         public Task<IApiResponse<AllPeriodsPerformance>> GetAllPeriodsPerformanceAsync(
-            AllPeriodsRequest request, CancellationToken cancellationToken = default)
+            AllPeriodsRequest request, string? param = null, CancellationToken cancellationToken = default)
         {
             LastAllPeriodsRequest = request;
             return Task.FromResult(FakeApiResponse.Success(AllPeriodsResponse!));

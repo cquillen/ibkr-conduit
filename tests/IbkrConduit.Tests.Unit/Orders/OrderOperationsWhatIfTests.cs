@@ -100,13 +100,13 @@ public class OrderOperationsWhatIfTests
             string replyId, ReplyRequest request, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<IApiResponse<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, string? extOperator = null, bool? manualIndicator = null, long? manualCancelTime = null, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
         public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(OrderStatusFilter[]? filters = null, bool? force = null, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
-        public Task<IApiResponse<List<Trade>>> GetTradesAsync(CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<List<Trade>>> GetTradesAsync(int? days = null, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
 
         public Task<IApiResponse<WhatIfResponse>> WhatIfOrderAsync(

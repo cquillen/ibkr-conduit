@@ -25,11 +25,17 @@ internal interface IIbkrMarketDataApi
     /// <param name="period">Time period (e.g., "1d", "1w", "1m", "1y").</param>
     /// <param name="bar">Bar size (e.g., "1min", "5min", "1h", "1d").</param>
     /// <param name="outsideRth">Whether to include data outside regular trading hours.</param>
+    /// <param name="exchange">Exchange or SMART routing.</param>
+    /// <param name="startTime">UTC date-time string in IBKR format (yyyyMMdd-HH:mm:ss).</param>
+    /// <param name="direction">-1 (data begins away from start) or 1 (data ends at start).</param>
+    /// <param name="source">Bar data source (e.g., "Midpoint", "Bid_Ask").</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     [Get("/v1/api/iserver/marketdata/history")]
     Task<IApiResponse<HistoricalDataResponse>> GetHistoryAsync(
         [Query] string conid, [Query] string period,
         [Query] string bar, [Query] bool? outsideRth = null,
+        [Query] string? exchange = null, [Query] string? startTime = null,
+        [Query] int? direction = null, [Query] string? source = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

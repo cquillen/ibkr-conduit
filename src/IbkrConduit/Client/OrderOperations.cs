@@ -89,13 +89,15 @@ internal partial class OrderOperations : IOrderOperations
 
     /// <inheritdoc />
     public async Task<Result<CancelOrderResponse>> CancelOrderAsync(
-        string accountId, string orderId, CancellationToken cancellationToken = default)
+        string accountId, string orderId,
+        string? extOperator = null, bool? manualIndicator = null, long? manualCancelTime = null,
+        CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Cancel");
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag(LogFields.OrderId, orderId);
         _cancelCount.Add(1);
-        var response = await _orderApi.CancelOrderAsync(accountId, orderId, cancellationToken);
+        var response = await _orderApi.CancelOrderAsync(accountId, orderId, extOperator, manualIndicator, manualCancelTime, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -115,10 +117,10 @@ internal partial class OrderOperations : IOrderOperations
 
     /// <inheritdoc />
     public async Task<Result<List<Trade>>> GetTradesAsync(
-        CancellationToken cancellationToken = default)
+        int? days = null, CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetTrades");
-        var response = await _orderApi.GetTradesAsync(cancellationToken);
+        var response = await _orderApi.GetTradesAsync(days, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }

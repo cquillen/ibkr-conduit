@@ -151,12 +151,12 @@ public class FyiOperationsTests
         {
             new(0, "1700000000", "Title", "Content", "notif-1", 0, "OR"),
         };
-        _api.GetNotificationsAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
+        _api.GetNotificationsAsync(Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
-        var result = await _sut.GetNotificationsAsync("10", TestContext.Current.CancellationToken);
+        var result = await _sut.GetNotificationsAsync("10", cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.ShouldBeSameAs(expected);
-        await _api.Received(1).GetNotificationsAsync("10", TestContext.Current.CancellationToken);
+        await _api.Received(1).GetNotificationsAsync("10", null, null, null, TestContext.Current.CancellationToken);
     }
 
     [Fact]

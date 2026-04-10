@@ -11,7 +11,13 @@ internal interface IIbkrContractApi
     /// Searches for contracts by symbol name.
     /// </summary>
     [Get("/v1/api/iserver/secdef/search")]
-    Task<IApiResponse<List<ContractSearchResult>>> SearchBySymbolAsync([Query] string symbol, CancellationToken cancellationToken = default);
+    Task<IApiResponse<List<ContractSearchResult>>> SearchBySymbolAsync(
+        [Query] string symbol,
+        [Query] string? secType = null, [Query] bool? name = null,
+        [Query] bool? more = null, [Query] bool? fund = null,
+        [Query] string? fundFamilyConidEx = null, [Query] bool? pattern = null,
+        [Query] string? referrer = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves detailed contract information by contract ID.
@@ -31,6 +37,7 @@ internal interface IIbkrContractApi
         [Query] string? strike = null,
         [Query] string? right = null,
         [Query] string? issuerId = null,
+        [Query] string? filters = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -66,6 +73,7 @@ internal interface IIbkrContractApi
     [Get("/v1/api/trsrv/all-conids")]
     Task<IApiResponse<List<ExchangeConid>>> GetAllConidsByExchangeAsync(
         [Query] string exchange,
+        [Query] string? assetClass = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -74,6 +82,7 @@ internal interface IIbkrContractApi
     [Get("/v1/api/trsrv/futures")]
     Task<IApiResponse<Dictionary<string, List<FutureContract>>>> GetFuturesBySymbolAsync(
         [Query] string symbols,
+        [Query] string? exchange = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

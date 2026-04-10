@@ -414,7 +414,7 @@ public class OrderTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("Orders", "DELETE-cancel-order"));
 
         var result = (await _harness.Client.Orders.CancelOrderAsync(
-            "U1234567", "602801486", TestContext.Current.CancellationToken)).Value;
+            "U1234567", "602801486", cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Message.ShouldBe("Request was submitted");
@@ -451,7 +451,7 @@ public class OrderTests : IAsyncLifetime, IDisposable
                     .WithBody(FixtureLoader.LoadBody("Orders", "DELETE-cancel-order")));
 
         var result = (await _harness.Client.Orders.CancelOrderAsync(
-            "U1234567", "602801486", TestContext.Current.CancellationToken)).Value;
+            "U1234567", "602801486", cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Message.ShouldBe("Request was submitted");

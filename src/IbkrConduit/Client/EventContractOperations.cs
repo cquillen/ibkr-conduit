@@ -47,11 +47,12 @@ internal partial class EventContractOperations : IEventContractOperations
 
     /// <inheritdoc />
     public async Task<Result<EventContractMarketResponse>> GetMarketAsync(int underlyingConid,
+        string? exchange = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.EventContracts.GetMarket");
         activity?.SetTag("underlyingConid", underlyingConid);
-        var response = await _api.GetMarketAsync(underlyingConid, cancellationToken);
+        var response = await _api.GetMarketAsync(underlyingConid, exchange, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetMarket");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;

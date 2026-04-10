@@ -125,7 +125,9 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
 
     /// <inheritdoc />
     public async Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, string period, string bar,
-        bool? outsideRth = null, CancellationToken cancellationToken = default)
+        bool? outsideRth = null, string? exchange = null, string? startTime = null,
+        int? direction = null, string? source = null,
+        CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.History");
         activity?.SetTag(LogFields.Conid, conid);
@@ -134,7 +136,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
 
         _historyCount.Add(1);
         var sw = Stopwatch.StartNew();
-        var response = await _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period, bar, outsideRth, cancellationToken);
+        var response = await _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period, bar, outsideRth, exchange, startTime, direction, source, cancellationToken);
         _historyDuration.Record(sw.Elapsed.TotalMilliseconds);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;

@@ -36,11 +36,15 @@ internal partial class ContractOperations : IContractOperations
 
     /// <inheritdoc />
     public async Task<Result<List<ContractSearchResult>>> SearchBySymbolAsync(
-        string symbol, CancellationToken cancellationToken = default)
+        string symbol,
+        string? secType = null, bool? name = null, bool? more = null,
+        bool? fund = null, string? fundFamilyConidEx = null,
+        bool? pattern = null, string? referrer = null,
+        CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.SearchBySymbol");
         activity?.SetTag(LogFields.Symbol, symbol);
-        var response = await _api.SearchBySymbolAsync(symbol, cancellationToken);
+        var response = await _api.SearchBySymbolAsync(symbol, secType, name, more, fund, fundFamilyConidEx, pattern, referrer, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "SearchBySymbol");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -62,11 +66,12 @@ internal partial class ContractOperations : IContractOperations
     public async Task<Result<List<SecurityDefinitionInfo>>> GetSecurityDefinitionInfoAsync(
         string conid, string sectype, string month,
         string? exchange = null, string? strike = null, string? right = null, string? issuerId = null,
+        string? filters = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetSecDefInfo");
         activity?.SetTag(LogFields.Conid, conid);
-        var response = await _api.GetSecurityDefinitionInfoAsync(conid, sectype, month, exchange, strike, right, issuerId, cancellationToken);
+        var response = await _api.GetSecurityDefinitionInfoAsync(conid, sectype, month, exchange, strike, right, issuerId, filters, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetSecurityDefinitionInfo");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -114,12 +119,12 @@ internal partial class ContractOperations : IContractOperations
 
     /// <inheritdoc />
     public async Task<Result<List<ExchangeConid>>> GetAllConidsByExchangeAsync(
-        string exchange,
+        string exchange, string? assetClass = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetAllConidsByExchange");
         activity?.SetTag("ibkr.exchange", exchange);
-        var response = await _api.GetAllConidsByExchangeAsync(exchange, cancellationToken);
+        var response = await _api.GetAllConidsByExchangeAsync(exchange, assetClass, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetAllConidsByExchange");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -127,12 +132,12 @@ internal partial class ContractOperations : IContractOperations
 
     /// <inheritdoc />
     public async Task<Result<Dictionary<string, List<FutureContract>>>> GetFuturesBySymbolAsync(
-        string symbols,
+        string symbols, string? exchange = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetFuturesBySymbol");
         activity?.SetTag(LogFields.Symbol, symbols);
-        var response = await _api.GetFuturesBySymbolAsync(symbols, cancellationToken);
+        var response = await _api.GetFuturesBySymbolAsync(symbols, exchange, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetFuturesBySymbol");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;

@@ -19,8 +19,16 @@ public interface IOrderOperations
     /// <summary>
     /// Cancels an existing order.
     /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="orderId">The order identifier.</param>
+    /// <param name="extOperator">External operator identifier.</param>
+    /// <param name="manualIndicator">Required for US Futures; indicates manual vs automated cancel.</param>
+    /// <param name="manualCancelTime">Unix timestamp of manual cancel.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<CancelOrderResponse>> CancelOrderAsync(
-        string accountId, string orderId, CancellationToken cancellationToken = default);
+        string accountId, string orderId,
+        string? extOperator = null, bool? manualIndicator = null, long? manualCancelTime = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves live orders for the current session.
@@ -40,7 +48,10 @@ public interface IOrderOperations
     /// <summary>
     /// Retrieves completed trades for the current session.
     /// </summary>
-    Task<Result<List<Trade>>> GetTradesAsync(CancellationToken cancellationToken = default);
+    /// <param name="days">Number of prior days to include (1-7). Default is current day only.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<Result<List<Trade>>> GetTradesAsync(
+        int? days = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Modifies an existing order. Returns either a confirmed submission

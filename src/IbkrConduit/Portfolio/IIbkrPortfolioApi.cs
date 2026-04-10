@@ -21,6 +21,7 @@ internal interface IIbkrPortfolioApi
         string accountId, int page = 0,
         [Query] string? model = null, [Query] string? sort = null,
         [Query] string? direction = null, [Query] string? period = null,
+        [Query] bool? waitForSecDef = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -49,7 +50,8 @@ internal interface IIbkrPortfolioApi
     /// </summary>
     [Get("/v1/api/portfolio/{accountId}/allocation")]
     Task<IApiResponse<AccountAllocation>> GetAccountAllocationAsync(
-        string accountId, CancellationToken cancellationToken = default);
+        string accountId, [Query] string? model = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves position information for a specific contract in the specified account.
@@ -128,7 +130,8 @@ internal interface IIbkrPortfolioApi
     /// </summary>
     [Post("/v1/api/pa/allperiods")]
     Task<IApiResponse<AllPeriodsPerformance>> GetAllPeriodsPerformanceAsync(
-        [Body] AllPeriodsRequest request, CancellationToken cancellationToken = default);
+        [Body] AllPeriodsRequest request, [Query] string? param = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves P&amp;L partitioned by account and model.

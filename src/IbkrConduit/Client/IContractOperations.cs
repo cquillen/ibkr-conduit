@@ -11,8 +11,21 @@ public interface IContractOperations
     /// <summary>
     /// Searches for contracts matching the given symbol.
     /// </summary>
+    /// <param name="symbol">The symbol to search for.</param>
+    /// <param name="secType">Security type filter (STK, IND, BOND).</param>
+    /// <param name="name">Search by name instead of symbol.</param>
+    /// <param name="more">Request more results.</param>
+    /// <param name="fund">Filter to funds only.</param>
+    /// <param name="fundFamilyConidEx">Fund family conid filter.</param>
+    /// <param name="pattern">Enable pattern matching.</param>
+    /// <param name="referrer">Referrer context.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<List<ContractSearchResult>>> SearchBySymbolAsync(
-        string symbol, CancellationToken cancellationToken = default);
+        string symbol,
+        string? secType = null, bool? name = null, bool? more = null,
+        bool? fund = null, string? fundFamilyConidEx = null,
+        bool? pattern = null, string? referrer = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves detailed contract information by contract ID.
@@ -26,6 +39,7 @@ public interface IContractOperations
     Task<Result<List<SecurityDefinitionInfo>>> GetSecurityDefinitionInfoAsync(
         string conid, string sectype, string month,
         string? exchange = null, string? strike = null, string? right = null, string? issuerId = null,
+        string? filters = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -53,15 +67,21 @@ public interface IContractOperations
     /// <summary>
     /// Retrieves all contract IDs for a given exchange.
     /// </summary>
+    /// <param name="exchange">The exchange name.</param>
+    /// <param name="assetClass">Optional asset class filter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<List<ExchangeConid>>> GetAllConidsByExchangeAsync(
-        string exchange,
+        string exchange, string? assetClass = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves futures contracts by symbol.
     /// </summary>
+    /// <param name="symbols">The symbol(s) to look up.</param>
+    /// <param name="exchange">Optional exchange filter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<Dictionary<string, List<FutureContract>>>> GetFuturesBySymbolAsync(
-        string symbols,
+        string symbols, string? exchange = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
