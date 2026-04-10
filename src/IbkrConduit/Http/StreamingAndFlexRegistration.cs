@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Threading.RateLimiting;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Flex;
@@ -42,6 +43,27 @@ internal static class StreamingAndFlexRegistration
         {
             var flexToken = clientOptions.FlexToken;
             var flexClientName = $"IbkrConduit-Flex-{credentials.TenantId}";
+
+            var flexBurstLimiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = 1,
+                ReplenishmentPeriod = TimeSpan.FromSeconds(1),
+                TokensPerPeriod = 1,
+                AutoReplenishment = true,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 50,
+            });
+
+            var flexSustainedLimiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = 10,
+                ReplenishmentPeriod = TimeSpan.FromMinutes(1),
+                TokensPerPeriod = 10,
+                AutoReplenishment = true,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 50,
+            });
+
             services.AddHttpClient(flexClientName, c =>
             {
                 c.DefaultRequestHeaders.UserAgent.ParseAdd("IbkrConduit/1.0");
@@ -49,7 +71,15 @@ internal static class StreamingAndFlexRegistration
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             {
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-            });
+            })
+            .AddHttpMessageHandler(sp =>
+                new GlobalRateLimitingHandler(
+                    flexBurstLimiter,
+                    sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>()))
+            .AddHttpMessageHandler(sp =>
+                new GlobalRateLimitingHandler(
+                    flexSustainedLimiter,
+                    sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>()));
 
             services.AddSingleton(sp =>
                 new FlexClient(
