@@ -16,7 +16,7 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
     private readonly IIbkrSessionApi _sessionApi;
     private readonly ISessionTokenProvider _tokenProvider;
     private readonly IIbkrWebSocketClient _wsClient;
-    private readonly LastSuccessfulCallHandler _lastCallHandler;
+    private readonly LastSuccessfulCallTracker _lastCallTracker;
     private readonly RateLimiter _globalLimiter;
     private readonly HealthStatusOptions _options;
 
@@ -26,21 +26,21 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
     /// <param name="sessionApi">Session API for active probes.</param>
     /// <param name="tokenProvider">Token provider for expiry checks.</param>
     /// <param name="wsClient">WebSocket client for streaming health.</param>
-    /// <param name="lastCallHandler">Handler tracking last successful API call.</param>
+    /// <param name="lastCallTracker">Tracker for last successful API call.</param>
     /// <param name="globalLimiter">Global rate limiter instance.</param>
     /// <param name="options">Health check threshold configuration.</param>
     public HealthStatusCollector(
         IIbkrSessionApi sessionApi,
         ISessionTokenProvider tokenProvider,
         IIbkrWebSocketClient wsClient,
-        LastSuccessfulCallHandler lastCallHandler,
+        LastSuccessfulCallTracker lastCallTracker,
         RateLimiter globalLimiter,
         HealthStatusOptions options)
     {
         _sessionApi = sessionApi;
         _tokenProvider = tokenProvider;
         _wsClient = wsClient;
-        _lastCallHandler = lastCallHandler;
+        _lastCallTracker = lastCallTracker;
         _globalLimiter = globalLimiter;
         _options = options;
     }
@@ -56,7 +56,7 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
         var streaming = CollectStreamingHealth();
         var token = CollectTokenHealth();
         var rateLimiter = CollectRateLimiterHealth();
-        var lastCall = _lastCallHandler.LastSuccessfulCall;
+        var lastCall = _lastCallTracker.LastSuccessfulCall;
         var now = DateTimeOffset.UtcNow;
 
         var overallStatus = EvaluateOverallStatus(session, streaming, token, rateLimiter, lastCall, now);

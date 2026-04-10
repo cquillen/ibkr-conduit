@@ -1,5 +1,6 @@
 using IbkrConduit.Errors;
 using IbkrConduit.Flex;
+using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging;
 
@@ -11,6 +12,7 @@ namespace IbkrConduit.Client;
 /// </summary>
 internal partial class IbkrClient : IIbkrClient
 {
+    private readonly IHealthStatusCollector _healthCollector;
     private readonly ISessionManager _sessionManager;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<IbkrClient> _logger;
@@ -29,6 +31,7 @@ internal partial class IbkrClient : IIbkrClient
     /// <param name="watchlists">Watchlist operations.</param>
     /// <param name="notifications">FYI notification operations.</param>
     /// <param name="eventContracts">Event contract (ForecastEx) operations.</param>
+    /// <param name="healthCollector">Health status collector for aggregated health checks.</param>
     /// <param name="sessionManager">The session manager for lifecycle management.</param>
     /// <param name="options">Client configuration options.</param>
     /// <param name="logger">Logger instance.</param>
@@ -44,6 +47,7 @@ internal partial class IbkrClient : IIbkrClient
         IWatchlistOperations watchlists,
         IFyiOperations notifications,
         IEventContractOperations eventContracts,
+        IHealthStatusCollector healthCollector,
         ISessionManager sessionManager,
         IbkrClientOptions options,
         ILogger<IbkrClient> logger)
@@ -59,6 +63,7 @@ internal partial class IbkrClient : IIbkrClient
         Watchlists = watchlists;
         Notifications = notifications;
         EventContracts = eventContracts;
+        _healthCollector = healthCollector;
         _sessionManager = sessionManager;
         _options = options;
         _logger = logger;
@@ -96,6 +101,11 @@ internal partial class IbkrClient : IIbkrClient
 
     /// <inheritdoc />
     public IEventContractOperations EventContracts { get; }
+
+    /// <inheritdoc />
+    public Task<IbkrHealthStatus> GetHealthStatusAsync(
+        bool activeProbe = false, CancellationToken cancellationToken = default) =>
+        _healthCollector.GetHealthStatusAsync(activeProbe, cancellationToken);
 
     /// <inheritdoc />
     public async Task ValidateConnectionAsync(bool validateFlex = true, CancellationToken cancellationToken = default)

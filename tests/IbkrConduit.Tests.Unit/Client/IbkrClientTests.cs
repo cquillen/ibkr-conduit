@@ -11,6 +11,7 @@ using IbkrConduit.Errors;
 using IbkrConduit.EventContracts;
 using IbkrConduit.Flex;
 using IbkrConduit.Fyi;
+using IbkrConduit.Health;
 using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
@@ -72,6 +73,20 @@ public class IbkrClientTests
         var flex = new FakeFlexOperations();
         var client = CreateClient(flex: flex);
         client.Flex.ShouldBeSameAs(flex);
+    }
+
+    [Fact]
+    public async Task GetHealthStatusAsync_DelegatesToCollector()
+    {
+        var collector = new FakeHealthStatusCollector();
+        var client = CreateClient(healthCollector: collector);
+
+        var result = await client.GetHealthStatusAsync(
+            activeProbe: true, cancellationToken: TestContext.Current.CancellationToken);
+
+        collector.CallCount.ShouldBe(1);
+        collector.LastActiveProbe.ShouldBe(true);
+        result.OverallStatus.ShouldBe(HealthState.Healthy);
     }
 
     [Fact]
@@ -298,6 +313,7 @@ public class IbkrClientTests
         IWatchlistOperations? watchlists = null,
         IFyiOperations? notifications = null,
         IEventContractOperations? eventContracts = null,
+        IHealthStatusCollector? healthCollector = null,
         ISessionManager? sessionManager = null,
         IbkrClientOptions? options = null) =>
         new(
@@ -312,6 +328,7 @@ public class IbkrClientTests
             watchlists ?? new FakeWatchlistOperations(),
             notifications ?? new FakeFyiOperations(),
             eventContracts ?? new FakeEventContractOperations(),
+            healthCollector ?? new FakeHealthStatusCollector(),
             sessionManager ?? new FakeSessionManager(),
             options ?? new IbkrClientOptions(),
             NullLogger<IbkrClient>.Instance);
@@ -468,6 +485,30 @@ public class IbkrClientTests
         public Task<Result<List<FyiNotification>>> GetNotificationsAsync(int? max = null, string? include = null, string? exclude = null, string? id = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<List<FyiNotification>>> GetMoreNotificationsAsync(string id, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<FyiNotificationReadResponse>> MarkNotificationReadAsync(string notificationId, CancellationToken ct = default) => throw new NotImplementedException();
+    }
+
+    private class FakeHealthStatusCollector : IHealthStatusCollector
+    {
+        public IbkrHealthStatus? ResultToReturn { get; set; }
+        public int CallCount { get; private set; }
+        public bool? LastActiveProbe { get; private set; }
+
+        public Task<IbkrHealthStatus> GetHealthStatusAsync(
+            bool activeProbe = false, CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            LastActiveProbe = activeProbe;
+            return Task.FromResult(ResultToReturn ?? new IbkrHealthStatus
+            {
+                OverallStatus = HealthState.Healthy,
+                Session = new BrokerageSessionHealth(true, true, false, true, null),
+                Streaming = null,
+                Token = new OAuthTokenHealth(false, TimeSpan.FromHours(1)),
+                RateLimiter = new RateLimiterHealth(10, 10, 0, 0),
+                LastSuccessfulCall = DateTimeOffset.UtcNow,
+                CheckedAt = DateTimeOffset.UtcNow,
+            });
+        }
     }
 
     private class FakeSessionManager : ISessionManager
