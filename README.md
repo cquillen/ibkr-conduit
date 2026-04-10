@@ -275,6 +275,27 @@ catch (IbkrApiException ex) when (ex.Error is IbkrRateLimitError rle)
 }
 ```
 
+## Observability
+
+IbkrConduit includes built-in tracing (`System.Diagnostics.ActivitySource`), metrics (`System.Diagnostics.Metrics`), and structured logging (`ILogger` with `[LoggerMessage]` source generation). No additional NuGet dependencies are required.
+
+```csharp
+// Subscribe to traces and metrics
+services.AddOpenTelemetry()
+    .WithTracing(b => b.AddSource("IbkrConduit"))
+    .WithMetrics(b => b.AddMeter("IbkrConduit"));
+
+// Enable request/response audit logging (Debug level, raw HTTP bodies)
+services.AddLogging(b => b
+    .AddConsole()
+    .SetMinimumLevel(LogLevel.Warning)
+    .AddFilter("IbkrConduit.Http.AuditLogHandler", LogLevel.Debug));
+```
+
+The audit log handler captures raw request and response bodies at Debug level — useful for debugging deserialization issues, unexpected API responses, or verifying what was actually sent to IBKR. Bodies are truncated at 4 KB and Authorization headers are never logged.
+
+For the full list of spans, metrics, and log categories, see [docs/observability.md](docs/observability.md).
+
 ## IbkrConduit vs IBKR.Sdk.Client
 
 | Aspect | IbkrConduit | IBKR.Sdk.Client |

@@ -150,6 +150,56 @@ Subscribe to the `"IbkrConduit"` Meter to receive metrics.
 | `ibkr.conduit.flex.poll.count` | Counter | |
 | `ibkr.conduit.flex.error.count` | Counter | error_code |
 
+## Request/Response Audit Logging
+
+The `AuditLogHandler` logs raw HTTP request and response bodies at **Debug** level. It sits as the outermost handler in the consumer pipeline, capturing the final request/response including any retry behavior from `TokenRefreshHandler`.
+
+### What Gets Logged
+
+| Direction | Fields |
+|-----------|--------|
+| Request | HTTP method, path, request body |
+| Response | Path, status code, duration (ms), response body |
+
+- **Response bodies are truncated** to 4 KB to avoid excessive log volume
+- **Authorization headers are never logged** — the handler sits outside `OAuthSigningHandler` in the pipeline, so auth headers aren't present at this point
+- **Zero overhead when disabled** — request/response body reading is guarded by `ILogger.IsEnabled(LogLevel.Debug)`, so there's no stream reading or string allocation when Debug logging isn't active
+
+### Enabling Audit Logging
+
+Enable Debug logging for the handler category only (without flooding the console with other Debug messages):
+
+```csharp
+services.AddLogging(b => b
+    .AddConsole()
+    .SetMinimumLevel(LogLevel.Warning)
+    .AddFilter("IbkrConduit.Http.AuditLogHandler", LogLevel.Debug));
+```
+
+Or enable global Debug logging (shows all library diagnostics):
+
+```csharp
+services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Debug));
+```
+
+### Example Output
+
+```
+dbug: IbkrConduit.Http.AuditLogHandler
+      → POST /v1/api/iserver/account/U1234567/orders {"orders":[{"conid":756733,"side":"BUY","quantity":1}]}
+dbug: IbkrConduit.Http.AuditLogHandler
+      ← /v1/api/iserver/account/U1234567/orders 200 (143ms) [{"order_id":"602801486","order_status":"PreSubmitted"}]
+```
+
+### Pipeline Position
+
+```
+AuditLogHandler → TokenRefreshHandler → ResponseSchemaValidationHandler →
+GlobalRateLimitingHandler → EndpointRateLimitingHandler → OAuthSigningHandler → HttpClient
+```
+
+The audit handler is outermost, so it sees the consumer's original request and the final response (after retries, error normalization, etc.).
+
 ## Structured Logging
 
 All log entries use `[LoggerMessage]` source generation for high-performance structured logging. Field names are defined in `LogFields` constants (all prefixed with `ibkr.`).
@@ -158,11 +208,11 @@ All log entries use `[LoggerMessage]` source generation for high-performance str
 
 | Level | Usage |
 |---|---|
-| Trace | Per-tick, per-message details (heartbeat, WebSocket message) |
-| Debug | Operation start/completion (session init, snapshot requested) |
+| Trace | Per-tick, per-message details (heartbeat, WebSocket message, Flex poll response body) |
+| Debug | Operation start/completion, **request/response audit logging**, Flex poll transient/permanent errors |
 | Information | Lifecycle events (session ready, WebSocket connected, LST acquired) |
 | Warning | Recoverable issues (question auto-confirmed, tickle failure, pre-flight retry) |
-| Error | Failures (LST validation failed, WebSocket disconnect, Flex query error) |
+| Error | Failures (LST validation failed, WebSocket disconnect, Flex query error, unmapped endpoint in strict mode) |
 
 ## Example Queries
 
