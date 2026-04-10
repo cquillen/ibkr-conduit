@@ -1,4 +1,7 @@
+using IbkrConduit.Errors;
+using IbkrConduit.Flex;
 using IbkrConduit.Session;
+using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Client;
 
@@ -6,9 +9,11 @@ namespace IbkrConduit.Client;
 /// Default implementation of <see cref="IIbkrClient"/> that delegates to
 /// typed operations interfaces and manages session lifecycle.
 /// </summary>
-internal class IbkrClient : IIbkrClient
+internal partial class IbkrClient : IIbkrClient
 {
     private readonly ISessionManager _sessionManager;
+    private readonly IbkrClientOptions _options;
+    private readonly ILogger<IbkrClient> _logger;
 
     /// <summary>
     /// Creates a new <see cref="IbkrClient"/> instance.
@@ -25,6 +30,8 @@ internal class IbkrClient : IIbkrClient
     /// <param name="notifications">FYI notification operations.</param>
     /// <param name="eventContracts">Event contract (ForecastEx) operations.</param>
     /// <param name="sessionManager">The session manager for lifecycle management.</param>
+    /// <param name="options">Client configuration options.</param>
+    /// <param name="logger">Logger instance.</param>
     public IbkrClient(
         IPortfolioOperations portfolio,
         IContractOperations contracts,
@@ -37,7 +44,9 @@ internal class IbkrClient : IIbkrClient
         IWatchlistOperations watchlists,
         IFyiOperations notifications,
         IEventContractOperations eventContracts,
-        ISessionManager sessionManager)
+        ISessionManager sessionManager,
+        IbkrClientOptions options,
+        ILogger<IbkrClient> logger)
     {
         Portfolio = portfolio;
         Contracts = contracts;
@@ -51,6 +60,8 @@ internal class IbkrClient : IIbkrClient
         Notifications = notifications;
         EventContracts = eventContracts;
         _sessionManager = sessionManager;
+        _options = options;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -87,9 +98,24 @@ internal class IbkrClient : IIbkrClient
     public IEventContractOperations EventContracts { get; }
 
     /// <inheritdoc />
-    public async Task ValidateConnectionAsync(CancellationToken cancellationToken = default)
+    public async Task ValidateConnectionAsync(bool validateFlex = true, CancellationToken cancellationToken = default)
     {
         await _sessionManager.EnsureInitializedAsync(cancellationToken);
+
+        if (validateFlex && _options.FlexToken is not null)
+        {
+            var queryId = _options.FlexQueries.CashTransactionsQueryId
+                ?? _options.FlexQueries.TradeConfirmationsQueryId;
+
+            if (queryId is not null)
+            {
+                await ValidateFlexTokenAsync(queryId, cancellationToken);
+            }
+            else
+            {
+                LogFlexValidationSkipped();
+            }
+        }
     }
 
     /// <inheritdoc />
@@ -98,4 +124,51 @@ internal class IbkrClient : IIbkrClient
         await _sessionManager.DisposeAsync();
         GC.SuppressFinalize(this);
     }
+
+    private async Task ValidateFlexTokenAsync(string queryId, CancellationToken cancellationToken)
+    {
+        var result = await Flex.ExecuteQueryAsync(queryId, cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            return;
+        }
+
+        if (result.Error is IbkrFlexError flexError)
+        {
+            if (flexError.ErrorCode is 1015)
+            {
+                throw new IbkrConfigurationException(
+                    "Flex token is invalid — generate a new token in the IBKR portal (Reports → Flex Queries → Flex Web Configuration).",
+                    "FlexToken");
+            }
+
+            if (flexError.ErrorCode is 1012)
+            {
+                throw new IbkrConfigurationException(
+                    "Flex token has expired — generate a new token in the IBKR portal (Reports → Flex Queries → Flex Web Configuration).",
+                    "FlexToken");
+            }
+
+            if (flexError.ErrorCode is 1013)
+            {
+                throw new IbkrConfigurationException(
+                    "Flex token rejected due to IP restriction — check the allowed IP list in the IBKR portal (Reports → Flex Queries → Flex Web Configuration).",
+                    "FlexToken");
+            }
+
+            LogFlexValidationQueryError(flexError.ErrorCode, flexError.Message ?? "(unknown)");
+            return;
+        }
+
+        throw new IbkrConfigurationException(
+            $"Could not reach the Flex Web Service — check network connectivity. Error: {result.Error.Message}",
+            "FlexToken");
+    }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Flex validation skipped — Flex token is configured but no query IDs set in FlexQueries")]
+    private partial void LogFlexValidationSkipped();
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Flex validation query returned error {ErrorCode}: {ErrorMessage} — token appears valid but query failed")]
+    private partial void LogFlexValidationQueryError(int errorCode, string errorMessage);
 }

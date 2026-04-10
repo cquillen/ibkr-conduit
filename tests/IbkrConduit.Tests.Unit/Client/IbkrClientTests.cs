@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using IbkrConduit.Accounts;
 using IbkrConduit.Alerts;
 using IbkrConduit.Client;
@@ -16,6 +17,8 @@ using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
 using IbkrConduit.Watchlists;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using OneOf;
 using Shouldly;
 
@@ -76,7 +79,7 @@ public class IbkrClientTests
     {
         var sessionManager = new FakeSessionManager();
         var client = CreateClient(sessionManager: sessionManager);
-        await client.ValidateConnectionAsync(TestContext.Current.CancellationToken);
+        await client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken);
         sessionManager.EnsureInitializedCallCount.ShouldBe(1);
     }
 
@@ -87,6 +90,200 @@ public class IbkrClientTests
         var client = CreateClient(sessionManager: sessionManager);
         await client.DisposeAsync();
         sessionManager.Disposed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_FlexTokenAndQueryIdConfigured_ValidatesSuccessfully()
+    {
+        var flex = new FakeFlexOperations
+        {
+            ExecuteQueryResult = Result<FlexGenericResult>.Success(
+                new FlexGenericResult("TestQuery", "AF", DateTimeOffset.UtcNow, [], new XDocument()))
+        };
+        var options = new IbkrClientOptions
+        {
+            FlexToken = "fake-token",
+            FlexQueries = new FlexQueryOptions { CashTransactionsQueryId = "12345" }
+        };
+        var client = CreateClient(flex: flex, options: options);
+
+        await client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        flex.ExecuteQueryCallCount.ShouldBe(1);
+        flex.LastQueryId.ShouldBe("12345");
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_FlexTokenInvalid_ThrowsConfigurationException()
+    {
+        var flex = new FakeFlexOperations
+        {
+            ExecuteQueryResult = Result<FlexGenericResult>.Failure(
+                new IbkrFlexError(1015, "Token is invalid", false, "Token is invalid", null, null))
+        };
+        var options = new IbkrClientOptions
+        {
+            FlexToken = "bad-token",
+            FlexQueries = new FlexQueryOptions { CashTransactionsQueryId = "12345" }
+        };
+        var client = CreateClient(flex: flex, options: options);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken));
+
+        ex.CredentialHint.ShouldBe("FlexToken");
+        ex.Message.ShouldContain("invalid");
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_FlexTokenExpired_ThrowsConfigurationException()
+    {
+        var flex = new FakeFlexOperations
+        {
+            ExecuteQueryResult = Result<FlexGenericResult>.Failure(
+                new IbkrFlexError(1012, "Token has expired", false, "Token has expired", null, null))
+        };
+        var options = new IbkrClientOptions
+        {
+            FlexToken = "expired-token",
+            FlexQueries = new FlexQueryOptions { CashTransactionsQueryId = "12345" }
+        };
+        var client = CreateClient(flex: flex, options: options);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken));
+
+        ex.CredentialHint.ShouldBe("FlexToken");
+        ex.Message.ShouldContain("expired");
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_FlexTokenIpRestriction_ThrowsConfigurationException()
+    {
+        var flex = new FakeFlexOperations
+        {
+            ExecuteQueryResult = Result<FlexGenericResult>.Failure(
+                new IbkrFlexError(1013, "IP restriction", false, "IP restriction", null, null))
+        };
+        var options = new IbkrClientOptions
+        {
+            FlexToken = "restricted-token",
+            FlexQueries = new FlexQueryOptions { CashTransactionsQueryId = "12345" }
+        };
+        var client = CreateClient(flex: flex, options: options);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken));
+
+        ex.CredentialHint.ShouldBe("FlexToken");
+        ex.Message.ShouldContain("IP restriction");
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_FlexTokenOkButQueryFails_DoesNotThrow()
+    {
+        var flex = new FakeFlexOperations
+        {
+            ExecuteQueryResult = Result<FlexGenericResult>.Failure(
+                new IbkrFlexError(1014, "Query is invalid", false, "Query is invalid", null, null))
+        };
+        var options = new IbkrClientOptions
+        {
+            FlexToken = "good-token",
+            FlexQueries = new FlexQueryOptions { CashTransactionsQueryId = "12345" }
+        };
+        var client = CreateClient(flex: flex, options: options);
+
+        await client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        flex.ExecuteQueryCallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_FlexNotConfigured_SkipsValidation()
+    {
+        var flex = new FakeFlexOperations();
+        var options = new IbkrClientOptions(); // No FlexToken
+        var client = CreateClient(flex: flex, options: options);
+
+        await client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        flex.ExecuteQueryCallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_FlexTokenButNoQueryIds_SkipsValidation()
+    {
+        var flex = new FakeFlexOperations();
+        var options = new IbkrClientOptions
+        {
+            FlexToken = "good-token",
+            FlexQueries = new FlexQueryOptions() // No query IDs
+        };
+        var client = CreateClient(flex: flex, options: options);
+
+        await client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        flex.ExecuteQueryCallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_ValidateFlexFalse_SkipsValidation()
+    {
+        var flex = new FakeFlexOperations();
+        var options = new IbkrClientOptions
+        {
+            FlexToken = "good-token",
+            FlexQueries = new FlexQueryOptions { CashTransactionsQueryId = "12345" }
+        };
+        var client = CreateClient(flex: flex, options: options);
+
+        await client.ValidateConnectionAsync(validateFlex: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        flex.ExecuteQueryCallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_TransportError_ThrowsConfigurationException()
+    {
+        var flex = new FakeFlexOperations
+        {
+            ExecuteQueryResult = Result<FlexGenericResult>.Failure(
+                new IbkrApiError(null, "Connection refused", null, null))
+        };
+        var options = new IbkrClientOptions
+        {
+            FlexToken = "good-token",
+            FlexQueries = new FlexQueryOptions { CashTransactionsQueryId = "12345" }
+        };
+        var client = CreateClient(flex: flex, options: options);
+
+        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+            () => client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken));
+
+        ex.CredentialHint.ShouldBe("FlexToken");
+        ex.Message.ShouldContain("Could not reach the Flex Web Service");
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_FallsBackToTradeConfirmationsQueryId()
+    {
+        var flex = new FakeFlexOperations
+        {
+            ExecuteQueryResult = Result<FlexGenericResult>.Success(
+                new FlexGenericResult("TestQuery", "TCF", DateTimeOffset.UtcNow, [], new XDocument()))
+        };
+        var options = new IbkrClientOptions
+        {
+            FlexToken = "good-token",
+            FlexQueries = new FlexQueryOptions { TradeConfirmationsQueryId = "67890" }
+        };
+        var client = CreateClient(flex: flex, options: options);
+
+        await client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        flex.ExecuteQueryCallCount.ShouldBe(1);
+        flex.LastQueryId.ShouldBe("67890");
     }
 
     private static IbkrClient CreateClient(
@@ -101,7 +298,8 @@ public class IbkrClientTests
         IWatchlistOperations? watchlists = null,
         IFyiOperations? notifications = null,
         IEventContractOperations? eventContracts = null,
-        ISessionManager? sessionManager = null) =>
+        ISessionManager? sessionManager = null,
+        IbkrClientOptions? options = null) =>
         new(
             portfolio ?? new FakePortfolioOperations(),
             contracts ?? new FakeContractOperations(),
@@ -114,7 +312,9 @@ public class IbkrClientTests
             watchlists ?? new FakeWatchlistOperations(),
             notifications ?? new FakeFyiOperations(),
             eventContracts ?? new FakeEventContractOperations(),
-            sessionManager ?? new FakeSessionManager());
+            sessionManager ?? new FakeSessionManager(),
+            options ?? new IbkrClientOptions(),
+            NullLogger<IbkrClient>.Instance);
 
     private class FakePortfolioOperations : IPortfolioOperations
     {
@@ -194,9 +394,20 @@ public class IbkrClientTests
 
     private class FakeFlexOperations : IFlexOperations
     {
+        public Result<FlexGenericResult>? ExecuteQueryResult { get; set; }
+        public int ExecuteQueryCallCount { get; private set; }
+        public string? LastQueryId { get; private set; }
+
         public Task<Result<CashTransactionsFlexResult>> GetCashTransactionsAsync(CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<TradeConfirmationsFlexResult>> GetTradeConfirmationsAsync(DateOnly fromDate, DateOnly toDate, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<Result<FlexGenericResult>> ExecuteQueryAsync(string queryId, CancellationToken ct = default) => throw new NotImplementedException();
+
+        public Task<Result<FlexGenericResult>> ExecuteQueryAsync(string queryId, CancellationToken ct = default)
+        {
+            ExecuteQueryCallCount++;
+            LastQueryId = queryId;
+            return Task.FromResult(ExecuteQueryResult ?? throw new NotImplementedException("ExecuteQueryResult not configured"));
+        }
+
         public Task<Result<FlexGenericResult>> ExecuteQueryAsync(string queryId, string fromDate, string toDate, CancellationToken ct = default) => throw new NotImplementedException();
     }
 
