@@ -395,6 +395,9 @@ public class OrderOperationsTests
         public Task<IApiResponse<OrderStatus>> GetOrderStatusAsync(
             string orderId, CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(OrderStatusResponse!));
+
+        public Task<IApiResponse<string>> DismissNotificationAsync(DismissNotificationRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 
     [Fact]
@@ -451,6 +454,9 @@ public class OrderOperationsTests
 
         public Task<IApiResponse<OrderStatus>> GetOrderStatusAsync(
             string orderId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<IApiResponse<string>> DismissNotificationAsync(DismissNotificationRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 
@@ -511,6 +517,9 @@ public class OrderOperationsTests
 
         public Task<IApiResponse<OrderStatus>> GetOrderStatusAsync(
             string orderId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<IApiResponse<string>> DismissNotificationAsync(DismissNotificationRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
     }
 }

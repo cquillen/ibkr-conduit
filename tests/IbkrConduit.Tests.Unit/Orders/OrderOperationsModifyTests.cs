@@ -200,6 +200,9 @@ public class OrderOperationsModifyTests
         public Task<IApiResponse<OrderStatus>> GetOrderStatusAsync(
             string orderId, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
+
+        public Task<IApiResponse<string>> DismissNotificationAsync(DismissNotificationRequest request, CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
     }
 
     private class BlockingModifyOrderApi : IIbkrOrderApi
@@ -259,6 +262,9 @@ public class OrderOperationsModifyTests
 
         public Task<IApiResponse<OrderStatus>> GetOrderStatusAsync(
             string orderId, CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+
+        public Task<IApiResponse<string>> DismissNotificationAsync(DismissNotificationRequest request, CancellationToken cancellationToken = default) =>
             throw new System.NotImplementedException();
     }
 }

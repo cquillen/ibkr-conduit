@@ -80,4 +80,16 @@ public interface IOrderOperations
     /// </summary>
     Task<Result<OrderStatus>> GetOrderStatusAsync(
         string orderId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Dismisses a server prompt received via the WebSocket <c>ntf</c> notification topic.
+    /// Call this to respond to interactive prompts delivered through the streaming connection.
+    /// </summary>
+    /// <param name="orderId">IB-assigned order identifier from the <c>ntf</c> WebSocket message.</param>
+    /// <param name="reqId">IB-assigned request identifier from the <c>ntf</c> WebSocket message.</param>
+    /// <param name="text">The selected value from the prompt's <c>options</c> array (e.g., "Yes", "No").</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<Result<string>> DismissNotificationAsync(
+        int orderId, string reqId, string text,
+        CancellationToken cancellationToken = default);
 }

@@ -369,6 +369,8 @@ public class IbkrClientTests
         public Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> ReplyAsync(string replyId, bool confirmed, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<WhatIfResponse>> WhatIfOrderAsync(string accountId, OrderRequest order, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<OrderStatus>> GetOrderStatusAsync(string orderId, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<string>> DismissNotificationAsync(int orderId, string reqId, string text, CancellationToken ct = default) =>
+            Task.FromResult(Result<string>.Success("ok"));
     }
 
     private class FakeMarketDataOperations : IMarketDataOperations
