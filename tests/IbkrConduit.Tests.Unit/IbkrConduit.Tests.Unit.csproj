@@ -8,4 +8,8 @@
     <ProjectReference Include="../../src/IbkrConduit/IbkrConduit.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Flex/Fixtures/**/*.xml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
