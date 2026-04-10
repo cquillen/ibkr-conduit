@@ -20,8 +20,12 @@ var flexToken = Environment.GetEnvironmentVariable("IBKR_FLEX_TOKEN")
 var tradeConfirmationsQueryId = Environment.GetEnvironmentVariable("IBKR_FLEX_TRADE_CONFIRMATIONS_QUERY_ID")
     ?? throw new InvalidOperationException("IBKR_FLEX_TRADE_CONFIRMATIONS_QUERY_ID environment variable is required.");
 
+var verbose = args.Any(a => a is "--verbose" or "-v");
+var logLevel = verbose ? LogLevel.Debug : LogLevel.Warning;
+args = args.Where(a => a is not "--verbose" and not "-v").ToArray();
+
 var services = new ServiceCollection();
-services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
+services.AddLogging(b => b.AddConsole().SetMinimumLevel(logLevel));
 services.AddIbkrClient(opts =>
 {
     opts.Credentials = credentials;

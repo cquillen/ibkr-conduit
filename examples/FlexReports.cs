@@ -24,6 +24,10 @@ using Microsoft.Extensions.Logging;
 //   IBKR_CONSUMER_KEY, IBKR_ACCESS_TOKEN, IBKR_ACCESS_TOKEN_SECRET,
 //   IBKR_SIGNATURE_KEY, IBKR_ENCRYPTION_KEY, IBKR_DH_PRIME, IBKR_FLEX_TOKEN
 
+var verbose = args.Any(a => a is "--verbose" or "-v");
+var logLevel = verbose ? LogLevel.Debug : LogLevel.Warning;
+args = args.Where(a => a is not "--verbose" and not "-v").ToArray();
+
 if (args.Length < 2)
 {
     Console.Error.WriteLine("Usage: dotnet run examples/FlexReports.cs -- <cash-query-id> <trades-query-id> [from-date] [to-date]");
@@ -47,7 +51,7 @@ var flexToken = Environment.GetEnvironmentVariable("IBKR_FLEX_TOKEN")
 using var credentials = OAuthCredentialsFactory.FromEnvironment();
 
 var services = new ServiceCollection();
-services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
+services.AddLogging(b => b.AddConsole().SetMinimumLevel(logLevel));
 services.AddIbkrClient(opts =>
 {
     opts.Credentials = credentials;

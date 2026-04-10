@@ -14,8 +14,11 @@ using Microsoft.Extensions.Logging;
 // See tools/set-e2e-env.sh for the required variables.
 using var credentials = OAuthCredentialsFactory.FromEnvironment();
 
+var verbose = args.Any(a => a is "--verbose" or "-v");
+var logLevel = verbose ? LogLevel.Debug : LogLevel.Warning;
+
 var services = new ServiceCollection();
-services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
+services.AddLogging(b => b.AddConsole().SetMinimumLevel(logLevel));
 services.AddIbkrClient(opts => opts.Credentials = credentials);
 
 await using var provider = services.BuildServiceProvider();
