@@ -22,7 +22,7 @@ await using var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<IIbkrClient>();
 
 // Retrieve live orders (cancelled, filled, submitted)
-var orders = await client.Orders.GetLiveOrdersAsync();
+var orders = (await client.Orders.GetLiveOrdersAsync()).EnsureSuccess().Value;
 
 if (orders.Count == 0)
 {
