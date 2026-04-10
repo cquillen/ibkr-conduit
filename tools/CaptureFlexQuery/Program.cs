@@ -149,8 +149,9 @@ await File.WriteAllTextAsync(outputPath, xml);
 var sizeKb = (new FileInfo(outputPath).Length / 1024.0).ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 Console.WriteLine();
 Console.WriteLine($"✓ Saved {sizeKb} KB to {outputPath}");
-Console.WriteLine($"  Trades:        {result.Trades.Count}");
-Console.WriteLine($"  OpenPositions: {result.OpenPositions.Count}");
+Console.WriteLine($"  QueryName:  {result.QueryName}");
+Console.WriteLine($"  QueryType:  {result.QueryType}");
+Console.WriteLine($"  Statements: {result.Statements.Count}");
 
 return 0;
 
