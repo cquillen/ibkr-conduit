@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/IbkrConduit/IbkrConduit.csproj" />
+    <ProjectReference Include="../../src/IbkrConduit.HealthChecks/IbkrConduit.HealthChecks.csproj" />
   </ItemGroup>
 
   <ItemGroup>
