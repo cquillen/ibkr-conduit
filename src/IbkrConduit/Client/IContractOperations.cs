@@ -38,7 +38,7 @@ public interface IContractOperations
     /// </summary>
     Task<Result<List<SecurityDefinitionInfo>>> GetSecurityDefinitionInfoAsync(
         string conid, string sectype, string month,
-        string? exchange = null, string? strike = null, string? right = null, string? issuerId = null,
+        string? exchange = null, decimal? strike = null, OptionRight? right = null, string? issuerId = null,
         string? filters = null,
         CancellationToken cancellationToken = default);
 

@@ -90,14 +90,14 @@ internal partial class OrderOperations : IOrderOperations
     /// <inheritdoc />
     public async Task<Result<CancelOrderResponse>> CancelOrderAsync(
         string accountId, string orderId,
-        string? extOperator = null, bool? manualIndicator = null, long? manualCancelTime = null,
+        string? extOperator = null, bool? manualIndicator = null, DateTimeOffset? manualCancelTime = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Cancel");
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag(LogFields.OrderId, orderId);
         _cancelCount.Add(1);
-        var response = await _orderApi.CancelOrderAsync(accountId, orderId, extOperator, manualIndicator, manualCancelTime, cancellationToken);
+        var response = await _orderApi.CancelOrderAsync(accountId, orderId, extOperator, manualIndicator, manualCancelTime?.ToUnixTimeSeconds(), cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }

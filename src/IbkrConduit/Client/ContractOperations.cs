@@ -65,13 +65,14 @@ internal partial class ContractOperations : IContractOperations
     /// <inheritdoc />
     public async Task<Result<List<SecurityDefinitionInfo>>> GetSecurityDefinitionInfoAsync(
         string conid, string sectype, string month,
-        string? exchange = null, string? strike = null, string? right = null, string? issuerId = null,
+        string? exchange = null, decimal? strike = null, OptionRight? right = null, string? issuerId = null,
         string? filters = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetSecDefInfo");
         activity?.SetTag(LogFields.Conid, conid);
-        var response = await _api.GetSecurityDefinitionInfoAsync(conid, sectype, month, exchange, strike, right, issuerId, filters, cancellationToken);
+        var strikeStr = strike?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var response = await _api.GetSecurityDefinitionInfoAsync(conid, sectype, month, exchange, strikeStr, right, issuerId, filters, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetSecurityDefinitionInfo");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;

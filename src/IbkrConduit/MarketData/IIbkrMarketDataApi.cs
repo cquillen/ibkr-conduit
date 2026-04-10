@@ -35,7 +35,7 @@ internal interface IIbkrMarketDataApi
         [Query] string conid, [Query] string period,
         [Query] string bar, [Query] bool? outsideRth = null,
         [Query] string? exchange = null, [Query] string? startTime = null,
-        [Query] int? direction = null, [Query] string? source = null,
+        [Query] HistoryDirection? direction = null, [Query] HistoryBarSource? source = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

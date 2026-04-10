@@ -109,7 +109,7 @@ internal interface IIbkrPortfolioApi
     [Get("/v1/api/portfolio2/{accountId}/positions")]
     Task<IApiResponse<List<Position>>> GetRealTimePositionsAsync(
         string accountId, [Query] string? model = null,
-        [Query] string? sort = null, [Query] string? direction = null,
+        [Query] string? sort = null, [Query] SortDirection? direction = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -83,7 +83,7 @@ public interface IFyiOperations
     /// <param name="exclude">Exclude filter for notification types.</param>
     /// <param name="id">Notification ID filter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Result<List<FyiNotification>>> GetNotificationsAsync(string? max = null,
+    Task<Result<List<FyiNotification>>> GetNotificationsAsync(int? max = null,
         string? include = null, string? exclude = null, string? id = null,
         CancellationToken cancellationToken = default);
 

@@ -331,7 +331,7 @@ public class IbkrClientTests
         public Task<Result<TransactionHistory>> GetTransactionHistoryAsync(List<string> accountIds, List<string> conids, string currency, int? days = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<AccountAllocation>> GetConsolidatedAllocationAsync(List<string> accountIds, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<List<ComboPosition>>> GetComboPositionsAsync(string accountId, bool? nocache = null, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<Result<List<Position>>> GetRealTimePositionsAsync(string accountId, string? model = null, string? sort = null, string? direction = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<List<Position>>> GetRealTimePositionsAsync(string accountId, string? model = null, string? sort = null, IbkrConduit.Portfolio.SortDirection? direction = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<List<SubAccount>>> GetSubAccountsAsync(CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<List<SubAccount>>> GetSubAccountsPagedAsync(int page = 0, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<AllPeriodsPerformance>> GetAllPeriodsPerformanceAsync(List<string> accountIds, string? param = null, CancellationToken ct = default) => throw new NotImplementedException();
@@ -342,7 +342,7 @@ public class IbkrClientTests
     {
         public Task<Result<List<ContractSearchResult>>> SearchBySymbolAsync(string symbol, string? secType = null, bool? name = null, bool? more = null, bool? fund = null, string? fundFamilyConidEx = null, bool? pattern = null, string? referrer = null, CancellationToken ct = default) => Task.FromResult(Result<List<ContractSearchResult>>.Success([]));
         public Task<Result<ContractDetails>> GetContractDetailsAsync(string conid, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<Result<List<SecurityDefinitionInfo>>> GetSecurityDefinitionInfoAsync(string conid, string sectype, string month, string? exchange = null, string? strike = null, string? right = null, string? issuerId = null, string? filters = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<List<SecurityDefinitionInfo>>> GetSecurityDefinitionInfoAsync(string conid, string sectype, string month, string? exchange = null, decimal? strike = null, OptionRight? right = null, string? issuerId = null, string? filters = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<OptionStrikes>> GetOptionStrikesAsync(string conid, string sectype, string month, string? exchange = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<TradingRules>> GetTradingRulesAsync(TradingRulesRequest request, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<SecurityDefinitionResponse>> GetSecurityDefinitionsByConidAsync(string conids, CancellationToken ct = default) => throw new NotImplementedException();
@@ -362,7 +362,7 @@ public class IbkrClientTests
     private class FakeOrderOperations : IOrderOperations
     {
         public Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> PlaceOrderAsync(string accountId, OrderRequest order, CancellationToken ct = default) => Task.FromResult(Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(new OrderSubmitted("1", "Submitted")));
-        public Task<Result<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, string? extOperator = null, bool? manualIndicator = null, long? manualCancelTime = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, string? extOperator = null, bool? manualIndicator = null, DateTimeOffset? manualCancelTime = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<List<LiveOrder>>> GetLiveOrdersAsync(OrderStatusFilter[]? filters = null, bool? force = null, CancellationToken ct = default) => Task.FromResult(Result<List<LiveOrder>>.Success([]));
         public Task<Result<List<Trade>>> GetTradesAsync(int? days = null, CancellationToken ct = default) => Task.FromResult(Result<List<Trade>>.Success([]));
         public Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> ModifyOrderAsync(string accountId, string orderId, OrderRequest order, CancellationToken ct = default) => throw new NotImplementedException();
@@ -374,7 +374,7 @@ public class IbkrClientTests
     private class FakeMarketDataOperations : IMarketDataOperations
     {
         public Task<Result<List<MarketDataSnapshot>>> GetSnapshotAsync(int[] conids, string[] fields, CancellationToken ct = default) => Task.FromResult(Result<List<MarketDataSnapshot>>.Success([]));
-        public Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, string period, string bar, bool? outsideRth = null, string? exchange = null, string? startTime = null, int? direction = null, string? source = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, string period, string bar, bool? outsideRth = null, string? exchange = null, DateTimeOffset? startTime = null, HistoryDirection? direction = null, HistoryBarSource? source = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<MarketDataSnapshot>> GetRegulatorySnapshotAsync(int conid, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<UnsubscribeResponse>> UnsubscribeAsync(int conid, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<UnsubscribeAllResponse>> UnsubscribeAllAsync(CancellationToken ct = default) => throw new NotImplementedException();
@@ -463,7 +463,7 @@ public class IbkrClientTests
         public Task<Result<FyiAcknowledgementResponse>> SetEmailDeliveryAsync(bool enabled, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<FyiAcknowledgementResponse>> RegisterDeviceAsync(FyiDeviceRequest request, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<bool>> DeleteDeviceAsync(string deviceId, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<Result<List<FyiNotification>>> GetNotificationsAsync(string? max = null, string? include = null, string? exclude = null, string? id = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<List<FyiNotification>>> GetNotificationsAsync(int? max = null, string? include = null, string? exclude = null, string? id = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<List<FyiNotification>>> GetMoreNotificationsAsync(string id, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<FyiNotificationReadResponse>> MarkNotificationReadAsync(string notificationId, CancellationToken ct = default) => throw new NotImplementedException();
     }

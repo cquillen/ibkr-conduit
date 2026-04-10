@@ -127,10 +127,10 @@ public interface IPortfolioOperations
     /// <param name="accountId">The account identifier.</param>
     /// <param name="model">Optional model code.</param>
     /// <param name="sort">Optional sort column.</param>
-    /// <param name="direction">Optional sort direction ("a" ascending, "d" descending).</param>
+    /// <param name="direction">Optional sort direction.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<List<Position>>> GetRealTimePositionsAsync(string accountId,
-        string? model = null, string? sort = null, string? direction = null,
+        string? model = null, string? sort = null, SortDirection? direction = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

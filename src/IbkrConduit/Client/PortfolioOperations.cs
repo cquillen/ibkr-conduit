@@ -207,7 +207,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
 
     /// <inheritdoc />
     public async Task<Result<List<Position>>> GetRealTimePositionsAsync(string accountId,
-        string? model = null, string? sort = null, string? direction = null,
+        string? model = null, string? sort = null, SortDirection? direction = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetRealTimePositions");
