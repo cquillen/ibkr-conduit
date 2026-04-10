@@ -69,12 +69,13 @@ public record OAuthTokenHealth(
     TimeSpan? TimeUntilExpiry);
 
 /// <summary>
-/// Health status of the rate limiter.
+/// Health status of the rate limiter. The library uses a single global token bucket
+/// rate limiter, so both burst and sustained fields report the same values.
 /// </summary>
-/// <param name="BurstRemaining">Remaining tokens in the burst limiter.</param>
-/// <param name="SustainedRemaining">Remaining tokens in the sustained limiter.</param>
-/// <param name="BurstUtilizationPercent">Percentage of burst capacity used.</param>
-/// <param name="SustainedUtilizationPercent">Percentage of sustained capacity used.</param>
+/// <param name="BurstRemaining">Remaining tokens in the global rate limiter (burst view).</param>
+/// <param name="SustainedRemaining">Remaining tokens in the global rate limiter (sustained view).</param>
+/// <param name="BurstUtilizationPercent">Percentage of global limiter capacity used (burst view).</param>
+/// <param name="SustainedUtilizationPercent">Percentage of global limiter capacity used (sustained view).</param>
 [ExcludeFromCodeCoverage]
 public record RateLimiterHealth(
     int BurstRemaining,
