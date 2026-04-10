@@ -22,7 +22,7 @@ await using var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<IIbkrClient>();
 
 // Discover accounts
-var accounts = await client.Portfolio.GetAccountsAsync();
+var accounts = (await client.Portfolio.GetAccountsAsync()).EnsureSuccess().Value;
 if (accounts.Count == 0)
 {
     Console.WriteLine("No accounts found.");
@@ -37,7 +37,7 @@ foreach (var account in accounts)
 
 // Pull positions for the first account
 var accountId = accounts[0].Id;
-var positions = await client.Portfolio.GetPositionsAsync(accountId);
+var positions = (await client.Portfolio.GetPositionsAsync(accountId)).EnsureSuccess().Value;
 
 if (positions.Count == 0)
 {

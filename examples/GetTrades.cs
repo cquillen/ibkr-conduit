@@ -71,5 +71,5 @@ foreach (var t in result.TradeConfirmations)
     Console.WriteLine(
         string.Format(CultureInfo.InvariantCulture,
             "{0,-10} {1,-6} {2,-6} {3,8:N0} {4,12:N2} {5,12:N2} {6,12:N2}",
-            t.TradeDate, t.Symbol, t.Side, t.Quantity, t.Price, t.Proceeds, t.Commission));
+            t.TradeDate, t.Symbol, t.BuySell, t.Quantity, t.Price, t.Proceeds, t.Commission));
 }

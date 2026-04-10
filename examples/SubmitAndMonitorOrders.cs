@@ -23,7 +23,7 @@ await using var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<IIbkrClient>();
 
 // Step 1: Discover accounts
-var accounts = await client.Portfolio.GetAccountsAsync();
+var accounts = (await client.Portfolio.GetAccountsAsync()).EnsureSuccess().Value;
 if (accounts.Count == 0)
 {
     Console.WriteLine("No accounts found.");
@@ -34,8 +34,8 @@ var accountId = accounts[0].Id;
 Console.WriteLine($"Using account: {accountId}");
 
 // Step 2: Look up conids for SPY and QQQ
-var spyResults = await client.Contracts.SearchBySymbolAsync("SPY");
-var qqResults = await client.Contracts.SearchBySymbolAsync("QQQ");
+var spyResults = (await client.Contracts.SearchBySymbolAsync("SPY")).EnsureSuccess().Value;
+var qqResults = (await client.Contracts.SearchBySymbolAsync("QQQ")).EnsureSuccess().Value;
 
 var spyConid = spyResults.First(c => c.Symbol == "SPY").Conid;
 var qqqConid = qqResults.First(c => c.Symbol == "QQQ").Conid;
@@ -54,7 +54,7 @@ var spyOrder = new OrderRequest
     Tif = "DAY",
 };
 
-var spyResult = await client.Orders.PlaceOrderAsync(accountId, spyOrder);
+var spyResult = (await client.Orders.PlaceOrderAsync(accountId, spyOrder)).EnsureSuccess().Value;
 var spyOrderId = await AutoConfirmAsync(client, spyResult, "SPY MKT");
 
 // Step 4: Place a limit order for 1 share of QQQ at $500 (below market — should not fill)
@@ -69,7 +69,7 @@ var qqqOrder = new OrderRequest
     Tif = "DAY",
 };
 
-var qqqResult = await client.Orders.PlaceOrderAsync(accountId, qqqOrder);
+var qqqResult = (await client.Orders.PlaceOrderAsync(accountId, qqqOrder)).EnsureSuccess().Value;
 var qqqOrderId = await AutoConfirmAsync(client, qqqResult, "QQQ LMT");
 
 // Step 5: Wait for execution
@@ -81,19 +81,19 @@ Console.WriteLine("Querying order status:\n");
 
 if (spyOrderId is not null)
 {
-    var spyStatus = await client.Orders.GetOrderStatusAsync(spyOrderId);
+    var spyStatus = (await client.Orders.GetOrderStatusAsync(spyOrderId)).EnsureSuccess().Value;
     PrintStatus("SPY MKT", spyStatus);
 }
 
 if (qqqOrderId is not null)
 {
-    var qqqStatus = await client.Orders.GetOrderStatusAsync(qqqOrderId);
+    var qqqStatus = (await client.Orders.GetOrderStatusAsync(qqqOrderId)).EnsureSuccess().Value;
     PrintStatus("QQQ LMT", qqqStatus);
 }
 
 // Step 7: Show all live orders
 Console.WriteLine("\nAll live orders:");
-var liveOrders = await client.Orders.GetLiveOrdersAsync();
+var liveOrders = (await client.Orders.GetLiveOrdersAsync()).EnsureSuccess().Value;
 if (liveOrders.Count == 0)
 {
     Console.WriteLine("  (none)");
@@ -112,12 +112,12 @@ if (qqqOrderId is not null)
     Console.WriteLine($"\nCancelling QQQ limit order {qqqOrderId}...");
     try
     {
-        var cancelResult = await client.Orders.CancelOrderAsync(accountId, qqqOrderId);
+        var cancelResult = (await client.Orders.CancelOrderAsync(accountId, qqqOrderId)).EnsureSuccess().Value;
         Console.WriteLine($"  Cancel response: {cancelResult.Message}");
     }
     catch (IbkrConduit.Errors.IbkrApiException ex)
     {
-        Console.WriteLine($"  Cancel failed (order may already be filled): {ex.ErrorMessage}");
+        Console.WriteLine($"  Cancel failed (order may already be filled): {ex.Message}");
     }
 }
 
@@ -151,7 +151,7 @@ static async Task<string?> AutoConfirmAsync(
             }
 
             Console.WriteLine($"  Confirming...");
-            var reply = await client.Orders.ReplyAsync(confirmation.ReplyId, true);
+            var reply = (await client.Orders.ReplyAsync(confirmation.ReplyId, true)).EnsureSuccess().Value;
             return reply.Match(
                 submitted =>
                 {
