@@ -652,6 +652,56 @@ public class OrderTests : IAsyncLifetime, IDisposable
         error.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
     }
 
+    [Fact]
+    public async Task DismissNotification_ReturnsSuccess()
+    {
+        _harness.StubAuthenticatedPost(
+            "/v1/api/iserver/notification",
+            FixtureLoader.LoadBody("Orders", "POST-dismiss-notification"));
+
+        var result = await _harness.Client.Orders.DismissNotificationAsync(
+            987654321, "12345", "Yes", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldContain("Request was submitted");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task DismissNotification_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/notification")
+                .UsingPost())
+            .InScenario("dismiss-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/notification")
+                .UsingPost())
+            .InScenario("dismiss-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "POST-dismiss-notification")));
+
+        var result = await _harness.Client.Orders.DismissNotificationAsync(
+            987654321, "12345", "Yes", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+
+        _harness.VerifyReauthenticationOccurred();
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _harness.DisposeAsync();
