@@ -143,4 +143,54 @@ public class FlexResultParserTests
         tx.Conid.ShouldBeNull();
         tx.DateTime.ShouldBeNull();
     }
+
+    [Fact]
+    public void ParseCashTransactions_MissingSection_ReturnsEmptyList()
+    {
+        // Query configured without Cash Transactions section — no <CashTransactions> element at all
+        var doc = XDocument.Parse("<FlexQueryResponse queryName=\"X\" type=\"AF\"><FlexStatements><FlexStatement accountId=\"U1\"></FlexStatement></FlexStatements></FlexQueryResponse>");
+
+        var result = FlexResultParser.ParseCashTransactions(doc);
+
+        result.CashTransactions.ShouldBeEmpty();
+        result.QueryName.ShouldBe("X");
+    }
+
+    [Fact]
+    public void ParseTradeConfirmations_MissingSections_ReturnsEmptyLists()
+    {
+        // Query configured with only TradeConfirms — no SymbolSummary or Order sections
+        var doc = XDocument.Parse("<FlexQueryResponse queryName=\"X\" type=\"TCF\"><FlexStatements><FlexStatement accountId=\"U1\"><TradeConfirms></TradeConfirms></FlexStatement></FlexStatements></FlexQueryResponse>");
+
+        var result = FlexResultParser.ParseTradeConfirmations(doc);
+
+        result.TradeConfirmations.ShouldBeEmpty();
+        result.SymbolSummaries.ShouldBeEmpty();
+        result.Orders.ShouldBeEmpty();
+        result.QueryName.ShouldBe("X");
+    }
+
+    [Fact]
+    public void ParseTradeConfirmations_OnlyTradeConfirmsPresent_OtherListsEmpty()
+    {
+        // Query has trades but no summaries or orders
+        var doc = XDocument.Parse("""
+            <FlexQueryResponse queryName="X" type="TCF">
+              <FlexStatements>
+                <FlexStatement accountId="U1">
+                  <TradeConfirms>
+                    <TradeConfirm accountId="U1" symbol="SPY" buySell="BUY" quantity="1" price="650" />
+                  </TradeConfirms>
+                </FlexStatement>
+              </FlexStatements>
+            </FlexQueryResponse>
+            """);
+
+        var result = FlexResultParser.ParseTradeConfirmations(doc);
+
+        result.TradeConfirmations.Count.ShouldBe(1);
+        result.TradeConfirmations[0].Symbol.ShouldBe("SPY");
+        result.SymbolSummaries.ShouldBeEmpty();
+        result.Orders.ShouldBeEmpty();
+    }
 }
