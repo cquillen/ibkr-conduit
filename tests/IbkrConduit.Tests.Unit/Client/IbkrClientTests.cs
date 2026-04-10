@@ -374,7 +374,7 @@ public class IbkrClientTests
     private class FakeMarketDataOperations : IMarketDataOperations
     {
         public Task<Result<List<MarketDataSnapshot>>> GetSnapshotAsync(int[] conids, string[] fields, CancellationToken ct = default) => Task.FromResult(Result<List<MarketDataSnapshot>>.Success([]));
-        public Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, string period, string bar, bool? outsideRth = null, string? exchange = null, DateTimeOffset? startTime = null, HistoryDirection? direction = null, HistoryBarSource? source = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, HistoryPeriod period, BarSize bar, bool? outsideRth = null, string? exchange = null, DateTimeOffset? startTime = null, HistoryDirection? direction = null, HistoryBarSource? source = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<MarketDataSnapshot>> GetRegulatorySnapshotAsync(int conid, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<UnsubscribeResponse>> UnsubscribeAsync(int conid, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<UnsubscribeAllResponse>> UnsubscribeAllAsync(CancellationToken ct = default) => throw new NotImplementedException();

@@ -23,15 +23,15 @@ public interface IMarketDataOperations
     /// Retrieves historical OHLCV bar data for a contract.
     /// </summary>
     /// <param name="conid">The contract ID.</param>
-    /// <param name="period">Time period (e.g., "1d", "1w", "1m", "1y").</param>
-    /// <param name="bar">Bar size (e.g., "1min", "5min", "1h", "1d").</param>
+    /// <param name="period">Time period for the request (e.g., <c>HistoryPeriod.Days(6)</c>).</param>
+    /// <param name="bar">Bar width (e.g., <c>BarSize.Minutes(5)</c>).</param>
     /// <param name="outsideRth">Whether to include data outside regular trading hours.</param>
     /// <param name="exchange">Exchange or SMART routing.</param>
     /// <param name="startTime">UTC date-time for the history query start point.</param>
     /// <param name="direction">Direction of data relative to the start time.</param>
     /// <param name="source">Bar data source.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, string period, string bar,
+    Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, HistoryPeriod period, BarSize bar,
         bool? outsideRth = null, string? exchange = null, DateTimeOffset? startTime = null,
         HistoryDirection? direction = null, HistoryBarSource? source = null,
         CancellationToken cancellationToken = default);

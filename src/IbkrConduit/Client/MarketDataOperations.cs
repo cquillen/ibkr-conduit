@@ -124,20 +124,20 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     }
 
     /// <inheritdoc />
-    public async Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, string period, string bar,
+    public async Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, HistoryPeriod period, BarSize bar,
         bool? outsideRth = null, string? exchange = null, DateTimeOffset? startTime = null,
         HistoryDirection? direction = null, HistoryBarSource? source = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.History");
         activity?.SetTag(LogFields.Conid, conid);
-        activity?.SetTag("period", period);
-        activity?.SetTag("bar", bar);
+        activity?.SetTag("period", period.ToString());
+        activity?.SetTag("bar", bar.ToString());
 
         _historyCount.Add(1);
         var sw = Stopwatch.StartNew();
         var startTimeStr = startTime?.UtcDateTime.ToString("yyyyMMdd-HH:mm:ss", CultureInfo.InvariantCulture);
-        var response = await _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period, bar, outsideRth, exchange, startTimeStr, direction, source, cancellationToken);
+        var response = await _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period.ToString(), bar.ToString(), outsideRth, exchange, startTimeStr, direction, source, cancellationToken);
         _historyDuration.Record(sw.Elapsed.TotalMilliseconds);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
