@@ -1,0 +1,394 @@
+<FlexQueryResponse queryName="Cash Transactions - API" type="AF">
+  <FlexStatements count="128">
+    <FlexStatement accountId="U1234567" fromDate="20251013" toDate="20251013" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251014" toDate="20251014" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251015" toDate="20251015" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251016" toDate="20251016" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251017" toDate="20251017" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251020" toDate="20251020" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251021" toDate="20251021" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251022" toDate="20251022" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251023" toDate="20251023" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251024" toDate="20251024" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251027" toDate="20251027" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251028" toDate="20251028" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251029" toDate="20251029" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251030" toDate="20251030" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251031" toDate="20251031" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251103" toDate="20251103" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251104" toDate="20251104" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251105" toDate="20251105" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251106" toDate="20251106" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251107" toDate="20251107" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251110" toDate="20251110" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251111" toDate="20251111" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251112" toDate="20251112" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251113" toDate="20251113" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251114" toDate="20251114" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251117" toDate="20251117" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251118" toDate="20251118" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251119" toDate="20251119" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251120" toDate="20251120" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251121" toDate="20251121" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251124" toDate="20251124" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251125" toDate="20251125" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251126" toDate="20251126" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251127" toDate="20251127" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251128" toDate="20251128" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251201" toDate="20251201" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251202" toDate="20251202" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251203" toDate="20251203" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251204" toDate="20251204" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251205" toDate="20251205" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251208" toDate="20251208" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251209" toDate="20251209" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251210" toDate="20251210" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251211" toDate="20251211" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251212" toDate="20251212" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251215" toDate="20251215" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251216" toDate="20251216" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251217" toDate="20251217" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251218" toDate="20251218" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251219" toDate="20251219" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251222" toDate="20251222" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251223" toDate="20251223" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251224" toDate="20251224" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251225" toDate="20251225" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251226" toDate="20251226" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251229" toDate="20251229" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251230" toDate="20251230" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20251231" toDate="20251231" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260101" toDate="20260101" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260102" toDate="20260102" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260105" toDate="20260105" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260106" toDate="20260106" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260107" toDate="20260107" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260108" toDate="20260108" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260109" toDate="20260109" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260112" toDate="20260112" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260113" toDate="20260113" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260114" toDate="20260114" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260115" toDate="20260115" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260116" toDate="20260116" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260119" toDate="20260119" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260120" toDate="20260120" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260121" toDate="20260121" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260122" toDate="20260122" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260123" toDate="20260123" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260126" toDate="20260126" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260127" toDate="20260127" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260128" toDate="20260128" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260129" toDate="20260129" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260130" toDate="20260130" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260202" toDate="20260202" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions>
+        <CashTransaction accountId="U1234567" acctAlias="" model="" currency="USD" fxRateToBase="1" assetCategory="" subCategory="" symbol="" description="ADJUSTMENT: CASH RECEIPT/DISBURSEMENT/TRANSFER" conid="" securityID="" securityIDType="" cusip="" isin="" figi="" listingExchange="" underlyingConid="" underlyingSymbol="" underlyingSecurityID="" underlyingListingExchange="" issuer="" issuerCountryCode="" multiplier="0" strike="" expiry="" putCall="" principalAdjustFactor="" dateTime="20260201;005850" settleDate="20260201" availableForTradingDate="" amount="1000000" type="Deposits/Withdrawals" tradeID="" code="" transactionID="9718549852" reportDate="20260202" exDate="" clientReference="" actionID="" levelOfDetail="DETAIL" serialNumber="" deliveryType="" commodityType="" fineness="0.0" weight="0.0" />
+      </CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260203" toDate="20260203" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260204" toDate="20260204" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260205" toDate="20260205" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260206" toDate="20260206" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260209" toDate="20260209" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260210" toDate="20260210" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260211" toDate="20260211" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260212" toDate="20260212" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260213" toDate="20260213" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260216" toDate="20260216" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260217" toDate="20260217" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260218" toDate="20260218" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260219" toDate="20260219" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260220" toDate="20260220" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260223" toDate="20260223" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260224" toDate="20260224" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260225" toDate="20260225" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260226" toDate="20260226" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260227" toDate="20260227" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260302" toDate="20260302" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260303" toDate="20260303" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260304" toDate="20260304" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions>
+        <CashTransaction accountId="U1234567" acctAlias="" model="" currency="USD" fxRateToBase="1" assetCategory="" subCategory="" symbol="" description="USD CREDIT INT FOR FEB-2026" conid="" securityID="" securityIDType="" cusip="" isin="" figi="" listingExchange="" underlyingConid="" underlyingSymbol="" underlyingSecurityID="" underlyingListingExchange="" issuer="" issuerCountryCode="" multiplier="0" strike="" expiry="" putCall="" principalAdjustFactor="" dateTime="20260304" settleDate="20260304" availableForTradingDate="" amount="2331.45" type="Broker Interest Received" tradeID="" code="" transactionID="9919715109" reportDate="20260304" exDate="" clientReference="" actionID="" levelOfDetail="DETAIL" serialNumber="" deliveryType="" commodityType="" fineness="0.0" weight="0.0" />
+      </CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260305" toDate="20260305" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260306" toDate="20260306" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260309" toDate="20260309" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260310" toDate="20260310" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260311" toDate="20260311" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260312" toDate="20260312" period="Last365CalendarDays" whenGenerated="20260409;135737">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260313" toDate="20260313" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260316" toDate="20260316" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260317" toDate="20260317" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260318" toDate="20260318" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260319" toDate="20260319" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260320" toDate="20260320" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260323" toDate="20260323" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260324" toDate="20260324" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260325" toDate="20260325" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260326" toDate="20260326" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260327" toDate="20260327" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260330" toDate="20260330" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260331" toDate="20260331" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260401" toDate="20260401" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260402" toDate="20260402" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260403" toDate="20260403" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260406" toDate="20260406" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions>
+        <CashTransaction accountId="U1234567" acctAlias="" model="" currency="USD" fxRateToBase="1" assetCategory="" subCategory="" symbol="" description="USD CREDIT INT FOR MAR-2026" conid="" securityID="" securityIDType="" cusip="" isin="" figi="" listingExchange="" underlyingConid="" underlyingSymbol="" underlyingSecurityID="" underlyingListingExchange="" issuer="" issuerCountryCode="" multiplier="0" strike="" expiry="" putCall="" principalAdjustFactor="" dateTime="20260406" settleDate="20260406" availableForTradingDate="" amount="2682.45" type="Broker Interest Received" tradeID="" code="" transactionID="10113136218" reportDate="20260406" exDate="" clientReference="" actionID="" levelOfDetail="DETAIL" serialNumber="" deliveryType="" commodityType="" fineness="0.0" weight="0.0" />
+      </CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260407" toDate="20260407" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+    <FlexStatement accountId="U1234567" fromDate="20260408" toDate="20260408" period="Last365CalendarDays" whenGenerated="20260409;135738">
+      <CashTransactions></CashTransactions>
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>
