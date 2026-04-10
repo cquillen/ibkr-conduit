@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
 using IbkrConduit.Errors;
+using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -27,6 +28,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -48,6 +50,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -67,6 +70,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -90,6 +94,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -111,6 +116,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -129,6 +135,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -148,6 +155,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         // Initialize first
@@ -171,6 +179,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -200,6 +209,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -219,6 +229,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -238,6 +249,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -259,6 +271,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         // Should not throw even if never initialized
@@ -279,6 +292,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -298,6 +312,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         using var cts = new CancellationTokenSource();
@@ -318,6 +333,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -338,6 +354,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
@@ -360,6 +377,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
@@ -382,6 +400,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
@@ -404,6 +423,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
@@ -426,6 +446,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
@@ -448,6 +469,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
@@ -470,6 +492,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
@@ -492,6 +515,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
@@ -514,6 +538,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
@@ -536,6 +561,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
@@ -556,6 +582,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         // Initialize successfully first
@@ -584,6 +611,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await Should.ThrowAsync<OperationCanceledException>(
@@ -604,6 +632,7 @@ public class SessionManagerTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -628,6 +657,7 @@ public class SessionManagerTests
         public FakeTickleTimerFactory TickleTimerFactory { get; } = new();
         public FakeSessionApi SessionApi { get; } = new();
         public FakeLifecycleNotifier Notifier { get; } = new();
+        public SessionHealthState SessionHealthState { get; } = new();
         public IbkrClientOptions Options { get; set; } = new();
     }
 
