@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using IbkrConduit.Auth;
+using IbkrConduit.Flex;
 
 namespace IbkrConduit.Session;
 
@@ -78,4 +79,12 @@ public class IbkrClientOptions
     /// but often too short for custom date ranges. Increase for year-scale historical reports.
     /// </summary>
     public TimeSpan FlexPollTimeout { get; set; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// Flex Web Service query IDs for strongly-typed Flex operations.
+    /// Configure the IDs for the query templates you want to call via typed methods.
+    /// The generic <see cref="Client.IFlexOperations.ExecuteQueryAsync(string, System.Threading.CancellationToken)"/>
+    /// still takes a query ID parameter.
+    /// </summary>
+    public FlexQueryOptions FlexQueries { get; set; } = new();
 }
