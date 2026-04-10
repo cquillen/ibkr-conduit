@@ -102,10 +102,12 @@ internal partial class OrderOperations : IOrderOperations
 
     /// <inheritdoc />
     public async Task<Result<List<LiveOrder>>> GetLiveOrdersAsync(
+        OrderStatusFilter[]? filters = null,
+        bool? force = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetLiveOrders");
-        var response = await _orderApi.GetLiveOrdersAsync(cancellationToken);
+        var response = await _orderApi.GetLiveOrdersAsync(filters, force, cancellationToken);
         var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         var result = apiResult.Map(r => r.Orders ?? new List<LiveOrder>());
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;

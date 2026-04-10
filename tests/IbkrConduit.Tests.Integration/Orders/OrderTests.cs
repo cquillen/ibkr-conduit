@@ -200,7 +200,7 @@ public class OrderTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("Orders", "GET-live-orders"));
 
         var result = (await _harness.Client.Orders.GetLiveOrdersAsync(
-            TestContext.Current.CancellationToken)).Value;
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -236,7 +236,7 @@ public class OrderTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("Orders", "GET-live-orders-empty"));
 
         var result = (await _harness.Client.Orders.GetLiveOrdersAsync(
-            TestContext.Current.CancellationToken)).Value;
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.ShouldBeEmpty();
@@ -271,7 +271,7 @@ public class OrderTests : IAsyncLifetime, IDisposable
                     .WithBody(FixtureLoader.LoadBody("Orders", "GET-live-orders")));
 
         var result = (await _harness.Client.Orders.GetLiveOrdersAsync(
-            TestContext.Current.CancellationToken)).Value;
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -359,7 +359,7 @@ public class OrderTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("Orders", "GET-trades-empty"));
 
         var result = (await _harness.Client.Orders.GetTradesAsync(
-            TestContext.Current.CancellationToken)).Value;
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.ShouldBeEmpty();
@@ -394,7 +394,7 @@ public class OrderTests : IAsyncLifetime, IDisposable
                     .WithBody(FixtureLoader.LoadBody("Orders", "GET-trades")));
 
         var result = (await _harness.Client.Orders.GetTradesAsync(
-            TestContext.Current.CancellationToken)).Value;
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -645,7 +645,7 @@ public class OrderTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody("""{"error":"Internal Server Error"}"""));
 
-        var result = await _harness.Client.Orders.GetLiveOrdersAsync(TestContext.Current.CancellationToken);
+        var result = await _harness.Client.Orders.GetLiveOrdersAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeFalse();
         var error = result.Error.ShouldBeOfType<IbkrApiError>();

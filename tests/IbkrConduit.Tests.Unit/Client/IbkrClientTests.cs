@@ -363,7 +363,7 @@ public class IbkrClientTests
     {
         public Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> PlaceOrderAsync(string accountId, OrderRequest order, CancellationToken ct = default) => Task.FromResult(Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(new OrderSubmitted("1", "Submitted")));
         public Task<Result<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<Result<List<LiveOrder>>> GetLiveOrdersAsync(CancellationToken ct = default) => Task.FromResult(Result<List<LiveOrder>>.Success([]));
+        public Task<Result<List<LiveOrder>>> GetLiveOrdersAsync(OrderStatusFilter[]? filters = null, bool? force = null, CancellationToken ct = default) => Task.FromResult(Result<List<LiveOrder>>.Success([]));
         public Task<Result<List<Trade>>> GetTradesAsync(CancellationToken ct = default) => Task.FromResult(Result<List<Trade>>.Success([]));
         public Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> ModifyOrderAsync(string accountId, string orderId, OrderRequest order, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> ReplyAsync(string replyId, bool confirmed, CancellationToken ct = default) => throw new NotImplementedException();
