@@ -32,7 +32,10 @@ internal interface IIbkrOrderApi
     /// Retrieves live orders for the current session.
     /// </summary>
     [Get("/v1/api/iserver/account/orders")]
-    Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(CancellationToken cancellationToken = default);
+    Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(
+        [Query(CollectionFormat.Csv)] OrderStatusFilter[]? filters = null,
+        bool? force = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves completed trades for the current session.

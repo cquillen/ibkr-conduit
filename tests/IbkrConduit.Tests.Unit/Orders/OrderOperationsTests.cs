@@ -299,7 +299,7 @@ public class OrderOperationsTests
             new LiveOrder("DU1234567", 265598, "265598", 111, "AAPL", "STK", "NASDAQ", "BUY", "PreSubmitted", "PreSubmitted", "LMT", 0, 100, 100, "APPLE INC", null, "DAY", null),
         ]);
 
-        var result = await _sut.GetLiveOrdersAsync(TestContext.Current.CancellationToken);
+        var result = await _sut.GetLiveOrdersAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.Count.ShouldBe(1);
         result.Value[0].OrderId.ShouldBe(111);
@@ -310,7 +310,7 @@ public class OrderOperationsTests
     {
         _fakeApi.LiveOrdersResponse = new OrdersResponse(null);
 
-        var result = await _sut.GetLiveOrdersAsync(TestContext.Current.CancellationToken);
+        var result = await _sut.GetLiveOrdersAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.ShouldBeEmpty();
     }
@@ -379,7 +379,7 @@ public class OrderOperationsTests
         public Task<IApiResponse<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(CancelResponse!));
 
-        public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(OrderStatusFilter[]? filters = null, bool? force = null, CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(LiveOrdersResponse));
 
         public Task<IApiResponse<List<Trade>>> GetTradesAsync(CancellationToken cancellationToken = default) =>
@@ -439,7 +439,7 @@ public class OrderOperationsTests
         public Task<IApiResponse<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(OrderStatusFilter[]? filters = null, bool? force = null, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
         public Task<IApiResponse<List<Trade>>> GetTradesAsync(CancellationToken cancellationToken = default) =>
@@ -499,7 +499,7 @@ public class OrderOperationsTests
         public Task<IApiResponse<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(CancellationToken cancellationToken = default) =>
+        public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(OrderStatusFilter[]? filters = null, bool? force = null, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
         public Task<IApiResponse<List<Trade>>> GetTradesAsync(CancellationToken cancellationToken = default) =>

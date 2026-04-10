@@ -25,7 +25,17 @@ public interface IOrderOperations
     /// <summary>
     /// Retrieves live orders for the current session.
     /// </summary>
-    Task<Result<List<LiveOrder>>> GetLiveOrdersAsync(CancellationToken cancellationToken = default);
+    /// <param name="filters">Optional array of order status filters. Only orders matching the
+    /// specified statuses are returned. Include <see cref="OrderStatusFilter.SortByTime"/> to
+    /// sort results chronologically.</param>
+    /// <param name="force">When <c>true</c>, clears IBKR's order cache and fetches fresh data
+    /// from the backend. The response will be an empty array — call again without <c>force</c>
+    /// to get the refreshed orders (two-call priming pattern).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<Result<List<LiveOrder>>> GetLiveOrdersAsync(
+        OrderStatusFilter[]? filters = null,
+        bool? force = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves completed trades for the current session.
