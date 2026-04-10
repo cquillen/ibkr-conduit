@@ -25,12 +25,12 @@ public class ContractOperationsTests
         {
             new(265598, "AAPL Inc.", "AAPL", "Apple Inc.", "AAPL", "265598", "STK", "NASDAQ", null),
         };
-        _api.SearchBySymbolAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<bool?>(), Arg.Any<bool?>(), Arg.Any<bool?>(), Arg.Any<string?>(), Arg.Any<bool?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
+        _api.SearchBySymbolAsync(Arg.Any<string>(), Arg.Any<SecurityType?>(), Arg.Any<bool?>(), Arg.Any<bool?>(), Arg.Any<bool?>(), Arg.Any<string?>(), Arg.Any<bool?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.SearchBySymbolAsync("AAPL", cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.ShouldBeSameAs(expected);
-        await _api.Received(1).SearchBySymbolAsync("AAPL", null, null, null, null, null, null, null, TestContext.Current.CancellationToken);
+        await _api.Received(1).SearchBySymbolAsync("AAPL", (SecurityType?)null, null, null, null, null, null, null, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -53,18 +53,18 @@ public class ContractOperationsTests
             new(265598, "AAPL", "OPT", "CBOE", "CBOE", "C", "150", "20241220"),
         };
         _api.GetSecurityDefinitionInfoAsync(
-            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string>(), Arg.Any<SecurityType>(), Arg.Any<string>(),
             Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<OptionRight?>(), Arg.Any<string?>(),
             Arg.Any<string?>(),
             Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
         var result = await _sut.GetSecurityDefinitionInfoAsync(
-            "265598", "OPT", "DEC2024",
+            "265598", SecurityType.Option, new ExpiryMonth(2024, 12),
             cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetSecurityDefinitionInfoAsync(
-            "265598", "OPT", "DEC2024",
+            "265598", SecurityType.Option, "202412",
             null, null, null, null, null,
             TestContext.Current.CancellationToken);
     }
@@ -74,14 +74,14 @@ public class ContractOperationsTests
     {
         var expected = new OptionStrikes(new List<decimal> { 150m, 155m }, new List<decimal> { 145m, 150m });
         _api.GetOptionStrikesAsync(
-            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string>(), Arg.Any<SecurityType>(), Arg.Any<string>(),
             Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 
-        var result = await _sut.GetOptionStrikesAsync("265598", "OPT", "DEC2024", cancellationToken: TestContext.Current.CancellationToken);
+        var result = await _sut.GetOptionStrikesAsync("265598", SecurityType.Option, new ExpiryMonth(2024, 12), cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.ShouldBeSameAs(expected);
         await _api.Received(1).GetOptionStrikesAsync(
-            "265598", "OPT", "DEC2024", null,
+            "265598", SecurityType.Option, "202412", null,
             TestContext.Current.CancellationToken);
     }
 

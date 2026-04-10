@@ -1,4 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using System.Runtime.Serialization;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.Portfolio;
@@ -155,12 +157,13 @@ internal partial class PortfolioOperations : IPortfolioOperations
     }
 
     /// <inheritdoc />
-    public async Task<Result<AccountPerformance>> GetAccountPerformanceAsync(List<string> accountIds, string period,
+    public async Task<Result<AccountPerformance>> GetAccountPerformanceAsync(List<string> accountIds, PerformancePeriod period,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPerformance");
-        activity?.SetTag("period", period);
-        var response = await _api.GetAccountPerformanceAsync(new PerformanceRequest(accountIds, period), cancellationToken);
+        var periodStr = GetEnumMemberValue(period);
+        activity?.SetTag("period", periodStr);
+        var response = await _api.GetAccountPerformanceAsync(new PerformanceRequest(accountIds, periodStr), cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetAccountPerformance");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -261,6 +264,14 @@ internal partial class PortfolioOperations : IPortfolioOperations
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetPartitionedPnl");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+    }
+
+    private static string GetEnumMemberValue<T>(T value)
+        where T : Enum
+    {
+        var member = typeof(T).GetMember(value.ToString())[0];
+        var attr = member.GetCustomAttribute<EnumMemberAttribute>();
+        return attr?.Value ?? value.ToString();
     }
 
     private void LogResult<T>(Result<T> result, string operation)

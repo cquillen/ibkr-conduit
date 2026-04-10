@@ -327,7 +327,7 @@ public class IbkrClientTests
         public Task<Result<List<Position>>> GetPositionByConidAsync(string accountId, string conid, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<PositionContractInfo>> GetPositionAndContractInfoAsync(string conid, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<bool>> InvalidatePortfolioCacheAsync(string accountId, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<Result<AccountPerformance>> GetAccountPerformanceAsync(List<string> accountIds, string period, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<AccountPerformance>> GetAccountPerformanceAsync(List<string> accountIds, PerformancePeriod period, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<TransactionHistory>> GetTransactionHistoryAsync(List<string> accountIds, List<string> conids, string currency, int? days = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<AccountAllocation>> GetConsolidatedAllocationAsync(List<string> accountIds, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<List<ComboPosition>>> GetComboPositionsAsync(string accountId, bool? nocache = null, CancellationToken ct = default) => throw new NotImplementedException();
@@ -340,10 +340,10 @@ public class IbkrClientTests
 
     private class FakeContractOperations : IContractOperations
     {
-        public Task<Result<List<ContractSearchResult>>> SearchBySymbolAsync(string symbol, string? secType = null, bool? name = null, bool? more = null, bool? fund = null, string? fundFamilyConidEx = null, bool? pattern = null, string? referrer = null, CancellationToken ct = default) => Task.FromResult(Result<List<ContractSearchResult>>.Success([]));
+        public Task<Result<List<ContractSearchResult>>> SearchBySymbolAsync(string symbol, SecurityType? secType = null, bool? name = null, bool? more = null, bool? fund = null, string? fundFamilyConidEx = null, bool? pattern = null, string? referrer = null, CancellationToken ct = default) => Task.FromResult(Result<List<ContractSearchResult>>.Success([]));
         public Task<Result<ContractDetails>> GetContractDetailsAsync(string conid, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<Result<List<SecurityDefinitionInfo>>> GetSecurityDefinitionInfoAsync(string conid, string sectype, string month, string? exchange = null, decimal? strike = null, OptionRight? right = null, string? issuerId = null, string? filters = null, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<Result<OptionStrikes>> GetOptionStrikesAsync(string conid, string sectype, string month, string? exchange = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<List<SecurityDefinitionInfo>>> GetSecurityDefinitionInfoAsync(string conid, SecurityType sectype, ExpiryMonth month, string? exchange = null, decimal? strike = null, OptionRight? right = null, string? issuerId = null, string? filters = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<OptionStrikes>> GetOptionStrikesAsync(string conid, SecurityType sectype, ExpiryMonth month, string? exchange = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<TradingRules>> GetTradingRulesAsync(TradingRulesRequest request, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<SecurityDefinitionResponse>> GetSecurityDefinitionsByConidAsync(string conids, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<List<ExchangeConid>>> GetAllConidsByExchangeAsync(string exchange, string? assetClass = null, CancellationToken ct = default) => throw new NotImplementedException();

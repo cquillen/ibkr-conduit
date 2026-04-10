@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Threading.Tasks;
 using IbkrConduit.Errors;
+using IbkrConduit.Portfolio;
 using IbkrConduit.Tests.Integration.Fixtures;
 using Shouldly;
 using WireMock.RequestBuilders;
@@ -796,7 +797,7 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("Portfolio", "POST-pa-performance"));
 
         var perf = (await _harness.Client.Portfolio.GetAccountPerformanceAsync(
-            ["U1234567"], "1M", TestContext.Current.CancellationToken)).Value;
+            ["U1234567"], PerformancePeriod.OneMonth, TestContext.Current.CancellationToken)).Value;
 
         perf.ShouldNotBeNull();
         perf.CurrencyType.ShouldBe("base");

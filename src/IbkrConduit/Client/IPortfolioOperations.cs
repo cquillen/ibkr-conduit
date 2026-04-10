@@ -87,9 +87,9 @@ public interface IPortfolioOperations
     /// Retrieves account performance data for the specified accounts and period.
     /// </summary>
     /// <param name="accountIds">The account IDs to query.</param>
-    /// <param name="period">The time period (e.g., "1D", "1W", "1M", "1Y").</param>
+    /// <param name="period">The time period.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Result<AccountPerformance>> GetAccountPerformanceAsync(List<string> accountIds, string period,
+    Task<Result<AccountPerformance>> GetAccountPerformanceAsync(List<string> accountIds, PerformancePeriod period,
         CancellationToken cancellationToken = default);
 
     /// <summary>

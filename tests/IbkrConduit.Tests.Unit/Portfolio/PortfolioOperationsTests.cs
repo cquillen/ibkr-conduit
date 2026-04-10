@@ -85,7 +85,7 @@ public class PortfolioOperationsTests
         _fakeApi.PerformanceResponse = new AccountPerformance("USD", 0);
 
         var result = await _sut.GetAccountPerformanceAsync(
-            ["DU123"], "1M", TestContext.Current.CancellationToken);
+            ["DU123"], PerformancePeriod.OneMonth, TestContext.Current.CancellationToken);
 
         result.Value.CurrencyType.ShouldBe("USD");
         _fakeApi.LastPerformanceRequest.ShouldNotBeNull();
