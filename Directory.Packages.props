@@ -19,6 +19,10 @@
     <!-- Resilience and rate limiting -->
     <PackageVersion Include="Polly.Core" Version="8.6.6" />
     <PackageVersion Include="System.Threading.RateLimiting" Version="10.0.5" />
+    <!-- Health checks -->
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.5" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="10.0.5" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.5" />
     <!-- JSONPath -->
     <PackageVersion Include="JsonPath.Net" Version="3.0.2" />
     <!-- Source Link -->
