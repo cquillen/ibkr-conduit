@@ -35,7 +35,7 @@ internal interface IIbkrContractApi
         [Query] string month,
         [Query] string? exchange = null,
         [Query] string? strike = null,
-        [Query] string? right = null,
+        [Query] OptionRight? right = null,
         [Query] string? issuerId = null,
         [Query] string? filters = null,
         CancellationToken cancellationToken = default);

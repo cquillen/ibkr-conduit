@@ -295,7 +295,7 @@ public class PortfolioOperationsTests
 
         public Task<IApiResponse<List<Position>>> GetRealTimePositionsAsync(
             string accountId, string? model = null, string? sort = null,
-            string? direction = null, CancellationToken cancellationToken = default) =>
+            IbkrConduit.Portfolio.SortDirection? direction = null, CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(PositionsResponse!));
 
         public Task<IApiResponse<List<SubAccount>>> GetSubAccountsAsync(CancellationToken cancellationToken = default) =>

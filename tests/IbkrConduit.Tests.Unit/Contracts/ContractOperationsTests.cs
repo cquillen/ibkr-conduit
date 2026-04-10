@@ -54,7 +54,7 @@ public class ContractOperationsTests
         };
         _api.GetSecurityDefinitionInfoAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(),
+            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<OptionRight?>(), Arg.Any<string?>(),
             Arg.Any<string?>(),
             Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 

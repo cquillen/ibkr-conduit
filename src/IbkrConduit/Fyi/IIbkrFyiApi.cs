@@ -72,7 +72,7 @@ internal interface IIbkrFyiApi
     /// </summary>
     [Get("/v1/api/fyi/notifications")]
     Task<IApiResponse<List<FyiNotification>>> GetNotificationsAsync(
-        [AliasAs("max")] string? max = null,
+        [AliasAs("max")] int? max = null,
         [Query] string? include = null, [Query] string? exclude = null,
         [Query] string? id = null,
         CancellationToken cancellationToken = default);

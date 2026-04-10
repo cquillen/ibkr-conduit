@@ -146,7 +146,7 @@ internal partial class FyiOperations : IFyiOperations
     }
 
     /// <inheritdoc />
-    public async Task<Result<List<FyiNotification>>> GetNotificationsAsync(string? max = null,
+    public async Task<Result<List<FyiNotification>>> GetNotificationsAsync(int? max = null,
         string? include = null, string? exclude = null, string? id = null,
         CancellationToken cancellationToken = default)
     {

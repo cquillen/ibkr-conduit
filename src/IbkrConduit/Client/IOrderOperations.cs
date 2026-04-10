@@ -23,11 +23,11 @@ public interface IOrderOperations
     /// <param name="orderId">The order identifier.</param>
     /// <param name="extOperator">External operator identifier.</param>
     /// <param name="manualIndicator">Required for US Futures; indicates manual vs automated cancel.</param>
-    /// <param name="manualCancelTime">Unix timestamp of manual cancel.</param>
+    /// <param name="manualCancelTime">Timestamp of manual cancel.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<CancelOrderResponse>> CancelOrderAsync(
         string accountId, string orderId,
-        string? extOperator = null, bool? manualIndicator = null, long? manualCancelTime = null,
+        string? extOperator = null, bool? manualIndicator = null, DateTimeOffset? manualCancelTime = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
