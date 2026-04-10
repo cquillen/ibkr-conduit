@@ -73,6 +73,9 @@ internal static class StreamingAndFlexRegistration
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
             })
             .AddHttpMessageHandler(sp =>
+                new AuditLogHandler(
+                    sp.GetRequiredService<ILogger<AuditLogHandler>>()))
+            .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
                     flexBurstLimiter,
                     sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>()))
