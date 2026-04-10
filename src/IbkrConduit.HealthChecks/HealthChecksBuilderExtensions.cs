@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
@@ -6,6 +7,7 @@ namespace IbkrConduit.HealthChecks;
 /// <summary>
 /// Extension methods for registering the IBKR health check.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public static class HealthChecksBuilderExtensions
 {
     /// <summary>
