@@ -27,6 +27,9 @@ internal class SessionTokenProvider : ISessionTokenProvider, IDisposable
         _lstClient = lstClient;
     }
 
+    /// <inheritdoc />
+    public DateTimeOffset? CurrentTokenExpiry => _cached?.Expiry;
+
     /// <summary>
     /// Disposes the semaphore.
     /// </summary>

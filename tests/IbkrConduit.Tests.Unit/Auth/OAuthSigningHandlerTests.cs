@@ -219,6 +219,8 @@ public class OAuthSigningHandlerTests
 
         public FakeTokenProvider(LiveSessionToken token) => _token = token;
 
+        public DateTimeOffset? CurrentTokenExpiry => _token.Expiry;
+
         public Task<LiveSessionToken> GetLiveSessionTokenAsync(CancellationToken cancellationToken) =>
             Task.FromResult(_token);
 

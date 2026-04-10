@@ -8,6 +8,15 @@ namespace IbkrConduit.Streaming;
 /// </summary>
 internal interface IIbkrWebSocketClient : IAsyncDisposable
 {
+    /// <summary>Whether the WebSocket connection is currently open.</summary>
+    bool IsConnected { get; }
+
+    /// <summary>Number of active topic subscriptions.</summary>
+    int ActiveSubscriptionCount { get; }
+
+    /// <summary>Timestamp of the last received WebSocket message, or null.</summary>
+    DateTimeOffset? LastMessageReceivedAt { get; }
+
     /// <summary>
     /// Connects to the IBKR WebSocket API.
     /// </summary>
