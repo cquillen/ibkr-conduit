@@ -56,7 +56,7 @@ public class EventContractTests : IAsyncLifetime, IDisposable
             "/v1/api/forecast/contract/market",
             FixtureLoader.LoadBody("EventContracts", "GET-market"));
 
-        var result = (await _harness.Client.EventContracts.GetMarketAsync(658663572, TestContext.Current.CancellationToken)).Value;
+        var result = (await _harness.Client.EventContracts.GetMarketAsync(658663572, cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.MarketName.ShouldBe("US Fed Funds Target Rate");
@@ -222,7 +222,7 @@ public class EventContractTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("EventContracts", "GET-market")));
 
-        var result = (await _harness.Client.EventContracts.GetMarketAsync(658663572, TestContext.Current.CancellationToken)).Value;
+        var result = (await _harness.Client.EventContracts.GetMarketAsync(658663572, cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         result.ShouldNotBeNull();
         result.Contracts.ShouldNotBeEmpty();

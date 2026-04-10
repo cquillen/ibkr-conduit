@@ -26,7 +26,11 @@ internal interface IIbkrOrderApi
     /// Cancels an existing order.
     /// </summary>
     [Delete("/v1/api/iserver/account/{accountId}/order/{orderId}")]
-    Task<IApiResponse<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, CancellationToken cancellationToken = default);
+    Task<IApiResponse<CancelOrderResponse>> CancelOrderAsync(
+        string accountId, string orderId,
+        [Query] string? extOperator = null, [Query] bool? manualIndicator = null,
+        [Query] long? manualCancelTime = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves live orders for the current session.
@@ -41,7 +45,9 @@ internal interface IIbkrOrderApi
     /// Retrieves completed trades for the current session.
     /// </summary>
     [Get("/v1/api/iserver/account/trades")]
-    Task<IApiResponse<List<Trade>>> GetTradesAsync(CancellationToken cancellationToken = default);
+    Task<IApiResponse<List<Trade>>> GetTradesAsync(
+        [Query] int? days = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Modifies an existing order for the specified account.

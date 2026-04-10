@@ -120,6 +120,7 @@ public class MarketDataOperationsTests : IDisposable
 
         public Task<IApiResponse<HistoricalDataResponse>> GetHistoryAsync(
             string conid, string period, string bar, bool? outsideRth = null,
+            string? exchange = null, string? startTime = null, int? direction = null, string? source = null,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(new HistoricalDataResponse("SPY", "SPY", null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, null)));

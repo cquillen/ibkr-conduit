@@ -19,7 +19,8 @@ internal interface IIbkrEventContractApi
     /// </summary>
     [Get("/v1/api/forecast/contract/market")]
     Task<IApiResponse<EventContractMarketResponse>> GetMarketAsync(
-        [Query] int underlyingConid, CancellationToken cancellationToken = default);
+        [Query] int underlyingConid, [Query] string? exchange = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves the rules for a specific event contract.

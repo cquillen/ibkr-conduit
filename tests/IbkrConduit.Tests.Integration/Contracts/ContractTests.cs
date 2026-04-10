@@ -27,7 +27,7 @@ public class ContractTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("Contracts", "GET-secdef-search"));
 
         var results = (await _harness.Client.Contracts.SearchBySymbolAsync(
-            "SPY", TestContext.Current.CancellationToken)).Value;
+            "SPY", cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         results.ShouldNotBeEmpty();
         results.Count.ShouldBe(2);
@@ -72,7 +72,7 @@ public class ContractTests : IAsyncLifetime, IDisposable
                     .WithBody(FixtureLoader.LoadBody("Contracts", "GET-secdef-search")));
 
         var results = (await _harness.Client.Contracts.SearchBySymbolAsync(
-            "SPY", TestContext.Current.CancellationToken)).Value;
+            "SPY", cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         results.ShouldNotBeEmpty();
         _harness.VerifyReauthenticationOccurred();
@@ -241,7 +241,7 @@ public class ContractTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("Contracts", "GET-trsrv-all-conids"));
 
         var conids = (await _harness.Client.Contracts.GetAllConidsByExchangeAsync(
-            "NASDAQ", TestContext.Current.CancellationToken)).Value;
+            "NASDAQ", cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         conids.ShouldNotBeEmpty();
         conids.Count.ShouldBe(5);
@@ -260,7 +260,7 @@ public class ContractTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("Contracts", "GET-trsrv-futures"));
 
         var futures = (await _harness.Client.Contracts.GetFuturesBySymbolAsync(
-            "ES", TestContext.Current.CancellationToken)).Value;
+            "ES", cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         futures.ShouldContainKey("ES");
         futures["ES"].ShouldNotBeEmpty();
@@ -683,7 +683,7 @@ public class ContractTests : IAsyncLifetime, IDisposable
                     .WithBody("""{"error":"Internal Server Error"}"""));
 
         var result = await _harness.Client.Contracts.SearchBySymbolAsync(
-            "SPY", TestContext.Current.CancellationToken);
+            "SPY", cancellationToken: TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeFalse();
         var error = result.Error.ShouldBeOfType<IbkrApiError>();

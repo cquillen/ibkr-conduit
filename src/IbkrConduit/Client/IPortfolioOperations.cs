@@ -18,8 +18,10 @@ public interface IPortfolioOperations
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="page">The page number (default 0).</param>
+    /// <param name="waitForSecDef">When true, waits for security definition data before returning.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<List<Position>>> GetPositionsAsync(string accountId, int page = 0,
+        bool? waitForSecDef = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -50,8 +52,10 @@ public interface IPortfolioOperations
     /// Retrieves allocation information for the specified account.
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
+    /// <param name="model">Optional model portfolio filter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<AccountAllocation>> GetAccountAllocationAsync(string accountId,
+        string? model = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -147,8 +151,10 @@ public interface IPortfolioOperations
     /// Retrieves performance data across all available time periods.
     /// </summary>
     /// <param name="accountIds">The account IDs to query.</param>
+    /// <param name="param">Optional query parameter for filtering.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<AllPeriodsPerformance>> GetAllPeriodsPerformanceAsync(List<string> accountIds,
+        string? param = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

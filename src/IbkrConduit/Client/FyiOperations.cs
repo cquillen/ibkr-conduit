@@ -147,10 +147,11 @@ internal partial class FyiOperations : IFyiOperations
 
     /// <inheritdoc />
     public async Task<Result<List<FyiNotification>>> GetNotificationsAsync(string? max = null,
+        string? include = null, string? exclude = null, string? id = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Fyi.GetNotifications");
-        var response = await _api.GetNotificationsAsync(max, cancellationToken);
+        var response = await _api.GetNotificationsAsync(max, include, exclude, id, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetNotifications");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;

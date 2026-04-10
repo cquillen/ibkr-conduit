@@ -47,12 +47,13 @@ internal partial class PortfolioOperations : IPortfolioOperations
 
     /// <inheritdoc />
     public async Task<Result<List<Position>>> GetPositionsAsync(string accountId, int page = 0,
+        bool? waitForSecDef = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetPositions");
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag("page", page);
-        var response = await _api.GetPositionsAsync(accountId, page, cancellationToken: cancellationToken);
+        var response = await _api.GetPositionsAsync(accountId, page, waitForSecDef: waitForSecDef, cancellationToken: cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetPositions");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -96,11 +97,12 @@ internal partial class PortfolioOperations : IPortfolioOperations
 
     /// <inheritdoc />
     public async Task<Result<AccountAllocation>> GetAccountAllocationAsync(string accountId,
+        string? model = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAllocation");
         activity?.SetTag(LogFields.AccountId, accountId);
-        var response = await _api.GetAccountAllocationAsync(accountId, cancellationToken);
+        var response = await _api.GetAccountAllocationAsync(accountId, model, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetAccountAllocation");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -240,11 +242,12 @@ internal partial class PortfolioOperations : IPortfolioOperations
 
     /// <inheritdoc />
     public async Task<Result<AllPeriodsPerformance>> GetAllPeriodsPerformanceAsync(List<string> accountIds,
+        string? param = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetAllPeriodsPerformance");
         var response = await _api.GetAllPeriodsPerformanceAsync(
-            new AllPeriodsRequest(accountIds), cancellationToken);
+            new AllPeriodsRequest(accountIds), param, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetAllPeriodsPerformance");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;

@@ -79,8 +79,12 @@ public interface IFyiOperations
     /// Gets a list of FYI notifications.
     /// </summary>
     /// <param name="max">Maximum number of notifications to retrieve.</param>
+    /// <param name="include">Include filter for notification types.</param>
+    /// <param name="exclude">Exclude filter for notification types.</param>
+    /// <param name="id">Notification ID filter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<List<FyiNotification>>> GetNotificationsAsync(string? max = null,
+        string? include = null, string? exclude = null, string? id = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

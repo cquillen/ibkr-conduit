@@ -19,8 +19,10 @@ public interface IEventContractOperations
     /// Retrieves all contracts in a market by underlying conid.
     /// </summary>
     /// <param name="underlyingConid">The underlying contract identifier for the market.</param>
+    /// <param name="exchange">Optional exchange filter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<EventContractMarketResponse>> GetMarketAsync(int underlyingConid,
+        string? exchange = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

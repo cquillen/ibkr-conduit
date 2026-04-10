@@ -26,9 +26,15 @@ public interface IMarketDataOperations
     /// <param name="period">Time period (e.g., "1d", "1w", "1m", "1y").</param>
     /// <param name="bar">Bar size (e.g., "1min", "5min", "1h", "1d").</param>
     /// <param name="outsideRth">Whether to include data outside regular trading hours.</param>
+    /// <param name="exchange">Exchange or SMART routing.</param>
+    /// <param name="startTime">UTC date-time string in IBKR format (yyyyMMdd-HH:mm:ss).</param>
+    /// <param name="direction">-1 (data begins away from start) or 1 (data ends at start).</param>
+    /// <param name="source">Bar data source (e.g., "Midpoint", "Bid_Ask").</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<HistoricalDataResponse>> GetHistoryAsync(int conid, string period, string bar,
-        bool? outsideRth = null, CancellationToken cancellationToken = default);
+        bool? outsideRth = null, string? exchange = null, string? startTime = null,
+        int? direction = null, string? source = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves a regulatory snapshot for a single contract.
