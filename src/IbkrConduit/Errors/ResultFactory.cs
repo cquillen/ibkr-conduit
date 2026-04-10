@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using IbkrConduit.Http;
 using Refit;
 
 namespace IbkrConduit.Errors;
@@ -20,7 +21,9 @@ internal static class ResultFactory
     /// </summary>
     public static Result<T> FromResponse<T>(IApiResponse<T> response, string? requestPath = null)
     {
-        var rawBody = response.Error?.Content ?? "";
+        // Prefer the raw body captured by ResponseBodyCaptureHandler (available for all status codes).
+        // Fall back to response.Error?.Content (only populated for non-2xx by Refit).
+        var rawBody = GetCapturedBody(response) ?? response.Error?.Content ?? "";
 
         if (response.IsSuccessStatusCode)
         {
@@ -50,7 +53,7 @@ internal static class ResultFactory
     /// </summary>
     public static Result<T> FromResponse<T>(IApiResponse<string> response, Func<string, T> parser, string? requestPath = null)
     {
-        var rawBody = response.Content ?? response.Error?.Content ?? "";
+        var rawBody = GetCapturedBody(response) ?? response.Content ?? response.Error?.Content ?? "";
 
         if (response.IsSuccessStatusCode)
         {
@@ -158,5 +161,22 @@ internal static class ResultFactory
         {
             return rawBody;
         }
+    }
+
+    /// <summary>
+    /// Reads the raw response body captured by <see cref="ResponseBodyCaptureHandler"/>
+    /// from <see cref="HttpRequestMessage.Options"/>. Returns null if the body was not captured
+    /// (e.g., request did not go through the consumer pipeline).
+    /// </summary>
+    private static string? GetCapturedBody<T>(IApiResponse<T> response)
+    {
+        if (response.RequestMessage?.Options.TryGetValue(
+                new HttpRequestOptionsKey<string>(ResponseBodyCaptureHandler.RawBodyOptionKey),
+                out var body) == true)
+        {
+            return body;
+        }
+
+        return null;
     }
 }
