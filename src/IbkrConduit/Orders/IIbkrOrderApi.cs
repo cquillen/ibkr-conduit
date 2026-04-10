@@ -71,4 +71,11 @@ internal interface IIbkrOrderApi
     [Get("/v1/api/iserver/account/order/status/{orderId}")]
     Task<IApiResponse<OrderStatus>> GetOrderStatusAsync(
         string orderId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Dismisses a server prompt received via the WebSocket <c>ntf</c> notification topic.
+    /// </summary>
+    [Post("/v1/api/iserver/notification")]
+    Task<IApiResponse<string>> DismissNotificationAsync(
+        [Body] DismissNotificationRequest request, CancellationToken cancellationToken = default);
 }

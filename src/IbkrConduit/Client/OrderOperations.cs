@@ -222,6 +222,19 @@ internal partial class OrderOperations : IOrderOperations
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
+    /// <inheritdoc />
+    public async Task<Result<string>> DismissNotificationAsync(
+        int orderId, string reqId, string text,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.DismissNotification");
+        activity?.SetTag(LogFields.OrderId, orderId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        var request = new DismissNotificationRequest(orderId, reqId, text);
+        var response = await _orderApi.DismissNotificationAsync(request, cancellationToken);
+        var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+    }
+
     /// <summary>
     /// Classifies an IBKR order submission response as either a confirmed order or a confirmation request.
     /// </summary>

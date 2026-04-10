@@ -96,5 +96,8 @@ public class OrderOperationsStatusTests
         public Task<IApiResponse<OrderStatus>> GetOrderStatusAsync(
             string orderId, CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(OrderStatusResponse!));
+
+        public Task<IApiResponse<string>> DismissNotificationAsync(DismissNotificationRequest request, CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
     }
 }
