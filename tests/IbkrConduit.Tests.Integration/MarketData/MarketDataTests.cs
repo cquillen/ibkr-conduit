@@ -83,7 +83,7 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("MarketData", "GET-history"));
 
         var history = (await _harness.Client.MarketData.GetHistoryAsync(
-            756733, "1d", "1min", cancellationToken: TestContext.Current.CancellationToken)).Value;
+            756733, HistoryPeriod.Days(1), BarSize.Minutes(1), cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         history.ShouldNotBeNull();
         history.Symbol.ShouldBe("SPY");
@@ -129,7 +129,7 @@ public class MarketDataTests : IAsyncLifetime, IDisposable
                     .WithBody(FixtureLoader.LoadBody("MarketData", "GET-history")));
 
         var history = (await _harness.Client.MarketData.GetHistoryAsync(
-            756733, "1d", "1min", cancellationToken: TestContext.Current.CancellationToken)).Value;
+            756733, HistoryPeriod.Days(1), BarSize.Minutes(1), cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         history.Symbol.ShouldBe("SPY");
         _harness.VerifyReauthenticationOccurred();
