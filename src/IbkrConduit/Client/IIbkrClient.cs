@@ -62,9 +62,16 @@ public interface IIbkrClient : IAsyncDisposable
 
     /// <summary>
     /// Validates that the configured credentials can establish a session with the IBKR API.
-    /// Performs LST acquisition, session initialization, and auth status verification.
-    /// Call at startup for fail-fast credential validation.
-    /// Throws <see cref="IbkrConduit.Errors.IbkrConfigurationException"/> with a descriptive message if validation fails.
+    /// Optionally validates the Flex Web Service token by executing a query using the first
+    /// configured query ID from <see cref="IbkrConduit.Session.IbkrClientOptions.FlexQueries"/>. Flex validation
+    /// runs a real query, which takes a few seconds. Pass <paramref name="validateFlex"/> as
+    /// <c>false</c> to skip Flex validation for faster startup.
     /// </summary>
-    Task ValidateConnectionAsync(CancellationToken cancellationToken = default);
+    /// <param name="validateFlex">
+    /// When <c>true</c> (default), validates the Flex token if one is configured and at least
+    /// one query ID is set in <see cref="IbkrConduit.Session.IbkrClientOptions.FlexQueries"/>. When <c>false</c>,
+    /// skips Flex validation regardless of configuration.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ValidateConnectionAsync(bool validateFlex = true, CancellationToken cancellationToken = default);
 }

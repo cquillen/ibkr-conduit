@@ -16,7 +16,7 @@ public class ValidateConnectionTests : IAsyncDisposable
     {
         _harness = await TestHarness.CreateAsync();
 
-        await _harness.Client.ValidateConnectionAsync(TestContext.Current.CancellationToken);
+        await _harness.Client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         _harness.VerifyHandshakeOccurred();
     }
@@ -38,7 +38,7 @@ public class ValidateConnectionTests : IAsyncDisposable
                     .WithBody("Unauthorized"));
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
-            () => _harness.Client.ValidateConnectionAsync(TestContext.Current.CancellationToken));
+            () => _harness.Client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken));
 
         ex.CredentialHint.ShouldBe("ConsumerKey, AccessToken");
         ex.InnerException.ShouldNotBeNull();
@@ -61,7 +61,7 @@ public class ValidateConnectionTests : IAsyncDisposable
                     .WithBody("Unauthorized"));
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
-            () => _harness.Client.ValidateConnectionAsync(TestContext.Current.CancellationToken));
+            () => _harness.Client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken));
 
         ex.InnerException.ShouldNotBeNull();
     }
@@ -72,15 +72,38 @@ public class ValidateConnectionTests : IAsyncDisposable
         _harness = await TestHarness.CreateAsync();
 
         // First call initializes
-        await _harness.Client.ValidateConnectionAsync(TestContext.Current.CancellationToken);
+        await _harness.Client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         // Second call should return immediately (idempotent) — no extra LST calls
-        await _harness.Client.ValidateConnectionAsync(TestContext.Current.CancellationToken);
+        await _harness.Client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         // Only one LST handshake
         _harness.Server.FindLogEntries(
             Request.Create().WithPath("/v1/api/oauth/live_session_token").UsingPost())
             .Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_ValidateFlexFalse_SkipsFlexValidation()
+    {
+        _harness = await TestHarness.CreateAsync(opts =>
+        {
+            opts.FlexToken = "fake-flex-token";
+            opts.FlexQueries = new IbkrConduit.Flex.FlexQueryOptions
+            {
+                CashTransactionsQueryId = "99999"
+            };
+        });
+
+        // Should succeed without any Flex endpoint being hit
+        await _harness.Client.ValidateConnectionAsync(validateFlex: false, TestContext.Current.CancellationToken);
+
+        _harness.VerifyHandshakeOccurred();
+
+        // Verify no Flex endpoints were called
+        _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/fwebapi*"))
+            .Count.ShouldBe(0, "No Flex endpoints should have been called when validateFlex=false");
     }
 
     public async ValueTask DisposeAsync()

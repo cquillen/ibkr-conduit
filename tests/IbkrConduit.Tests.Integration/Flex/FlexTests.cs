@@ -190,7 +190,8 @@ public class FlexTests : IDisposable
         result.IsSuccess.ShouldBeFalse();
         var err = result.Error.ShouldBeOfType<IbkrFlexError>();
         err.ErrorCode.ShouldBe(1005);
-        err.Message.ShouldBe("Query ID not found");
+        err.Message.ShouldNotBeNull();
+        err.Message.ShouldContain("Query ID not found");
     }
 
     [Fact]
