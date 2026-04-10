@@ -137,6 +137,78 @@ public class AuditLogHandlerTests
         logger.Messages.ShouldBeEmpty();
     }
 
+    [Fact]
+    public void SanitizeUrl_FlexSendRequest_MasksToken()
+    {
+        var uri = new Uri("https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService/SendRequest?t=SECRET_TOKEN_123&q=1464458&v=3");
+
+        var result = AuditLogHandler.SanitizeUrl(uri);
+
+        result.ShouldContain("t=***");
+        result.ShouldNotContain("SECRET_TOKEN_123");
+        result.ShouldContain("q=1464458");
+        result.ShouldContain("v=3");
+    }
+
+    [Fact]
+    public void SanitizeUrl_FlexGetStatement_MasksToken()
+    {
+        var uri = new Uri("https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService/GetStatement?t=MY_FLEX_TOKEN&q=REF123&v=3");
+
+        var result = AuditLogHandler.SanitizeUrl(uri);
+
+        result.ShouldContain("t=***");
+        result.ShouldNotContain("MY_FLEX_TOKEN");
+        result.ShouldContain("q=REF123");
+    }
+
+    [Fact]
+    public void SanitizeUrl_NonFlexUrl_PreservesFullPathAndQuery()
+    {
+        var uri = new Uri("https://api.ibkr.com/v1/api/iserver/accounts?filter=active");
+
+        var result = AuditLogHandler.SanitizeUrl(uri);
+
+        result.ShouldBe("/v1/api/iserver/accounts?filter=active");
+    }
+
+    [Fact]
+    public void SanitizeUrl_NonFlexUrlWithTokenParam_DoesNotMask()
+    {
+        // Only Flex URLs get masked — a 't=' parameter on a non-Flex URL should be preserved
+        var uri = new Uri("https://api.ibkr.com/v1/api/something?t=not_a_flex_token&other=value");
+
+        var result = AuditLogHandler.SanitizeUrl(uri);
+
+        result.ShouldContain("t=not_a_flex_token");
+    }
+
+    [Fact]
+    public void SanitizeUrl_NullUri_ReturnsUnknown()
+    {
+        AuditLogHandler.SanitizeUrl(null).ShouldBe("unknown");
+    }
+
+    [Fact]
+    public async Task SendAsync_FlexUrl_LogsMaskedToken()
+    {
+        var logger = new CapturingLogger();
+        var handler = new AuditLogHandler(logger)
+        {
+            InnerHandler = new StubHandler(HttpStatusCode.OK, "<FlexStatementResponse />"),
+        };
+
+        using var client = new HttpClient(handler);
+        await client.GetAsync(
+            "https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService/SendRequest?t=SECRET&q=123&v=3",
+            TestContext.Current.CancellationToken);
+
+        // Request log should have masked token
+        logger.Messages.ShouldContain(m => m.Contains("t=***") && !m.Contains("SECRET"));
+        // Response log should also have masked token
+        logger.Messages.ShouldContain(m => m.Contains("← ") && m.Contains("t=***"));
+    }
+
     private sealed class StubHandler(HttpStatusCode statusCode, string body) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(
