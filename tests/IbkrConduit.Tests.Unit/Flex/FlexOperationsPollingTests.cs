@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -295,6 +296,104 @@ public class FlexOperationsPollingTests
 
         ex.Message.ShouldContain("FlexToken");
     }
+
+    [Fact]
+    public async Task GetCashTransactionsAsync_NoQueryIdConfigured_ThrowsInvalidOperationException()
+    {
+        var handler = new SequentialFakeHttpHandler(_successSendRequest, _successStatement);
+        var ops = CreateOperations(handler);
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(
+            () => ops.GetCashTransactionsAsync(TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("CashTransactionsQueryId");
+        ex.Message.ShouldContain("Reports");
+    }
+
+    [Fact]
+    public async Task GetTradeConfirmationsAsync_NoQueryIdConfigured_ThrowsInvalidOperationException()
+    {
+        var handler = new SequentialFakeHttpHandler(_successSendRequest, _successStatement);
+        var ops = CreateOperations(handler);
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(
+            () => ops.GetTradeConfirmationsAsync(
+                new DateOnly(2026, 4, 1), new DateOnly(2026, 4, 9),
+                TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("TradeConfirmationsQueryId");
+        ex.Message.ShouldContain("Trade Confirmation");
+    }
+
+    [Fact]
+    public async Task GetTradeConfirmationsAsync_FormatsDateAsYyyyMMdd()
+    {
+        var handler = new SequentialFakeHttpHandler(_successSendRequest, _successStatement);
+        var options = new IbkrClientOptions
+        {
+            FlexPollTimeout = TimeSpan.FromSeconds(60),
+            FlexQueries = new FlexQueryOptions { TradeConfirmationsQueryId = "TCFQ" },
+        };
+        var ops = CreateOperations(handler, options);
+
+        var result = await ops.GetTradeConfirmationsAsync(
+            new DateOnly(2026, 4, 1), new DateOnly(2026, 4, 9),
+            TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        var firstUrl = handler.RequestUris[0].ToString();
+        firstUrl.ShouldContain("fd=20260401");
+        firstUrl.ShouldContain("td=20260409");
+        firstUrl.ShouldContain("q=TCFQ");
+    }
+
+    [Fact]
+    public async Task GetCashTransactionsAsync_WithConfiguredIdAndSuccessResponse_ReturnsTypedResult()
+    {
+        var fixtureXml = LoadFixture("cash-transactions.xml");
+        var handler = new SequentialFakeHttpHandler(_successSendRequest, fixtureXml);
+        var options = new IbkrClientOptions
+        {
+            FlexPollTimeout = TimeSpan.FromSeconds(60),
+            FlexQueries = new FlexQueryOptions { CashTransactionsQueryId = "CASHQ" },
+        };
+        var ops = CreateOperations(handler, options);
+
+        var result = await ops.GetCashTransactionsAsync(TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.QueryName.ShouldNotBeNullOrEmpty();
+        result.Value.CashTransactions.ShouldNotBeNull();
+        result.Value.RawXml.Root!.Name.LocalName.ShouldBe("FlexQueryResponse");
+        var firstUrl = handler.RequestUris[0].ToString();
+        firstUrl.ShouldContain("q=CASHQ");
+    }
+
+    [Fact]
+    public async Task GetTradeConfirmationsAsync_WithConfiguredIdAndSuccessResponse_ReturnsTypedResult()
+    {
+        var fixtureXml = LoadFixture("trade-confirmations.xml");
+        var handler = new SequentialFakeHttpHandler(_successSendRequest, fixtureXml);
+        var options = new IbkrClientOptions
+        {
+            FlexPollTimeout = TimeSpan.FromSeconds(60),
+            FlexQueries = new FlexQueryOptions { TradeConfirmationsQueryId = "TCFQ" },
+        };
+        var ops = CreateOperations(handler, options);
+
+        var result = await ops.GetTradeConfirmationsAsync(
+            new DateOnly(2026, 4, 1), new DateOnly(2026, 4, 9),
+            TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.TradeConfirmations.ShouldNotBeNull();
+        result.Value.SymbolSummaries.ShouldNotBeNull();
+        result.Value.Orders.ShouldNotBeNull();
+        result.Value.RawXml.Root!.Name.LocalName.ShouldBe("FlexQueryResponse");
+    }
+
+    private static string LoadFixture(string name) =>
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Flex", "Fixtures", name));
 
     private static FlexOperations CreateOperations(
         HttpMessageHandler handler, IbkrClientOptions? options = null)

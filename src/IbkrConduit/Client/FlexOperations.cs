@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Globalization;
 using System.Xml.Linq;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
@@ -60,21 +61,62 @@ internal sealed partial class FlexOperations : IFlexOperations
     }
 
     /// <inheritdoc />
-    public Task<Result<FlexQueryResult>> ExecuteQueryAsync(
-        string queryId, CancellationToken cancellationToken = default) =>
-        ExecuteInternalAsync(queryId, fromDate: null, toDate: null, cancellationToken);
-
-    /// <inheritdoc />
-    public Task<Result<FlexQueryResult>> ExecuteQueryAsync(
-        string queryId, string fromDate, string toDate,
-        CancellationToken cancellationToken = default) =>
-        ExecuteInternalAsync(queryId, fromDate, toDate, cancellationToken);
-
-    private async Task<Result<FlexQueryResult>> ExecuteInternalAsync(
-        string queryId, string? fromDate, string? toDate, CancellationToken cancellationToken)
+    public async Task<Result<CashTransactionsFlexResult>> GetCashTransactionsAsync(
+        CancellationToken cancellationToken = default)
     {
         EnsureFlexConfigured();
+        var queryId = _options.FlexQueries.CashTransactionsQueryId
+            ?? throw new InvalidOperationException(
+                "Cash Transactions queries require IbkrClientOptions.FlexQueries.CashTransactionsQueryId. " +
+                "Create an Activity Flex query with the Cash Transactions section enabled in the IBKR portal " +
+                "(Reports → Flex Queries), then set the numeric query ID in AddIbkrClient options.");
 
+        var docResult = await ExecuteInternalAsync(queryId, fromDate: null, toDate: null, cancellationToken);
+        var result = docResult.Map(FlexResultParser.ParseCashTransactions);
+        return WithThrowSetting(result);
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<TradeConfirmationsFlexResult>> GetTradeConfirmationsAsync(
+        DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken = default)
+    {
+        EnsureFlexConfigured();
+        var queryId = _options.FlexQueries.TradeConfirmationsQueryId
+            ?? throw new InvalidOperationException(
+                "Trade Confirmations queries require IbkrClientOptions.FlexQueries.TradeConfirmationsQueryId. " +
+                "Create a Trade Confirmation Flex query in the IBKR portal (Reports → Flex Queries), " +
+                "then set the numeric query ID in AddIbkrClient options.");
+
+        var fromStr = fromDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        var toStr = toDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        var docResult = await ExecuteInternalAsync(queryId, fromStr, toStr, cancellationToken);
+        var result = docResult.Map(FlexResultParser.ParseTradeConfirmations);
+        return WithThrowSetting(result);
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<FlexGenericResult>> ExecuteQueryAsync(
+        string queryId, CancellationToken cancellationToken = default)
+    {
+        EnsureFlexConfigured();
+        var docResult = await ExecuteInternalAsync(queryId, fromDate: null, toDate: null, cancellationToken);
+        var result = docResult.Map(FlexResultParser.ParseGeneric);
+        return WithThrowSetting(result);
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<FlexGenericResult>> ExecuteQueryAsync(
+        string queryId, string fromDate, string toDate, CancellationToken cancellationToken = default)
+    {
+        EnsureFlexConfigured();
+        var docResult = await ExecuteInternalAsync(queryId, fromDate, toDate, cancellationToken);
+        var result = docResult.Map(FlexResultParser.ParseGeneric);
+        return WithThrowSetting(result);
+    }
+
+    private async Task<Result<XDocument>> ExecuteInternalAsync(
+        string queryId, string? fromDate, string? toDate, CancellationToken cancellationToken)
+    {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Flex.ExecuteQuery");
         activity?.SetTag(LogFields.QueryId, queryId);
         _queryCount.Add(1);
@@ -83,27 +125,26 @@ internal sealed partial class FlexOperations : IFlexOperations
         var sendResult = await _flexClient!.SendRequestAsync(queryId, fromDate, toDate, cancellationToken);
         if (!sendResult.IsSuccess)
         {
-            return WithThrowSetting(Result<FlexQueryResult>.Failure(sendResult.Error!));
+            return Result<XDocument>.Failure(sendResult.Error!);
         }
 
         var referenceCodeResult = ExtractReferenceCode(sendResult.Value!, queryId);
         if (!referenceCodeResult.IsSuccess)
         {
-            return WithThrowSetting(Result<FlexQueryResult>.Failure(referenceCodeResult.Error!));
+            return Result<XDocument>.Failure(referenceCodeResult.Error!);
         }
 
         var docResult = await PollForStatementAsync(referenceCodeResult.Value!, cancellationToken);
         _queryDuration.Record(sw.Elapsed.TotalMilliseconds);
 
-        var result = docResult.Map(doc => new FlexQueryResult(doc));
-        if (result.IsSuccess)
+        if (docResult.IsSuccess)
         {
             LogFlexQueryExecuted(queryId);
         }
-        return WithThrowSetting(result);
+        return docResult;
     }
 
-    private Result<FlexQueryResult> WithThrowSetting(Result<FlexQueryResult> result) =>
+    private Result<T> WithThrowSetting<T>(Result<T> result) =>
         _options.ThrowOnApiError ? result.EnsureSuccess() : result;
 
     private static Result<string> ExtractReferenceCode(XDocument doc, string queryId)
