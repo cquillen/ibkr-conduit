@@ -171,14 +171,39 @@ var history = await client.MarketData.GetHistoryAsync(265598, "1d", "5min");
 
 ### Flex Web Service
 
+Strongly-typed methods for common report types, plus a generic escape hatch for any query:
+
 ```csharp
-// Requires FlexToken in options
-var result = await client.Flex.ExecuteQueryAsync("123456");
-foreach (var trade in result.Trades)
+// Configure query IDs at startup (from IBKR portal → Reports → Flex Queries)
+services.AddIbkrClient(opts =>
 {
-    Console.WriteLine($"{trade.Symbol}: {trade.Quantity} @ {trade.Price}");
+    opts.Credentials = creds;
+    opts.FlexToken = "your-flex-token";
+    opts.FlexQueries.CashTransactionsQueryId = "1464458";
+    opts.FlexQueries.TradeConfirmationsQueryId = "1454602";
+});
+
+// Cash transactions (uses the query template's configured period)
+var cashResult = await client.Flex.GetCashTransactionsAsync();
+foreach (var tx in cashResult.Value.CashTransactions)
+{
+    Console.WriteLine($"{tx.SettleDate} {tx.Type} {tx.Amount:C} {tx.Description}");
 }
+
+// Trade confirmations (with DateOnly date range)
+var tradesResult = await client.Flex.GetTradeConfirmationsAsync(
+    new DateOnly(2026, 4, 1), new DateOnly(2026, 4, 9));
+foreach (var tc in tradesResult.Value.TradeConfirmations)
+{
+    Console.WriteLine($"{tc.TradeDate} {tc.BuySell} {tc.Quantity} {tc.Symbol} @ {tc.Price}");
+}
+
+// Generic: any Flex query by ID
+var generic = await client.Flex.ExecuteQueryAsync("your-query-id");
+Console.WriteLine($"Query: {generic.Value.QueryName} ({generic.Value.QueryType})");
 ```
+
+> **Contributors:** To add support for additional Flex report types, see [docs/flex-report-types.md](docs/flex-report-types.md).
 
 ## Environment Variables
 
@@ -224,6 +249,7 @@ All facade methods return `Result<T>`. Errors are represented by the `IbkrError`
 | `IbkrRateLimitError` | HTTP 429 from IBKR (has `RetryAfter`) |
 | `IbkrOrderRejectedError` | Order rejected via 200 OK with error body |
 | `IbkrHiddenError` | Non-order 200 OK with `{"error":"..."}` or `{"success":false}` |
+| `IbkrFlexError` | Flex Web Service error (has `ErrorCode`, `IsRetryable`, `CodeDescription`) |
 
 For exception-based handling, either enable `ThrowOnApiError` globally or call `.EnsureSuccess()` per-call:
 
