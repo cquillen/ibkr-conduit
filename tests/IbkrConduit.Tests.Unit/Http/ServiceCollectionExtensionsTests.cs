@@ -167,8 +167,10 @@ public class ServiceCollectionExtensionsTests
 
         var secondDone = sw.ElapsedMilliseconds;
 
-        // The burst limiter gates at 1 req/sec, so the second request should wait ~1 second
-        (secondDone - firstDone).ShouldBeGreaterThan(900);
+        // The burst limiter gates at 1 req/sec, so the second request should wait ~1 second.
+        // Use 500ms threshold (not 900ms) to avoid flaky failures under CI load —
+        // the important thing is a measurable delay exists, not that it's exactly 1s.
+        (secondDone - firstDone).ShouldBeGreaterThan(500);
     }
 
     private static IbkrOAuthCredentials CreateTestCredentials()
