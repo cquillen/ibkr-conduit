@@ -12,7 +12,7 @@ public interface IContractOperations
     /// Searches for contracts matching the given symbol.
     /// </summary>
     /// <param name="symbol">The symbol to search for.</param>
-    /// <param name="secType">Security type filter (STK, IND, BOND).</param>
+    /// <param name="secType">Security type filter.</param>
     /// <param name="name">Search by name instead of symbol.</param>
     /// <param name="more">Request more results.</param>
     /// <param name="fund">Filter to funds only.</param>
@@ -22,7 +22,7 @@ public interface IContractOperations
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<List<ContractSearchResult>>> SearchBySymbolAsync(
         string symbol,
-        string? secType = null, bool? name = null, bool? more = null,
+        SecurityType? secType = null, bool? name = null, bool? more = null,
         bool? fund = null, string? fundFamilyConidEx = null,
         bool? pattern = null, string? referrer = null,
         CancellationToken cancellationToken = default);
@@ -37,7 +37,7 @@ public interface IContractOperations
     /// Retrieves security definition info for derivatives (options, warrants, futures).
     /// </summary>
     Task<Result<List<SecurityDefinitionInfo>>> GetSecurityDefinitionInfoAsync(
-        string conid, string sectype, string month,
+        string conid, SecurityType sectype, ExpiryMonth month,
         string? exchange = null, decimal? strike = null, OptionRight? right = null, string? issuerId = null,
         string? filters = null,
         CancellationToken cancellationToken = default);
@@ -46,7 +46,7 @@ public interface IContractOperations
     /// Retrieves available option strike prices.
     /// </summary>
     Task<Result<OptionStrikes>> GetOptionStrikesAsync(
-        string conid, string sectype, string month,
+        string conid, SecurityType sectype, ExpiryMonth month,
         string? exchange = null,
         CancellationToken cancellationToken = default);
 

@@ -141,7 +141,7 @@ public class ContractTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("Contracts", "GET-secdef-strikes"));
 
         var strikes = (await _harness.Client.Contracts.GetOptionStrikesAsync(
-            "756733", "OPT", "202701", cancellationToken: TestContext.Current.CancellationToken)).Value;
+            "756733", SecurityType.Option, new ExpiryMonth(2027, 1), cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         strikes.ShouldNotBeNull();
         strikes.Call.ShouldNotBeEmpty();

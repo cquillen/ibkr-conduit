@@ -37,7 +37,7 @@ internal partial class ContractOperations : IContractOperations
     /// <inheritdoc />
     public async Task<Result<List<ContractSearchResult>>> SearchBySymbolAsync(
         string symbol,
-        string? secType = null, bool? name = null, bool? more = null,
+        SecurityType? secType = null, bool? name = null, bool? more = null,
         bool? fund = null, string? fundFamilyConidEx = null,
         bool? pattern = null, string? referrer = null,
         CancellationToken cancellationToken = default)
@@ -64,7 +64,7 @@ internal partial class ContractOperations : IContractOperations
 
     /// <inheritdoc />
     public async Task<Result<List<SecurityDefinitionInfo>>> GetSecurityDefinitionInfoAsync(
-        string conid, string sectype, string month,
+        string conid, SecurityType sectype, ExpiryMonth month,
         string? exchange = null, decimal? strike = null, OptionRight? right = null, string? issuerId = null,
         string? filters = null,
         CancellationToken cancellationToken = default)
@@ -72,7 +72,7 @@ internal partial class ContractOperations : IContractOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetSecDefInfo");
         activity?.SetTag(LogFields.Conid, conid);
         var strikeStr = strike?.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        var response = await _api.GetSecurityDefinitionInfoAsync(conid, sectype, month, exchange, strikeStr, right, issuerId, filters, cancellationToken);
+        var response = await _api.GetSecurityDefinitionInfoAsync(conid, sectype, month.ToString(), exchange, strikeStr, right, issuerId, filters, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetSecurityDefinitionInfo");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -80,13 +80,13 @@ internal partial class ContractOperations : IContractOperations
 
     /// <inheritdoc />
     public async Task<Result<OptionStrikes>> GetOptionStrikesAsync(
-        string conid, string sectype, string month,
+        string conid, SecurityType sectype, ExpiryMonth month,
         string? exchange = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Contract.GetOptionStrikes");
         activity?.SetTag(LogFields.Conid, conid);
-        var response = await _api.GetOptionStrikesAsync(conid, sectype, month, exchange, cancellationToken);
+        var response = await _api.GetOptionStrikesAsync(conid, sectype, month.ToString(), exchange, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         LogResult(result, "GetOptionStrikes");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;

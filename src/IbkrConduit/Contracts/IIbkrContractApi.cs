@@ -13,7 +13,7 @@ internal interface IIbkrContractApi
     [Get("/v1/api/iserver/secdef/search")]
     Task<IApiResponse<List<ContractSearchResult>>> SearchBySymbolAsync(
         [Query] string symbol,
-        [Query] string? secType = null, [Query] bool? name = null,
+        [Query] SecurityType? secType = null, [Query] bool? name = null,
         [Query] bool? more = null, [Query] bool? fund = null,
         [Query] string? fundFamilyConidEx = null, [Query] bool? pattern = null,
         [Query] string? referrer = null,
@@ -31,7 +31,7 @@ internal interface IIbkrContractApi
     [Get("/v1/api/iserver/secdef/info")]
     Task<IApiResponse<List<SecurityDefinitionInfo>>> GetSecurityDefinitionInfoAsync(
         [Query] string conid,
-        [Query] string sectype,
+        [Query] SecurityType sectype,
         [Query] string month,
         [Query] string? exchange = null,
         [Query] string? strike = null,
@@ -46,7 +46,7 @@ internal interface IIbkrContractApi
     [Get("/v1/api/iserver/secdef/strikes")]
     Task<IApiResponse<OptionStrikes>> GetOptionStrikesAsync(
         [Query] string conid,
-        [Query] string sectype,
+        [Query] SecurityType sectype,
         [Query] string month,
         [Query] string? exchange = null,
         CancellationToken cancellationToken = default);
