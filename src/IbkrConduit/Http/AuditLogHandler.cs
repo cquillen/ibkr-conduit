@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Http;
@@ -13,6 +14,12 @@ namespace IbkrConduit.Http;
 internal sealed partial class AuditLogHandler : DelegatingHandler
 {
     private const int _maxBodyLength = 4096;
+    private const string _flexPathPrefix = "/AccountManagement/FlexWebService/";
+    private static readonly Regex _flexTokenPattern = new(
+        @"([?&])t=[^&]+",
+        RegexOptions.Compiled,
+        TimeSpan.FromMilliseconds(100));
+
     private readonly ILogger<AuditLogHandler> _logger;
 
     /// <summary>
@@ -48,7 +55,7 @@ internal sealed partial class AuditLogHandler : DelegatingHandler
     private async Task LogRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var method = request.Method;
-        var path = request.RequestUri?.AbsolutePath ?? "unknown";
+        var url = SanitizeUrl(request.RequestUri);
 
         string? requestBody = null;
         if (request.Content is not null)
@@ -57,7 +64,7 @@ internal sealed partial class AuditLogHandler : DelegatingHandler
             requestBody = Truncate(requestBody);
         }
 
-        LogRequest(method.Method, path, requestBody ?? "(no body)");
+        LogRequest(method.Method, url, requestBody ?? "(no body)");
     }
 
     private async Task LogResponseAsync(
@@ -66,7 +73,7 @@ internal sealed partial class AuditLogHandler : DelegatingHandler
         long durationMs,
         CancellationToken cancellationToken)
     {
-        var path = request.RequestUri?.AbsolutePath ?? "unknown";
+        var url = SanitizeUrl(request.RequestUri);
         var statusCode = (int)response.StatusCode;
 
         string? responseBody = null;
@@ -86,7 +93,30 @@ internal sealed partial class AuditLogHandler : DelegatingHandler
             responseBody = Truncate(responseBody);
         }
 
-        LogResponse(path, statusCode, durationMs, responseBody ?? "(no body)");
+        LogResponse(url, statusCode, durationMs, responseBody ?? "(no body)");
+    }
+
+    /// <summary>
+    /// Returns the URL path + query string for logging. For Flex Web Service URLs,
+    /// the token parameter (<c>t=...</c>) is replaced with <c>t=***</c> to prevent
+    /// credential leakage in logs.
+    /// </summary>
+    internal static string SanitizeUrl(Uri? uri)
+    {
+        if (uri is null)
+        {
+            return "unknown";
+        }
+
+        var pathAndQuery = uri.PathAndQuery;
+
+        // Only scrub Flex Web Service URLs
+        if (pathAndQuery.Contains(_flexPathPrefix, StringComparison.Ordinal))
+        {
+            return _flexTokenPattern.Replace(pathAndQuery, "$1t=***");
+        }
+
+        return pathAndQuery;
     }
 
     private static string Truncate(string value) =>
@@ -96,11 +126,11 @@ internal sealed partial class AuditLogHandler : DelegatingHandler
 
     [LoggerMessage(
         Level = LogLevel.Debug,
-        Message = "→ {Method} {Path} {RequestBody}")]
-    private partial void LogRequest(string method, string path, string requestBody);
+        Message = "→ {Method} {Url} {RequestBody}")]
+    private partial void LogRequest(string method, string url, string requestBody);
 
     [LoggerMessage(
         Level = LogLevel.Debug,
-        Message = "← {Path} {StatusCode} ({DurationMs}ms) {ResponseBody}")]
-    private partial void LogResponse(string path, int statusCode, long durationMs, string responseBody);
+        Message = "← {Url} {StatusCode} ({DurationMs}ms) {ResponseBody}")]
+    private partial void LogResponse(string url, int statusCode, long durationMs, string responseBody);
 }
