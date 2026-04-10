@@ -38,7 +38,7 @@ internal static class ConsumerPipelineRegistration
         string baseUrl)
     {
         // Consumer Refit clients (all go through the full pipeline):
-        //   TokenRefreshHandler -> ResponseSchemaValidationHandler ->
+        //   AuditLogHandler -> TokenRefreshHandler -> ResponseSchemaValidationHandler ->
         //   GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
         RegisterConsumerRefitClient<IIbkrPortfolioApi>(services, credentials, clientOptions, endpointMap, baseUrl);
         RegisterConsumerRefitClient<IIbkrContractApi>(services, credentials, clientOptions, endpointMap, baseUrl);
@@ -78,6 +78,9 @@ internal static class ConsumerPipelineRegistration
             {
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
             })
+            .AddHttpMessageHandler(sp =>
+                new AuditLogHandler(
+                    sp.GetRequiredService<ILogger<AuditLogHandler>>()))
             .AddHttpMessageHandler(sp =>
                 new TokenRefreshHandler(
                     sp.GetRequiredService<ISessionManager>(),
