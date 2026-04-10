@@ -39,6 +39,11 @@ internal sealed partial class FlexOperations : IFlexOperations
     private static readonly Counter<long> _errorCount =
         IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.flex.error.count");
 
+    private static readonly Histogram<int> _pollAttempts =
+        IbkrConduitDiagnostics.Meter.CreateHistogram<int>(
+            "ibkr.conduit.flex.poll.attempts", "attempts",
+            "Number of GetStatement polls per query execution");
+
     private readonly FlexClient? _flexClient;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<FlexOperations> _logger;
@@ -122,20 +127,81 @@ internal sealed partial class FlexOperations : IFlexOperations
         _queryCount.Add(1);
         var sw = Stopwatch.StartNew();
 
-        var sendResult = await _flexClient!.SendRequestAsync(queryId, fromDate, toDate, cancellationToken);
-        if (!sendResult.IsSuccess)
+        const int maxSendAttempts = 3;
+        var sendAttempt = 0;
+        IbkrFlexError? lastSendError = null;
+        var referenceCode = (string?)null;
+
+        while (sendAttempt < maxSendAttempts)
         {
-            return Result<XDocument>.Failure(sendResult.Error!);
+            sendAttempt++;
+            var sendResult = await _flexClient!.SendRequestAsync(queryId, fromDate, toDate, cancellationToken);
+            if (!sendResult.IsSuccess)
+            {
+                // Transport error — don't retry network errors
+                return Result<XDocument>.Failure(sendResult.Error!);
+            }
+
+            var referenceCodeResult = ExtractReferenceCode(sendResult.Value!, queryId);
+            if (referenceCodeResult.IsSuccess)
+            {
+                referenceCode = referenceCodeResult.Value;
+                break;
+            }
+
+            if (referenceCodeResult.Error is IbkrFlexError flexError)
+            {
+                if (!flexError.IsRetryable)
+                {
+                    return Result<XDocument>.Failure(flexError);
+                }
+
+                lastSendError = flexError;
+                LogTransientSendResponse(sendAttempt, flexError.ErrorCode, flexError.Message ?? "(none)");
+
+                if (sendAttempt < maxSendAttempts)
+                {
+                    var baseDelay = flexError.ErrorCode == _rateLimitErrorCode
+                        ? _rateLimitDelayMs
+                        : sendAttempt * 1000;
+                    await Task.Delay(ApplyJitter(baseDelay), cancellationToken);
+                    continue;
+                }
+            }
+
+            // All attempts exhausted or non-flex error
+            var errorMessage = lastSendError is not null
+                ? $"Flex SendRequest did not succeed after {maxSendAttempts} attempts for query '{queryId}'. " +
+                  $"Last response: code {lastSendError.ErrorCode} ({lastSendError.Message})."
+                : referenceCodeResult.Error!.Message;
+            _errorCount.Add(1, new KeyValuePair<string, object?>(LogFields.ErrorCode, lastSendError?.ErrorCode ?? 0));
+            return Result<XDocument>.Failure(new IbkrFlexError(
+                ErrorCode: lastSendError?.ErrorCode ?? 0,
+                CodeDescription: lastSendError?.CodeDescription,
+                IsRetryable: false,
+                Message: errorMessage,
+                RawBody: lastSendError?.RawBody,
+                RequestPath: $"flex/SendRequest?q={queryId}"));
         }
 
-        var referenceCodeResult = ExtractReferenceCode(sendResult.Value!, queryId);
-        if (!referenceCodeResult.IsSuccess)
+        if (referenceCode is null)
         {
-            return Result<XDocument>.Failure(referenceCodeResult.Error!);
+            return Result<XDocument>.Failure(new IbkrFlexError(
+                ErrorCode: 0,
+                CodeDescription: null,
+                IsRetryable: false,
+                Message: "SendRequest failed unexpectedly.",
+                RawBody: null,
+                RequestPath: $"flex/SendRequest?q={queryId}"));
         }
 
-        var docResult = await PollForStatementAsync(referenceCodeResult.Value!, cancellationToken);
+        var docResult = await PollForStatementAsync(referenceCode, cancellationToken);
         _queryDuration.Record(sw.Elapsed.TotalMilliseconds);
+
+        var pollStatus = docResult.IsSuccess ? "success"
+            : docResult.Error is IbkrFlexError fe && fe.ErrorCode == 0 && fe.IsRetryable ? "timeout"
+            : "error";
+        _pollAttempts.Record(_lastPollAttemptCount, new KeyValuePair<string, object?>("status", pollStatus));
 
         if (docResult.IsSuccess)
         {
@@ -143,6 +209,11 @@ internal sealed partial class FlexOperations : IFlexOperations
         }
         return docResult;
     }
+
+    // Tracks the last poll attempt count for metric recording in ExecuteInternalAsync.
+    // This is set by PollForStatementAsync before returning. Thread-safety is not a concern
+    // because each FlexOperations call is sequential within a single execution.
+    private int _lastPollAttemptCount;
 
     private Result<T> WithThrowSetting<T>(Result<T> result) =>
         _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -180,6 +251,8 @@ internal sealed partial class FlexOperations : IFlexOperations
         var maxWaitMs = (int)_options.FlexPollTimeout.TotalMilliseconds;
         var totalWaited = 0;
         var attempt = 0;
+        var lastErrorCode = 0;
+        var lastErrorMessage = "(none)";
 
         while (totalWaited < maxWaitMs)
         {
@@ -189,6 +262,7 @@ internal sealed partial class FlexOperations : IFlexOperations
             var fetchResult = await _flexClient!.GetStatementAsync(referenceCode, cancellationToken);
             if (!fetchResult.IsSuccess)
             {
+                _lastPollAttemptCount = attempt;
                 return fetchResult;
             }
 
@@ -196,14 +270,19 @@ internal sealed partial class FlexOperations : IFlexOperations
 
             if (classification == FlexResponseClass.Success)
             {
+                _lastPollAttemptCount = attempt;
                 LogGetStatementCompleted(totalWaited);
                 return fetchResult;
             }
 
+            lastErrorCode = errorCode;
+            lastErrorMessage = errorMessage ?? "(none)";
+
             if (classification == FlexResponseClass.Permanent)
             {
+                _lastPollAttemptCount = attempt;
                 _errorCount.Add(1, new KeyValuePair<string, object?>(LogFields.ErrorCode, errorCode));
-                LogPermanentError(attempt, errorCode, errorMessage ?? "(none)");
+                LogPermanentError(attempt, errorCode, lastErrorMessage);
                 var info = FlexErrorCodes.TryLookup(errorCode);
                 return Result<XDocument>.Failure(new IbkrFlexError(
                     ErrorCode: errorCode,
@@ -227,17 +306,21 @@ internal sealed partial class FlexOperations : IFlexOperations
                 break;
             }
 
-            var actualDelay = Math.Min(delayMs, remaining);
-            LogTransientResponse(attempt, errorCode, errorMessage ?? "(none)", actualDelay, totalWaited);
+            var actualDelay = Math.Min(ApplyJitter(delayMs), remaining);
+            LogTransientResponse(attempt, errorCode, lastErrorMessage, actualDelay, totalWaited);
             await Task.Delay(actualDelay, cancellationToken);
             totalWaited += actualDelay;
         }
 
+        _lastPollAttemptCount = attempt;
+        var timeoutSeconds = _options.FlexPollTimeout.TotalSeconds;
         return Result<XDocument>.Failure(new IbkrFlexError(
             ErrorCode: 0,
             CodeDescription: null,
             IsRetryable: true,
-            Message: $"Flex statement generation did not complete within {_options.FlexPollTimeout.TotalSeconds}s for reference code '{referenceCode}'.",
+            Message: $"Flex statement generation did not complete within {timeoutSeconds}s for reference code '{referenceCode}'. " +
+                     $"Attempted {attempt} polls; last response: code {lastErrorCode} ({lastErrorMessage}). " +
+                     "If using an Activity Flex query with 'Breakout by Day' enabled, disabling it in the IBKR portal may significantly reduce generation time.",
             RawBody: null,
             RequestPath: requestPath));
     }
@@ -318,6 +401,16 @@ internal sealed partial class FlexOperations : IFlexOperations
         }
     }
 
+    /// <summary>
+    /// Applies ±20% random jitter to a base delay to avoid thundering-herd effects.
+    /// Returns at least 100ms to avoid zero/negative delays.
+    /// </summary>
+    internal static int ApplyJitter(int baseDelayMs)
+    {
+        var jitter = (int)(baseDelayMs * 0.2 * (Random.Shared.NextDouble() * 2 - 1));
+        return Math.Max(100, baseDelayMs + jitter);
+    }
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Flex query {QueryId} executed successfully")]
     private partial void LogFlexQueryExecuted(string queryId);
 
@@ -333,4 +426,9 @@ internal sealed partial class FlexOperations : IFlexOperations
         Level = LogLevel.Debug,
         Message = "Flex GetStatement poll #{Attempt} returned permanent error {ErrorCode}: {ErrorMessage}")]
     private partial void LogPermanentError(int attempt, int errorCode, string errorMessage);
+
+    [LoggerMessage(
+        Level = LogLevel.Debug,
+        Message = "Flex SendRequest attempt #{Attempt} returned transient error {ErrorCode}: {ErrorMessage}")]
+    private partial void LogTransientSendResponse(int attempt, int errorCode, string errorMessage);
 }

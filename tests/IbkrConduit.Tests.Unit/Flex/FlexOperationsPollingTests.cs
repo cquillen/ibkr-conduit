@@ -79,6 +79,14 @@ public class FlexOperationsPollingTests
         </FlexStatementResponse>
         """;
 
+    private const string _retryableSendRequest1018 = """
+        <FlexStatementResponse>
+            <Status>Warn</Status>
+            <ErrorCode>1018</ErrorCode>
+            <ErrorMessage>Too many requests have been made from this token.</ErrorMessage>
+        </FlexStatementResponse>
+        """;
+
     private const string _failSendRequest = """
         <FlexStatementResponse>
             <Status>Fail</Status>
@@ -390,6 +398,110 @@ public class FlexOperationsPollingTests
         result.Value.SymbolSummaries.ShouldNotBeNull();
         result.Value.Orders.ShouldNotBeNull();
         result.Value.RawXml.Root!.Name.LocalName.ShouldBe("FlexQueryResponse");
+    }
+
+    [Fact]
+    public async Task ExecuteQueryAsync_SendRequestRetryableError_ThenSuccess_ReturnsSuccess()
+    {
+        // First SendRequest returns retryable 1018, second returns success with ref code,
+        // then GetStatement returns success immediately.
+        var handler = new SequentialFakeHttpHandler(
+            _retryableSendRequest1018, _successSendRequest, _successStatement);
+        var ops = CreateOperations(handler);
+
+        var result = await ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        handler.CallCount.ShouldBe(3); // 2 SendRequest + 1 GetStatement
+    }
+
+    [Fact]
+    public async Task ExecuteQueryAsync_SendRequestPermanentError_FailsImmediately()
+    {
+        // First SendRequest returns permanent error 1015 — no retry.
+        var handler = new SequentialFakeHttpHandler(_failSendRequest);
+        var ops = CreateOperations(handler);
+
+        var result = await ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var err = result.Error.ShouldBeOfType<IbkrFlexError>();
+        err.ErrorCode.ShouldBe(1015);
+        handler.CallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task ExecuteQueryAsync_SendRequestAllAttemptsRetryable_FailsWithAttemptCount()
+    {
+        // All 3 SendRequest attempts return retryable 1018.
+        var handler = new SequentialFakeHttpHandler(
+            _retryableSendRequest1018, _retryableSendRequest1018, _retryableSendRequest1018);
+        var ops = CreateOperations(handler);
+
+        var result = await ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var err = result.Error.ShouldBeOfType<IbkrFlexError>();
+        err.Message.ShouldContain("did not succeed after 3 attempts");
+        err.Message.ShouldContain("1018");
+        handler.CallCount.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task ExecuteQueryAsync_TimeoutMessage_ContainsAttemptCountAndLastError()
+    {
+        // Stub GetStatement to always return 1019 with a short timeout.
+        var responses = new List<string> { _successSendRequest };
+        for (var i = 0; i < 20; i++)
+        {
+            responses.Add(_inProgressResponse);
+        }
+
+        var handler = new SequentialFakeHttpHandler(responses.ToArray());
+        var ops = CreateOperations(handler, new IbkrClientOptions { FlexPollTimeout = TimeSpan.FromMilliseconds(500) });
+
+        var result = await ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var err = result.Error.ShouldBeOfType<IbkrFlexError>();
+        err.Message.ShouldContain("Attempted");
+        err.Message.ShouldContain("polls");
+        err.Message.ShouldContain("1019");
+        err.Message.ShouldContain("Breakout by Day");
+    }
+
+    [Fact]
+    public void ApplyJitter_ProducesNonDeterministicDelays()
+    {
+        var results = new HashSet<int>();
+        for (var i = 0; i < 100; i++)
+        {
+            results.Add(FlexOperations.ApplyJitter(5000));
+        }
+
+        // Should not all be the same value (non-deterministic)
+        results.Count.ShouldBeGreaterThan(1);
+    }
+
+    [Fact]
+    public void ApplyJitter_StaysWithinBounds()
+    {
+        for (var i = 0; i < 100; i++)
+        {
+            var result = FlexOperations.ApplyJitter(5000);
+            result.ShouldBeGreaterThanOrEqualTo(4000); // 5000 - 20%
+            result.ShouldBeLessThanOrEqualTo(6000); // 5000 + 20%
+        }
+    }
+
+    [Fact]
+    public void ApplyJitter_RespectsMinimumFloor()
+    {
+        for (var i = 0; i < 100; i++)
+        {
+            var result = FlexOperations.ApplyJitter(100);
+            result.ShouldBeGreaterThanOrEqualTo(100);
+        }
     }
 
     private static string LoadFixture(string name) =>
