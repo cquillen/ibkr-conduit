@@ -10,6 +10,7 @@ using IbkrConduit.Client;
 using IbkrConduit.Contracts;
 using IbkrConduit.EventContracts;
 using IbkrConduit.Fyi;
+using IbkrConduit.Health;
 using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
@@ -84,6 +85,9 @@ internal static class ConsumerPipelineRegistration
                     sp.GetRequiredService<ILogger<AuditLogHandler>>()))
             .AddHttpMessageHandler(_ =>
                 new ResponseBodyCaptureHandler())
+            .AddHttpMessageHandler(sp =>
+                new LastSuccessfulCallHandler(
+                    sp.GetRequiredService<LastSuccessfulCallTracker>()))
             .AddHttpMessageHandler(sp =>
                 new TokenRefreshHandler(
                     sp.GetRequiredService<ISessionManager>(),

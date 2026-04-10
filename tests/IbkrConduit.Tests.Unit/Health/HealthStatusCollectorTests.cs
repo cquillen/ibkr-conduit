@@ -1,6 +1,4 @@
 using System;
-using System.Net;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
@@ -18,17 +16,12 @@ public class HealthStatusCollectorTests
     private readonly IIbkrSessionApi _sessionApi = Substitute.For<IIbkrSessionApi>();
     private readonly ISessionTokenProvider _tokenProvider = Substitute.For<ISessionTokenProvider>();
     private readonly IIbkrWebSocketClient _wsClient = Substitute.For<IIbkrWebSocketClient>();
-    private readonly LastSuccessfulCallHandler _lastCallHandler;
+    private readonly LastSuccessfulCallTracker _lastCallTracker = new();
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly HealthStatusOptions _options = new();
 
     public HealthStatusCollectorTests()
     {
-        _lastCallHandler = new LastSuccessfulCallHandler
-        {
-            InnerHandler = new FakeOkHandler(),
-        };
-
         _rateLimiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
         {
             TokenLimit = 10,
@@ -46,7 +39,7 @@ public class HealthStatusCollectorTests
         _wsClient.IsConnected.Returns(false);
         _wsClient.ActiveSubscriptionCount.Returns(0);
 
-        await SetLastCallToNow();
+        SetLastCallToNow();
 
         var collector = CreateCollector();
         var result = await collector.GetHealthStatusAsync(
@@ -66,7 +59,7 @@ public class HealthStatusCollectorTests
         _wsClient.IsConnected.Returns(false);
         _wsClient.ActiveSubscriptionCount.Returns(0);
 
-        await SetLastCallToNow();
+        SetLastCallToNow();
 
         var collector = CreateCollector();
         var result = await collector.GetHealthStatusAsync(
@@ -83,7 +76,7 @@ public class HealthStatusCollectorTests
         _wsClient.IsConnected.Returns(false);
         _wsClient.ActiveSubscriptionCount.Returns(0);
 
-        await SetLastCallToNow();
+        SetLastCallToNow();
 
         var collector = CreateCollector();
         var result = await collector.GetHealthStatusAsync(
@@ -104,7 +97,7 @@ public class HealthStatusCollectorTests
         _sessionApi.GetAuthStatusAsync(Arg.Any<CancellationToken>())
             .Returns(new AuthStatusResponse(true, false, true, true, null, null, null, null, null, null));
 
-        await SetLastCallToNow();
+        SetLastCallToNow();
 
         var collector = CreateCollector();
         var result = await collector.GetHealthStatusAsync(
@@ -125,7 +118,7 @@ public class HealthStatusCollectorTests
         _sessionApi.GetAuthStatusAsync(Arg.Any<CancellationToken>())
             .Returns(new AuthStatusResponse(false, false, false, false, "Not authenticated", null, null, null, null, null));
 
-        await SetLastCallToNow();
+        SetLastCallToNow();
 
         var collector = CreateCollector();
         var result = await collector.GetHealthStatusAsync(
@@ -145,7 +138,7 @@ public class HealthStatusCollectorTests
         _sessionApi.GetAuthStatusAsync(Arg.Any<CancellationToken>())
             .Returns(new AuthStatusResponse(true, true, true, true, null, null, null, null, null, null));
 
-        await SetLastCallToNow();
+        SetLastCallToNow();
 
         var collector = CreateCollector();
         var result = await collector.GetHealthStatusAsync(
@@ -164,7 +157,7 @@ public class HealthStatusCollectorTests
         _wsClient.ActiveSubscriptionCount.Returns(3);
         _wsClient.LastMessageReceivedAt.Returns(lastMsg);
 
-        await SetLastCallToNow();
+        SetLastCallToNow();
 
         var collector = CreateCollector();
         var result = await collector.GetHealthStatusAsync(
@@ -184,21 +177,15 @@ public class HealthStatusCollectorTests
         _wsClient.IsConnected.Returns(false);
         _wsClient.ActiveSubscriptionCount.Returns(0);
 
-        // Set last call to a stale time by sending a request then waiting conceptually
-        // Instead, we create a handler with a timestamp in the past
-        var staleHandler = new LastSuccessfulCallHandler
-        {
-            InnerHandler = new FakeOkHandler(),
-        };
-        using var staleClient = new HttpClient(staleHandler);
-        await staleClient.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
+        // Record a successful call, then use a very short staleness timeout
+        var staleTracker = new LastSuccessfulCallTracker();
+        staleTracker.RecordSuccess();
 
-        // Now override staleness timeout to be very short
         var options = new HealthStatusOptions { StalenessTimeout = TimeSpan.FromMilliseconds(1) };
         await Task.Delay(10, TestContext.Current.CancellationToken);
 
         var collector = new HealthStatusCollector(
-            _sessionApi, _tokenProvider, _wsClient, staleHandler, _rateLimiter, options);
+            _sessionApi, _tokenProvider, _wsClient, staleTracker, _rateLimiter, options);
         var result = await collector.GetHealthStatusAsync(
             activeProbe: false, cancellationToken: TestContext.Current.CancellationToken);
 
@@ -228,7 +215,7 @@ public class HealthStatusCollectorTests
         _wsClient.IsConnected.Returns(false);
         _wsClient.ActiveSubscriptionCount.Returns(2);
 
-        await SetLastCallToNow();
+        SetLastCallToNow();
 
         var collector = CreateCollector();
         var result = await collector.GetHealthStatusAsync(
@@ -241,18 +228,7 @@ public class HealthStatusCollectorTests
     }
 
     private HealthStatusCollector CreateCollector() =>
-        new(_sessionApi, _tokenProvider, _wsClient, _lastCallHandler, _rateLimiter, _options);
+        new(_sessionApi, _tokenProvider, _wsClient, _lastCallTracker, _rateLimiter, _options);
 
-    private async Task SetLastCallToNow()
-    {
-        using var client = new HttpClient(_lastCallHandler, disposeHandler: false);
-        await client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
-    }
-
-    private sealed class FakeOkHandler : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
-    }
+    private void SetLastCallToNow() => _lastCallTracker.RecordSuccess();
 }

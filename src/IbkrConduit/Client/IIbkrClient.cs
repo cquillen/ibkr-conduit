@@ -1,3 +1,5 @@
+using IbkrConduit.Health;
+
 namespace IbkrConduit.Client;
 
 /// <summary>
@@ -59,6 +61,16 @@ public interface IIbkrClient : IAsyncDisposable
     /// Event contract (ForecastEx) operations (category tree, markets, rules, details, schedules).
     /// </summary>
     IEventContractOperations EventContracts { get; }
+
+    /// <summary>
+    /// Gets the current health status of the IBKR connection, aggregating signals
+    /// from the brokerage session, WebSocket streaming, OAuth token, rate limiters,
+    /// and API call tracking.
+    /// </summary>
+    /// <param name="activeProbe">When true, makes a live API call to check session status. Default: false.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IbkrHealthStatus> GetHealthStatusAsync(
+        bool activeProbe = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Validates that the configured credentials can establish a session with the IBKR API.
