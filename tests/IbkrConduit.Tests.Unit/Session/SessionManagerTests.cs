@@ -636,6 +636,8 @@ public class SessionManagerTests
         public int GetCallCount { get; private set; }
         public int RefreshCallCount { get; private set; }
 
+        public DateTimeOffset? CurrentTokenExpiry => DateTimeOffset.UtcNow.Add(TokenLifetime);
+
         /// <summary>Token expiry for newly created tokens. Default 24 hours.</summary>
         public TimeSpan TokenLifetime { get; set; } = TimeSpan.FromHours(24);
 

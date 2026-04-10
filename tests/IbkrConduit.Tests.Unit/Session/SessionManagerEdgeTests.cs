@@ -223,6 +223,8 @@ public class SessionManagerEdgeTests
         public int DelayMs { get; set; }
         public bool RefreshShouldThrow { get; set; }
 
+        public DateTimeOffset? CurrentTokenExpiry => _tokenOverride?.Expiry;
+
         public DateTimeOffset TokenExpiry
         {
             set => _tokenOverride = new LiveSessionToken(new byte[] { 0x01, 0x02, 0x03 }, value);

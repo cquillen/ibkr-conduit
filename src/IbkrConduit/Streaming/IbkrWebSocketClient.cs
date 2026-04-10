@@ -49,6 +49,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private CancellationTokenSource? _heartbeatCts;
     private CancellationTokenSource? _messagePumpCts;
     private IDisposable? _notifierSubscription;
+    private DateTimeOffset? _lastMessageReceivedAt;
     private bool _disposed;
 
     /// <summary>
@@ -78,6 +79,24 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         _notifierSubscription = _notifier.Subscribe(OnSessionRefreshedAsync);
     }
+
+    /// <inheritdoc />
+    public bool IsConnected => _webSocket is { State: WebSocketState.Open };
+
+    /// <inheritdoc />
+    public int ActiveSubscriptionCount
+    {
+        get
+        {
+            lock (_subscriptionLock)
+            {
+                return _activeSubscriptions.Count;
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public DateTimeOffset? LastMessageReceivedAt => _lastMessageReceivedAt;
 
     /// <summary>
     /// Connects to the IBKR WebSocket API.
@@ -298,6 +317,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                             _ = Task.Run(() => ReconnectAsync(CancellationToken.None));
                             break;
                         }
+
+                        _lastMessageReceivedAt = DateTimeOffset.UtcNow;
 
                         var text = Encoding.UTF8.GetString(ms.ToArray());
                         ProcessMessage(text);
