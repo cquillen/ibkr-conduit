@@ -11,7 +11,7 @@ namespace IbkrConduit.Health;
 /// </summary>
 internal sealed class HealthStatusCollector : IHealthStatusCollector
 {
-    private const int GlobalTokenLimit = 10;
+    private const int _globalTokenLimit = 10;
 
     private readonly IIbkrSessionApi _sessionApi;
     private readonly ISessionTokenProvider _tokenProvider;
@@ -120,9 +120,9 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
     private RateLimiterHealth CollectRateLimiterHealth()
     {
         var stats = _globalLimiter.GetStatistics();
-        var available = (int)(stats?.CurrentAvailablePermits ?? GlobalTokenLimit);
-        var used = GlobalTokenLimit - available;
-        var utilizationPercent = (double)used / GlobalTokenLimit * 100;
+        var available = (int)(stats?.CurrentAvailablePermits ?? _globalTokenLimit);
+        var used = _globalTokenLimit - available;
+        var utilizationPercent = (double)used / _globalTokenLimit * 100;
 
         return new RateLimiterHealth(
             BurstRemaining: available,
