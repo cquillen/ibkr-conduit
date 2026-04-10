@@ -15,6 +15,14 @@ public interface IFlexOperations
     /// not supported because Activity Flex queries can hang server-side on multi-day
     /// range overrides.
     /// </summary>
+    /// <remarks>
+    /// <para>The query template in the IBKR portal should have "Breakout by Day" set to
+    /// <b>No</b> for best results. When enabled, IBKR generates a separate
+    /// <c>&lt;FlexStatement&gt;</c> per trading day (128+ empty wrappers for a 365-day
+    /// query), producing a much larger response. The parser handles both shapes —
+    /// transactions are flattened across all statement wrappers regardless of the
+    /// breakout setting — but the consolidated shape is 10x smaller and faster.</para>
+    /// </remarks>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="Result{T}"/> wrapping a typed
     /// <see cref="CashTransactionsFlexResult"/> on success, or an <see cref="IbkrError"/>

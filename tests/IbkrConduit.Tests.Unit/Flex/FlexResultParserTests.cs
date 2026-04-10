@@ -171,6 +171,63 @@ public class FlexResultParserTests
     }
 
     [Fact]
+    public void ParseCashTransactions_ConsolidatedFixture_ReturnsExpectedResult()
+    {
+        // Breakout-by-day OFF — single FlexStatement with all transactions in one block
+        var doc = LoadFixture("cash-transactions-consolidated.xml");
+
+        var result = FlexResultParser.ParseCashTransactions(doc);
+
+        result.QueryName.ShouldBe("Cash Transactions - API");
+        result.CashTransactions.Count.ShouldBe(3);
+        result.CashTransactions[0].Amount.ShouldBe(1_000_000m);
+        result.CashTransactions[0].Type.ShouldContain("Deposits/Withdrawals");
+        result.CashTransactions[1].Amount.ShouldBe(2331.45m);
+        result.CashTransactions[2].Amount.ShouldBe(2682.45m);
+
+        // Single statement means FromDate/ToDate come directly from that one statement
+        result.FromDate.ShouldBe(new DateOnly(2025, 4, 9));
+        result.ToDate.ShouldBe(new DateOnly(2026, 4, 8));
+        result.GeneratedAt.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void ParseCashTransactions_BothFixtureShapes_ReturnSameTransactions()
+    {
+        // Verify that breakout-by-day ON (128 daily statements) and OFF (1 consolidated)
+        // produce the same set of cash transactions — same count, same amounts, same types
+        var breakoutDoc = LoadFixture("cash-transactions.xml");
+        var consolidatedDoc = LoadFixture("cash-transactions-consolidated.xml");
+
+        var breakoutResult = FlexResultParser.ParseCashTransactions(breakoutDoc);
+        var consolidatedResult = FlexResultParser.ParseCashTransactions(consolidatedDoc);
+
+        breakoutResult.CashTransactions.Count.ShouldBe(consolidatedResult.CashTransactions.Count);
+
+        for (var i = 0; i < breakoutResult.CashTransactions.Count; i++)
+        {
+            breakoutResult.CashTransactions[i].Amount.ShouldBe(consolidatedResult.CashTransactions[i].Amount);
+            breakoutResult.CashTransactions[i].Type.ShouldBe(consolidatedResult.CashTransactions[i].Type);
+            breakoutResult.CashTransactions[i].TransactionId.ShouldBe(consolidatedResult.CashTransactions[i].TransactionId);
+        }
+    }
+
+    [Fact]
+    public void ParseGeneric_ConsolidatedFixture_ReturnsSingleStatement()
+    {
+        // Breakout-by-day OFF should produce exactly 1 FlexStatementInfo
+        var doc = LoadFixture("cash-transactions-consolidated.xml");
+
+        var result = FlexResultParser.ParseGeneric(doc);
+
+        result.QueryType.ShouldBe("AF");
+        result.Statements.Count.ShouldBe(1);
+        result.Statements[0].AccountId.ShouldBe("U1234567");
+        result.Statements[0].FromDate.ShouldBe(new DateOnly(2025, 4, 9));
+        result.Statements[0].ToDate.ShouldBe(new DateOnly(2026, 4, 8));
+    }
+
+    [Fact]
     public void ParseTradeConfirmations_OnlyTradeConfirmsPresent_OtherListsEmpty()
     {
         // Query has trades but no summaries or orders
