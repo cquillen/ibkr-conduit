@@ -7,11 +7,28 @@ using System.Text;
 namespace IbkrConduit.Setup;
 
 /// <summary>
-/// Generates RSA key pairs and DH parameters PEM for IBKR OAuth 1.0a setup.
+/// Generates RSA key pairs, consumer keys, and DH parameters PEM for IBKR OAuth 1.0a setup.
 /// All cryptography uses System.Security.Cryptography — no external dependencies.
 /// </summary>
 internal static class KeyGenerator
 {
+    private const string _consumerKeyChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private const int _consumerKeyLength = 9;
+
+    /// <summary>
+    /// Generates a random 9-character uppercase alphanumeric consumer key.
+    /// </summary>
+    public static string GenerateConsumerKey()
+    {
+        var chars = new char[_consumerKeyLength];
+        for (var i = 0; i < _consumerKeyLength; i++)
+        {
+            chars[i] = _consumerKeyChars[RandomNumberGenerator.GetInt32(_consumerKeyChars.Length)];
+        }
+
+        return new string(chars);
+    }
+
     /// <summary>
     /// RFC 3526 Group 14 2048-bit MODP prime, as a hex string (no leading 0 sentinel).
     /// This is the same constant used by the IBKR OAuth protocol.

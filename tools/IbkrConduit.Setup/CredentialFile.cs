@@ -76,14 +76,14 @@ internal static partial class CredentialFile
     }
 
     /// <summary>
-    /// Validates a consumer key (exactly 9 alphanumeric characters).
+    /// Validates a consumer key (exactly 9 uppercase letters).
     /// Returns null if valid, or an error message if invalid.
     /// </summary>
     internal static string? ValidateConsumerKey(string input)
     {
-        if (string.IsNullOrEmpty(input) || !AlphanumericRegex().IsMatch(input))
+        if (string.IsNullOrEmpty(input) || !ConsumerKeyRegex().IsMatch(input))
         {
-            return $"Consumer key must be exactly 9 alphanumeric characters (got {input.Length}). Check the value in the IBKR portal.";
+            return $"Consumer key must be exactly 9 uppercase letters (got \"{input}\"). Example: XKVMTQWLR";
         }
 
         return null;
@@ -136,6 +136,6 @@ internal static partial class CredentialFile
         return value;
     }
 
-    [GeneratedRegex("^[a-zA-Z0-9]{9}$")]
-    private static partial Regex AlphanumericRegex();
+    [GeneratedRegex("^[A-Z]{9}$")]
+    private static partial Regex ConsumerKeyRegex();
 }

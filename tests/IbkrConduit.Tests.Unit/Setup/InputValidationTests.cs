@@ -6,9 +6,10 @@ namespace IbkrConduit.Tests.Unit.Setup;
 public class InputValidationTests
 {
     [Theory]
-    [InlineData("TESTKEY01", true)]
-    [InlineData("ABCDE1234", true)]
-    [InlineData("abcde1234", true)]
+    [InlineData("XKVMTQWLR", true)]
+    [InlineData("ABCDEFGHI", true)]
+    [InlineData("TESTKEY01", false)]  // digits not allowed
+    [InlineData("abcdefghi", false)]  // lowercase not allowed
     [InlineData("SHORT", false)]
     [InlineData("TOOLONGKEY", false)]
     [InlineData("", false)]

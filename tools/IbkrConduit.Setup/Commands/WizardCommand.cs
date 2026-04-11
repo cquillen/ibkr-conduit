@@ -59,6 +59,10 @@ internal static class WizardCommand
             }
         }
 
+        // Generate consumer key
+        var consumerKey = KeyGenerator.GenerateConsumerKey();
+        Console.WriteLine();
+        ConsoleHelper.WriteSuccess($"Generated Consumer Key: {consumerKey}");
         Console.WriteLine();
 
         // Step 2: Portal Instructions
@@ -74,7 +78,8 @@ internal static class WizardCommand
         Console.WriteLine();
         Console.WriteLine("  3. Check the 'Enabled' checkbox if not already enabled");
         Console.WriteLine();
-        Console.WriteLine("  4. Note your Consumer Key (9-character code shown at the top)");
+        Console.WriteLine($"  4. Enter the following Consumer Key in the text field and click 'Save Key':");
+        Console.WriteLine($"     {consumerKey}");
         Console.WriteLine();
         Console.WriteLine("  5. Upload the 3 key files using the upload controls on the page:");
         Console.WriteLine("     (Ignore the OpenSSL commands shown on the page — our tool already generated the keys)");
@@ -95,10 +100,11 @@ internal static class WizardCommand
         // Step 3: Collect Credentials
         ConsoleHelper.WriteStep(3, 4, "Collect Portal Credentials");
         Console.WriteLine();
-        Console.WriteLine("Enter the values from the IBKR portal:");
+        Console.WriteLine("  The Consumer Key has already been generated for you.");
+        Console.WriteLine("  Enter the remaining values from the IBKR portal:");
         Console.WriteLine();
 
-        var configResult = ConfigureCommand.Run(outputDir);
+        var configResult = ConfigureCommand.Run(outputDir, presetConsumerKey: consumerKey);
         if (configResult != 0)
         {
             return configResult;

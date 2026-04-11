@@ -34,7 +34,7 @@ public class CredentialFileTests : IDisposable
 
         CredentialFile.Write(
             filePath,
-            consumerKey: "TESTKEY01",
+            consumerKey: "XKVMTQWLR",
             accessToken: "mytoken123",
             accessTokenSecret: "c2VjcmV0",
             signaturePrivateKeyPem: sigKey.ExportRSAPrivateKeyPem(),
@@ -47,7 +47,7 @@ public class CredentialFileTests : IDisposable
         var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        root.GetProperty("consumerKey").GetString().ShouldBe("TESTKEY01");
+        root.GetProperty("consumerKey").GetString().ShouldBe("XKVMTQWLR");
         root.GetProperty("accessToken").GetString().ShouldBe("mytoken123");
         root.GetProperty("accessTokenSecret").GetString().ShouldBe("c2VjcmV0");
         root.GetProperty("signaturePrivateKey").GetString().ShouldStartWith("-----BEGIN RSA PRIVATE KEY-----");
@@ -64,11 +64,11 @@ public class CredentialFileTests : IDisposable
         var sigPem = sigKey.ExportRSAPrivateKeyPem();
         var encPem = encKey.ExportRSAPrivateKeyPem();
 
-        CredentialFile.Write(filePath, "TESTKEY01", "mytoken123", "c2VjcmV0", sigPem, encPem, "17");
+        CredentialFile.Write(filePath, "XKVMTQWLR", "mytoken123", "c2VjcmV0", sigPem, encPem, "17");
 
         var result = CredentialFile.Read(filePath);
 
-        result.ConsumerKey.ShouldBe("TESTKEY01");
+        result.ConsumerKey.ShouldBe("XKVMTQWLR");
         result.AccessToken.ShouldBe("mytoken123");
         result.AccessTokenSecret.ShouldBe("c2VjcmV0");
         result.SignaturePrivateKeyPem.ShouldBe(sigPem);
@@ -88,7 +88,7 @@ public class CredentialFileTests : IDisposable
     public void Read_MissingField_Throws()
     {
         var filePath = Path.Combine(_tempDir, "partial.json");
-        File.WriteAllText(filePath, """{"consumerKey": "TESTKEY01"}""");
+        File.WriteAllText(filePath, """{"consumerKey": "XKVMTQWLR"}""");
 
         var ex = Should.Throw<InvalidOperationException>(() => CredentialFile.Read(filePath));
         ex.Message.ShouldContain("accessToken");

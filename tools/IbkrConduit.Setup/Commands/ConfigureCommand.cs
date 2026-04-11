@@ -27,11 +27,17 @@ internal static class ConfigureCommand
     /// <summary>
     /// Core logic shared with the wizard. Returns exit code.
     /// </summary>
+    /// <param name="credentialsDir">Directory containing private key PEM files.</param>
+    /// <param name="consumerKey">Consumer key (from CLI flag or null for interactive prompt).</param>
+    /// <param name="accessToken">Access token (from CLI flag or null for interactive prompt).</param>
+    /// <param name="accessTokenSecret">Access token secret (from CLI flag or null for interactive prompt).</param>
+    /// <param name="presetConsumerKey">Pre-generated consumer key from the wizard. Skips prompting for it.</param>
     internal static int Run(
         string credentialsDir,
         string? consumerKey = null,
         string? accessToken = null,
-        string? accessTokenSecret = null)
+        string? accessTokenSecret = null,
+        string? presetConsumerKey = null)
     {
         var fullPath = Path.GetFullPath(credentialsDir);
 
@@ -55,10 +61,13 @@ internal static class ConfigureCommand
         var signaturePrivateKeyPem = File.ReadAllText(signaturePemPath);
         var encryptionPrivateKeyPem = File.ReadAllText(encryptionPemPath);
 
+        // Use preset consumer key if provided (wizard flow generates it)
+        consumerKey ??= presetConsumerKey;
+
         if (consumerKey is null || accessToken is null || accessTokenSecret is null)
         {
             consumerKey ??= ConsoleHelper.PromptWithValidation(
-                "Consumer Key: ",
+                "Consumer Key (9 uppercase letters): ",
                 CredentialFile.ValidateConsumerKey);
 
             accessToken ??= ConsoleHelper.PromptWithValidation(
@@ -121,7 +130,7 @@ internal static class ConfigureCommand
         Console.WriteLine();
         Console.WriteLine("Options:");
         Console.WriteLine("  --credentials <dir>            Directory containing private key PEM files (default: ./ibkr-credentials)");
-        Console.WriteLine("  --consumer-key <key>           Consumer key from the IBKR portal (9 alphanumeric chars)");
+        Console.WriteLine("  --consumer-key <key>           Consumer key (9 uppercase letters)");
         Console.WriteLine("  --access-token <token>         Access token from the IBKR portal");
         Console.WriteLine("  --access-token-secret <secret> Encrypted access token secret (base64)");
         Console.WriteLine("  --help, -h                     Show this help message");
