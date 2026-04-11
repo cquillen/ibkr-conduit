@@ -117,6 +117,11 @@ internal static class WizardCommand
         Console.WriteLine();
 
         var jsonPath = Path.Combine(fullPath, "ibkr-credentials.json");
+
+        Console.WriteLine("  NOTE: IBKR OAuth access can take up to a few days to activate after");
+        Console.WriteLine("  initial configuration. If validation fails, this is likely the reason.");
+        Console.WriteLine();
+
         var validateResult = await ValidateCommand.RunAsync(jsonPath);
 
         Console.WriteLine();
@@ -124,35 +129,42 @@ internal static class WizardCommand
 
         if (validateResult == 0)
         {
-            ConsoleHelper.WriteSuccess("Setup complete!");
-            Console.WriteLine();
-            Console.WriteLine("Usage example:");
-            Console.WriteLine();
-            Console.WriteLine("  using IbkrConduit.Auth;");
-            Console.WriteLine("  using IbkrConduit.Http;");
-            Console.WriteLine("  using Microsoft.Extensions.DependencyInjection;");
-            Console.WriteLine();
-            Console.WriteLine("  using var creds = OAuthCredentialsFactory.FromFile(");
-            Console.WriteLine($"      \"{jsonPath}\");");
-            Console.WriteLine("  var services = new ServiceCollection();");
-            Console.WriteLine("  services.AddLogging();");
-            Console.WriteLine("  services.AddIbkrClient(opts => opts.Credentials = creds);");
-            Console.WriteLine("  await using var provider = services.BuildServiceProvider();");
-            Console.WriteLine("  var client = provider.GetRequiredService<IIbkrClient>();");
+            ConsoleHelper.WriteSuccess("Setup complete! Credentials are valid.");
         }
         else
         {
-            ConsoleHelper.WriteWarning("Setup completed with validation errors.");
-            Console.WriteLine("You can re-run validation later with:");
-            Console.WriteLine($"  ibkr-conduit-setup validate --credentials \"{jsonPath}\"");
+            ConsoleHelper.WriteWarning("Credential file saved, but validation failed.");
+            Console.WriteLine();
+            Console.WriteLine("  This is expected if your OAuth access was just configured —");
+            Console.WriteLine("  IBKR can take up to a few days to activate new OAuth credentials.");
+            Console.WriteLine();
+            Console.WriteLine("  Try again later with:");
+            Console.WriteLine($"    ibkr-conduit-setup validate --credentials \"{jsonPath}\"");
         }
+
+        Console.WriteLine();
+        Console.WriteLine("Usage example:");
+        Console.WriteLine();
+        Console.WriteLine("  using IbkrConduit.Auth;");
+        Console.WriteLine("  using IbkrConduit.Http;");
+        Console.WriteLine("  using Microsoft.Extensions.DependencyInjection;");
+        Console.WriteLine();
+        Console.WriteLine("  using var creds = OAuthCredentialsFactory.FromFile(");
+        Console.WriteLine($"      \"{jsonPath}\");");
+        Console.WriteLine("  var services = new ServiceCollection();");
+        Console.WriteLine("  services.AddLogging();");
+        Console.WriteLine("  services.AddIbkrClient(opts => opts.Credentials = creds);");
+        Console.WriteLine("  await using var provider = services.BuildServiceProvider();");
+        Console.WriteLine("  var client = provider.GetRequiredService<IIbkrClient>();");
 
         Console.WriteLine();
         ConsoleHelper.WriteWarning("Security reminder: The credential file contains private keys.");
         ConsoleHelper.WriteWarning("Add 'ibkr-credentials.json' and '*.pem' to your .gitignore.");
         Console.WriteLine("==========================================================");
 
-        return validateResult;
+        // Return 0 even if validation failed — the credential file was saved successfully.
+        // Validation failure is expected for newly configured OAuth and not a setup error.
+        return 0;
     }
 
     private static void ShowHelp()
