@@ -37,9 +37,9 @@ public static class ServiceCollectionExtensions
         var clientOptions = new IbkrClientOptions();
         configure(clientOptions);
 
-        ArgumentNullException.ThrowIfNull(clientOptions.Credentials, "IbkrClientOptions.Credentials");
+        ValidateOptions(clientOptions);
 
-        var credentials = clientOptions.Credentials;
+        var credentials = clientOptions.Credentials!;
         var baseUrl = clientOptions.BaseUrl ?? _ibkrBaseUrl;
 
         // Response schema validation map (built once, used by all consumer pipelines)
@@ -72,4 +72,56 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Validates all <see cref="IbkrClientOptions"/> fields at registration time
+    /// to fail fast on misconfiguration.
+    /// </summary>
+    // CA2208: paramName values intentionally use "IbkrClientOptions.Property" paths
+    // so consumers see which option is invalid, not the method parameter name "options".
+#pragma warning disable CA2208
+    private static void ValidateOptions(IbkrClientOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options.Credentials, "IbkrClientOptions.Credentials");
+
+        if (options.TickleIntervalSeconds <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                "IbkrClientOptions.TickleIntervalSeconds",
+                options.TickleIntervalSeconds,
+                "TickleIntervalSeconds must be greater than zero.");
+        }
+
+        if (options.PreflightCacheDuration <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                "IbkrClientOptions.PreflightCacheDuration",
+                options.PreflightCacheDuration,
+                "PreflightCacheDuration must be greater than zero.");
+        }
+
+        if (options.ProactiveRefreshMargin <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                "IbkrClientOptions.ProactiveRefreshMargin",
+                options.ProactiveRefreshMargin,
+                "ProactiveRefreshMargin must be greater than zero.");
+        }
+
+        if (options.FlexPollTimeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                "IbkrClientOptions.FlexPollTimeout",
+                options.FlexPollTimeout,
+                "FlexPollTimeout must be greater than zero.");
+        }
+
+        if (options.BaseUrl is not null && !Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _))
+        {
+            throw new ArgumentException(
+                $"BaseUrl must be a valid absolute URI, got: '{options.BaseUrl}'.",
+                "IbkrClientOptions.BaseUrl");
+        }
+    }
+#pragma warning restore CA2208
 }
