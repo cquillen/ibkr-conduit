@@ -12,78 +12,78 @@ namespace IbkrConduit.Tests.Unit.Streaming;
 public class StreamingOperationsTests
 {
     [Fact]
-    public void MarketData_BuildsCorrectTopicMessage()
+    public async Task MarketDataAsync_BuildsCorrectTopicMessage()
     {
         var (ops, wsClient) = CreateOperations();
 
-        ops.MarketData(265598, new[] { "31", "84", "86" }, TestContext.Current.CancellationToken);
+        await ops.MarketDataAsync(265598, new[] { "31", "84", "86" }, TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("smd+265598+{\"fields\":[\"31\",\"84\",\"86\"]}");
         wsClient.LastTopicPrefix.ShouldBe("smd");
     }
 
     [Fact]
-    public void OrderUpdates_WithoutDays_BuildsCorrectTopicMessage()
+    public async Task OrderUpdatesAsync_WithoutDays_BuildsCorrectTopicMessage()
     {
         var (ops, wsClient) = CreateOperations();
 
-        ops.OrderUpdates(cancellationToken: TestContext.Current.CancellationToken);
+        await ops.OrderUpdatesAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("sor+{}");
         wsClient.LastTopicPrefix.ShouldBe("sor");
     }
 
     [Fact]
-    public void OrderUpdates_WithDays_BuildsCorrectTopicMessage()
+    public async Task OrderUpdatesAsync_WithDays_BuildsCorrectTopicMessage()
     {
         var (ops, wsClient) = CreateOperations();
 
-        ops.OrderUpdates(days: 3, cancellationToken: TestContext.Current.CancellationToken);
+        await ops.OrderUpdatesAsync(days: 3, cancellationToken: TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("sor+{\"days\":3}");
         wsClient.LastTopicPrefix.ShouldBe("sor");
     }
 
     [Fact]
-    public void ProfitAndLoss_BuildsCorrectTopicMessage()
+    public async Task ProfitAndLossAsync_BuildsCorrectTopicMessage()
     {
         var (ops, wsClient) = CreateOperations();
 
-        ops.ProfitAndLoss(TestContext.Current.CancellationToken);
+        await ops.ProfitAndLossAsync(TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("spl+{}");
         wsClient.LastTopicPrefix.ShouldBe("spl");
     }
 
     [Fact]
-    public void AccountSummary_BuildsCorrectTopicMessage()
+    public async Task AccountSummaryAsync_BuildsCorrectTopicMessage()
     {
         var (ops, wsClient) = CreateOperations();
 
-        ops.AccountSummary(TestContext.Current.CancellationToken);
+        await ops.AccountSummaryAsync(TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("ssd+{}");
         wsClient.LastTopicPrefix.ShouldBe("ssd");
     }
 
     [Fact]
-    public void AccountLedger_BuildsCorrectTopicMessage()
+    public async Task AccountLedgerAsync_BuildsCorrectTopicMessage()
     {
         var (ops, wsClient) = CreateOperations();
 
-        ops.AccountLedger(TestContext.Current.CancellationToken);
+        await ops.AccountLedgerAsync(TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("sld+{}");
         wsClient.LastTopicPrefix.ShouldBe("sld");
     }
 
     [Fact]
-    public async Task MarketData_MapperExtractsFieldsFromJson()
+    public async Task MarketDataAsync_MapperExtractsFieldsFromJson()
     {
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = ops.MarketData(265598, new[] { "31" }, ct);
+        var observable = await ops.MarketDataAsync(265598, new[] { "31" }, ct);
         var received = new TaskCompletionSource<MarketDataTick>();
         using var sub = observable.Subscribe(new TestObserver<MarketDataTick>(
             onNext: t => received.TrySetResult(t)));
@@ -99,12 +99,12 @@ public class StreamingOperationsTests
     }
 
     [Fact]
-    public async Task OrderUpdates_MapperDeserializesJson()
+    public async Task OrderUpdatesAsync_MapperDeserializesJson()
     {
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = ops.OrderUpdates(cancellationToken: ct);
+        var observable = await ops.OrderUpdatesAsync(cancellationToken: ct);
         var received = new TaskCompletionSource<OrderUpdate>();
         using var sub = observable.Subscribe(new TestObserver<OrderUpdate>(
             onNext: o => received.TrySetResult(o)));
@@ -119,12 +119,12 @@ public class StreamingOperationsTests
     }
 
     [Fact]
-    public async Task ProfitAndLoss_MapperDeserializesJson()
+    public async Task ProfitAndLossAsync_MapperDeserializesJson()
     {
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = ops.ProfitAndLoss(ct);
+        var observable = await ops.ProfitAndLossAsync(ct);
         var received = new TaskCompletionSource<PnlUpdate>();
         using var sub = observable.Subscribe(new TestObserver<PnlUpdate>(
             onNext: p => received.TrySetResult(p)));
