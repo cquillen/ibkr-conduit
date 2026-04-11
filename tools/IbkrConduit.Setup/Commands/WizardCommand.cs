@@ -62,19 +62,30 @@ internal static class WizardCommand
         Console.WriteLine();
 
         // Step 2: Portal Instructions
-        ConsoleHelper.WriteStep(2, 4, "Upload Keys to the IBKR Portal");
+        ConsoleHelper.WriteStep(2, 4, "Configure OAuth in the IBKR Portal");
         Console.WriteLine();
         Console.WriteLine("  Follow these steps in the IBKR Self-Service Portal:");
         Console.WriteLine();
         Console.WriteLine("  1. Log in at: https://ndcdyn.interactivebrokers.com/sso/Login?action=OAUTH");
         Console.WriteLine("     (This goes directly to the OAuth configuration page)");
-        Console.WriteLine("  3. Click 'Add New Application'");
-        Console.WriteLine("  4. Upload the following files:");
-        Console.WriteLine($"     - Signature Public Key:  {Path.Combine(fullPath, "public_signature.pem")}");
-        Console.WriteLine($"     - Encryption Public Key: {Path.Combine(fullPath, "public_encryption.pem")}");
-        Console.WriteLine($"     - DH Parameters:         {Path.Combine(fullPath, "dhparam.pem")}");
-        Console.WriteLine("  5. Click 'Create' to generate credentials");
-        Console.WriteLine("  6. Copy the Consumer Key, Access Token, and Access Token Secret");
+        Console.WriteLine();
+        Console.WriteLine("  2. If this is your first time, accept the OAuth agreement");
+        Console.WriteLine("     (check the box, type your name, and submit)");
+        Console.WriteLine();
+        Console.WriteLine("  3. Check the 'Enabled' checkbox if not already enabled");
+        Console.WriteLine();
+        Console.WriteLine("  4. Note your Consumer Key (9-character code shown at the top)");
+        Console.WriteLine();
+        Console.WriteLine("  5. Upload the 3 key files using the upload controls on the page:");
+        Console.WriteLine($"     - Public Signing Key:     {Path.Combine(fullPath, "public_signature.pem")}");
+        Console.WriteLine($"     - Public Encryption Key:  {Path.Combine(fullPath, "public_encryption.pem")}");
+        Console.WriteLine($"     - Diffie-Hellman Params:  {Path.Combine(fullPath, "dhparam.pem")}");
+        Console.WriteLine();
+        Console.WriteLine("  6. Click 'Generate Token' at the bottom of the page");
+        Console.WriteLine("     This will populate the Access Token and Access Token Secret fields");
+        Console.WriteLine();
+        Console.WriteLine("  7. Copy the Access Token and Access Token Secret BEFORE leaving the page");
+        Console.WriteLine("     (They disappear on refresh — you can regenerate them later if needed)");
         Console.WriteLine();
 
         ConsoleHelper.WaitForEnter("Press Enter when you have completed the portal setup...");
