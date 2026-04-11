@@ -1,6 +1,3 @@
-using System.Formats.Asn1;
-using System.Globalization;
-using System.Numerics;
 using System.Security.Cryptography;
 using IbkrConduit.Setup;
 using Shouldly;
@@ -49,52 +46,23 @@ public class KeyGeneratorTests
     }
 
     [Fact]
-    public void EncodeDhParametersPem_HasCorrectPemArmor()
+    [Trait("Category", "Slow")]
+    public void GenerateDhParameters_PemHasCorrectArmor()
     {
-        var pem = KeyGenerator.EncodeDhParametersPem();
+        var result = KeyGenerator.GenerateDhParameters(certainty: 2);
 
-        pem.ShouldStartWith("-----BEGIN DH PARAMETERS-----");
-        pem.ShouldEndWith("-----END DH PARAMETERS-----");
+        result.Pem.ShouldStartWith("-----BEGIN DH PARAMETERS-----");
+        result.Pem.ShouldEndWith("-----END DH PARAMETERS-----");
     }
 
     [Fact]
-    public void EncodeDhParametersDer_IsValidAsn1Sequence()
+    [Trait("Category", "Slow")]
+    public void GenerateDhParameters_PrimeHexIsValidHexString()
     {
-        var prime = new BigInteger(23);
-        var der = KeyGenerator.EncodeDhParametersDer(prime, 2);
+        var result = KeyGenerator.GenerateDhParameters(certainty: 2);
 
-        // Parse the DER back — should be a SEQUENCE with two INTEGERs
-        var reader = new AsnReader(der, AsnEncodingRules.DER);
-        var sequence = reader.ReadSequence();
-        var parsedPrime = sequence.ReadInteger();
-        var parsedGenerator = sequence.ReadInteger();
-        sequence.ThrowIfNotEmpty();
-        reader.ThrowIfNotEmpty();
-
-        parsedPrime.ShouldBe(new BigInteger(23));
-        parsedGenerator.ShouldBe(new BigInteger(2));
-    }
-
-    [Fact]
-    public void EncodeDhParametersDer_Rfc3526Prime_ProducesCorrectLength()
-    {
-        var prime = BigInteger.Parse(
-            "0" + KeyGenerator.Rfc3526Group14PrimeHex,
-            NumberStyles.HexNumber,
-            CultureInfo.InvariantCulture);
-
-        var der = KeyGenerator.EncodeDhParametersDer(prime);
-
-        // 2048-bit prime = 256 bytes. DER overhead: SEQUENCE(4) + INTEGER tag+len(4) + 257 bytes (with leading 0) + INTEGER(3) for generator 2
-        // Total should be around 268 bytes
-        der.Length.ShouldBeGreaterThan(260);
-        der.Length.ShouldBeLessThan(280);
-    }
-
-    [Fact]
-    public void Rfc3526Group14PrimeHex_IsCorrectLength()
-    {
-        // 2048-bit prime = 256 bytes = 512 hex chars
-        KeyGenerator.Rfc3526Group14PrimeHex.Length.ShouldBe(512);
+        result.PrimeHex.ShouldNotBeNullOrEmpty();
+        // Verify every character is a valid uppercase hex digit
+        result.PrimeHex.ShouldAllBe(c => (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F'));
     }
 }

@@ -1,14 +1,16 @@
 using System.Formats.Asn1;
-using System.Globalization;
-using System.Numerics;
 using System.Security.Cryptography;
-using System.Text;
+using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Generators;
+using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.OpenSsl;
+using Org.BouncyCastle.Security;
 
 namespace IbkrConduit.Setup;
 
 /// <summary>
-/// Generates RSA key pairs, consumer keys, and DH parameters PEM for IBKR OAuth 1.0a setup.
-/// All cryptography uses System.Security.Cryptography — no external dependencies.
+/// Generates RSA key pairs, consumer keys, and DH parameters for IBKR OAuth 1.0a setup.
+/// All cryptography uses BouncyCastle — matching the key formats produced by OpenSSL.
 /// </summary>
 internal static class KeyGenerator
 {
@@ -16,7 +18,7 @@ internal static class KeyGenerator
     private const int _consumerKeyLength = 9;
 
     /// <summary>
-    /// Generates a random 9-character uppercase alphanumeric consumer key.
+    /// Generates a random 9-character uppercase letter consumer key.
     /// </summary>
     public static string GenerateConsumerKey()
     {
@@ -30,71 +32,89 @@ internal static class KeyGenerator
     }
 
     /// <summary>
-    /// RFC 3526 Group 14 2048-bit MODP prime, as a hex string (no leading 0 sentinel).
-    /// This is the same constant used by the IBKR OAuth protocol.
-    /// </summary>
-    internal const string Rfc3526Group14PrimeHex =
-        "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
-        "29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
-        "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
-        "E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
-        "EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
-        "C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
-        "83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
-        "670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
-        "E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
-        "DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
-        "15728E5A8AACAA68FFFFFFFFFFFFFFFF";
-
-    /// <summary>
     /// Result of an RSA key pair generation.
     /// </summary>
-    /// <param name="PrivatePem">PKCS#1 PEM private key (BEGIN RSA PRIVATE KEY).</param>
-    /// <param name="PublicPem">SPKI PEM public key (BEGIN PUBLIC KEY) — the format IBKR expects.</param>
+    /// <param name="PrivatePem">PEM private key.</param>
+    /// <param name="PublicPem">PEM public key (the format IBKR expects for upload).</param>
     internal record RsaKeyPairResult(string PrivatePem, string PublicPem);
 
     /// <summary>
     /// Generates a new RSA 2048-bit key pair and exports both keys as PEM strings.
-    /// The public key uses SPKI format (BEGIN PUBLIC KEY) matching OpenSSL's <c>rsa -pubout</c>.
     /// </summary>
     internal static RsaKeyPairResult GenerateRsaKeyPair()
     {
-        using var rsa = RSA.Create(2048);
-        var privatePem = rsa.ExportRSAPrivateKeyPem();
-        var publicPem = rsa.ExportSubjectPublicKeyInfoPem();
-        return new RsaKeyPairResult(privatePem, publicPem);
+        var generator = new RsaKeyPairGenerator();
+        generator.Init(new KeyGenerationParameters(new SecureRandom(), 2048));
+        var keyPair = generator.GenerateKeyPair();
+
+        return new RsaKeyPairResult(
+            ToPem(keyPair.Private),
+            ToPem(keyPair.Public));
     }
 
     /// <summary>
-    /// Encodes the RFC 3526 Group 14 DH prime as an ASN.1 DER structure
-    /// wrapped in PEM armor (BEGIN DH PARAMETERS), matching OpenSSL's dhparam output.
+    /// Result of DH parameter generation.
     /// </summary>
-    internal static string EncodeDhParametersPem()
+    /// <param name="Pem">PEM-encoded DH parameters (BEGIN DH PARAMETERS) for portal upload.</param>
+    /// <param name="PrimeHex">The prime as an uppercase hex string for the JSON credential file.</param>
+    internal record DhParametersResult(string Pem, string PrimeHex);
+
+    /// <summary>
+    /// Generates random 2048-bit DH parameters (safe prime + generator).
+    /// This is equivalent to <c>openssl dhparam 2048</c> and takes 30-120 seconds.
+    /// </summary>
+    /// <param name="certainty">Miller-Rabin certainty parameter (higher = more confidence, slower).
+    /// Default 128 matches OpenSSL's default.</param>
+    internal static DhParametersResult GenerateDhParameters(int certainty = 128)
     {
-        var prime = BigInteger.Parse("0" + Rfc3526Group14PrimeHex, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-        var der = EncodeDhParametersDer(prime);
+        var generator = new DHParametersGenerator();
+        generator.Init(2048, certainty, new SecureRandom());
+        var dhParams = generator.GenerateParameters();
+
+        var primeHex = dhParams.P.ToString(16).ToUpperInvariant();
+        var pem = EncodeDhParametersPem(dhParams);
+
+        return new DhParametersResult(pem, primeHex);
+    }
+
+    /// <summary>
+    /// Encodes DH parameters (P and G) as a DER ASN.1 SEQUENCE wrapped in PEM armor.
+    /// BouncyCastle's PemWriter does not support DHParameters directly, so we encode manually.
+    /// </summary>
+    private static string EncodeDhParametersPem(DHParameters dhParams)
+    {
+        // Encode as DER SEQUENCE { INTEGER p, INTEGER g }
+        var writer = new AsnWriter(AsnEncodingRules.DER);
+        using (writer.PushSequence())
+        {
+            writer.WriteInteger(dhParams.P.ToByteArrayUnsigned());
+            writer.WriteInteger(dhParams.G.ToByteArrayUnsigned());
+        }
+
+        var der = writer.Encode();
         var base64 = Convert.ToBase64String(der);
 
-        var sb = new StringBuilder();
+        // Wrap in PEM armor with 64-char line breaks
+        var sb = new System.Text.StringBuilder();
         sb.AppendLine("-----BEGIN DH PARAMETERS-----");
         for (var i = 0; i < base64.Length; i += 64)
         {
-            sb.AppendLine(base64[i..Math.Min(i + 64, base64.Length)]);
+            sb.AppendLine(base64.Substring(i, Math.Min(64, base64.Length - i)));
         }
+
         sb.Append("-----END DH PARAMETERS-----");
-        return sb.ToString();
+        return sb.ToString().TrimEnd();
     }
 
     /// <summary>
-    /// Encodes a DHParameter ASN.1 structure: SEQUENCE { prime INTEGER, generator INTEGER }.
+    /// Exports a BouncyCastle object (key or parameters) to PEM format.
     /// </summary>
-    internal static byte[] EncodeDhParametersDer(BigInteger prime, int generator = 2)
+    private static string ToPem(object obj)
     {
-        var writer = new AsnWriter(AsnEncodingRules.DER);
-        writer.PushSequence();
-        writer.WriteInteger(prime);
-        writer.WriteInteger(generator);
-        writer.PopSequence();
-        return writer.Encode();
+        using var writer = new StringWriter();
+        var pemWriter = new PemWriter(writer);
+        pemWriter.WriteObject(obj);
+        pemWriter.Writer.Flush();
+        return writer.ToString().TrimEnd();
     }
 }

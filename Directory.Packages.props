@@ -21,6 +21,8 @@
     <PackageVersion Include="System.Threading.RateLimiting" Version="10.0.5" />
     <!-- JSONPath -->
     <PackageVersion Include="JsonPath.Net" Version="3.0.2" />
+    <!-- Crypto (setup tool) -->
+    <PackageVersion Include="BouncyCastle.Cryptography" Version="2.6.2" />
     <!-- Source Link -->
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.201" />
     <!-- Testing -->

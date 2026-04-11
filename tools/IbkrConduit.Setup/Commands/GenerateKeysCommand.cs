@@ -43,15 +43,26 @@ internal static class GenerateKeysCommand
 
         Directory.CreateDirectory(fullPath);
 
+        Console.WriteLine("  Generating RSA signature key pair (2048-bit)...");
         var signature = KeyGenerator.GenerateRsaKeyPair();
+        ConsoleHelper.WriteSuccess("  Signature key pair generated.");
+
+        Console.WriteLine("  Generating RSA encryption key pair (2048-bit)...");
         var encryption = KeyGenerator.GenerateRsaKeyPair();
-        var dhPem = KeyGenerator.EncodeDhParametersPem();
+        ConsoleHelper.WriteSuccess("  Encryption key pair generated.");
+
+        Console.WriteLine("  Generating DH parameters (2048-bit safe prime)...");
+        Console.WriteLine("  This may take 30-120 seconds — generating a cryptographically safe prime.");
+        var dh = KeyGenerator.GenerateDhParameters();
+        ConsoleHelper.WriteSuccess("  DH parameters generated.");
 
         File.WriteAllText(Path.Combine(fullPath, "public_signature.pem"), signature.PublicPem);
         File.WriteAllText(Path.Combine(fullPath, "public_encryption.pem"), encryption.PublicPem);
-        File.WriteAllText(Path.Combine(fullPath, "dhparam.pem"), dhPem);
+        File.WriteAllText(Path.Combine(fullPath, "dhparam.pem"), dh.Pem);
         File.WriteAllText(Path.Combine(fullPath, "private_signature.pem"), signature.PrivatePem);
         File.WriteAllText(Path.Combine(fullPath, "private_encryption.pem"), encryption.PrivatePem);
+        // Store the DH prime hex for the configure step
+        File.WriteAllText(Path.Combine(fullPath, ".dhprime.hex"), dh.PrimeHex);
 
         ConsoleHelper.WriteSuccess("Keys generated successfully.");
         Console.WriteLine();

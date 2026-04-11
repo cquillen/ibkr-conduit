@@ -58,8 +58,17 @@ internal static class ConfigureCommand
             return 1;
         }
 
+        var dhPrimeHexPath = Path.Combine(fullPath, ".dhprime.hex");
+        if (!File.Exists(dhPrimeHexPath))
+        {
+            ConsoleHelper.WriteError($"DH prime hex file not found: {dhPrimeHexPath}");
+            ConsoleHelper.WriteError("Run 'ibkr-conduit-setup generate-keys' first.");
+            return 1;
+        }
+
         var signaturePrivateKeyPem = File.ReadAllText(signaturePemPath);
         var encryptionPrivateKeyPem = File.ReadAllText(encryptionPemPath);
+        var dhPrimeHex = File.ReadAllText(dhPrimeHexPath).Trim();
 
         // Use preset consumer key if provided (wizard flow generates it)
         consumerKey ??= presetConsumerKey;
@@ -111,7 +120,7 @@ internal static class ConfigureCommand
             accessTokenSecret,
             signaturePrivateKeyPem,
             encryptionPrivateKeyPem,
-            KeyGenerator.Rfc3526Group14PrimeHex);
+            dhPrimeHex);
 
         ConsoleHelper.WriteSuccess("Credential file written successfully.");
         Console.WriteLine();

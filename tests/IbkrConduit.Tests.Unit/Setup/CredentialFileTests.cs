@@ -39,7 +39,7 @@ public class CredentialFileTests : IDisposable
             accessTokenSecret: "c2VjcmV0",
             signaturePrivateKeyPem: sigKey.ExportRSAPrivateKeyPem(),
             encryptionPrivateKeyPem: encKey.ExportRSAPrivateKeyPem(),
-            dhPrimeHex: KeyGenerator.Rfc3526Group14PrimeHex);
+            dhPrimeHex: "FF");
 
         File.Exists(filePath).ShouldBeTrue();
 
@@ -52,7 +52,7 @@ public class CredentialFileTests : IDisposable
         root.GetProperty("accessTokenSecret").GetString().ShouldBe("c2VjcmV0");
         root.GetProperty("signaturePrivateKey").GetString().ShouldStartWith("-----BEGIN RSA PRIVATE KEY-----");
         root.GetProperty("encryptionPrivateKey").GetString().ShouldStartWith("-----BEGIN RSA PRIVATE KEY-----");
-        root.GetProperty("dhPrime").GetString().ShouldBe(KeyGenerator.Rfc3526Group14PrimeHex);
+        root.GetProperty("dhPrime").GetString().ShouldBe("FF");
     }
 
     [Fact]
