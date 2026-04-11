@@ -49,8 +49,15 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private CancellationTokenSource? _heartbeatCts;
     private CancellationTokenSource? _messagePumpCts;
     private IDisposable? _notifierSubscription;
-    private DateTimeOffset? _lastMessageReceivedAt;
-    private bool _disposed;
+    private readonly CancellationTokenSource _disposeCts = new();
+
+    /// <summary>
+    /// Stores the ticks value of the last received message timestamp, or 0 if none.
+    /// Uses Interlocked for thread-safe access since DateTimeOffset? cannot be volatile.
+    /// </summary>
+    private long _lastMessageReceivedAtTicks;
+
+    private volatile bool _disposed;
 
     /// <summary>
     /// Creates a new <see cref="IbkrWebSocketClient"/>.
@@ -81,7 +88,14 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     }
 
     /// <inheritdoc />
-    public bool IsConnected => _webSocket is { State: WebSocketState.Open };
+    public bool IsConnected
+    {
+        get
+        {
+            var ws = _webSocket;
+            return ws is { State: WebSocketState.Open };
+        }
+    }
 
     /// <inheritdoc />
     public int ActiveSubscriptionCount
@@ -96,7 +110,14 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     }
 
     /// <inheritdoc />
-    public DateTimeOffset? LastMessageReceivedAt => _lastMessageReceivedAt;
+    public DateTimeOffset? LastMessageReceivedAt
+    {
+        get
+        {
+            var ticks = Interlocked.Read(ref _lastMessageReceivedAtTicks);
+            return ticks == 0 ? null : new DateTimeOffset(ticks, TimeSpan.Zero);
+        }
+    }
 
     /// <summary>
     /// Connects to the IBKR WebSocket API.
@@ -131,7 +152,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Subscribe");
         activity?.SetTag(LogFields.Topic, topicPrefix);
 
-        if (_webSocket == null || _webSocket.State != WebSocketState.Open)
+        var ws = _webSocket;
+        if (ws == null || ws.State != WebSocketState.Open)
         {
             await ConnectAsync(cancellationToken);
         }
@@ -167,6 +189,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         _notifierSubscription?.Dispose();
         _notifierSubscription = null;
 
+        await _disposeCts.CancelAsync();
         await DisconnectAsync();
 
         // Complete all channel writers
@@ -183,6 +206,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         _subscribers.Clear();
         _connectLock.Dispose();
+        _disposeCts.Dispose();
     }
 
     private async Task ConnectCoreAsync(CancellationToken cancellationToken)
@@ -223,11 +247,14 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         _heartbeatCts?.Cancel();
         _messagePumpCts?.Cancel();
 
-        if (_webSocket != null && _webSocket.State == WebSocketState.Open)
+        var ws = _webSocket;
+        _webSocket = null;
+
+        if (ws != null && ws.State == WebSocketState.Open)
         {
             try
             {
-                await _webSocket.CloseAsync(
+                await ws.CloseAsync(
                     WebSocketCloseStatus.NormalClosure,
                     "Closing",
                     CancellationToken.None);
@@ -238,12 +265,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             }
         }
 
-        if (_webSocket != null)
+        if (ws != null)
         {
-            await _webSocket.DisposeAsync();
+            await ws.DisposeAsync();
         }
-
-        _webSocket = null;
 
         _heartbeatCts?.Dispose();
         _heartbeatCts = null;
@@ -273,7 +298,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
                         LogHeartbeatError(ex);
-                        _ = Task.Run(() => ReconnectAsync(CancellationToken.None));
+                        _ = Task.Run(() => ReconnectAsync(_disposeCts.Token));
                         break;
                     }
                 }
@@ -297,15 +322,21 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             var buffer = new byte[_receiveBufferSize];
             try
             {
-                while (!ct.IsCancellationRequested && _webSocket != null && _webSocket.State == WebSocketState.Open)
+                while (!ct.IsCancellationRequested)
                 {
+                    var ws = _webSocket;
+                    if (ws == null || ws.State != WebSocketState.Open)
+                    {
+                        break;
+                    }
+
                     try
                     {
                         using var ms = new MemoryStream();
                         ValueWebSocketReceiveResult result;
                         do
                         {
-                            result = await _webSocket.ReceiveAsync(
+                            result = await ws.ReceiveAsync(
                                 buffer.AsMemory(), ct);
                             ms.Write(buffer, 0, result.Count);
                         }
@@ -314,11 +345,11 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                         if (result.MessageType == WebSocketMessageType.Close)
                         {
                             LogWebSocketClosed();
-                            _ = Task.Run(() => ReconnectAsync(CancellationToken.None));
+                            _ = Task.Run(() => ReconnectAsync(_disposeCts.Token));
                             break;
                         }
 
-                        _lastMessageReceivedAt = DateTimeOffset.UtcNow;
+                        Interlocked.Exchange(ref _lastMessageReceivedAtTicks, DateTimeOffset.UtcNow.UtcTicks);
 
                         var text = Encoding.UTF8.GetString(ms.ToArray());
                         ProcessMessage(text);
@@ -330,7 +361,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                     catch (WebSocketException ex)
                     {
                         LogWebSocketError(ex);
-                        _ = Task.Run(() => ReconnectAsync(CancellationToken.None));
+                        _ = Task.Run(() => ReconnectAsync(_disposeCts.Token));
                         break;
                     }
                 }
@@ -449,13 +480,14 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
     private async Task SendTextAsync(string message, CancellationToken cancellationToken)
     {
-        if (_webSocket == null || _webSocket.State != WebSocketState.Open)
+        var ws = _webSocket;
+        if (ws == null || ws.State != WebSocketState.Open)
         {
             return;
         }
 
         var bytes = Encoding.UTF8.GetBytes(message);
-        await _webSocket.SendAsync(
+        await ws.SendAsync(
             bytes.AsMemory(),
             WebSocketMessageType.Text,
             true,
