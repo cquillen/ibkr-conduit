@@ -169,6 +169,37 @@ var snapshot = await client.MarketData.GetSnapshotAsync(
 var history = await client.MarketData.GetHistoryAsync(265598, "1d", "5min");
 ```
 
+### WebSocket streaming
+
+```csharp
+// Subscribe to real-time market data
+var ticks = await client.Streaming.MarketDataAsync(265598, new[] { "31", "84", "86" });
+using var sub = ticks.Subscribe(tick =>
+{
+    Console.WriteLine($"AAPL: {tick.Fields?["31"]} (bid: {tick.Fields?["84"]}, ask: {tick.Fields?["86"]})");
+});
+
+// Subscribe to order updates
+var orders = await client.Streaming.OrderUpdatesAsync();
+using var orderSub = orders.Subscribe(update =>
+{
+    Console.WriteLine($"Order {update.OrderId}: {update.Symbol} {update.Side} {update.Status}");
+});
+
+// Subscribe to P&L
+var pnl = await client.Streaming.ProfitAndLossAsync();
+using var pnlSub = pnl.Subscribe(update =>
+{
+    Console.WriteLine($"Daily P&L: {update.DailyPnl:C}, Unrealized: {update.UnrealizedPnl:C}");
+});
+
+// Account summary and ledger
+var summary = await client.Streaming.AccountSummaryAsync();
+var ledger = await client.Streaming.AccountLedgerAsync();
+```
+
+WebSocket streaming uses `IObservable<T>`. Add `System.Reactive` for LINQ operators like `Buffer`, `Throttle`, `Where`.
+
 ### Flex Web Service
 
 Strongly-typed methods for common report types, plus a generic escape hatch for any query:
@@ -257,6 +288,22 @@ services.AddIbkrClient(opts =>
 });
 ```
 
+## Examples
+
+Runnable example scripts in the `examples/` directory:
+
+- `GetPositions.cs` -- list accounts and portfolio positions
+- `GetLiveOrders.cs` -- retrieve live session orders
+- `GetTrades.cs` -- Flex trade confirmations report
+- `FlexReports.cs` -- cash transactions and trade confirmations via Flex
+- `SubmitAndMonitorOrders.cs` -- full order lifecycle: place, monitor, cancel
+
+Run any example with:
+
+```bash
+dotnet run examples/GetPositions.cs
+```
+
 ## Error Handling
 
 All facade methods return `Result<T>`. Errors are represented by the `IbkrError` hierarchy:
@@ -315,6 +362,35 @@ The audit log handler captures raw request and response bodies at Debug level �
 
 For the full list of spans, metrics, and log categories, see [docs/observability.md](docs/observability.md).
 
+## Health Checks
+
+Check connection health programmatically:
+
+```csharp
+// Passive check — no API calls, reads cached state
+var health = await client.GetHealthStatusAsync();
+Console.WriteLine($"Status: {health.OverallStatus}");
+Console.WriteLine($"Session: authenticated={health.Session.Authenticated}, competing={health.Session.Competing}");
+Console.WriteLine($"Token expires in: {health.Token.TimeUntilExpiry}");
+
+// Active probe — makes a live API call to verify session
+var health = await client.GetHealthStatusAsync(activeProbe: true);
+```
+
+ASP.NET Core integration via the `IbkrConduit.HealthChecks` package:
+
+```csharp
+// Install: dotnet add package IbkrConduit.HealthChecks
+services.AddHealthChecks()
+    .AddIbkrHealthCheck();
+
+// With options:
+services.AddHealthChecks()
+    .AddIbkrHealthCheck(opts => opts.ActiveProbe = true);
+```
+
+The health check aggregates five signals: brokerage session status, WebSocket streaming connectivity, OAuth token validity, rate limiter utilization, and last successful API call timestamp. `OverallStatus` maps to the standard `Healthy`, `Degraded`, or `Unhealthy` states.
+
 ## IbkrConduit vs IBKR.Sdk.Client
 
 | Aspect | IbkrConduit | IBKR.Sdk.Client |
@@ -333,10 +409,14 @@ For the full list of spans, metrics, and log categories, see [docs/observability
 
 ## Documentation
 
-- [Credential Setup Guide](docs/credential-setup.md) — generating keys, portal configuration, loading credentials
-- [Design Document](docs/ibkr_conduit_design.md) — architecture, API behaviors, implementation guidance
-- [API Testing Status Report](docs/api-testing-status-report.md) — endpoint coverage and validation status
-- [API Specification](docs/ibkr-web-api-spec.md) — full REST API reference
+- [Credential Setup Guide](docs/credential-setup.md) -- generating keys, portal configuration, loading credentials
+- [Flex Web Service Setup](docs/flex-setup.md) -- configuring Flex queries in the IBKR portal
+- [Flex Report Types](docs/flex-report-types.md) -- contributor guide for adding typed Flex report methods
+- [Observability Guide](docs/observability.md) -- traces, metrics, and structured logging reference
+- [Suppressible Message IDs](docs/ibkr-suppressible-message-ids.md) -- order confirmation messages that can be auto-suppressed
+- [Design Document](docs/ibkr_conduit_design.md) -- architecture, API behaviors, implementation guidance
+- [API Testing Status Report](docs/api-testing-status-report.md) -- endpoint coverage and validation status
+- [API Specification](docs/ibkr-web-api-spec.md) -- full REST API reference
 
 ## License
 
