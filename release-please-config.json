@@ -12,6 +12,11 @@
           "type": "xml",
           "path": "src/IbkrConduit/IbkrConduit.csproj",
           "xpath": "//Project/PropertyGroup/Version"
+        },
+        {
+          "type": "xml",
+          "path": "src/IbkrConduit.HealthChecks/IbkrConduit.HealthChecks.csproj",
+          "xpath": "//Project/PropertyGroup/Version"
         }
       ]
     }

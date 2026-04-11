@@ -40,6 +40,9 @@ jobs:
       - name: Pack library
         run: dotnet pack src/IbkrConduit --configuration Release --output ./artifacts
 
+      - name: Pack health checks
+        run: dotnet pack src/IbkrConduit.HealthChecks --configuration Release --output ./artifacts
+
       - name: Pack setup tool
         run: dotnet pack tools/IbkrConduit.Setup --configuration Release --output ./artifacts
 
