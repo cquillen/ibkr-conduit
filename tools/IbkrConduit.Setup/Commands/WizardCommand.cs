@@ -77,6 +77,7 @@ internal static class WizardCommand
         Console.WriteLine("  4. Note your Consumer Key (9-character code shown at the top)");
         Console.WriteLine();
         Console.WriteLine("  5. Upload the 3 key files using the upload controls on the page:");
+        Console.WriteLine("     (Ignore the OpenSSL commands shown on the page — our tool already generated the keys)");
         Console.WriteLine($"     - Public Signing Key:     {Path.Combine(fullPath, "public_signature.pem")}");
         Console.WriteLine($"     - Public Encryption Key:  {Path.Combine(fullPath, "public_encryption.pem")}");
         Console.WriteLine($"     - Diffie-Hellman Params:  {Path.Combine(fullPath, "dhparam.pem")}");
