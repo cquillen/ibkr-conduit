@@ -9,7 +9,7 @@ using IbkrConduit.Errors;
 namespace IbkrConduit.Auth;
 
 /// <summary>
-/// Creates <see cref="IbkrOAuthCredentials"/> from environment variables or a JSON credential file.
+/// Creates <see cref="IbkrOAuthCredentials"/> from environment variables, a JSON string, or a JSON credential file.
 /// </summary>
 public static class OAuthCredentialsFactory
 {
@@ -42,20 +42,14 @@ public static class OAuthCredentialsFactory
     }
 
     /// <summary>
-    /// Loads OAuth credentials from a JSON file produced by the ibkr-conduit-setup tool.
+    /// Loads OAuth credentials from a JSON string produced by the ibkr-conduit-setup tool.
+    /// Use this when retrieving credentials from a secret store (e.g. Azure Key Vault).
     /// </summary>
-    /// <param name="path">Absolute or relative path to the JSON credential file.</param>
+    /// <param name="json">The JSON credential string.</param>
     /// <returns>A populated <see cref="IbkrOAuthCredentials"/> instance. The caller is responsible for disposing it.</returns>
-    /// <exception cref="FileNotFoundException">Thrown when the file at <paramref name="path"/> does not exist.</exception>
     /// <exception cref="IbkrConfigurationException">Thrown when a required field is missing or a PEM key cannot be imported.</exception>
-    public static IbkrOAuthCredentials FromFile(string path)
+    public static IbkrOAuthCredentials FromJson(string json)
     {
-        if (!File.Exists(path))
-        {
-            throw new FileNotFoundException($"Credential file not found: {path}", path);
-        }
-
-        var json = File.ReadAllText(path);
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
@@ -74,6 +68,23 @@ public static class OAuthCredentialsFactory
         return new IbkrOAuthCredentials(
             consumerKey, consumerKey, accessToken, accessTokenSecret,
             signatureKey, encryptionKey, dhPrime);
+    }
+
+    /// <summary>
+    /// Loads OAuth credentials from a JSON file produced by the ibkr-conduit-setup tool.
+    /// </summary>
+    /// <param name="path">Absolute or relative path to the JSON credential file.</param>
+    /// <returns>A populated <see cref="IbkrOAuthCredentials"/> instance. The caller is responsible for disposing it.</returns>
+    /// <exception cref="FileNotFoundException">Thrown when the file at <paramref name="path"/> does not exist.</exception>
+    /// <exception cref="IbkrConfigurationException">Thrown when a required field is missing or a PEM key cannot be imported.</exception>
+    public static IbkrOAuthCredentials FromFile(string path)
+    {
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException($"Credential file not found: {path}", path);
+        }
+
+        return FromJson(File.ReadAllText(path));
     }
 
     private static string GetRequiredField(JsonElement root, string fieldName)

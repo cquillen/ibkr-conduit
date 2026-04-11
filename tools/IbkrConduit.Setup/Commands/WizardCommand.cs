@@ -31,7 +31,7 @@ internal static class WizardCommand
         ConsoleHelper.WriteStep(1, 4, "Generate Cryptographic Keys");
         Console.WriteLine();
 
-        var outputDir = "./ibkr-credentials";
+        var outputDir = "./.ibkr-credentials";
         Console.Write($"Output directory [{outputDir}]: ");
         var customDir = Console.ReadLine()?.Trim();
         if (!string.IsNullOrEmpty(customDir))

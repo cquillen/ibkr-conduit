@@ -11,6 +11,48 @@ namespace IbkrConduit.Tests.Unit.Auth;
 public class OAuthCredentialsFactoryFromFileTests
 {
     [Fact]
+    public void FromJson_ValidJson_ReturnsCredentials()
+    {
+        using var sigKey = RSA.Create(2048);
+        using var encKey = RSA.Create(2048);
+        var sigPem = sigKey.ExportRSAPrivateKeyPem();
+        var encPem = encKey.ExportRSAPrivateKeyPem();
+
+        var json = JsonSerializer.Serialize(new
+        {
+            consumerKey = "TESTCONS9",
+            accessToken = "mytoken",
+            accessTokenSecret = "mysecret",
+            signaturePrivateKey = sigPem,
+            encryptionPrivateKey = encPem,
+            dhPrime = "11",
+        });
+
+        using var creds = OAuthCredentialsFactory.FromJson(json);
+
+        creds.ConsumerKey.ShouldBe("TESTCONS9");
+        creds.AccessToken.ShouldBe("mytoken");
+        creds.EncryptedAccessTokenSecret.ShouldBe("mysecret");
+        creds.TenantId.ShouldBe("TESTCONS9");
+    }
+
+    [Fact]
+    public void FromJson_MissingField_ThrowsConfigurationException()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            accessToken = "mytoken",
+            accessTokenSecret = "mysecret",
+            signaturePrivateKey = "placeholder",
+            encryptionPrivateKey = "placeholder",
+            dhPrime = "11",
+        });
+
+        var ex = Should.Throw<IbkrConfigurationException>(() => OAuthCredentialsFactory.FromJson(json));
+        ex.Message.ShouldContain("consumerKey");
+    }
+
+    [Fact]
     public void FromFile_ValidJson_ReturnsCredentials()
     {
         using var sigKey = RSA.Create(2048);

@@ -16,7 +16,7 @@ internal static class ConfigureCommand
             return Task.FromResult(0);
         }
 
-        var credentialsDir = ArgParser.GetOption(args, "--credentials") ?? "./ibkr-credentials";
+        var credentialsDir = ArgParser.GetOption(args, "--credentials") ?? "./.ibkr-credentials";
         var consumerKey = ArgParser.GetOption(args, "--consumer-key");
         var accessToken = ArgParser.GetOption(args, "--access-token");
         var accessTokenSecret = ArgParser.GetOption(args, "--access-token-secret");
@@ -138,7 +138,7 @@ internal static class ConfigureCommand
         Console.WriteLine("Usage: ibkr-conduit-setup configure [options]");
         Console.WriteLine();
         Console.WriteLine("Options:");
-        Console.WriteLine("  --credentials <dir>            Directory containing private key PEM files (default: ./ibkr-credentials)");
+        Console.WriteLine("  --credentials <dir>            Directory containing private key PEM files (default: ./.ibkr-credentials)");
         Console.WriteLine("  --consumer-key <key>           Consumer key (9 uppercase letters)");
         Console.WriteLine("  --access-token <token>         Access token from the IBKR portal");
         Console.WriteLine("  --access-token-secret <secret> Encrypted access token secret (base64)");

@@ -16,7 +16,7 @@ internal static class GenerateKeysCommand
             return Task.FromResult(0);
         }
 
-        var outputDir = ArgParser.GetOption(args, "--output") ?? "./ibkr-credentials";
+        var outputDir = ArgParser.GetOption(args, "--output") ?? "./.ibkr-credentials";
         var force = ArgParser.HasFlag(args, "--force");
 
         return Task.FromResult(Run(outputDir, force));
@@ -88,7 +88,7 @@ internal static class GenerateKeysCommand
         Console.WriteLine("Usage: ibkr-conduit-setup generate-keys [options]");
         Console.WriteLine();
         Console.WriteLine("Options:");
-        Console.WriteLine("  --output <dir>    Output directory (default: ./ibkr-credentials)");
+        Console.WriteLine("  --output <dir>    Output directory (default: ./.ibkr-credentials)");
         Console.WriteLine("  --force           Overwrite existing files without prompting");
         Console.WriteLine("  --help, -h        Show this help message");
     }
