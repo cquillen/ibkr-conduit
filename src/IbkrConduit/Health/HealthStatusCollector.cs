@@ -82,13 +82,16 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
         };
     }
 
-    private BrokerageSessionHealth CollectPassiveSessionHealth() =>
-        new(
-            Authenticated: _sessionHealthState.Authenticated,
-            Connected: _sessionHealthState.Connected,
-            Competing: _sessionHealthState.Competing,
-            Established: _sessionHealthState.Established,
-            FailReason: _sessionHealthState.FailReason);
+    private BrokerageSessionHealth CollectPassiveSessionHealth()
+    {
+        var snapshot = _sessionHealthState.GetSnapshot();
+        return new BrokerageSessionHealth(
+            Authenticated: snapshot.Authenticated,
+            Connected: snapshot.Connected,
+            Competing: snapshot.Competing,
+            Established: snapshot.Established,
+            FailReason: snapshot.FailReason);
+    }
 
     private async Task<BrokerageSessionHealth> CollectActiveSessionHealthAsync(CancellationToken cancellationToken)
     {
