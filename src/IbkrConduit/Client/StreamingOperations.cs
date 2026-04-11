@@ -22,53 +22,48 @@ internal sealed class StreamingOperations : IStreamingOperations
     }
 
     /// <inheritdoc />
-    public IObservable<MarketDataTick> MarketData(int conid, string[] fields, CancellationToken cancellationToken = default)
+    public async Task<IObservable<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken cancellationToken = default)
     {
         var fieldsJson = string.Join(",", fields.Select(f => $"\"{f}\""));
         var subscribeMessage = $"smd+{conid}+{{\"fields\":[{fieldsJson}]}}";
 
-        var (reader, _) = _webSocketClient.SubscribeTopicAsync(subscribeMessage, "smd", cancellationToken)
-            .GetAwaiter().GetResult();
+        var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "smd", cancellationToken);
 
         return new ChannelObservable<MarketDataTick>(reader, MapMarketDataTick);
     }
 
     /// <inheritdoc />
-    public IObservable<OrderUpdate> OrderUpdates(int? days = null, CancellationToken cancellationToken = default)
+    public async Task<IObservable<OrderUpdate>> OrderUpdatesAsync(int? days = null, CancellationToken cancellationToken = default)
     {
         var subscribeMessage = days.HasValue
             ? $"sor+{{\"days\":{days.Value}}}"
             : "sor+{}";
 
-        var (reader, _) = _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sor", cancellationToken)
-            .GetAwaiter().GetResult();
+        var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sor", cancellationToken);
 
         return new ChannelObservable<OrderUpdate>(reader, MapOrderUpdate);
     }
 
     /// <inheritdoc />
-    public IObservable<PnlUpdate> ProfitAndLoss(CancellationToken cancellationToken = default)
+    public async Task<IObservable<PnlUpdate>> ProfitAndLossAsync(CancellationToken cancellationToken = default)
     {
-        var (reader, _) = _webSocketClient.SubscribeTopicAsync("spl+{}", "spl", cancellationToken)
-            .GetAwaiter().GetResult();
+        var (reader, _) = await _webSocketClient.SubscribeTopicAsync("spl+{}", "spl", cancellationToken);
 
         return new ChannelObservable<PnlUpdate>(reader, MapPnlUpdate);
     }
 
     /// <inheritdoc />
-    public IObservable<AccountSummaryUpdate> AccountSummary(CancellationToken cancellationToken = default)
+    public async Task<IObservable<AccountSummaryUpdate>> AccountSummaryAsync(CancellationToken cancellationToken = default)
     {
-        var (reader, _) = _webSocketClient.SubscribeTopicAsync("ssd+{}", "ssd", cancellationToken)
-            .GetAwaiter().GetResult();
+        var (reader, _) = await _webSocketClient.SubscribeTopicAsync("ssd+{}", "ssd", cancellationToken);
 
         return new ChannelObservable<AccountSummaryUpdate>(reader, MapAccountSummaryUpdate);
     }
 
     /// <inheritdoc />
-    public IObservable<AccountLedgerUpdate> AccountLedger(CancellationToken cancellationToken = default)
+    public async Task<IObservable<AccountLedgerUpdate>> AccountLedgerAsync(CancellationToken cancellationToken = default)
     {
-        var (reader, _) = _webSocketClient.SubscribeTopicAsync("sld+{}", "sld", cancellationToken)
-            .GetAwaiter().GetResult();
+        var (reader, _) = await _webSocketClient.SubscribeTopicAsync("sld+{}", "sld", cancellationToken);
 
         return new ChannelObservable<AccountLedgerUpdate>(reader, MapAccountLedgerUpdate);
     }
