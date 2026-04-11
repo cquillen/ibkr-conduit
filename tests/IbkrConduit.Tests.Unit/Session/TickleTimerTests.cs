@@ -124,6 +124,39 @@ public class TickleTimerTests
         sessionApi.TickleCallCount.ShouldBe(countAfterStop);
     }
 
+    [Fact]
+    public async Task StopAsync_CalledTwice_DoesNotThrow()
+    {
+        var sessionApi = new FakeSessionApi();
+        var timer = new TickleTimer(
+            sessionApi,
+            _ => Task.CompletedTask,
+            new SessionHealthState(),
+            NullLogger<TickleTimer>.Instance,
+            intervalSeconds: 1);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await timer.StartAsync(cts.Token);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+
+        await timer.StopAsync();
+        await timer.StopAsync(); // Should not throw
+    }
+
+    [Fact]
+    public async Task StopAsync_WithoutStart_DoesNotThrow()
+    {
+        var sessionApi = new FakeSessionApi();
+        var timer = new TickleTimer(
+            sessionApi,
+            _ => Task.CompletedTask,
+            new SessionHealthState(),
+            NullLogger<TickleTimer>.Instance,
+            intervalSeconds: 1);
+
+        await timer.StopAsync(); // Should not throw
+    }
+
     private class FakeSessionApi : IIbkrSessionApi
     {
         public int TickleCallCount { get; private set; }

@@ -27,6 +27,7 @@ internal sealed partial class TickleTimer : ITickleTimer
     private readonly SessionHealthState _sessionHealthState;
     private readonly ILogger<TickleTimer> _logger;
     private readonly int _intervalSeconds;
+    private readonly object _startStopLock = new();
     private CancellationTokenSource? _cts;
     private Task? _backgroundTask;
 
@@ -55,24 +56,39 @@ internal sealed partial class TickleTimer : ITickleTimer
     /// <inheritdoc />
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _backgroundTask = RunAsync(_cts.Token);
+        lock (_startStopLock)
+        {
+            _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _backgroundTask = RunAsync(_cts.Token);
+        }
+
         return Task.CompletedTask;
     }
 
     /// <inheritdoc />
     public async Task StopAsync()
     {
-        if (_cts != null)
+        Task? taskToAwait;
+        CancellationTokenSource? ctsToDispose;
+
+        lock (_startStopLock)
         {
-            await _cts.CancelAsync();
+            ctsToDispose = _cts;
+            taskToAwait = _backgroundTask;
+            _cts = null;
+            _backgroundTask = null;
         }
 
-        if (_backgroundTask != null)
+        if (ctsToDispose != null)
+        {
+            await ctsToDispose.CancelAsync();
+        }
+
+        if (taskToAwait != null)
         {
             try
             {
-                await _backgroundTask;
+                await taskToAwait;
             }
             catch (OperationCanceledException)
             {
@@ -80,9 +96,7 @@ internal sealed partial class TickleTimer : ITickleTimer
             }
         }
 
-        _cts?.Dispose();
-        _cts = null;
-        _backgroundTask = null;
+        ctsToDispose?.Dispose();
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Tickle response indicates session is not authenticated")]
@@ -104,10 +118,11 @@ internal sealed partial class TickleTimer : ITickleTimer
             return;
         }
 
-        _sessionHealthState.Authenticated = authStatus.Authenticated;
-        _sessionHealthState.Connected = authStatus.Connected;
-        _sessionHealthState.Competing = authStatus.Competing;
-        _sessionHealthState.Established = authStatus.Established;
+        _sessionHealthState.Update(
+            authenticated: authStatus.Authenticated,
+            connected: authStatus.Connected,
+            competing: authStatus.Competing,
+            established: authStatus.Established);
     }
 
     private async Task RunAsync(CancellationToken cancellationToken)
