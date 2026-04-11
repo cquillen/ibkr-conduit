@@ -19,13 +19,14 @@ public class HealthStatusCollectorTests
     private readonly LastSuccessfulCallTracker _lastCallTracker = new();
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly HealthStatusOptions _options = new();
-    private readonly SessionHealthState _sessionHealthState = new()
+    private readonly SessionHealthState _sessionHealthState = CreateHealthyState();
+
+    private static SessionHealthState CreateHealthyState()
     {
-        Authenticated = true,
-        Connected = true,
-        Competing = false,
-        Established = true,
-    };
+        var state = new SessionHealthState();
+        state.Update(authenticated: true, connected: true, competing: false, established: true);
+        return state;
+    }
 
     public HealthStatusCollectorTests()
     {
@@ -243,14 +244,8 @@ public class HealthStatusCollectorTests
 
         SetLastCallToNow();
 
-        var unhealthyState = new SessionHealthState
-        {
-            Authenticated = false,
-            Connected = false,
-            Competing = false,
-            Established = false,
-            FailReason = "Session lost",
-        };
+        var unhealthyState = new SessionHealthState();
+        unhealthyState.Update(authenticated: false, connected: false, competing: false, established: false, failReason: "Session lost");
 
         var collector = new HealthStatusCollector(
             _sessionApi, _tokenProvider, _wsClient, _lastCallTracker, _rateLimiter, _options, unhealthyState);
@@ -271,13 +266,8 @@ public class HealthStatusCollectorTests
 
         SetLastCallToNow();
 
-        var competingState = new SessionHealthState
-        {
-            Authenticated = true,
-            Connected = true,
-            Competing = true,
-            Established = true,
-        };
+        var competingState = new SessionHealthState();
+        competingState.Update(authenticated: true, connected: true, competing: true, established: true);
 
         var collector = new HealthStatusCollector(
             _sessionApi, _tokenProvider, _wsClient, _lastCallTracker, _rateLimiter, _options, competingState);
