@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -8,6 +9,11 @@ namespace IbkrConduit.Auth;
 /// </summary>
 internal interface ISessionTokenProvider
 {
+    /// <summary>
+    /// Gets the expiry time of the current cached token, or null if no token has been acquired.
+    /// </summary>
+    DateTimeOffset? CurrentTokenExpiry { get; }
+
     /// <summary>
     /// Gets the current Live Session Token, acquiring it if necessary.
     /// </summary>

@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.RateLimiting;
 using IbkrConduit.Auth;
+using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -55,6 +56,7 @@ internal static class SessionServiceRegistration
         // Tickle timer factory
         services.AddSingleton<ITickleTimerFactory>(sp =>
             new TickleTimerFactory(
+                sp.GetRequiredService<SessionHealthState>(),
                 sp.GetRequiredService<ILogger<TickleTimer>>(),
                 clientOptions.TickleIntervalSeconds));
 
@@ -91,6 +93,7 @@ internal static class SessionServiceRegistration
                 sp.GetRequiredService<IIbkrSessionApi>(),
                 clientOptions,
                 sp.GetRequiredService<ISessionLifecycleNotifier>(),
+                sp.GetRequiredService<SessionHealthState>(),
                 sp.GetRequiredService<ILogger<SessionManager>>()));
     }
 }

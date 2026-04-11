@@ -151,6 +151,10 @@ public class StreamingOperationsTests
         public string? LastTopicPrefix { get; private set; }
         public Channel<JsonElement> Channel { get; } = System.Threading.Channels.Channel.CreateUnbounded<JsonElement>();
 
+        public bool IsConnected => true;
+        public int ActiveSubscriptionCount => 0;
+        public DateTimeOffset? LastMessageReceivedAt => null;
+
         public Task ConnectAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
 

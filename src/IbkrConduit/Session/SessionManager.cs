@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using IbkrConduit.Auth;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
+using IbkrConduit.Health;
 using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Session;
@@ -37,6 +38,7 @@ internal sealed partial class SessionManager : ISessionManager
     private readonly IIbkrSessionApi _sessionApi;
     private readonly IbkrClientOptions _options;
     private readonly ISessionLifecycleNotifier _notifier;
+    private readonly SessionHealthState _sessionHealthState;
     private readonly ILogger<SessionManager> _logger;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly CancellationTokenSource _disposeCts = new();
@@ -55,6 +57,7 @@ internal sealed partial class SessionManager : ISessionManager
         IIbkrSessionApi sessionApi,
         IbkrClientOptions options,
         ISessionLifecycleNotifier notifier,
+        SessionHealthState sessionHealthState,
         ILogger<SessionManager> logger)
     {
         _sessionTokenProvider = sessionTokenProvider;
@@ -62,6 +65,7 @@ internal sealed partial class SessionManager : ISessionManager
         _sessionApi = sessionApi;
         _options = options;
         _notifier = notifier;
+        _sessionHealthState = sessionHealthState;
         _logger = logger;
     }
 
@@ -108,6 +112,12 @@ internal sealed partial class SessionManager : ISessionManager
                 await _sessionApi.SuppressQuestionsAsync(
                     new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
             }
+
+            _sessionHealthState.Authenticated = true;
+            _sessionHealthState.Connected = true;
+            _sessionHealthState.Competing = false;
+            _sessionHealthState.Established = true;
+            _sessionHealthState.FailReason = null;
 
             _tickleTimer = _tickleTimerFactory.Create(_sessionApi, OnTickleFailureAsync);
             await _tickleTimer.StartAsync(cancellationToken);
@@ -170,6 +180,12 @@ internal sealed partial class SessionManager : ISessionManager
                 await _sessionApi.SuppressQuestionsAsync(
                     new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
             }
+
+            _sessionHealthState.Authenticated = true;
+            _sessionHealthState.Connected = true;
+            _sessionHealthState.Competing = false;
+            _sessionHealthState.Established = true;
+            _sessionHealthState.FailReason = null;
 
             _tickleTimer = _tickleTimerFactory.Create(_sessionApi, OnTickleFailureAsync);
             await _tickleTimer.StartAsync(cancellationToken);

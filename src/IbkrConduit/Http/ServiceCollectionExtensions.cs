@@ -5,6 +5,7 @@ using IbkrConduit.Client;
 using IbkrConduit.Contracts;
 using IbkrConduit.EventContracts;
 using IbkrConduit.Fyi;
+using IbkrConduit.Health;
 using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
@@ -59,6 +60,12 @@ public static class ServiceCollectionExtensions
         SessionServiceRegistration.Register(services, credentials, clientOptions, baseUrl);
         ConsumerPipelineRegistration.Register(services, credentials, clientOptions, endpointMap, baseUrl);
         StreamingAndFlexRegistration.Register(services, credentials, clientOptions, baseUrl);
+
+        // Health check infrastructure
+        services.AddSingleton<LastSuccessfulCallTracker>();
+        services.AddSingleton(new HealthStatusOptions());
+        services.AddSingleton<SessionHealthState>();
+        services.AddSingleton<IHealthStatusCollector, HealthStatusCollector>();
 
         // Unified facade
         services.AddSingleton<IIbkrClient, IbkrClient>();

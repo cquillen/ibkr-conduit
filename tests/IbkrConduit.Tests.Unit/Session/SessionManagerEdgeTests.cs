@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -27,6 +28,7 @@ public class SessionManagerEdgeTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -57,6 +59,7 @@ public class SessionManagerEdgeTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         // Start initialization in background
@@ -96,6 +99,7 @@ public class SessionManagerEdgeTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -122,6 +126,7 @@ public class SessionManagerEdgeTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -143,6 +148,7 @@ public class SessionManagerEdgeTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -166,6 +172,7 @@ public class SessionManagerEdgeTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -192,6 +199,7 @@ public class SessionManagerEdgeTests
             deps.SessionApi,
             deps.Options,
             deps.Notifier,
+            deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -211,6 +219,7 @@ public class SessionManagerEdgeTests
         public FakeTickleTimerFactory TickleTimerFactory { get; } = new();
         public FakeSessionApi SessionApi { get; } = new();
         public FakeLifecycleNotifier Notifier { get; } = new();
+        public SessionHealthState SessionHealthState { get; } = new();
         public IbkrClientOptions Options { get; set; } = new();
     }
 
@@ -222,6 +231,8 @@ public class SessionManagerEdgeTests
         public int RefreshCallCount { get; private set; }
         public int DelayMs { get; set; }
         public bool RefreshShouldThrow { get; set; }
+
+        public DateTimeOffset? CurrentTokenExpiry => _tokenOverride?.Expiry;
 
         public DateTimeOffset TokenExpiry
         {
