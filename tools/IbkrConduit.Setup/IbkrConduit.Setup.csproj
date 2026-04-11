@@ -10,13 +10,22 @@
     <Description>Setup tool for IBKR OAuth 1.0a credentials. Generates cryptographic keys, guides portal configuration, writes credential files, and validates connections. Part of the IbkrConduit library.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>credential-setup.md</PackageReadmeFile>
+    <PackageTags>ibkr;interactive-brokers;oauth;setup;credentials</PackageTags>
+    <Copyright>Copyright (c) 2026 Robert Craig Quillen</Copyright>
     <PackageProjectUrl>https://github.com/cquillen/ibkr-conduit</PackageProjectUrl>
     <RepositoryUrl>https://github.com/cquillen/ibkr-conduit</RepositoryUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>embedded</DebugType>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
   <ItemGroup>
     <None Include="../../docs/credential-setup.md" Pack="true" PackagePath="/" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
     <PackageReference Include="BouncyCastle.Cryptography" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
