@@ -66,8 +66,8 @@ internal static class WizardCommand
         Console.WriteLine();
         Console.WriteLine("  Follow these steps in the IBKR Self-Service Portal:");
         Console.WriteLine();
-        Console.WriteLine("  1. Log in at: https://www.interactivebrokers.com/sso/Login");
-        Console.WriteLine("  2. Navigate to: Settings > User Settings > API > OAuth");
+        Console.WriteLine("  1. Log in at: https://ndcdyn.interactivebrokers.com/sso/Login?action=OAUTH");
+        Console.WriteLine("     (This goes directly to the OAuth configuration page)");
         Console.WriteLine("  3. Click 'Add New Application'");
         Console.WriteLine("  4. Upload the following files:");
         Console.WriteLine($"     - Signature Public Key:  {Path.Combine(fullPath, "public_signature.pem")}");
