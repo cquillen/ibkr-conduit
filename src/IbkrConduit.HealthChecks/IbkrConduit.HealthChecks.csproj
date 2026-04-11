@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <PackageId>IbkrConduit.HealthChecks</PackageId>
-    <Version>0.1.1</Version>
+    <Version>0.3.0</Version>
     <Authors>Robert Craig Quillen</Authors>
     <Description>ASP.NET Core health check integration for IbkrConduit. Provides an IHealthCheck implementation that reports IBKR connection status including brokerage session, WebSocket streaming, OAuth token, and rate limiter health. Not affiliated with Interactive Brokers LLC.</Description>
     <PackageTags>ibkr;interactive-brokers;health-check;aspnetcore</PackageTags>
@@ -25,12 +25,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../IbkrConduit/IbkrConduit.csproj" />
+    <ProjectReference Include="../IbkrConduit/IbkrConduit.csproj"/>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
-    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks"/>
+    <PackageReference Include="Microsoft.Extensions.Options"/>
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All"/>
   </ItemGroup>
 
