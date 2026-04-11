@@ -43,7 +43,9 @@ internal sealed partial class SessionManager : ISessionManager
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly CancellationTokenSource _disposeCts = new();
 
-    private SessionState _state = SessionState.Uninitialized;
+    private volatile SessionState _state = SessionState.Uninitialized;
+    private volatile bool _disposed;
+    private readonly object _proactiveRefreshLock = new();
     private ITickleTimer? _tickleTimer;
     private CancellationTokenSource? _proactiveRefreshCts;
     private LiveSessionToken? _currentLst;
@@ -113,11 +115,7 @@ internal sealed partial class SessionManager : ISessionManager
                     new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
             }
 
-            _sessionHealthState.Authenticated = true;
-            _sessionHealthState.Connected = true;
-            _sessionHealthState.Competing = false;
-            _sessionHealthState.Established = true;
-            _sessionHealthState.FailReason = null;
+            _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);
 
             _tickleTimer = _tickleTimerFactory.Create(_sessionApi, OnTickleFailureAsync);
             await _tickleTimer.StartAsync(cancellationToken);
@@ -181,11 +179,7 @@ internal sealed partial class SessionManager : ISessionManager
                     new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
             }
 
-            _sessionHealthState.Authenticated = true;
-            _sessionHealthState.Connected = true;
-            _sessionHealthState.Competing = false;
-            _sessionHealthState.Established = true;
-            _sessionHealthState.FailReason = null;
+            _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);
 
             _tickleTimer = _tickleTimerFactory.Create(_sessionApi, OnTickleFailureAsync);
             await _tickleTimer.StartAsync(cancellationToken);
@@ -208,10 +202,12 @@ internal sealed partial class SessionManager : ISessionManager
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        if (_state == SessionState.ShuttingDown)
+        if (_disposed)
         {
             return;
         }
+
+        _disposed = true;
 
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Shutdown");
 
@@ -290,8 +286,13 @@ internal sealed partial class SessionManager : ISessionManager
             return;
         }
 
-        _proactiveRefreshCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
-        var delayToken = _proactiveRefreshCts.Token;
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
+        lock (_proactiveRefreshLock)
+        {
+            _proactiveRefreshCts = cts;
+        }
+
+        var delayToken = cts.Token;
 
         _ = Task.Run(async () =>
         {
@@ -320,11 +321,17 @@ internal sealed partial class SessionManager : ISessionManager
 
     private void CancelProactiveRefresh()
     {
-        if (_proactiveRefreshCts != null)
+        CancellationTokenSource? cts;
+        lock (_proactiveRefreshLock)
         {
-            _proactiveRefreshCts.Cancel();
-            _proactiveRefreshCts.Dispose();
+            cts = _proactiveRefreshCts;
             _proactiveRefreshCts = null;
+        }
+
+        if (cts != null)
+        {
+            cts.Cancel();
+            cts.Dispose();
         }
     }
 

@@ -619,6 +619,26 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task DisposeAsync_CalledTwice_DoesNotThrow()
+    {
+        var deps = CreateDependencies();
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        await manager.DisposeAsync();
+        await manager.DisposeAsync(); // Should not throw
+    }
+
+    [Fact]
     public async Task ProactiveRefresh_CompletesReauthWithoutCancellation()
     {
         var deps = CreateDependencies();
