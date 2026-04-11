@@ -2,6 +2,71 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.1.1...IbkrConduit-v0.3.0) (2026-04-11)
+
+
+### Features
+
+* add AuditLogHandler for debug-level request/response body logging ([f4bd698](https://github.com/cquillen/ibkr-conduit/commit/f4bd698d8bad504d39005759188b8733afc9465d))
+* add CaptureFlexQuery tool and configurable Flex poll timeout ([465d954](https://github.com/cquillen/ibkr-conduit/commit/465d9548d3c16988e1d70af841c87834c01f13c7))
+* add DismissNotificationAsync for server prompt responses ([89151d1](https://github.com/cquillen/ibkr-conduit/commit/89151d19d1516c4cd8d77bca3ace43b534079ee2))
+* add filters and force query parameters to GetLiveOrdersAsync ([5fbd531](https://github.com/cquillen/ibkr-conduit/commit/5fbd531ba431a12e1caefacb2c0ed2a567fd3484))
+* add Flex query options and typed result/item records ([2ed81de](https://github.com/cquillen/ibkr-conduit/commit/2ed81dea1c9eb58cc2427cd976ad8e3ab9f2b14b))
+* add Flex token validation to ValidateConnectionAsync with validateFlex parameter ([0b8d2ea](https://github.com/cquillen/ibkr-conduit/commit/0b8d2ead47b00bb73836ff56cd939f4c51d0f14e))
+* add FlexReports example showing both typed Flex query methods ([2f1fd7d](https://github.com/cquillen/ibkr-conduit/commit/2f1fd7de609024ff6aa9ce36490f420b885d8731))
+* add FlexResultParser with date/time/decimal attribute parsing ([c003ff7](https://github.com/cquillen/ibkr-conduit/commit/c003ff7b80ba8418442df16c44932d2d5af745d4))
+* add FromJson credential loader, hidden default dir, gitignore update ([dd804de](https://github.com/cquillen/ibkr-conduit/commit/dd804de3a053b085e897c126075c3354dee555ca))
+* add health status model records ([667373b](https://github.com/cquillen/ibkr-conduit/commit/667373b613f9fdb2251384e14bb7795e80d3db53))
+* add HealthStatusCollector with overall status evaluation ([5926857](https://github.com/cquillen/ibkr-conduit/commit/5926857de926829107462b7236dc50a862edb2e6))
+* add HistoryPeriod and BarSize structs for type-safe history parameters ([fbdd6de](https://github.com/cquillen/ibkr-conduit/commit/fbdd6de27f947a0dd3aec5ff42a2fecac4b6b731))
+* add IbkrConduit.HealthChecks project with IHealthCheck adapter ([f75f71b](https://github.com/cquillen/ibkr-conduit/commit/f75f71bd3ffb4a96aa56981661ba261f151af4a5))
+* add IbkrFlexError error subtype for Flex Web Service errors ([b56124f](https://github.com/cquillen/ibkr-conduit/commit/b56124fd7f18af7eb594f4cef74159196213a70b))
+* add LastSuccessfulCallHandler for API call tracking ([5bdce65](https://github.com/cquillen/ibkr-conduit/commit/5bdce655a6b588146ad5a70bf567e27eab1d0d10))
+* add missing query parameters to 12 endpoints per OpenAPI spec audit ([8e5658e](https://github.com/cquillen/ibkr-conduit/commit/8e5658e505790731fdceee1a094c9583f38fd54c))
+* add OAuthCredentialsFactory.FromFile for JSON credential loading ([41dd051](https://github.com/cquillen/ibkr-conduit/commit/41dd05101739bb371b48c929c50636d5309133e7))
+* add rich debug/trace logging to Flex poll loop ([5e30ee3](https://github.com/cquillen/ibkr-conduit/commit/5e30ee34c733858c9dbe1cd6fb315800dd7e3f03))
+* add SendRequest retry, richer timeout context, jitter, and attempt-count metric ([95c0eac](https://github.com/cquillen/ibkr-conduit/commit/95c0eacc0af9cb64d89b697484aa0438c4af74e2))
+* add strongly-typed Flex query methods to IFlexOperations ([f842156](https://github.com/cquillen/ibkr-conduit/commit/f84215604e9ac98809c0347d6c3d68041ef12dfa))
+* add structured logging with LoggerMessage source generation across all components ([9540362](https://github.com/cquillen/ibkr-conduit/commit/95403628ff3f3a4075bd15c86b96d570ec75eea1))
+* classify Flex error codes and honor retryable vs permanent ([40c5a23](https://github.com/cquillen/ibkr-conduit/commit/40c5a23795b5042975446e7c1a3adbedc100168b))
+* expose health-observable properties on WebSocket client and token provider ([9a969d2](https://github.com/cquillen/ibkr-conduit/commit/9a969d2900c9533974dfe98c80f9f98c88f61732))
+* expose IsRetryable and CodeDescription on FlexQueryException ([943a8c4](https://github.com/cquillen/ibkr-conduit/commit/943a8c46dc051d2340afd6b8f2a6ce8f5eb5366f))
+* generate consumer key in wizard + fix to uppercase-letters-only ([cc8da56](https://github.com/cquillen/ibkr-conduit/commit/cc8da5660c8177c389de1bb39b12280426eedf5d))
+* ibkr-conduit-setup dotnet tool for OAuth credential setup ([d37c01a](https://github.com/cquillen/ibkr-conduit/commit/d37c01a6519e15af85dbbcf8d9bde6152ebe54a8))
+* implement all ibkr-conduit-setup commands (generate-keys, configure, validate, wizard) ([eb40b3f](https://github.com/cquillen/ibkr-conduit/commit/eb40b3fec806834c5938cef3e219ed29742e76f0))
+* implement CredentialFile with JSON read/write and input validation ([05d51d7](https://github.com/cquillen/ibkr-conduit/commit/05d51d720781badfbfc5237c8f4ba69c6b23b4d6))
+* implement KeyGenerator with RSA key pair and DH PEM generation ([c9abb78](https://github.com/cquillen/ibkr-conduit/commit/c9abb78b804fd4b4d9b3a3ab80de8364aff1ec5c))
+* replace hardcoded passive session health with observable SessionHealthState ([09a6571](https://github.com/cquillen/ibkr-conduit/commit/09a6571d5ae35b5b40061cb4e7a2881951cdac00))
+* scaffold ibkr-conduit-setup tool project with subcommand routing ([6cae776](https://github.com/cquillen/ibkr-conduit/commit/6cae7762e1c8ffd47305bd1bcf442e193ca52faf))
+* scrub Flex API tokens from audit log handler output ([ad178a9](https://github.com/cquillen/ibkr-conduit/commit/ad178a995fd18f5fb9c8941174dee23bb3f8ee23))
+* strengthen parameter types across API surface (enums, DateTimeOffset, decimal) ([3a64dc6](https://github.com/cquillen/ibkr-conduit/commit/3a64dc6993d3386ba322b8e12b6cfe63b3f249f6))
+* use SecurityType enum, ExpiryMonth struct, and PerformancePeriod enum across contract and portfolio APIs ([1180a6f](https://github.com/cquillen/ibkr-conduit/commit/1180a6f5fc69e3c4e38d5d4b2eb5baf0755f8a27))
+* validate IbkrClientOptions at registration time ([90e1746](https://github.com/cquillen/ibkr-conduit/commit/90e1746d17e73cff461bc37bfa7eb470d1d8817b))
+* wire AuditLogHandler into Flex HttpClient pipeline ([7b3f6e8](https://github.com/cquillen/ibkr-conduit/commit/7b3f6e8cd909c58243034825181dd77503cdd129))
+* wire GetHealthStatusAsync into IIbkrClient and DI pipeline ([21f740d](https://github.com/cquillen/ibkr-conduit/commit/21f740d726d47ab11e9846f5724eecea4a26870b))
+* wire rate limiters into Flex HttpClient pipeline (1/sec burst + 10/min sustained) ([7c0e788](https://github.com/cquillen/ibkr-conduit/commit/7c0e788cbea6609dd6aa9e0133ddf51c109e55e2))
+
+
+### Bug Fixes
+
+* add double-dispose guard, volatile state, and proactive refresh lock to SessionManager ([4dcdc9f](https://github.com/cquillen/ibkr-conduit/commit/4dcdc9f5ac8539a206040d1a59e99bf9ab386bd3))
+* add note to ignore OpenSSL commands shown on IBKR portal page ([79c1cb5](https://github.com/cquillen/ibkr-conduit/commit/79c1cb5dfdef89e4d8228868f059f5984442b6a3))
+* add start/stop synchronization to TickleTimer ([828ecfc](https://github.com/cquillen/ibkr-conduit/commit/828ecfcde332fa93b53cb98b7735268d54557253))
+* add volatile fields, local-var capture, and dispose-aware reconnect to WebSocketClient ([2c5de97](https://github.com/cquillen/ibkr-conduit/commit/2c5de9786ea7aba2c605df3a0bf609702d0e64d2))
+* CancellationDisposable now disposes CTS, not just cancels ([dbdb1f7](https://github.com/cquillen/ibkr-conduit/commit/dbdb1f7b49e73644e49463bf5369edec754b8945))
+* capture raw response body for hidden error detection on 200 OK responses ([d5a87e2](https://github.com/cquillen/ibkr-conduit/commit/d5a87e28bf131ab8bab4e1dfee719734434944c2))
+* convert startTime to UTC before formatting for IBKR history endpoint ([5d50e41](https://github.com/cquillen/ibkr-conduit/commit/5d50e410a4dac293165a09a01a474902926e6a02))
+* convert StreamingOperations to async, removing blocking GetAwaiter().GetResult() calls ([f5e3766](https://github.com/cquillen/ibkr-conduit/commit/f5e37668092b4cba5c7a9d83b199d38c904a98f0))
+* handle expected validation failure for newly configured OAuth credentials ([1c4f2c5](https://github.com/cquillen/ibkr-conduit/commit/1c4f2c508e2c7bae6342a3ef83fcafa75b510c2d))
+* make SessionHealthState thread-safe with lock-based atomic updates ([3df116f](https://github.com/cquillen/ibkr-conduit/commit/3df116f283672294745768679027defd690c9f9c))
+* reduce timing threshold in rate limiter behavioral test to avoid CI flakiness ([085d4c8](https://github.com/cquillen/ibkr-conduit/commit/085d4c8d361e1b2a06da4cb378af64e2f4e415a8))
+* remove dead threshold properties from IbkrHealthCheckOptions ([f89c72b](https://github.com/cquillen/ibkr-conduit/commit/f89c72ba7127ed6cf31529593d20a093736d979d))
+* rename constant to match editorconfig naming convention ([efd3b13](https://github.com/cquillen/ibkr-conduit/commit/efd3b13e6025c94d2cc9f4a88d36c15e0c108ab0))
+* update example apps for Result&lt;T&gt; return types ([f5dd7d4](https://github.com/cquillen/ibkr-conduit/commit/f5dd7d4f604a5a9a5639132c33de86107eca9883))
+* update IBKR portal URL to direct OAuth configuration page ([f1392af](https://github.com/cquillen/ibkr-conduit/commit/f1392af5444111655e781a144b7533c9745fc9dc))
+* update wizard portal instructions to match actual IBKR OAuth UI ([e02bcfd](https://github.com/cquillen/ibkr-conduit/commit/e02bcfd3c8e0cf8895795ef11ddcce3371e5998d))
+* use Interlocked operations for thread-safe LastSuccessfulCallTracker ([b730b2a](https://github.com/cquillen/ibkr-conduit/commit/b730b2a2b14cc4c47722ddf39f1ef0d0373113ae))
+
 ## [0.1.1](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.1.0...IbkrConduit-v0.1.1) (2026-04-05)
 
 
