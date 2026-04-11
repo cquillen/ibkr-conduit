@@ -221,6 +221,25 @@ When using `OAuthCredentialsFactory.FromEnvironment()`:
 
 You can also construct `IbkrOAuthCredentials` directly with pre-loaded `RSA` keys and a `BigInteger` DH prime — no environment variables required.
 
+## Credential Setup
+
+IbkrConduit includes a setup tool that generates all required OAuth 1.0a cryptographic keys, walks you through the IBKR portal configuration, and produces a ready-to-use JSON credential file:
+
+```bash
+dotnet run --project tools/IbkrConduit.Setup
+```
+
+The interactive wizard handles key generation (RSA 2048-bit + DH parameters), portal upload instructions, credential collection, and connection validation. Credentials are saved to `.ibkr-credentials/ibkr-credentials.json` and can be loaded directly:
+
+```csharp
+using var creds = OAuthCredentialsFactory.FromFile(".ibkr-credentials/ibkr-credentials.json");
+services.AddIbkrClient(opts => opts.Credentials = creds);
+```
+
+For production deployments, store the JSON in a secret manager and load via `OAuthCredentialsFactory.FromJson(jsonString)`.
+
+For the full walkthrough, manual steps, and troubleshooting, see [docs/credential-setup.md](docs/credential-setup.md).
+
 ## Configuration Options
 
 ```csharp
@@ -314,6 +333,7 @@ For the full list of spans, metrics, and log categories, see [docs/observability
 
 ## Documentation
 
+- [Credential Setup Guide](docs/credential-setup.md) — generating keys, portal configuration, loading credentials
 - [Design Document](docs/ibkr_conduit_design.md) — architecture, API behaviors, implementation guidance
 - [API Testing Status Report](docs/api-testing-status-report.md) — endpoint coverage and validation status
 - [API Specification](docs/ibkr-web-api-spec.md) — full REST API reference
