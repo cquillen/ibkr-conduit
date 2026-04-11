@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>ibkr-conduit-setup</ToolCommandName>
+    <PackageId>IbkrConduit.Setup</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Robert Craig Quillen</Authors>
+    <Description>Setup tool for IBKR OAuth 1.0a credentials. Generates cryptographic keys, guides portal configuration, writes credential files, and validates connections. Part of the IbkrConduit library.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>credential-setup.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/cquillen/ibkr-conduit</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/cquillen/ibkr-conduit</RepositoryUrl>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="../../docs/credential-setup.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/IbkrConduit/IbkrConduit.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="IbkrConduit.Tests.Unit" />
+  </ItemGroup>
+</Project>
