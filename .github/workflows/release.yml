@@ -37,8 +37,11 @@ jobs:
             8.x
             10.x
 
-      - name: Pack
+      - name: Pack library
         run: dotnet pack src/IbkrConduit --configuration Release --output ./artifacts
+
+      - name: Pack setup tool
+        run: dotnet pack tools/IbkrConduit.Setup --configuration Release --output ./artifacts
 
       - name: Push to NuGet
         run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

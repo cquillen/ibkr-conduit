@@ -20,8 +20,11 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
-      - name: Pack
+      - name: Pack library
         run: dotnet pack src/IbkrConduit --configuration Release -p:PackageVersion=${{ steps.version.outputs.VERSION }} --output ./artifacts
+
+      - name: Pack setup tool
+        run: dotnet pack tools/IbkrConduit.Setup --configuration Release -p:PackageVersion=${{ steps.version.outputs.VERSION }} --output ./artifacts
 
       - name: Push to NuGet
         run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
