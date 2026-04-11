@@ -17,6 +17,7 @@
     <DebugType>embedded</DebugType>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <Copyright>Copyright (c) 2026 Robert Craig Quillen</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
