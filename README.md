@@ -58,8 +58,12 @@ using Microsoft.Extensions.DependencyInjection;
 var services = new ServiceCollection();
 services.AddLogging();
 
-// Load credentials from environment variables
-using var creds = OAuthCredentialsFactory.FromEnvironment();
+// Load credentials — pick one:
+//   (a) From a JSON file produced by the ibkr-conduit-setup tool (see Credential Setup below)
+using var creds = OAuthCredentialsFactory.FromFile(".ibkr-credentials/ibkr-credentials.json");
+
+//   (b) From environment variables (see Environment Variables below)
+// using var creds = OAuthCredentialsFactory.FromEnvironment();
 
 services.AddIbkrClient(opts =>
 {
