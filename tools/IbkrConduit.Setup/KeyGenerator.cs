@@ -60,19 +60,25 @@ internal static class KeyGenerator
     internal record DhParametersResult(string Pem, string PrimeHex);
 
     /// <summary>
-    /// Generates random 2048-bit DH parameters (safe prime + generator).
-    /// This is equivalent to <c>openssl dhparam 2048</c> and takes 30-120 seconds.
+    /// Generates random 2048-bit DH parameters with G=2 (matching both IBKR's server and
+    /// the runtime code in <c>OAuthCrypto</c>). This is equivalent to <c>openssl dhparam 2048</c>.
     /// </summary>
     /// <param name="certainty">Miller-Rabin certainty parameter (higher = more confidence, slower).
     /// Default 128 matches OpenSSL's default.</param>
     internal static DhParametersResult GenerateDhParameters(int certainty = 128)
     {
+        // Generate a safe prime p where (p-1)/2 is also prime.
+        // Use G=2 — this matches openssl's default, IBKR's server implementation,
+        // and OAuthCrypto._dhGenerator in the runtime code.
         var generator = new DHParametersGenerator();
         generator.Init(2048, certainty, new SecureRandom());
         var dhParams = generator.GenerateParameters();
 
-        var primeHex = dhParams.P.ToString(16).ToUpperInvariant();
-        var pem = EncodeDhParametersPem(dhParams);
+        // Override the generator with 2 regardless of what BouncyCastle chose
+        var dhWithG2 = new DHParameters(dhParams.P, Org.BouncyCastle.Math.BigInteger.Two);
+
+        var primeHex = dhWithG2.P.ToString(16).ToUpperInvariant();
+        var pem = EncodeDhParametersPem(dhWithG2);
 
         return new DhParametersResult(pem, primeHex);
     }
@@ -83,12 +89,19 @@ internal static class KeyGenerator
     /// </summary>
     private static string EncodeDhParametersPem(DHParameters dhParams)
     {
-        // Encode as DER SEQUENCE { INTEGER p, INTEGER g }
+        // Encode as DER SEQUENCE { INTEGER p, INTEGER g }.
+        // Use BouncyCastle's ToByteArray() (two's-complement signed big-endian) rather
+        // than ToByteArrayUnsigned() — AsnWriter.WriteInteger treats its input as a
+        // signed integer, so passing the unsigned magnitude of a value whose high bit
+        // is set (always true for a 2048-bit safe prime) encodes it as a negative DER
+        // INTEGER. That produces a malformed DH PEM and causes the DH handshake to
+        // derive an LST that doesn't match the server — every authenticated call
+        // then returns 401.
         var writer = new AsnWriter(AsnEncodingRules.DER);
         using (writer.PushSequence())
         {
-            writer.WriteInteger(dhParams.P.ToByteArrayUnsigned());
-            writer.WriteInteger(dhParams.G.ToByteArrayUnsigned());
+            writer.WriteInteger(dhParams.P.ToByteArray());
+            writer.WriteInteger(dhParams.G.ToByteArray());
         }
 
         var der = writer.Encode();
