@@ -7,14 +7,28 @@ updates:
       day: monday
     open-pull-requests-limit: 10
     groups:
-      xunit:
-        patterns:
-          - "xunit*"
       testing:
         patterns:
+          - "xunit*"
           - "Shouldly"
           - "coverlet*"
           - "WireMock*"
+          - "NSubstitute"
+        update-types:
+          - "minor"
+          - "patch"
+      production:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "xunit*"
+          - "Shouldly"
+          - "coverlet*"
+          - "WireMock*"
+          - "NSubstitute"
+        update-types:
+          - "minor"
+          - "patch"
     labels:
       - "dependencies"
 
@@ -24,6 +38,13 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     labels:
       - "dependencies"
       - "ci"
