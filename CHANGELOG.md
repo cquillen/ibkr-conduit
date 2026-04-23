@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.3.0...IbkrConduit-v0.4.0) (2026-04-23)
+
+
+### Bug Fixes
+
+* encode DH parameters with positive signed integer and G=2 ([37c01d1](https://github.com/cquillen/ibkr-conduit/commit/37c01d108bdda653451da100e2e02f6d7aa57d53))
+
+
+### Documentation
+
+* document dependabot grouping strategy ([2d19412](https://github.com/cquillen/ibkr-conduit/commit/2d19412e0683adbce192cde0c99b8254725e101c))
+
 ## [0.3.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.1.1...IbkrConduit-v0.3.0) (2026-04-11)
 
 
