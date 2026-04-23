@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <PackageId>IbkrConduit</PackageId>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <Authors>Robert Craig Quillen</Authors>
     <Description>A C#/.NET client library for the Interactive Brokers Client Portal Web API with OAuth 1.0a authentication, automatic session management, rate limiting, and Flex Web Service integration. Not affiliated with, endorsed by, or supported by Interactive Brokers LLC. The author is not a broker-dealer or investment advisor. This library does not provide investment advice or trading recommendations. Financial trading involves substantial risk of loss. This software is provided as-is with no warranty on the accuracy of financial data or order execution. You are solely responsible for all trading decisions. See the LICENSE and README for full terms.</Description>
     <PackageTags>ibkr;interactive-brokers;trading;oauth;client-portal-api;algorithmic-trading</PackageTags>
@@ -32,7 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection"/>
     <PackageReference Include="OneOf"/>
     <PackageReference Include="Refit"/>
     <PackageReference Include="Refit.HttpClientFactory"/>
