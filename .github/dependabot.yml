@@ -1,3 +1,5 @@
+# Grouping strategy: minor + patch bumps consolidate into one PR per ecosystem.
+# Major bumps bypass grouping so each receives individual review.
 version: 2
 updates:
   - package-ecosystem: nuget
