@@ -6,6 +6,10 @@
 
 A C#/.NET client library for the Interactive Brokers Client Portal Web API (CPAPI 1.0) with OAuth 1.0a authentication, automatic session management, rate limiting, and Flex Web Service integration.
 
+> [!IMPORTANT]
+> **Fixed in v0.4.0 — regenerate any credentials produced by earlier versions.**
+> The setup tool in v0.3.0 and earlier emitted DH parameters that IBKR's server parsed as a negative integer, silently producing credentials that authenticated locally but caused every request to return `401 Unauthorized`. If you generated your credential JSON with an earlier version of the setup tool, **re-run the setup tool with v0.4.0+ to regenerate your credentials.** See [docs/credential-setup.md](docs/credential-setup.md) for steps.
+
 ## Disclaimer
 
 **IbkrConduit is an independent, community-developed open source library. It is not affiliated with, endorsed by, or supported by Interactive Brokers LLC or any of its subsidiaries.** "Interactive Brokers," "IBKR," "TWS," "Client Portal," and all related product and service names are trademarks or registered trademarks of Interactive Brokers LLC. Their use herein is for identification purposes only and does not imply endorsement.
