@@ -37,6 +37,6 @@
     <!-- Mocking -->
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <!-- Integration testing -->
-    <PackageVersion Include="WireMock.Net" Version="2.3.0" />
+    <PackageVersion Include="WireMock.Net" Version="2.4.0" />
   </ItemGroup>
 </Project>
