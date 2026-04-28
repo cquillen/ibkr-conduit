@@ -4,34 +4,36 @@ using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
 using IbkrConduit.Auth;
+using IbkrConduit.Tests.Unit.Helpers;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Auth;
 
-public class OAuthCredentialsFactoryTests
+public class OAuthCredentialsFactoryTests : IClassFixture<RsaKeyFixture>
 {
+    private readonly RsaKeyFixture _fixture;
+
+    public OAuthCredentialsFactoryTests(RsaKeyFixture fixture) => _fixture = fixture;
     [Fact]
     public void IbkrOAuthCredentials_ShouldExposeAllProperties()
     {
-        using var signatureKey = RSA.Create(2048);
-        using var encryptionKey = RSA.Create(2048);
         var prime = BigInteger.Parse("023", System.Globalization.NumberStyles.HexNumber);
 
-        using var creds = new IbkrOAuthCredentials(
+        var creds = new IbkrOAuthCredentials(
             TenantId: "tenant1",
             ConsumerKey: "TESTCONS",
             AccessToken: "token123",
             EncryptedAccessTokenSecret: "c2VjcmV0",
-            SignaturePrivateKey: signatureKey,
-            EncryptionPrivateKey: encryptionKey,
+            SignaturePrivateKey: _fixture.SignatureKey,
+            EncryptionPrivateKey: _fixture.EncryptionKey,
             DhPrime: prime);
 
         creds.TenantId.ShouldBe("tenant1");
         creds.ConsumerKey.ShouldBe("TESTCONS");
         creds.AccessToken.ShouldBe("token123");
         creds.EncryptedAccessTokenSecret.ShouldBe("c2VjcmV0");
-        creds.SignaturePrivateKey.ShouldBe(signatureKey);
-        creds.EncryptionPrivateKey.ShouldBe(encryptionKey);
+        creds.SignaturePrivateKey.ShouldBe(_fixture.SignatureKey);
+        creds.EncryptionPrivateKey.ShouldBe(_fixture.EncryptionKey);
         creds.DhPrime.ShouldBe(prime);
     }
 
@@ -55,10 +57,8 @@ public class OAuthCredentialsFactoryTests
     [Fact]
     public void FromEnvironment_AllVarsSet_ReturnsCredentials()
     {
-        using var sigKey = RSA.Create(2048);
-        using var encKey = RSA.Create(2048);
-        var sigPem = sigKey.ExportRSAPrivateKeyPem();
-        var encPem = encKey.ExportRSAPrivateKeyPem();
+        var sigPem = _fixture.SignatureKey.ExportRSAPrivateKeyPem();
+        var encPem = _fixture.EncryptionKey.ExportRSAPrivateKeyPem();
 
         var vars = new Dictionary<string, string>
         {
@@ -97,10 +97,8 @@ public class OAuthCredentialsFactoryTests
     [Fact]
     public void FromEnvironment_WithTenantId_UsesTenantId()
     {
-        using var sigKey = RSA.Create(2048);
-        using var encKey = RSA.Create(2048);
-        var sigPem = sigKey.ExportRSAPrivateKeyPem();
-        var encPem = encKey.ExportRSAPrivateKeyPem();
+        var sigPem = _fixture.SignatureKey.ExportRSAPrivateKeyPem();
+        var encPem = _fixture.EncryptionKey.ExportRSAPrivateKeyPem();
 
         var vars = new Dictionary<string, string>
         {
