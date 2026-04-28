@@ -12,13 +12,17 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Tests.Unit.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Auth;
 
-public class LiveSessionTokenClientTests
+public class LiveSessionTokenClientTests : IClassFixture<RsaKeyFixture>
 {
+    private readonly RsaKeyFixture _fixture;
+
+    public LiveSessionTokenClientTests(RsaKeyFixture fixture) => _fixture = fixture;
     [Fact]
     public void LiveSessionToken_ShouldExposeProperties()
     {
@@ -35,14 +39,11 @@ public class LiveSessionTokenClientTests
     public async Task GetLiveSessionTokenAsync_ValidResponse_ReturnsValidatedToken()
     {
         // === ARRANGE: Build a complete cryptographic fixture ===
-        using var sigKey = RSA.Create(2048);
-        using var encKey = RSA.Create(2048);
-
         // Known plaintext secret
         var plaintextSecret = new byte[] { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE };
 
         // Encrypt with PKCS1 to simulate IBKR portal output
-        var encryptedSecret = encKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
+        var encryptedSecret = _fixture.EncryptionKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
         var encryptedSecretB64 = Convert.ToBase64String(encryptedSecret);
 
         // Small DH prime for test speed
@@ -51,7 +52,7 @@ public class LiveSessionTokenClientTests
 
         var creds = new IbkrOAuthCredentials(
             "tenant1", consumerKey, "accesstok", encryptedSecretB64,
-            sigKey, encKey, prime);
+            _fixture.SignatureKey, _fixture.EncryptionKey, prime);
 
         // Server-side DH
         var serverPrivate = new BigInteger(42);
@@ -113,16 +114,13 @@ public class LiveSessionTokenClientTests
     [Fact]
     public async Task GetLiveSessionTokenAsync_InvalidSignature_ThrowsCryptographicException()
     {
-        using var sigKey = RSA.Create(2048);
-        using var encKey = RSA.Create(2048);
-
         var plaintextSecret = new byte[] { 0x01, 0x02 };
-        var encryptedSecret = encKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
+        var encryptedSecret = _fixture.EncryptionKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
 
         var creds = new IbkrOAuthCredentials(
             "tenant1", "TESTKEY01", "accesstok",
             Convert.ToBase64String(encryptedSecret),
-            sigKey, encKey, new BigInteger(9931));
+            _fixture.SignatureKey, _fixture.EncryptionKey, new BigInteger(9931));
 
         var handler = new FakeHttpHandler(_ =>
         {
@@ -149,16 +147,13 @@ public class LiveSessionTokenClientTests
     [Fact]
     public async Task GetLiveSessionTokenAsync_Non2xxResponse_ThrowsHttpRequestException()
     {
-        using var sigKey = RSA.Create(2048);
-        using var encKey = RSA.Create(2048);
-
         var plaintextSecret = new byte[] { 0x01, 0x02 };
-        var encryptedSecret = encKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
+        var encryptedSecret = _fixture.EncryptionKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
 
         var creds = new IbkrOAuthCredentials(
             "tenant1", "TESTKEY01", "accesstok",
             Convert.ToBase64String(encryptedSecret),
-            sigKey, encKey, new BigInteger(9931));
+            _fixture.SignatureKey, _fixture.EncryptionKey, new BigInteger(9931));
 
         var handler = new FakeHttpHandler(_ =>
             new HttpResponseMessage(HttpStatusCode.Unauthorized));
@@ -173,16 +168,13 @@ public class LiveSessionTokenClientTests
     [Fact]
     public async Task GetLiveSessionTokenAsync_MalformedJson_ThrowsJsonException()
     {
-        using var sigKey = RSA.Create(2048);
-        using var encKey = RSA.Create(2048);
-
         var plaintextSecret = new byte[] { 0x01, 0x02 };
-        var encryptedSecret = encKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
+        var encryptedSecret = _fixture.EncryptionKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
 
         var creds = new IbkrOAuthCredentials(
             "tenant1", "TESTKEY01", "accesstok",
             Convert.ToBase64String(encryptedSecret),
-            sigKey, encKey, new BigInteger(9931));
+            _fixture.SignatureKey, _fixture.EncryptionKey, new BigInteger(9931));
 
         var handler = new FakeHttpHandler(_ =>
             new HttpResponseMessage(HttpStatusCode.OK)
@@ -200,16 +192,13 @@ public class LiveSessionTokenClientTests
     [Fact]
     public async Task GetLiveSessionTokenAsync_MissingDhResponse_ThrowsKeyNotFoundException()
     {
-        using var sigKey = RSA.Create(2048);
-        using var encKey = RSA.Create(2048);
-
         var plaintextSecret = new byte[] { 0x01, 0x02 };
-        var encryptedSecret = encKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
+        var encryptedSecret = _fixture.EncryptionKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
 
         var creds = new IbkrOAuthCredentials(
             "tenant1", "TESTKEY01", "accesstok",
             Convert.ToBase64String(encryptedSecret),
-            sigKey, encKey, new BigInteger(9931));
+            _fixture.SignatureKey, _fixture.EncryptionKey, new BigInteger(9931));
 
         var handler = new FakeHttpHandler(_ =>
         {
@@ -235,16 +224,13 @@ public class LiveSessionTokenClientTests
     [Fact]
     public async Task GetLiveSessionTokenAsync_MissingSignature_ThrowsKeyNotFoundException()
     {
-        using var sigKey = RSA.Create(2048);
-        using var encKey = RSA.Create(2048);
-
         var plaintextSecret = new byte[] { 0x01, 0x02 };
-        var encryptedSecret = encKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
+        var encryptedSecret = _fixture.EncryptionKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
 
         var creds = new IbkrOAuthCredentials(
             "tenant1", "TESTKEY01", "accesstok",
             Convert.ToBase64String(encryptedSecret),
-            sigKey, encKey, new BigInteger(9931));
+            _fixture.SignatureKey, _fixture.EncryptionKey, new BigInteger(9931));
 
         var handler = new FakeHttpHandler(_ =>
         {
@@ -270,16 +256,13 @@ public class LiveSessionTokenClientTests
     [Fact]
     public async Task GetLiveSessionTokenAsync_InvalidHexDhResponse_ThrowsFormatException()
     {
-        using var sigKey = RSA.Create(2048);
-        using var encKey = RSA.Create(2048);
-
         var plaintextSecret = new byte[] { 0x01, 0x02 };
-        var encryptedSecret = encKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
+        var encryptedSecret = _fixture.EncryptionKey.Encrypt(plaintextSecret, RSAEncryptionPadding.Pkcs1);
 
         var creds = new IbkrOAuthCredentials(
             "tenant1", "TESTKEY01", "accesstok",
             Convert.ToBase64String(encryptedSecret),
-            sigKey, encKey, new BigInteger(9931));
+            _fixture.SignatureKey, _fixture.EncryptionKey, new BigInteger(9931));
 
         var handler = new FakeHttpHandler(_ =>
         {
