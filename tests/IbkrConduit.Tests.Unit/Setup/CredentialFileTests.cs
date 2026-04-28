@@ -3,16 +3,19 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
 using IbkrConduit.Setup;
+using IbkrConduit.Tests.Unit.Helpers;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Setup;
 
-public class CredentialFileTests : IDisposable
+public class CredentialFileTests : IClassFixture<RsaKeyFixture>, IDisposable
 {
     private readonly string _tempDir;
+    private readonly RsaKeyFixture _fixture;
 
-    public CredentialFileTests()
+    public CredentialFileTests(RsaKeyFixture fixture)
     {
+        _fixture = fixture;
         _tempDir = Path.Combine(Path.GetTempPath(), $"ibkr-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_tempDir);
     }
@@ -28,8 +31,6 @@ public class CredentialFileTests : IDisposable
     [Fact]
     public void Write_CreatesValidJsonFile()
     {
-        using var sigKey = RSA.Create(2048);
-        using var encKey = RSA.Create(2048);
         var filePath = Path.Combine(_tempDir, "creds.json");
 
         CredentialFile.Write(
@@ -37,8 +38,8 @@ public class CredentialFileTests : IDisposable
             consumerKey: "XKVMTQWLR",
             accessToken: "mytoken123",
             accessTokenSecret: "c2VjcmV0",
-            signaturePrivateKeyPem: sigKey.ExportRSAPrivateKeyPem(),
-            encryptionPrivateKeyPem: encKey.ExportRSAPrivateKeyPem(),
+            signaturePrivateKeyPem: _fixture.SignatureKey.ExportRSAPrivateKeyPem(),
+            encryptionPrivateKeyPem: _fixture.EncryptionKey.ExportRSAPrivateKeyPem(),
             dhPrimeHex: "FF");
 
         File.Exists(filePath).ShouldBeTrue();
@@ -58,11 +59,9 @@ public class CredentialFileTests : IDisposable
     [Fact]
     public void Read_RoundTrips()
     {
-        using var sigKey = RSA.Create(2048);
-        using var encKey = RSA.Create(2048);
         var filePath = Path.Combine(_tempDir, "creds.json");
-        var sigPem = sigKey.ExportRSAPrivateKeyPem();
-        var encPem = encKey.ExportRSAPrivateKeyPem();
+        var sigPem = _fixture.SignatureKey.ExportRSAPrivateKeyPem();
+        var encPem = _fixture.EncryptionKey.ExportRSAPrivateKeyPem();
 
         CredentialFile.Write(filePath, "XKVMTQWLR", "mytoken123", "c2VjcmV0", sigPem, encPem, "17");
 
