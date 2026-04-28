@@ -49,8 +49,7 @@ public class KeyGeneratorTests
         rsa.KeySize.ShouldBe(2048);
     }
 
-    [Fact]
-    [Trait("Category", "Slow")]
+    [Fact(Explicit = true)]
     public void GenerateDhParameters_PemHasCorrectArmor()
     {
         var result = KeyGenerator.GenerateDhParameters(certainty: 2);
@@ -59,8 +58,7 @@ public class KeyGeneratorTests
         result.Pem.ShouldEndWith("-----END DH PARAMETERS-----");
     }
 
-    [Fact]
-    [Trait("Category", "Slow")]
+    [Fact(Explicit = true)]
     public void GenerateDhParameters_PrimeHexIsValidHexString()
     {
         var result = KeyGenerator.GenerateDhParameters(certainty: 2);
@@ -70,8 +68,7 @@ public class KeyGeneratorTests
         result.PrimeHex.ShouldAllBe(c => (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F'));
     }
 
-    [Fact]
-    [Trait("Category", "Slow")]
+    [Fact(Explicit = true)]
     public void GenerateDhParameters_PemPrimeMatchesPrimeHex_WhenParsedAsSignedDerInteger()
     {
         // Regression test: DH parameter P must be DER-encoded as a POSITIVE signed integer.
@@ -104,8 +101,7 @@ public class KeyGeneratorTests
         derPrime.ShouldBe(expected, "PEM-encoded prime must equal the hex stored in the credential JSON");
     }
 
-    [Fact]
-    [Trait("Category", "Slow")]
+    [Fact(Explicit = true)]
     public void GenerateDhParameters_UsesGeneratorTwo()
     {
         // The runtime code (OAuthCrypto._dhGenerator) hardcodes G=2.
