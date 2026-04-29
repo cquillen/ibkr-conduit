@@ -33,7 +33,8 @@ internal static class StreamingAndFlexRegistration
                 credentials,
                 sp.GetRequiredService<ISessionLifecycleNotifier>(),
                 sp.GetRequiredService<ILogger<IbkrWebSocketClient>>(),
-                () => new ClientWebSocketAdapter()));
+                () => new ClientWebSocketAdapter(),
+                TimeProvider.System));
         services.AddSingleton<IStreamingOperations>(sp =>
             new StreamingOperations(
                 sp.GetRequiredService<IIbkrWebSocketClient>()));
