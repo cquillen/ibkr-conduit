@@ -7,7 +7,17 @@ namespace IbkrConduit.Health;
 /// </summary>
 internal sealed class LastSuccessfulCallTracker
 {
+    private readonly TimeProvider _timeProvider;
     private long _lastSuccessfulCallTicks;
+
+    /// <summary>
+    /// Creates a new <see cref="LastSuccessfulCallTracker"/>.
+    /// </summary>
+    /// <param name="timeProvider">Time provider for recording timestamps; defaults to <see cref="TimeProvider.System"/>.</param>
+    public LastSuccessfulCallTracker(TimeProvider? timeProvider = null)
+    {
+        _timeProvider = timeProvider ?? TimeProvider.System;
+    }
 
     /// <summary>
     /// Gets the timestamp of the last successful API call, or null if none has been recorded.
@@ -22,10 +32,11 @@ internal sealed class LastSuccessfulCallTracker
     }
 
     /// <summary>
-    /// Records the current time as the last successful call timestamp.
+    /// Records the current time (per the injected <see cref="TimeProvider"/>)
+    /// as the last successful call timestamp.
     /// </summary>
     public void RecordSuccess() =>
-        Interlocked.Exchange(ref _lastSuccessfulCallTicks, DateTimeOffset.UtcNow.Ticks);
+        Interlocked.Exchange(ref _lastSuccessfulCallTicks, _timeProvider.GetUtcNow().UtcTicks);
 }
 
 /// <summary>

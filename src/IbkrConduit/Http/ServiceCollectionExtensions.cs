@@ -62,7 +62,7 @@ public static class ServiceCollectionExtensions
         StreamingAndFlexRegistration.Register(services, credentials, clientOptions, baseUrl);
 
         // Health check infrastructure
-        services.AddSingleton<LastSuccessfulCallTracker>();
+        services.AddSingleton(_ => new LastSuccessfulCallTracker(TimeProvider.System));
         services.AddSingleton(new HealthStatusOptions());
         services.AddSingleton<SessionHealthState>();
         services.AddSingleton<IHealthStatusCollector, HealthStatusCollector>();
