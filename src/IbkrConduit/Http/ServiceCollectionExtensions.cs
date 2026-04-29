@@ -1,6 +1,8 @@
 using System;
+using System.Threading.RateLimiting;
 using IbkrConduit.Accounts;
 using IbkrConduit.Alerts;
+using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
 using IbkrConduit.EventContracts;
@@ -10,6 +12,7 @@ using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
+using IbkrConduit.Streaming;
 using IbkrConduit.Watchlists;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -65,7 +68,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(_ => new LastSuccessfulCallTracker(TimeProvider.System));
         services.AddSingleton(new HealthStatusOptions());
         services.AddSingleton<SessionHealthState>();
-        services.AddSingleton<IHealthStatusCollector, HealthStatusCollector>();
+        services.AddSingleton<IHealthStatusCollector>(sp =>
+            new HealthStatusCollector(
+                sp.GetRequiredService<IIbkrSessionApi>(),
+                sp.GetRequiredService<ISessionTokenProvider>(),
+                sp.GetRequiredService<IIbkrWebSocketClient>(),
+                sp.GetRequiredService<LastSuccessfulCallTracker>(),
+                sp.GetRequiredService<RateLimiter>(),
+                sp.GetRequiredService<HealthStatusOptions>(),
+                sp.GetRequiredService<SessionHealthState>(),
+                TimeProvider.System));
 
         // Unified facade
         services.AddSingleton<IIbkrClient, IbkrClient>();
