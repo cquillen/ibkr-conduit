@@ -354,7 +354,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                             break;
                         }
 
-                        Interlocked.Exchange(ref _lastMessageReceivedAtTicks, DateTimeOffset.UtcNow.UtcTicks);
+                        Interlocked.Exchange(ref _lastMessageReceivedAtTicks, _timeProvider.GetUtcNow().UtcTicks);
 
                         var text = Encoding.UTF8.GetString(ms.ToArray());
                         ProcessMessage(text);
