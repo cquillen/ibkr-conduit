@@ -19,10 +19,10 @@ internal static class TimeProviderExtensions
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var registration = cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
         var timer = timeProvider.CreateTimer(
-            _ => { tcs.TrySetResult(); registration.Dispose(); },
+            _ => tcs.TrySetResult(),
             null, delay, Timeout.InfiniteTimeSpan);
         tcs.Task.ContinueWith(
-            _ => timer.Dispose(),
+            _ => { timer.Dispose(); registration.Dispose(); },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
