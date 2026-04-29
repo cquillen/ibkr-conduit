@@ -7,7 +7,6 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using IbkrConduit;
 using IbkrConduit.Auth;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
@@ -307,7 +306,7 @@ internal sealed partial class SessionManager : ISessionManager
     {
         try
         {
-            await _timeProvider.Delay(timeUntilRefresh, delayToken);
+            await Task.Delay(timeUntilRefresh, _timeProvider, delayToken);
             if (!_disposeCts.IsCancellationRequested)
             {
                 // Use the dispose token for re-auth, not the proactive refresh token.

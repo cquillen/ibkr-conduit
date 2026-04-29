@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Threading;
 using System.Threading.Tasks;
-using IbkrConduit;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Health;
 using Microsoft.Extensions.Logging;
@@ -134,7 +133,7 @@ internal sealed partial class TickleTimer : ITickleTimer
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            await _timeProvider.Delay(_intervalSeconds * 1000, cancellationToken);
+            await Task.Delay(TimeSpan.FromSeconds(_intervalSeconds), _timeProvider, cancellationToken);
 
             try
             {

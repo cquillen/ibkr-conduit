@@ -5,7 +5,6 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
-using IbkrConduit;
 using IbkrConduit.Auth;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Session;
@@ -294,7 +293,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             {
                 while (!ct.IsCancellationRequested)
                 {
-                    await _timeProvider.Delay(TimeSpan.FromSeconds(_heartbeatIntervalSeconds), ct);
+                    await Task.Delay(TimeSpan.FromSeconds(_heartbeatIntervalSeconds), _timeProvider, ct);
                     try
                     {
                         await SendTextAsync("tic", ct);
@@ -446,7 +445,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
             try
             {
-                await _timeProvider.Delay(_reconnectDelayMs, cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(_reconnectDelayMs), _timeProvider, cancellationToken);
                 await ConnectCoreAsync(cancellationToken);
 
                 // Replay active subscriptions

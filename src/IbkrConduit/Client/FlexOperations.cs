@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Xml.Linq;
-using IbkrConduit;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.Flex;
@@ -169,7 +168,7 @@ internal sealed partial class FlexOperations : IFlexOperations
                     var baseDelay = flexError.ErrorCode == _rateLimitErrorCode
                         ? _rateLimitDelayMs
                         : sendAttempt * 1000;
-                    await _timeProvider.Delay(ApplyJitter(baseDelay), cancellationToken);
+                    await Task.Delay(TimeSpan.FromMilliseconds(ApplyJitter(baseDelay)), _timeProvider, cancellationToken);
                     continue;
                 }
             }
@@ -313,7 +312,7 @@ internal sealed partial class FlexOperations : IFlexOperations
 
             var actualDelay = Math.Min(ApplyJitter(delayMs), remaining);
             LogTransientResponse(attempt, errorCode, lastErrorMessage, actualDelay, totalWaited);
-            await _timeProvider.Delay(actualDelay, cancellationToken);
+            await Task.Delay(TimeSpan.FromMilliseconds(actualDelay), _timeProvider, cancellationToken);
             totalWaited += actualDelay;
         }
 
