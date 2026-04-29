@@ -57,7 +57,9 @@ public class TickleTimerTests
         while (sessionApi.TickleCallCount < expectedCount)
         {
             if (DateTime.UtcNow > deadline)
+            {
                 throw new TimeoutException($"Expected {expectedCount} ticks but only saw {sessionApi.TickleCallCount}");
+            }
             cancellationToken.ThrowIfCancellationRequested();
             await Task.Yield();
         }

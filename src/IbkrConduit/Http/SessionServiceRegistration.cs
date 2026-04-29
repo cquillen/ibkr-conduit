@@ -95,6 +95,7 @@ internal static class SessionServiceRegistration
                 clientOptions,
                 sp.GetRequiredService<ISessionLifecycleNotifier>(),
                 sp.GetRequiredService<SessionHealthState>(),
-                sp.GetRequiredService<ILogger<SessionManager>>()));
+                sp.GetRequiredService<ILogger<SessionManager>>(),
+                TimeProvider.System));
     }
 }
