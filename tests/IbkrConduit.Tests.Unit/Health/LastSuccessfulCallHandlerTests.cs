@@ -4,13 +4,21 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Health;
+using Microsoft.Extensions.Time.Testing;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Health;
 
 public class LastSuccessfulCallHandlerTests
 {
-    private readonly LastSuccessfulCallTracker _tracker = new();
+    private readonly FakeTimeProvider _fakeTime = new(
+        new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
+    private readonly LastSuccessfulCallTracker _tracker;
+
+    public LastSuccessfulCallHandlerTests()
+    {
+        _tracker = new LastSuccessfulCallTracker(_fakeTime);
+    }
 
     [Fact]
     public async Task SuccessResponse_UpdatesTimestamp()
@@ -55,13 +63,13 @@ public class LastSuccessfulCallHandlerTests
         var first = _tracker.LastSuccessfulCall;
         first.ShouldNotBeNull();
 
-        await Task.Delay(10, TestContext.Current.CancellationToken);
+        _fakeTime.Advance(TimeSpan.FromSeconds(5));
 
         await client.GetAsync("http://localhost/second", TestContext.Current.CancellationToken);
         var second = _tracker.LastSuccessfulCall;
         second.ShouldNotBeNull();
 
-        second!.Value.ShouldBeGreaterThanOrEqualTo(first!.Value);
+        second!.Value.ShouldBe(first!.Value + TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -82,6 +90,20 @@ public class LastSuccessfulCallHandlerTests
         await client.GetAsync("http://localhost/fail", TestContext.Current.CancellationToken);
 
         _tracker.LastSuccessfulCall.ShouldBe(afterSuccess);
+    }
+
+    [Fact]
+    public async Task SuccessResponse_StampsLastSuccessfulCall_FromTimeProvider()
+    {
+        var handler = new LastSuccessfulCallHandler(_tracker)
+        {
+            InnerHandler = new FakeHandler(HttpStatusCode.OK),
+        };
+        using var client = new HttpClient(handler);
+
+        await client.GetAsync("http://localhost/test", TestContext.Current.CancellationToken);
+
+        _tracker.LastSuccessfulCall.ShouldBe(_fakeTime.GetUtcNow());
     }
 
     private sealed class FakeHandler(HttpStatusCode statusCode) : HttpMessageHandler
