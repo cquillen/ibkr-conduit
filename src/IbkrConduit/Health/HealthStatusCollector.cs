@@ -21,6 +21,7 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
     private readonly RateLimiter _globalLimiter;
     private readonly HealthStatusOptions _options;
     private readonly SessionHealthState _sessionHealthState;
+    private readonly TimeProvider _timeProvider;
 
     /// <summary>
     /// Creates a new <see cref="HealthStatusCollector"/>.
@@ -32,6 +33,7 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
     /// <param name="globalLimiter">Global rate limiter instance.</param>
     /// <param name="options">Health check threshold configuration.</param>
     /// <param name="sessionHealthState">Cached session health state from tickle timer.</param>
+    /// <param name="timeProvider">Time provider for staleness and expiry math; defaults to <see cref="TimeProvider.System"/>.</param>
     public HealthStatusCollector(
         IIbkrSessionApi sessionApi,
         ISessionTokenProvider tokenProvider,
@@ -39,7 +41,8 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
         LastSuccessfulCallTracker lastCallTracker,
         RateLimiter globalLimiter,
         HealthStatusOptions options,
-        SessionHealthState sessionHealthState)
+        SessionHealthState sessionHealthState,
+        TimeProvider? timeProvider = null)
     {
         _sessionApi = sessionApi;
         _tokenProvider = tokenProvider;
@@ -48,6 +51,7 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
         _globalLimiter = globalLimiter;
         _options = options;
         _sessionHealthState = sessionHealthState;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -65,7 +69,7 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
         var token = CollectTokenHealth();
         var rateLimiter = CollectRateLimiterHealth();
         var lastCall = _lastCallTracker.LastSuccessfulCall;
-        var now = DateTimeOffset.UtcNow;
+        var now = _timeProvider.GetUtcNow();
 
         var overallStatus = EvaluateOverallStatus(session, streaming, token, rateLimiter, lastCall, now);
         activity?.SetTag("overallStatus", overallStatus.ToString());
@@ -128,7 +132,7 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
             return new OAuthTokenHealth(IsExpired: false, TimeUntilExpiry: null);
         }
 
-        var remaining = expiry.Value - DateTimeOffset.UtcNow;
+        var remaining = expiry.Value - _timeProvider.GetUtcNow();
         return new OAuthTokenHealth(
             IsExpired: remaining <= TimeSpan.Zero,
             TimeUntilExpiry: remaining);
