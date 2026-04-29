@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Xml.Linq;
+using IbkrConduit;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.Flex;
@@ -47,6 +48,7 @@ internal sealed partial class FlexOperations : IFlexOperations
     private readonly FlexClient? _flexClient;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<FlexOperations> _logger;
+    private readonly TimeProvider _timeProvider;
 
     /// <summary>
     /// Creates a new <see cref="FlexOperations"/> instance.
@@ -55,14 +57,17 @@ internal sealed partial class FlexOperations : IFlexOperations
     /// <param name="options">Client options — used for <see cref="IbkrClientOptions.FlexPollTimeout"/>
     /// and <see cref="IbkrClientOptions.ThrowOnApiError"/>.</param>
     /// <param name="logger">Logger for query lifecycle events.</param>
+    /// <param name="timeProvider">Time provider for delay operations. Defaults to <see cref="TimeProvider.System"/> when null.</param>
     public FlexOperations(
         FlexClient? flexClient,
         IbkrClientOptions options,
-        ILogger<FlexOperations> logger)
+        ILogger<FlexOperations> logger,
+        TimeProvider? timeProvider = null)
     {
         _flexClient = flexClient;
         _options = options;
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -164,7 +169,7 @@ internal sealed partial class FlexOperations : IFlexOperations
                     var baseDelay = flexError.ErrorCode == _rateLimitErrorCode
                         ? _rateLimitDelayMs
                         : sendAttempt * 1000;
-                    await Task.Delay(ApplyJitter(baseDelay), cancellationToken);
+                    await _timeProvider.Delay(ApplyJitter(baseDelay), cancellationToken);
                     continue;
                 }
             }
@@ -308,7 +313,7 @@ internal sealed partial class FlexOperations : IFlexOperations
 
             var actualDelay = Math.Min(ApplyJitter(delayMs), remaining);
             LogTransientResponse(attempt, errorCode, lastErrorMessage, actualDelay, totalWaited);
-            await Task.Delay(actualDelay, cancellationToken);
+            await _timeProvider.Delay(actualDelay, cancellationToken);
             totalWaited += actualDelay;
         }
 

@@ -94,7 +94,8 @@ internal static class StreamingAndFlexRegistration
                 new FlexOperations(
                     sp.GetRequiredService<FlexClient>(),
                     clientOptions,
-                    sp.GetRequiredService<ILogger<FlexOperations>>()));
+                    sp.GetRequiredService<ILogger<FlexOperations>>(),
+                    TimeProvider.System));
         }
         else
         {
@@ -102,7 +103,8 @@ internal static class StreamingAndFlexRegistration
                 new FlexOperations(
                     null,
                     clientOptions,
-                    sp.GetRequiredService<ILogger<FlexOperations>>()));
+                    sp.GetRequiredService<ILogger<FlexOperations>>(),
+                    TimeProvider.System));
         }
     }
 }
