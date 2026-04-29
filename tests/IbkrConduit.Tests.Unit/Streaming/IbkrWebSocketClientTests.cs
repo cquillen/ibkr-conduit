@@ -377,6 +377,57 @@ public class IbkrWebSocketClientTests
         _adapter.ConnectCallCount.ShouldBe(count);
     }
 
+    [Fact]
+    public async Task ReceiveMessage_StampsLastMessageReceivedAt_FromTimeProvider()
+    {
+        var fakeTime = new FakeTimeProvider(
+            new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
+        await using var client = CreateClient(fakeTime);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        client.LastMessageReceivedAt.ShouldBeNull();
+
+        _adapter.EnqueueServerMessage("{\"topic\":\"smd+100\",\"data\":{}}");
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (client.LastMessageReceivedAt is null && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        client.LastMessageReceivedAt.ShouldBe(fakeTime.GetUtcNow());
+    }
+
+    [Fact]
+    public async Task ReceiveMessage_AfterClockAdvance_StampsNewTime()
+    {
+        var start = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
+        var fakeTime = new FakeTimeProvider(start);
+        await using var client = CreateClient(fakeTime);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        _adapter.EnqueueServerMessage("{\"topic\":\"smd+100\",\"data\":{}}");
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (client.LastMessageReceivedAt is null && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        var first = client.LastMessageReceivedAt;
+        first.ShouldBe(start);
+
+        fakeTime.Advance(TimeSpan.FromMinutes(7));
+
+        _adapter.EnqueueServerMessage("{\"topic\":\"smd+100\",\"data\":{}}");
+        deadline = DateTime.UtcNow.AddSeconds(5);
+        while (client.LastMessageReceivedAt == first && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        client.LastMessageReceivedAt.ShouldBe(start.AddMinutes(7));
+    }
+
     private IbkrWebSocketClient CreateClient(TimeProvider? timeProvider = null) =>
         new(
             _sessionApi,
