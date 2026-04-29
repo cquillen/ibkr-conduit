@@ -58,7 +58,8 @@ internal static class SessionServiceRegistration
             new TickleTimerFactory(
                 sp.GetRequiredService<SessionHealthState>(),
                 sp.GetRequiredService<ILogger<TickleTimer>>(),
-                clientOptions.TickleIntervalSeconds));
+                clientOptions.TickleIntervalSeconds,
+                TimeProvider.System));
 
         // Internal session API client:
         //   GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
