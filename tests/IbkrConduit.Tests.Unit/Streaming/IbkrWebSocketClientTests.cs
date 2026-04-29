@@ -7,6 +7,7 @@ using IbkrConduit.Auth;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Streaming;
@@ -47,15 +48,12 @@ public class IbkrWebSocketClientTests
     [Fact]
     public async Task ConnectAsync_StartsHeartbeatAndMessagePump()
     {
-        await using var client = CreateClient();
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
 
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
-        // Give the heartbeat loop a moment to fire (interval is 10s but we just
-        // verify the background tasks started without throwing)
-        await Task.Delay(50, TestContext.Current.CancellationToken);
-
-        // The client should still be in a healthy state (no crash)
+        // Heartbeat loop started but won't tick until clock is advanced.
         _adapter.State.ShouldBe(System.Net.WebSockets.WebSocketState.Open);
     }
 
@@ -132,7 +130,8 @@ public class IbkrWebSocketClientTests
     [Fact]
     public async Task ReconnectAsync_ReplaysActiveSubscriptions()
     {
-        await using var client = CreateClient();
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var sub1 = "smd+100+{}";
@@ -142,18 +141,24 @@ public class IbkrWebSocketClientTests
         var (_, unsub2) = await client.SubscribeTopicAsync(sub2, "sor",
             TestContext.Current.CancellationToken);
 
-        // Clear sent messages and trigger reconnect via session refresh
         while (_adapter.SentMessages.TryDequeue(out _))
         {
         }
 
-        // Trigger reconnect by notifying session refresh
-        await _notifier.TriggerRefreshAsync(TestContext.Current.CancellationToken);
+        // Run trigger in background so we can pump the clock concurrently.
+        var ct = TestContext.Current.CancellationToken;
+        var reconnectTask = Task.Run(
+            () => _notifier.TriggerRefreshAsync(ct), ct);
 
-        // Wait a moment for the reconnect to replay
-        await Task.Delay(200, TestContext.Current.CancellationToken);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!reconnectTask.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
 
-        // After reconnect, subscriptions should be replayed
+        await reconnectTask;
+
         var sent = _adapter.SentMessages.ToArray();
         sent.ShouldContain(sub1);
         sent.ShouldContain(sub2);
@@ -188,32 +193,43 @@ public class IbkrWebSocketClientTests
     [Fact]
     public async Task OnSessionRefreshed_TriggersReconnect()
     {
-        await using var client = CreateClient();
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
-        var originalUri = _adapter.ConnectedUri;
+        var ct = TestContext.Current.CancellationToken;
+        var reconnectTask = Task.Run(
+            () => _notifier.TriggerRefreshAsync(ct), ct);
 
-        // Trigger session refresh notification
-        await _notifier.TriggerRefreshAsync(TestContext.Current.CancellationToken);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!reconnectTask.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
 
-        // Wait for reconnect to complete
-        await Task.Delay(200, TestContext.Current.CancellationToken);
+        await reconnectTask;
 
-        // ConnectAsync should have been called again (adapter was re-created via factory)
         _adapter.ConnectedUri.ShouldNotBeNull();
     }
 
     [Fact]
     public async Task HeartbeatSendFailure_TriggersReconnect()
     {
-        await using var client = CreateClient();
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
-        // Any send after this will throw WebSocketException
         _adapter.FailSendAfterCount = 0;
 
-        // Heartbeat fires every 10s; wait for tick + reconnect delay (1s) + margin
-        await Task.Delay(12_000, TestContext.Current.CancellationToken);
+        // Pump: advance 1s at a time. After 10s heartbeat fires → send fails →
+        // reconnect spawned. After 1 more second reconnect delay fires → connect again.
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (_adapter.ConnectCallCount < 2 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
 
         _adapter.ConnectCallCount.ShouldBeGreaterThanOrEqualTo(2);
     }
@@ -299,16 +315,22 @@ public class IbkrWebSocketClientTests
     [Fact]
     public async Task ServerCloseFrame_TriggersReconnect()
     {
-        await using var client = CreateClient();
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
-        // Allow message pump to start receiving
-        await Task.Delay(100, TestContext.Current.CancellationToken);
-
+        // Wait for the message pump task to start and reach ReceiveAsync before signalling close.
+        // Without this, the pump may see State != Open at the top of its loop and exit without
+        // scheduling ReconnectAsync.
+        await _adapter.WaitForReceiveAsync(TestContext.Current.CancellationToken);
         _adapter.SignalClose();
 
-        // Reconnect has a 1000ms delay; give generous margin
-        await Task.Delay(3000, TestContext.Current.CancellationToken);
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (_adapter.ConnectCallCount < 2 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
 
         _adapter.ConnectCallCount.ShouldBeGreaterThanOrEqualTo(2);
     }
@@ -316,17 +338,22 @@ public class IbkrWebSocketClientTests
     [Fact]
     public async Task ReconnectFailure_DoesNotCrash()
     {
-        await using var client = CreateClient();
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
-        // Allow message pump to start receiving
-        await Task.Delay(100, TestContext.Current.CancellationToken);
-
         _adapter.FailOnConnect = true;
+
+        // Wait for the message pump task to start and reach ReceiveAsync before signalling close.
+        await _adapter.WaitForReceiveAsync(TestContext.Current.CancellationToken);
         _adapter.SignalClose();
 
-        // Reconnect has a 1000ms delay; give generous margin
-        await Task.Delay(3000, TestContext.Current.CancellationToken);
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (_adapter.ConnectCallCount < 2 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
 
         _adapter.State.ShouldNotBe(System.Net.WebSockets.WebSocketState.Open);
     }
@@ -335,27 +362,29 @@ public class IbkrWebSocketClientTests
     public async Task SessionRefreshAfterDispose_DoesNotReconnect()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var client = CreateClient();
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
         await client.ConnectAsync(ct);
 
         var count = _adapter.ConnectCallCount;
 
         await client.DisposeAsync();
 
+        // OnSessionRefreshedAsync returns immediately when disposed — no reconnect.
         await _notifier.TriggerRefreshAsync(ct);
-
-        await Task.Delay(200, ct);
+        await Task.Yield();
 
         _adapter.ConnectCallCount.ShouldBe(count);
     }
 
-    private IbkrWebSocketClient CreateClient() =>
+    private IbkrWebSocketClient CreateClient(TimeProvider? timeProvider = null) =>
         new(
             _sessionApi,
             _credentials,
             _notifier,
             NullLogger<IbkrWebSocketClient>.Instance,
-            () => _adapter);
+            () => _adapter,
+            timeProvider);
 
     internal class FakeSessionApi : IIbkrSessionApi
     {

@@ -5,6 +5,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
+using IbkrConduit;
 using IbkrConduit.Auth;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Session;
@@ -40,6 +41,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly ISessionLifecycleNotifier _notifier;
     private readonly ILogger<IbkrWebSocketClient> _logger;
     private readonly Func<IWebSocketAdapter> _webSocketFactory;
+    private readonly TimeProvider _timeProvider;
     private readonly ConcurrentDictionary<string, List<ChannelWriter<JsonElement>>> _subscribers = new();
     private readonly List<string> _activeSubscriptions = [];
     private readonly SemaphoreSlim _connectLock = new(1, 1);
@@ -67,18 +69,21 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <param name="notifier">Session lifecycle notifier for reconnect on re-auth.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="webSocketFactory">Factory for creating WebSocket adapter instances.</param>
+    /// <param name="timeProvider">Time provider for delays; defaults to <see cref="TimeProvider.System"/>.</param>
     public IbkrWebSocketClient(
         IIbkrSessionApi sessionApi,
         IbkrOAuthCredentials credentials,
         ISessionLifecycleNotifier notifier,
         ILogger<IbkrWebSocketClient> logger,
-        Func<IWebSocketAdapter> webSocketFactory)
+        Func<IWebSocketAdapter> webSocketFactory,
+        TimeProvider? timeProvider = null)
     {
         _sessionApi = sessionApi;
         _credentials = credentials;
         _notifier = notifier;
         _logger = logger;
         _webSocketFactory = webSocketFactory;
+        _timeProvider = timeProvider ?? TimeProvider.System;
 
         IbkrConduitDiagnostics.Meter.CreateObservableGauge(
             "ibkr.conduit.websocket.connection_state",
@@ -285,11 +290,11 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         _ = Task.Run(async () =>
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_heartbeatIntervalSeconds));
             try
             {
-                while (await timer.WaitForNextTickAsync(ct))
+                while (!ct.IsCancellationRequested)
                 {
+                    await _timeProvider.Delay(TimeSpan.FromSeconds(_heartbeatIntervalSeconds), ct);
                     try
                     {
                         await SendTextAsync("tic", ct);
@@ -441,7 +446,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
             try
             {
-                await Task.Delay(_reconnectDelayMs, cancellationToken);
+                await _timeProvider.Delay(_reconnectDelayMs, cancellationToken);
                 await ConnectCoreAsync(cancellationToken);
 
                 // Replay active subscriptions

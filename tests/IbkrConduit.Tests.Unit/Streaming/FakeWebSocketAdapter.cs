@@ -18,6 +18,7 @@ internal sealed class FakeWebSocketAdapter : IWebSocketAdapter
     private readonly ConcurrentQueue<byte[]> _inboundMessages = new();
     private readonly ConcurrentQueue<string> _sentMessages = new();
     private readonly SemaphoreSlim _inboundSignal = new(0);
+    private readonly SemaphoreSlim _receiveStartedSignal = new(0);
     private WebSocketState _state = WebSocketState.None;
     private bool _failOnConnect;
     private int _sendCount;
@@ -73,6 +74,7 @@ internal sealed class FakeWebSocketAdapter : IWebSocketAdapter
     public async ValueTask<ValueWebSocketReceiveResult> ReceiveAsync(
         Memory<byte> buffer, CancellationToken cancellationToken)
     {
+        _receiveStartedSignal.Release();
         await _inboundSignal.WaitAsync(cancellationToken);
 
         if (_state != WebSocketState.Open)
@@ -117,6 +119,13 @@ internal sealed class FakeWebSocketAdapter : IWebSocketAdapter
         _state = WebSocketState.CloseReceived;
         _inboundSignal.Release();
     }
+
+    /// <summary>
+    /// Returns a task that completes the next time <see cref="ReceiveAsync"/> is called,
+    /// confirming the message pump is running and waiting for data.
+    /// </summary>
+    public async Task WaitForReceiveAsync(CancellationToken cancellationToken) =>
+        await _receiveStartedSignal.WaitAsync(cancellationToken);
 
     public ValueTask DisposeAsync()
     {
