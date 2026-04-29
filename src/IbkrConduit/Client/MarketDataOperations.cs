@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Text.Json;
+using IbkrConduit;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.MarketData;
@@ -43,6 +44,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     private readonly IbkrClientOptions _options;
     private readonly ILogger<MarketDataOperations> _logger;
     private readonly MemoryCache _preflightCache;
+    private readonly TimeProvider _timeProvider;
 
     /// <summary>
     /// Creates a new <see cref="MarketDataOperations"/> instance.
@@ -50,14 +52,17 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     /// <param name="api">The Refit market data API client.</param>
     /// <param name="options">Client options for pre-flight cache duration.</param>
     /// <param name="logger">Logger instance.</param>
+    /// <param name="timeProvider">Time provider for delay abstraction; defaults to <see cref="TimeProvider.System"/>.</param>
     public MarketDataOperations(
         IIbkrMarketDataApi api,
         IbkrClientOptions options,
-        ILogger<MarketDataOperations> logger)
+        ILogger<MarketDataOperations> logger,
+        TimeProvider? timeProvider = null)
     {
         _api = api;
         _options = options;
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         // MemoryCache doesn't support global default expiration — it's set per-entry
         // in GetSnapshotAsync using _options.PreflightCacheDuration
         _preflightCache = new MemoryCache(new MemoryCacheOptions());
@@ -103,7 +108,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
             var preflightConidsStr = string.Join(",", preflightNeeded);
             LogPreflightRetry(preflightConidsStr, _preflightDelayMs);
 
-            await Task.Delay(_preflightDelayMs, cancellationToken);
+            await _timeProvider.Delay(_preflightDelayMs, cancellationToken);
 
             var retryResponse = await _api.GetSnapshotAsync(conidsStr, fieldsStr, cancellationToken);
             var retryResult = ResultFactory.FromResponse(retryResponse, retryResponse.RequestMessage?.RequestUri?.AbsolutePath);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
@@ -7,6 +8,7 @@ using IbkrConduit.MarketData;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using Refit;
 using Shouldly;
 
@@ -22,7 +24,8 @@ public class MarketDataOperationsTests : IDisposable
         _sut = new MarketDataOperations(
             _fakeApi,
             new IbkrClientOptions(),
-            NullLogger<MarketDataOperations>.Instance);
+            NullLogger<MarketDataOperations>.Instance,
+            TimeProvider.System);
     }
 
     [Fact]
@@ -100,6 +103,47 @@ public class MarketDataOperationsTests : IDisposable
         result.Value.Contracts.Contract!.Count.ShouldBe(1);
     }
 
+    [Fact]
+    public async Task GetSnapshotAsync_WhenPreflightNeeded_WaitsDelayThenRetries()
+    {
+        var fakeTime = new FakeTimeProvider();
+        using var sut = new MarketDataOperations(
+            _fakeApi,
+            new IbkrClientOptions(),
+            NullLogger<MarketDataOperations>.Instance,
+            fakeTime);
+
+        // First call: no Fields — triggers preflight (HasFieldData returns false).
+        _fakeApi.SnapshotFirstResponse =
+        [
+            new MarketDataSnapshotRaw(265598, null, null, null, null),
+        ];
+
+        // Retry call: has non-metadata field "31" — no further preflight.
+        _fakeApi.SnapshotRetryResponse =
+        [
+            new MarketDataSnapshotRaw(265598, null, 1702334859712L, null, null)
+            {
+                Fields = new Dictionary<string, JsonElement>
+                {
+                    ["31"] = JsonDocument.Parse("\"150.25\"").RootElement,
+                },
+            },
+        ];
+
+        // Start snapshot — blocks on the fake 500ms preflight delay.
+        var snapshotTask = sut.GetSnapshotAsync(
+            [265598], ["31"], TestContext.Current.CancellationToken);
+
+        // Advance 500ms to fire the preflight delay.
+        fakeTime.Advance(TimeSpan.FromMilliseconds(500));
+
+        var result = await snapshotTask;
+
+        result.IsSuccess.ShouldBeTrue();
+        _fakeApi.SnapshotCallCount.ShouldBe(2, "should have called API twice: first + preflight retry");
+    }
+
     public void Dispose()
     {
         _sut.Dispose();
@@ -107,16 +151,29 @@ public class MarketDataOperationsTests : IDisposable
 
     private class FakeMarketDataApi : IIbkrMarketDataApi
     {
+        private int _snapshotCallCount;
+
         public MarketDataSnapshotRaw? RegulatorySnapshotResponse { get; set; }
         public UnsubscribeResponse? UnsubscribeResponseValue { get; set; }
         public UnsubscribeAllResponse? UnsubscribeAllResponseValue { get; set; }
         public ScannerResponse? ScannerResponseValue { get; set; }
         public ScannerParameters? ScannerParametersValue { get; set; }
         public HmdsScannerResponse? HmdsScannerResponseValue { get; set; }
+        public List<MarketDataSnapshotRaw>? SnapshotFirstResponse { get; set; }
+        public List<MarketDataSnapshotRaw>? SnapshotRetryResponse { get; set; }
+        public int SnapshotCallCount => _snapshotCallCount;
 
         public Task<IApiResponse<List<MarketDataSnapshotRaw>>> GetSnapshotAsync(
-            string conids, string fields, CancellationToken cancellationToken = default) =>
-            Task.FromResult(FakeApiResponse.Success(new List<MarketDataSnapshotRaw>()));
+            string conids, string fields, CancellationToken cancellationToken = default)
+        {
+            var callNumber = Interlocked.Increment(ref _snapshotCallCount);
+            var response = callNumber == 1
+                ? SnapshotFirstResponse ?? []
+                : callNumber == 2
+                    ? SnapshotRetryResponse ?? []
+                    : [];
+            return Task.FromResult(FakeApiResponse.Success(response));
+        }
 
         public Task<IApiResponse<HistoricalDataResponse>> GetHistoryAsync(
             string conid, string period, string bar, bool? outsideRth = null,
