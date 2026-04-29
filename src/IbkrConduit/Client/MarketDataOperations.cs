@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Text.Json;
-using IbkrConduit;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.MarketData;
@@ -108,7 +107,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
             var preflightConidsStr = string.Join(",", preflightNeeded);
             LogPreflightRetry(preflightConidsStr, _preflightDelayMs);
 
-            await _timeProvider.Delay(_preflightDelayMs, cancellationToken);
+            await Task.Delay(TimeSpan.FromMilliseconds(_preflightDelayMs), _timeProvider, cancellationToken);
 
             var retryResponse = await _api.GetSnapshotAsync(conidsStr, fieldsStr, cancellationToken);
             var retryResult = ResultFactory.FromResponse(retryResponse, retryResponse.RequestMessage?.RequestUri?.AbsolutePath);
