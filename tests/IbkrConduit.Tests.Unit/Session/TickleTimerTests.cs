@@ -35,13 +35,15 @@ public class TickleTimerTests
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         await timer.StartAsync(cts.Token);
 
-        // Advance clock and wait for the first tickle to be processed
-        fakeTime.Advance(TimeSpan.FromSeconds(1));
-        await WaitForTickleCount(sessionApi, 1, TestContext.Current.CancellationToken);
-
-        // Advance clock again and wait for the second tickle
-        fakeTime.Advance(TimeSpan.FromSeconds(1));
-        await WaitForTickleCount(sessionApi, 2, TestContext.Current.CancellationToken);
+        // Pump: advance 1s at a time until 2 ticks are observed.
+        // If RunAsync hasn't re-registered its next timer yet when we advance,
+        // the loop advances again on the next iteration — reliable without real delays.
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (sessionApi.TickleCallCount < 2 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
 
         await timer.StopAsync();
 
