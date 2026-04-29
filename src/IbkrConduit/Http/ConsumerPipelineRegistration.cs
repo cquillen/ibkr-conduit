@@ -56,7 +56,12 @@ internal static class ConsumerPipelineRegistration
         services.AddSingleton<IPortfolioOperations, PortfolioOperations>();
         services.AddSingleton<IContractOperations, ContractOperations>();
         services.AddSingleton<IOrderOperations, OrderOperations>();
-        services.AddSingleton<IMarketDataOperations, MarketDataOperations>();
+        services.AddSingleton<IMarketDataOperations>(sp =>
+            new MarketDataOperations(
+                sp.GetRequiredService<IIbkrMarketDataApi>(),
+                clientOptions,
+                sp.GetRequiredService<ILogger<MarketDataOperations>>(),
+                TimeProvider.System));
         services.AddSingleton<IAccountOperations, AccountOperations>();
         services.AddSingleton<IAlertOperations, AlertOperations>();
         services.AddSingleton<IWatchlistOperations, WatchlistOperations>();
