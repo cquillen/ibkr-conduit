@@ -11,6 +11,7 @@ using IbkrConduit.Errors;
 using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Session;
@@ -641,10 +642,12 @@ public class SessionManagerTests
     [Fact]
     public async Task ProactiveRefresh_CompletesReauthWithoutCancellation()
     {
+        var fakeTime = new FakeTimeProvider();
         var deps = CreateDependencies();
-        deps.TokenProvider.TokenLifetime = TimeSpan.FromSeconds(2);
+        deps.TokenProvider = new FakeSessionTokenProvider(fakeTime);
+        deps.TokenProvider.TokenLifetime = TimeSpan.FromSeconds(10);
         deps.TokenProvider.SimulateAsyncRefresh = true;
-        deps.Options.ProactiveRefreshMargin = TimeSpan.FromMilliseconds(1500);
+        deps.Options.ProactiveRefreshMargin = TimeSpan.FromSeconds(8);
 
         await using var manager = new SessionManager(
             deps.TokenProvider,
@@ -653,16 +656,20 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            fakeTime);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+        // Token lifetime = 10s, margin = 8s → timeUntilRefresh = 2s on the fake clock.
+        // Advance 2s to trigger proactive refresh.
+        fakeTime.Advance(TimeSpan.FromSeconds(2));
 
-        // Token expires in 2s, margin is 1.5s → refresh fires in ~0.5s
-        // Wait for the proactive refresh to complete
-        await Task.Delay(2000, TestContext.Current.CancellationToken);
+        // Wait for the background reauth to complete.
+        // SecondInitTask completes as soon as InitCallCount reaches 2, which is the reliable
+        // signal that the full reauth cycle (RefreshAsync + InitializeBrokerageSessionAsync)
+        // has completed. WaitAsync ties the wait to the test CancellationToken for safety.
+        await deps.SessionApi.SecondInitTask.WaitAsync(TestContext.Current.CancellationToken);
 
-        // The refresh should have called RefreshAsync (re-acquire LST)
-        // and InitializeBrokerageSessionAsync (re-init session)
         deps.TokenProvider.RefreshCallCount.ShouldBeGreaterThanOrEqualTo(1,
             "Proactive refresh should have called RefreshAsync");
         deps.SessionApi.InitCallCount.ShouldBeGreaterThanOrEqualTo(2,
@@ -673,7 +680,7 @@ public class SessionManagerTests
 
     private class TestDependencies
     {
-        public FakeSessionTokenProvider TokenProvider { get; } = new();
+        public FakeSessionTokenProvider TokenProvider { get; set; } = new();
         public FakeTickleTimerFactory TickleTimerFactory { get; } = new();
         public FakeSessionApi SessionApi { get; } = new();
         public FakeLifecycleNotifier Notifier { get; } = new();
@@ -683,10 +690,17 @@ public class SessionManagerTests
 
     internal class FakeSessionTokenProvider : ISessionTokenProvider
     {
+        private readonly TimeProvider _timeProvider;
+
+        public FakeSessionTokenProvider(TimeProvider? timeProvider = null)
+        {
+            _timeProvider = timeProvider ?? TimeProvider.System;
+        }
+
         public int GetCallCount { get; private set; }
         public int RefreshCallCount { get; private set; }
 
-        public DateTimeOffset? CurrentTokenExpiry => DateTimeOffset.UtcNow.Add(TokenLifetime);
+        public DateTimeOffset? CurrentTokenExpiry => _timeProvider.GetUtcNow().Add(TokenLifetime);
 
         /// <summary>Token expiry for newly created tokens. Default 24 hours.</summary>
         public TimeSpan TokenLifetime { get; set; } = TimeSpan.FromHours(24);
@@ -707,7 +721,7 @@ public class SessionManagerTests
 
             return Task.FromResult(new LiveSessionToken(
                 new byte[] { 0x01, 0x02, 0x03 },
-                DateTimeOffset.UtcNow.Add(TokenLifetime)));
+                _timeProvider.GetUtcNow().Add(TokenLifetime)));
         }
 
         /// <summary>When true, RefreshAsync yields before returning to simulate real async work.</summary>
@@ -730,7 +744,7 @@ public class SessionManagerTests
 
             return new LiveSessionToken(
                 new byte[] { 0x04, 0x05, 0x06 },
-                DateTimeOffset.UtcNow.Add(TokenLifetime));
+                _timeProvider.GetUtcNow().Add(TokenLifetime));
         }
     }
 
@@ -783,6 +797,8 @@ public class SessionManagerTests
 
     internal class FakeSessionApi : IIbkrSessionApi
     {
+        private readonly TaskCompletionSource _secondInitTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public int InitCallCount { get; private set; }
         public int SuppressCallCount { get; private set; }
         public int LogoutCallCount { get; private set; }
@@ -793,10 +809,18 @@ public class SessionManagerTests
         /// <summary>If set, InitializeBrokerageSessionAsync throws this exception.</summary>
         public Exception? InitException { get; set; }
 
+        /// <summary>Completes when <see cref="InitCallCount"/> reaches 2 (first re-auth).</summary>
+        public Task SecondInitTask => _secondInitTcs.Task;
+
         public Task<SsodhInitResponse> InitializeBrokerageSessionAsync(SsodhInitRequest request, CancellationToken cancellationToken = default)
         {
             InitCallCount++;
             LastInitRequest = request;
+            if (InitCallCount >= 2)
+            {
+                _secondInitTcs.TrySetResult();
+            }
+
             if (InitException != null)
             {
                 throw InitException;

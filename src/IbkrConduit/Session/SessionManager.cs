@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit;
 using IbkrConduit.Auth;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
@@ -40,6 +41,7 @@ internal sealed partial class SessionManager : ISessionManager
     private readonly ISessionLifecycleNotifier _notifier;
     private readonly SessionHealthState _sessionHealthState;
     private readonly ILogger<SessionManager> _logger;
+    private readonly TimeProvider _timeProvider;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly CancellationTokenSource _disposeCts = new();
 
@@ -60,7 +62,8 @@ internal sealed partial class SessionManager : ISessionManager
         IbkrClientOptions options,
         ISessionLifecycleNotifier notifier,
         SessionHealthState sessionHealthState,
-        ILogger<SessionManager> logger)
+        ILogger<SessionManager> logger,
+        TimeProvider? timeProvider = null)
     {
         _sessionTokenProvider = sessionTokenProvider;
         _tickleTimerFactory = tickleTimerFactory;
@@ -69,6 +72,7 @@ internal sealed partial class SessionManager : ISessionManager
         _notifier = notifier;
         _sessionHealthState = sessionHealthState;
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -280,7 +284,7 @@ internal sealed partial class SessionManager : ISessionManager
 
         CancelProactiveRefresh();
 
-        var timeUntilRefresh = _currentLst.Expiry - DateTimeOffset.UtcNow - _options.ProactiveRefreshMargin;
+        var timeUntilRefresh = _currentLst.Expiry - _timeProvider.GetUtcNow() - _options.ProactiveRefreshMargin;
         if (timeUntilRefresh <= TimeSpan.Zero)
         {
             return;
@@ -298,7 +302,7 @@ internal sealed partial class SessionManager : ISessionManager
         {
             try
             {
-                await Task.Delay(timeUntilRefresh, delayToken);
+                await _timeProvider.Delay(timeUntilRefresh, delayToken);
                 if (!_disposeCts.IsCancellationRequested)
                 {
                     // Use the dispose token for re-auth, not the proactive refresh token.
