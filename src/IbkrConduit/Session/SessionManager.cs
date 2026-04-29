@@ -296,31 +296,35 @@ internal sealed partial class SessionManager : ISessionManager
             _proactiveRefreshCts = cts;
         }
 
-        var delayToken = cts.Token;
+        // Call the async method directly (not via Task.Run) so the Task.Delay timer
+        // is registered synchronously before this method returns. With Task.Run, the
+        // body is queued to the thread pool and may not register its timer before a
+        // test that advances a FakeTimeProvider, causing a missed-Advance hang.
+        _ = RunProactiveRefreshAsync(timeUntilRefresh, cts.Token);
+    }
 
-        _ = Task.Run(async () =>
+    private async Task RunProactiveRefreshAsync(TimeSpan timeUntilRefresh, CancellationToken delayToken)
+    {
+        try
         {
-            try
+            await _timeProvider.Delay(timeUntilRefresh, delayToken);
+            if (!_disposeCts.IsCancellationRequested)
             {
-                await _timeProvider.Delay(timeUntilRefresh, delayToken);
-                if (!_disposeCts.IsCancellationRequested)
-                {
-                    // Use the dispose token for re-auth, not the proactive refresh token.
-                    // ReauthenticateAsync calls CancelProactiveRefresh() which cancels
-                    // _proactiveRefreshCts — using that token here would cancel the
-                    // very operation we're trying to perform.
-                    await ReauthenticateAsync(_disposeCts.Token);
-                }
+                // Use the dispose token for re-auth, not the proactive refresh token.
+                // ReauthenticateAsync calls CancelProactiveRefresh() which cancels
+                // _proactiveRefreshCts — using that token here would cancel the
+                // very operation we're trying to perform.
+                await ReauthenticateAsync(_disposeCts.Token);
             }
-            catch (OperationCanceledException)
-            {
-                // Expected on shutdown
-            }
-            catch (Exception ex)
-            {
-                LogProactiveRefreshFailed(ex);
-            }
-        }, delayToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on shutdown
+        }
+        catch (Exception ex)
+        {
+            LogProactiveRefreshFailed(ex);
+        }
     }
 
     private void CancelProactiveRefresh()
