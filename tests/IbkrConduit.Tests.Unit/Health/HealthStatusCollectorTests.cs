@@ -6,6 +6,7 @@ using IbkrConduit.Auth;
 using IbkrConduit.Health;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using Shouldly;
 
@@ -278,8 +279,59 @@ public class HealthStatusCollectorTests
         result.Session.Competing.ShouldBeTrue();
     }
 
-    private HealthStatusCollector CreateCollector() =>
-        new(_sessionApi, _tokenProvider, _wsClient, _lastCallTracker, _rateLimiter, _options, _sessionHealthState);
+    [Fact]
+    public async Task GetHealthStatusAsync_OnFakeClock_StampsCheckedAtFromTimeProvider()
+    {
+        var start = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
+        var fakeTime = new FakeTimeProvider(start);
+
+        _tokenProvider.CurrentTokenExpiry.Returns(start.AddHours(1));
+        _wsClient.IsConnected.Returns(false);
+        _wsClient.ActiveSubscriptionCount.Returns(0);
+        _lastCallTracker.RecordSuccess();
+
+        var collector = CreateCollector(fakeTime);
+        var result = await collector.GetHealthStatusAsync(
+            activeProbe: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.CheckedAt.ShouldBe(start);
+
+        fakeTime.Advance(TimeSpan.FromHours(2));
+        var laterResult = await collector.GetHealthStatusAsync(
+            activeProbe: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        laterResult.CheckedAt.ShouldBe(start.AddHours(2));
+    }
+
+    [Fact]
+    public async Task GetHealthStatusAsync_TokenExpiry_OnFakeClock_ComputesRemainingFromTimeProvider()
+    {
+        var start = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
+        var fakeTime = new FakeTimeProvider(start);
+
+        _tokenProvider.CurrentTokenExpiry.Returns(start.AddMinutes(30));
+        _wsClient.IsConnected.Returns(false);
+        _wsClient.ActiveSubscriptionCount.Returns(0);
+        _lastCallTracker.RecordSuccess();
+
+        var collector = CreateCollector(fakeTime);
+        var result = await collector.GetHealthStatusAsync(
+            activeProbe: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.Token.IsExpired.ShouldBeFalse();
+        result.Token.TimeUntilExpiry.ShouldBe(TimeSpan.FromMinutes(30));
+
+        fakeTime.Advance(TimeSpan.FromMinutes(45));
+        var afterExpiry = await collector.GetHealthStatusAsync(
+            activeProbe: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        afterExpiry.Token.IsExpired.ShouldBeTrue();
+        afterExpiry.Token.TimeUntilExpiry!.Value.ShouldBe(TimeSpan.FromMinutes(-15));
+        afterExpiry.OverallStatus.ShouldBe(HealthState.Unhealthy);
+    }
+
+    private HealthStatusCollector CreateCollector(TimeProvider? timeProvider = null) =>
+        new(_sessionApi, _tokenProvider, _wsClient, _lastCallTracker, _rateLimiter, _options, _sessionHealthState, timeProvider);
 
     private void SetLastCallToNow() => _lastCallTracker.RecordSuccess();
 }
