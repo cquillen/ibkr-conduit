@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Health;
 using Microsoft.Extensions.Logging;
@@ -10,7 +11,7 @@ using Microsoft.Extensions.Logging;
 namespace IbkrConduit.Session;
 
 /// <summary>
-/// Uses <see cref="PeriodicTimer"/> to send tickle requests at a fixed interval.
+/// Sends tickle requests at a fixed interval using <see cref="TimeProvider"/> for testability.
 /// When the session is detected as unauthenticated or the tickle call fails,
 /// the failure callback is invoked to trigger re-authentication.
 /// </summary>
@@ -27,6 +28,7 @@ internal sealed partial class TickleTimer : ITickleTimer
     private readonly SessionHealthState _sessionHealthState;
     private readonly ILogger<TickleTimer> _logger;
     private readonly int _intervalSeconds;
+    private readonly TimeProvider _timeProvider;
     private readonly object _startStopLock = new();
     private CancellationTokenSource? _cts;
     private Task? _backgroundTask;
@@ -39,18 +41,21 @@ internal sealed partial class TickleTimer : ITickleTimer
     /// <param name="sessionHealthState">Shared session health state to update after each tickle.</param>
     /// <param name="logger">Logger for tickle events.</param>
     /// <param name="intervalSeconds">Interval between tickle requests in seconds. Default is 60.</param>
+    /// <param name="timeProvider">Time provider for delay abstraction. Default is <see cref="TimeProvider.System"/>.</param>
     public TickleTimer(
         IIbkrSessionApi sessionApi,
         Func<CancellationToken, Task> onFailure,
         SessionHealthState sessionHealthState,
         ILogger<TickleTimer> logger,
-        int intervalSeconds = 60)
+        int intervalSeconds = 60,
+        TimeProvider? timeProvider = null)
     {
         _sessionApi = sessionApi;
         _onFailure = onFailure;
         _sessionHealthState = sessionHealthState;
         _logger = logger;
         _intervalSeconds = intervalSeconds;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -127,10 +132,10 @@ internal sealed partial class TickleTimer : ITickleTimer
 
     private async Task RunAsync(CancellationToken cancellationToken)
     {
-        using var periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(_intervalSeconds));
-
-        while (await periodicTimer.WaitForNextTickAsync(cancellationToken))
+        while (!cancellationToken.IsCancellationRequested)
         {
+            await _timeProvider.Delay(_intervalSeconds * 1000, cancellationToken);
+
             try
             {
                 using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Tickle");
@@ -157,7 +162,7 @@ internal sealed partial class TickleTimer : ITickleTimer
             }
             catch (OperationCanceledException)
             {
-                throw; // Propagate cancellation
+                throw;
             }
             catch (Exception ex)
             {
@@ -185,18 +190,24 @@ internal sealed class TickleTimerFactory : ITickleTimerFactory
     private readonly SessionHealthState _sessionHealthState;
     private readonly ILogger<TickleTimer> _logger;
     private readonly int _intervalSeconds;
+    private readonly TimeProvider _timeProvider;
 
     /// <summary>
-    /// Creates a new factory with the given logger and interval.
+    /// Creates a new factory with the given logger, interval, and time provider.
     /// </summary>
-    public TickleTimerFactory(SessionHealthState sessionHealthState, ILogger<TickleTimer> logger, int intervalSeconds = 60)
+    public TickleTimerFactory(
+        SessionHealthState sessionHealthState,
+        ILogger<TickleTimer> logger,
+        int intervalSeconds = 60,
+        TimeProvider? timeProvider = null)
     {
         _sessionHealthState = sessionHealthState;
         _logger = logger;
         _intervalSeconds = intervalSeconds;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
     public ITickleTimer Create(IIbkrSessionApi sessionApi, Func<CancellationToken, Task> onFailure) =>
-        new TickleTimer(sessionApi, onFailure, _sessionHealthState, _logger, _intervalSeconds);
+        new TickleTimer(sessionApi, onFailure, _sessionHealthState, _logger, _intervalSeconds, _timeProvider);
 }

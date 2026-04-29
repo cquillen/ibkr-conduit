@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Session;
@@ -15,6 +16,7 @@ public class TickleTimerTests
     public async Task StartAsync_CallsTickleOnInterval()
     {
         var sessionApi = new FakeSessionApi();
+        var fakeTime = new FakeTimeProvider();
         var failureCount = 0;
         Func<CancellationToken, Task> onFailure = _ =>
         {
@@ -27,13 +29,19 @@ public class TickleTimerTests
             onFailure,
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
-            intervalSeconds: 1);
+            intervalSeconds: 1,
+            fakeTime);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         await timer.StartAsync(cts.Token);
 
-        // Wait enough time for at least 2 ticks
-        await Task.Delay(2500, TestContext.Current.CancellationToken);
+        // Advance clock and wait for the first tickle to be processed
+        fakeTime.Advance(TimeSpan.FromSeconds(1));
+        await WaitForTickleCount(sessionApi, 1, TestContext.Current.CancellationToken);
+
+        // Advance clock again and wait for the second tickle
+        fakeTime.Advance(TimeSpan.FromSeconds(1));
+        await WaitForTickleCount(sessionApi, 2, TestContext.Current.CancellationToken);
 
         await timer.StopAsync();
 
@@ -41,10 +49,20 @@ public class TickleTimerTests
         failureCount.ShouldBe(0);
     }
 
+    private static async Task WaitForTickleCount(FakeSessionApi sessionApi, int expectedCount, CancellationToken cancellationToken)
+    {
+        while (sessionApi.TickleCallCount < expectedCount)
+        {
+            await Task.Yield();
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+    }
+
     [Fact]
     public async Task StartAsync_WhenTickleReturnsUnauthenticated_InvokesFailureCallback()
     {
         var sessionApi = new FakeSessionApi { Authenticated = false };
+        var fakeTime = new FakeTimeProvider();
         var failureTcs = new TaskCompletionSource();
         Func<CancellationToken, Task> onFailure = _ =>
         {
@@ -57,15 +75,16 @@ public class TickleTimerTests
             onFailure,
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
-            intervalSeconds: 1);
+            intervalSeconds: 1,
+            fakeTime);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         await timer.StartAsync(cts.Token);
 
-        // Wait for the failure callback to fire
-        var completed = await Task.WhenAny(failureTcs.Task, Task.Delay(5000, TestContext.Current.CancellationToken));
-        completed.ShouldBe(failureTcs.Task, "Failure callback should have been invoked");
+        fakeTime.Advance(TimeSpan.FromSeconds(1));
+        await failureTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
 
+        failureTcs.Task.IsCompletedSuccessfully.ShouldBeTrue("Failure callback should have been invoked");
         await timer.StopAsync();
     }
 
@@ -73,6 +92,7 @@ public class TickleTimerTests
     public async Task StartAsync_WhenTickleThrows_InvokesFailureCallback()
     {
         var sessionApi = new FakeSessionApi { ShouldThrow = true };
+        var fakeTime = new FakeTimeProvider();
         var failureTcs = new TaskCompletionSource();
         Func<CancellationToken, Task> onFailure = _ =>
         {
@@ -85,14 +105,16 @@ public class TickleTimerTests
             onFailure,
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
-            intervalSeconds: 1);
+            intervalSeconds: 1,
+            fakeTime);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         await timer.StartAsync(cts.Token);
 
-        var completed = await Task.WhenAny(failureTcs.Task, Task.Delay(5000, TestContext.Current.CancellationToken));
-        completed.ShouldBe(failureTcs.Task, "Failure callback should have been invoked on exception");
+        fakeTime.Advance(TimeSpan.FromSeconds(1));
+        await failureTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
 
+        failureTcs.Task.IsCompletedSuccessfully.ShouldBeTrue("Failure callback should have been invoked on exception");
         await timer.StopAsync();
     }
 
@@ -100,6 +122,7 @@ public class TickleTimerTests
     public async Task StopAsync_StopsTickling()
     {
         var sessionApi = new FakeSessionApi();
+        var fakeTime = new FakeTimeProvider();
         Func<CancellationToken, Task> onFailure = _ => Task.CompletedTask;
 
         var timer = new TickleTimer(
@@ -107,19 +130,22 @@ public class TickleTimerTests
             onFailure,
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
-            intervalSeconds: 1);
+            intervalSeconds: 1,
+            fakeTime);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         await timer.StartAsync(cts.Token);
 
-        // Let one tick happen
-        await Task.Delay(1500, TestContext.Current.CancellationToken);
-        await timer.StopAsync();
+        // Let one tick happen before stopping
+        fakeTime.Advance(TimeSpan.FromSeconds(1));
+        await WaitForTickleCount(sessionApi, 1, TestContext.Current.CancellationToken);
 
         var countAfterStop = sessionApi.TickleCallCount;
+        await timer.StopAsync();
 
-        // Wait to ensure no more ticks happen
-        await Task.Delay(2000, TestContext.Current.CancellationToken);
+        // Advance clock further — no more ticks should happen since the timer is stopped
+        fakeTime.Advance(TimeSpan.FromSeconds(2));
+        await Task.Yield();
 
         sessionApi.TickleCallCount.ShouldBe(countAfterStop);
     }
@@ -128,16 +154,17 @@ public class TickleTimerTests
     public async Task StopAsync_CalledTwice_DoesNotThrow()
     {
         var sessionApi = new FakeSessionApi();
+        var fakeTime = new FakeTimeProvider();
         var timer = new TickleTimer(
             sessionApi,
             _ => Task.CompletedTask,
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
-            intervalSeconds: 1);
+            intervalSeconds: 1,
+            fakeTime);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         await timer.StartAsync(cts.Token);
-        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         await timer.StopAsync();
         await timer.StopAsync(); // Should not throw
@@ -147,12 +174,14 @@ public class TickleTimerTests
     public async Task StopAsync_WithoutStart_DoesNotThrow()
     {
         var sessionApi = new FakeSessionApi();
+        var fakeTime = new FakeTimeProvider();
         var timer = new TickleTimer(
             sessionApi,
             _ => Task.CompletedTask,
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
-            intervalSeconds: 1);
+            intervalSeconds: 1,
+            fakeTime);
 
         await timer.StopAsync(); // Should not throw
     }
@@ -193,6 +222,5 @@ public class TickleTimerTests
 
         public Task<AuthStatusResponse> GetAuthStatusAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new AuthStatusResponse(true, false, true, true, null, null, null, null, null, null));
-
     }
 }
