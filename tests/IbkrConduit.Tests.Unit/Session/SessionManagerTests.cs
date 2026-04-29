@@ -691,6 +691,7 @@ public class SessionManagerTests
     internal class FakeSessionTokenProvider : ISessionTokenProvider
     {
         private readonly TimeProvider _timeProvider;
+        private DateTimeOffset? _lastExpiry;
 
         public FakeSessionTokenProvider(TimeProvider? timeProvider = null)
         {
@@ -700,7 +701,7 @@ public class SessionManagerTests
         public int GetCallCount { get; private set; }
         public int RefreshCallCount { get; private set; }
 
-        public DateTimeOffset? CurrentTokenExpiry => _timeProvider.GetUtcNow().Add(TokenLifetime);
+        public DateTimeOffset? CurrentTokenExpiry => _lastExpiry;
 
         /// <summary>Token expiry for newly created tokens. Default 24 hours.</summary>
         public TimeSpan TokenLifetime { get; set; } = TimeSpan.FromHours(24);
@@ -719,9 +720,10 @@ public class SessionManagerTests
                 throw GetException;
             }
 
+            _lastExpiry = _timeProvider.GetUtcNow().Add(TokenLifetime);
             return Task.FromResult(new LiveSessionToken(
                 new byte[] { 0x01, 0x02, 0x03 },
-                _timeProvider.GetUtcNow().Add(TokenLifetime)));
+                _lastExpiry.Value));
         }
 
         /// <summary>When true, RefreshAsync yields before returning to simulate real async work.</summary>
@@ -742,9 +744,10 @@ public class SessionManagerTests
                 cancellationToken.ThrowIfCancellationRequested();
             }
 
+            _lastExpiry = _timeProvider.GetUtcNow().Add(TokenLifetime);
             return new LiveSessionToken(
                 new byte[] { 0x04, 0x05, 0x06 },
-                _timeProvider.GetUtcNow().Add(TokenLifetime));
+                _lastExpiry.Value);
         }
     }
 
