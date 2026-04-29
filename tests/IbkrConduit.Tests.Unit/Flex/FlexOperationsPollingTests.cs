@@ -11,6 +11,7 @@ using IbkrConduit.Errors;
 using IbkrConduit.Flex;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Flex;
@@ -113,9 +114,14 @@ public class FlexOperationsPollingTests
     {
         var handler = new SequentialFakeHttpHandler(
             _successSendRequest, _inProgressResponse, _successStatement);
-        var ops = CreateOperations(handler);
+        var fakeTime = new FakeTimeProvider();
+        var ops = CreateOperations(handler, timeProvider: fakeTime);
 
-        var result = await ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        var resultTask = ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        fakeTime.Advance(TimeSpan.FromSeconds(2));
+        await Task.Yield();
+
+        var result = await resultTask;
 
         result.IsSuccess.ShouldBeTrue();
         handler.CallCount.ShouldBe(3);
@@ -126,9 +132,18 @@ public class FlexOperationsPollingTests
     {
         var handler = new SequentialFakeHttpHandler(
             _successSendRequest, _retryableResponse1004, _retryableResponse1004, _successStatement);
-        var ops = CreateOperations(handler);
+        var fakeTime = new FakeTimeProvider();
+        var ops = CreateOperations(handler, timeProvider: fakeTime);
 
-        var result = await ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        var resultTask = ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+
+        fakeTime.Advance(TimeSpan.FromSeconds(2));
+        await Task.Yield();
+
+        fakeTime.Advance(TimeSpan.FromSeconds(3));
+        await Task.Yield();
+
+        var result = await resultTask;
 
         result.IsSuccess.ShouldBeTrue();
         handler.CallCount.ShouldBe(4);
@@ -139,10 +154,14 @@ public class FlexOperationsPollingTests
     {
         var handler = new SequentialFakeHttpHandler(
             _successSendRequest, _retryableResponse1018, _successStatement);
-        // Use a long enough timeout to accommodate the 10s rate-limit delay.
-        var ops = CreateOperations(handler, new IbkrClientOptions { FlexPollTimeout = TimeSpan.FromSeconds(30) });
+        var fakeTime = new FakeTimeProvider();
+        var ops = CreateOperations(handler, new IbkrClientOptions { FlexPollTimeout = TimeSpan.FromSeconds(30) }, fakeTime);
 
-        var result = await ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        var resultTask = ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        fakeTime.Advance(TimeSpan.FromSeconds(13));
+        await Task.Yield();
+
+        var result = await resultTask;
 
         result.IsSuccess.ShouldBeTrue();
         handler.CallCount.ShouldBe(3);
@@ -168,9 +187,14 @@ public class FlexOperationsPollingTests
     {
         var handler = new SequentialFakeHttpHandler(
             _successSendRequest, _unknownWarnResponse, _successStatement);
-        var ops = CreateOperations(handler);
+        var fakeTime = new FakeTimeProvider();
+        var ops = CreateOperations(handler, timeProvider: fakeTime);
 
-        var result = await ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        var resultTask = ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        fakeTime.Advance(TimeSpan.FromSeconds(2));
+        await Task.Yield();
+
+        var result = await resultTask;
 
         result.IsSuccess.ShouldBeTrue();
         handler.CallCount.ShouldBe(3);
@@ -207,8 +231,6 @@ public class FlexOperationsPollingTests
     [Fact]
     public async Task ExecuteQueryAsync_TimeoutExhausted_ReturnsRetryableFlexError()
     {
-        // 20 in-progress responses — will always return 1019. Poll timeout is 500ms,
-        // well short of the first delay (1000ms), so we will exit after one poll.
         var responses = new List<string> { _successSendRequest };
         for (var i = 0; i < 20; i++)
         {
@@ -216,9 +238,14 @@ public class FlexOperationsPollingTests
         }
 
         var handler = new SequentialFakeHttpHandler(responses.ToArray());
-        var ops = CreateOperations(handler, new IbkrClientOptions { FlexPollTimeout = TimeSpan.FromMilliseconds(500) });
+        var fakeTime = new FakeTimeProvider();
+        var ops = CreateOperations(handler, new IbkrClientOptions { FlexPollTimeout = TimeSpan.FromMilliseconds(500) }, fakeTime);
 
-        var result = await ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        var resultTask = ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        fakeTime.Advance(TimeSpan.FromMilliseconds(500));
+        await Task.Yield();
+
+        var result = await resultTask;
 
         result.IsSuccess.ShouldBeFalse();
         var err = result.Error.ShouldBeOfType<IbkrFlexError>();
@@ -297,7 +324,8 @@ public class FlexOperationsPollingTests
         var ops = new FlexOperations(
             null,
             new IbkrClientOptions(),
-            NullLogger<FlexOperations>.Instance);
+            NullLogger<FlexOperations>.Instance,
+            TimeProvider.System);
 
         var ex = await Should.ThrowAsync<InvalidOperationException>(
             () => ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken));
@@ -403,13 +431,16 @@ public class FlexOperationsPollingTests
     [Fact]
     public async Task ExecuteQueryAsync_SendRequestRetryableError_ThenSuccess_ReturnsSuccess()
     {
-        // First SendRequest returns retryable 1018, second returns success with ref code,
-        // then GetStatement returns success immediately.
         var handler = new SequentialFakeHttpHandler(
             _retryableSendRequest1018, _successSendRequest, _successStatement);
-        var ops = CreateOperations(handler);
+        var fakeTime = new FakeTimeProvider();
+        var ops = CreateOperations(handler, timeProvider: fakeTime);
 
-        var result = await ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        var resultTask = ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        fakeTime.Advance(TimeSpan.FromSeconds(13));
+        await Task.Yield();
+
+        var result = await resultTask;
 
         result.IsSuccess.ShouldBeTrue();
         handler.CallCount.ShouldBe(3); // 2 SendRequest + 1 GetStatement
@@ -433,12 +464,20 @@ public class FlexOperationsPollingTests
     [Fact]
     public async Task ExecuteQueryAsync_SendRequestAllAttemptsRetryable_FailsWithAttemptCount()
     {
-        // All 3 SendRequest attempts return retryable 1018.
         var handler = new SequentialFakeHttpHandler(
             _retryableSendRequest1018, _retryableSendRequest1018, _retryableSendRequest1018);
-        var ops = CreateOperations(handler);
+        var fakeTime = new FakeTimeProvider();
+        var ops = CreateOperations(handler, timeProvider: fakeTime);
 
-        var result = await ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        var resultTask = ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+
+        fakeTime.Advance(TimeSpan.FromSeconds(13));
+        await Task.Yield();
+
+        fakeTime.Advance(TimeSpan.FromSeconds(13));
+        await Task.Yield();
+
+        var result = await resultTask;
 
         result.IsSuccess.ShouldBeFalse();
         var err = result.Error.ShouldBeOfType<IbkrFlexError>();
@@ -450,7 +489,6 @@ public class FlexOperationsPollingTests
     [Fact]
     public async Task ExecuteQueryAsync_TimeoutMessage_ContainsAttemptCountAndLastError()
     {
-        // Stub GetStatement to always return 1019 with a short timeout.
         var responses = new List<string> { _successSendRequest };
         for (var i = 0; i < 20; i++)
         {
@@ -458,9 +496,14 @@ public class FlexOperationsPollingTests
         }
 
         var handler = new SequentialFakeHttpHandler(responses.ToArray());
-        var ops = CreateOperations(handler, new IbkrClientOptions { FlexPollTimeout = TimeSpan.FromMilliseconds(500) });
+        var fakeTime = new FakeTimeProvider();
+        var ops = CreateOperations(handler, new IbkrClientOptions { FlexPollTimeout = TimeSpan.FromMilliseconds(500) }, fakeTime);
 
-        var result = await ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        var resultTask = ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        fakeTime.Advance(TimeSpan.FromMilliseconds(500));
+        await Task.Yield();
+
+        var result = await resultTask;
 
         result.IsSuccess.ShouldBeFalse();
         var err = result.Error.ShouldBeOfType<IbkrFlexError>();
@@ -508,14 +551,17 @@ public class FlexOperationsPollingTests
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Flex", "Fixtures", name));
 
     private static FlexOperations CreateOperations(
-        HttpMessageHandler handler, IbkrClientOptions? options = null)
+        HttpMessageHandler handler,
+        IbkrClientOptions? options = null,
+        TimeProvider? timeProvider = null)
     {
         var factory = new FakeHttpClientFactory(handler);
         var flexClient = new FlexClient(factory, "test-flex", "FAKE_TOKEN", NullLogger<FlexClient>.Instance);
         return new FlexOperations(
             flexClient,
             options ?? new IbkrClientOptions { FlexPollTimeout = TimeSpan.FromSeconds(60) },
-            NullLogger<FlexOperations>.Instance);
+            NullLogger<FlexOperations>.Instance,
+            timeProvider ?? TimeProvider.System);
     }
 
     private sealed class FakeHttpClientFactory : IHttpClientFactory
