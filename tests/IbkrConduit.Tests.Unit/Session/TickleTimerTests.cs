@@ -53,10 +53,13 @@ public class TickleTimerTests
 
     private static async Task WaitForTickleCount(FakeSessionApi sessionApi, int expectedCount, CancellationToken cancellationToken)
     {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
         while (sessionApi.TickleCallCount < expectedCount)
         {
-            await Task.Yield();
+            if (DateTime.UtcNow > deadline)
+                throw new TimeoutException($"Expected {expectedCount} ticks but only saw {sessionApi.TickleCallCount}");
             cancellationToken.ThrowIfCancellationRequested();
+            await Task.Yield();
         }
     }
 
@@ -190,13 +193,14 @@ public class TickleTimerTests
 
     private class FakeSessionApi : IIbkrSessionApi
     {
-        public int TickleCallCount { get; private set; }
+        private int _tickleCallCount;
+        public int TickleCallCount => Volatile.Read(ref _tickleCallCount);
         public bool Authenticated { get; set; } = true;
         public bool ShouldThrow { get; set; }
 
         public Task<TickleResponse> TickleAsync(CancellationToken cancellationToken = default)
         {
-            TickleCallCount++;
+            Interlocked.Increment(ref _tickleCallCount);
 
             if (ShouldThrow)
             {
