@@ -85,7 +85,7 @@ internal static class StreamHost
                     "No subscriptions succeeded; nothing to render.");
             }
 
-            await RenderLoopAsync(table, cancellationToken);
+            await RenderLoopAsync(table, client.Streaming, cancellationToken);
         }
         finally
         {
@@ -133,9 +133,12 @@ internal static class StreamHost
 
     /// <summary>
     /// Spectre.Console Live render loop. Refreshes the table and the status header
-    /// every 250ms until <paramref name="ct"/> is cancelled.
+    /// every 250ms until <paramref name="ct"/> is cancelled. The header reflects the
+    /// real WebSocket connection state from <see cref="IStreamingOperations.IsConnected"/>
+    /// and the freshness of the last received message from
+    /// <see cref="IStreamingOperations.LastMessageReceivedAt"/>.
     /// </summary>
-    private static async Task RenderLoopAsync(LiveTickTable table, CancellationToken ct)
+    private static async Task RenderLoopAsync(LiveTickTable table, IStreamingOperations streaming, CancellationToken ct)
     {
         var layout = new Rows(
             new Markup("[grey]● initializing…[/]"),
@@ -149,11 +152,7 @@ internal static class StreamHost
                     var now = TimeProvider.System.GetUtcNow();
                     table.RefreshDisplay(now);
 
-                    var status = table.AnyTickWithin(TimeSpan.FromSeconds(30), now)
-                        ? "[green]● Live[/]"
-                        : "[yellow]● Stale[/]";
-
-                    var refreshed = new Rows(new Markup(status), table.Table);
+                    var refreshed = new Rows(BuildStatus(streaming, now), table.Table);
                     ctx.UpdateTarget(refreshed);
                     ctx.Refresh();
 
@@ -167,5 +166,22 @@ internal static class StreamHost
                     }
                 }
             });
+    }
+
+    /// <summary>
+    /// Builds the status header reflecting connection state and message freshness.
+    /// </summary>
+    private static Markup BuildStatus(IStreamingOperations streaming, DateTimeOffset now)
+    {
+        var connection = streaming.IsConnected
+            ? "[green]● Connected[/]"
+            : "[red]● Disconnected[/]";
+
+        var lastMsg = streaming.LastMessageReceivedAt;
+        var freshness = lastMsg is null
+            ? "(no messages yet)"
+            : $"(last msg {(int)(now - lastMsg.Value).TotalSeconds}s ago)";
+
+        return new Markup($"{connection} {freshness}");
     }
 }
