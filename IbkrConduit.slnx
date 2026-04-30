@@ -9,4 +9,7 @@
     <!-- <Project Path="tests/IbkrConduit.Tests.Integration_Old/IbkrConduit.Tests.Integration_Old.csproj" /> -->
     <Project Path="tests/IbkrConduit.Tests.Unit/IbkrConduit.Tests.Unit.csproj" />
   </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/IbkrConduit.Examples.MarketDataStream/IbkrConduit.Examples.MarketDataStream.csproj" />
+  </Folder>
 </Solution>
