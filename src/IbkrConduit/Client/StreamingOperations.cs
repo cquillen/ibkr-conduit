@@ -22,6 +22,12 @@ internal sealed class StreamingOperations : IStreamingOperations
     }
 
     /// <inheritdoc />
+    public bool IsConnected => _webSocketClient.IsConnected;
+
+    /// <inheritdoc />
+    public DateTimeOffset? LastMessageReceivedAt => _webSocketClient.LastMessageReceivedAt;
+
+    /// <inheritdoc />
     public async Task<IObservable<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken cancellationToken = default)
     {
         var fieldsJson = string.Join(",", fields.Select(f => $"\"{f}\""));

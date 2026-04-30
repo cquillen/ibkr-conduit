@@ -9,6 +9,20 @@ namespace IbkrConduit.Client;
 public interface IStreamingOperations
 {
     /// <summary>
+    /// True when the underlying WebSocket connection is currently open.
+    /// Use this to surface a real connection-state indicator in monitoring UIs
+    /// instead of inferring connectivity from message-arrival timing.
+    /// </summary>
+    bool IsConnected { get; }
+
+    /// <summary>
+    /// Timestamp of the last received WebSocket message, or null if no messages
+    /// have been received yet. Useful for staleness detection in quiet markets,
+    /// where the connection is still healthy but no ticks are arriving.
+    /// </summary>
+    DateTimeOffset? LastMessageReceivedAt { get; }
+
+    /// <summary>
     /// Subscribes to real-time market data for the specified contract.
     /// </summary>
     /// <param name="conid">Contract identifier.</param>
