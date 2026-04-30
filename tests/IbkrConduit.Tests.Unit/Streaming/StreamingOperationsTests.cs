@@ -138,6 +138,30 @@ public class StreamingOperationsTests
         pnl.NetLiquidation.ShouldBe(50000.0m);
     }
 
+    [Fact]
+    public void IsConnected_DelegatesToUnderlyingWebSocketClient()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        wsClient.IsConnected = true;
+        ((IStreamingOperations)ops).IsConnected.ShouldBeTrue();
+
+        wsClient.IsConnected = false;
+        ((IStreamingOperations)ops).IsConnected.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void LastMessageReceivedAt_DelegatesToUnderlyingWebSocketClient()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        ((IStreamingOperations)ops).LastMessageReceivedAt.ShouldBeNull();
+
+        var stamp = new DateTimeOffset(2026, 4, 30, 12, 0, 0, TimeSpan.Zero);
+        wsClient.LastMessageReceivedAt = stamp;
+        ((IStreamingOperations)ops).LastMessageReceivedAt.ShouldBe(stamp);
+    }
+
     private static (StreamingOperations Operations, FakeWebSocketClient Client) CreateOperations()
     {
         var wsClient = new FakeWebSocketClient();
@@ -151,9 +175,9 @@ public class StreamingOperationsTests
         public string? LastTopicPrefix { get; private set; }
         public Channel<JsonElement> Channel { get; } = System.Threading.Channels.Channel.CreateUnbounded<JsonElement>();
 
-        public bool IsConnected => true;
+        public bool IsConnected { get; set; } = true;
         public int ActiveSubscriptionCount => 0;
-        public DateTimeOffset? LastMessageReceivedAt => null;
+        public DateTimeOffset? LastMessageReceivedAt { get; set; }
 
         public Task ConnectAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
