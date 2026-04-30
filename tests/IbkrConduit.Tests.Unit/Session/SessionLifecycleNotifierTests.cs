@@ -77,4 +77,64 @@ public class SessionLifecycleNotifierTests
 
         receivedToken.ShouldBe(cts.Token);
     }
+
+    [Fact]
+    public async Task NotifyTickleSucceededAsync_WithSubscribers_CallsAll()
+    {
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+        var callCount1 = 0;
+        var callCount2 = 0;
+
+        notifier.SubscribeTickleSucceeded(_ => { callCount1++; return Task.CompletedTask; });
+        notifier.SubscribeTickleSucceeded(_ => { callCount2++; return Task.CompletedTask; });
+
+        await notifier.NotifyTickleSucceededAsync(TestContext.Current.CancellationToken);
+
+        callCount1.ShouldBe(1);
+        callCount2.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task NotifyTickleSucceededAsync_SubscriberThrows_DoesNotBlockOthers()
+    {
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+        var secondCalled = false;
+
+        notifier.SubscribeTickleSucceeded(_ => throw new InvalidOperationException("boom"));
+        notifier.SubscribeTickleSucceeded(_ => { secondCalled = true; return Task.CompletedTask; });
+
+        await notifier.NotifyTickleSucceededAsync(TestContext.Current.CancellationToken);
+
+        secondCalled.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SubscribeTickleSucceeded_DisposedSubscription_NoLongerInvoked()
+    {
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+        var callCount = 0;
+
+        var subscription = notifier.SubscribeTickleSucceeded(_ => { callCount++; return Task.CompletedTask; });
+        subscription.Dispose();
+
+        await notifier.NotifyTickleSucceededAsync(TestContext.Current.CancellationToken);
+
+        callCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task NotifyTickleSucceededAsync_DoesNotInvokeSessionRefreshSubscribers()
+    {
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+        var refreshCallCount = 0;
+        var tickleCallCount = 0;
+
+        notifier.Subscribe(_ => { refreshCallCount++; return Task.CompletedTask; });
+        notifier.SubscribeTickleSucceeded(_ => { tickleCallCount++; return Task.CompletedTask; });
+
+        await notifier.NotifyTickleSucceededAsync(TestContext.Current.CancellationToken);
+
+        refreshCallCount.ShouldBe(0);
+        tickleCallCount.ShouldBe(1);
+    }
 }

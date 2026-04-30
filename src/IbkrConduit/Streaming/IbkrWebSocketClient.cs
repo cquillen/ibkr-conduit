@@ -51,6 +51,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private CancellationTokenSource? _heartbeatCts;
     private CancellationTokenSource? _messagePumpCts;
     private IDisposable? _notifierSubscription;
+    private IDisposable? _tickleWatchdogSubscription;
     private readonly CancellationTokenSource _disposeCts = new();
 
     /// <summary>
@@ -96,6 +97,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             () => _webSocket is { State: WebSocketState.Open } ? 1 : 0);
 
         _notifierSubscription = _notifier.Subscribe(OnSessionRefreshedAsync);
+        _tickleWatchdogSubscription = _notifier.SubscribeTickleSucceeded(OnTickleSucceededAsync);
     }
 
     /// <inheritdoc />
@@ -245,6 +247,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         _notifierSubscription?.Dispose();
         _notifierSubscription = null;
+
+        _tickleWatchdogSubscription?.Dispose();
+        _tickleWatchdogSubscription = null;
 
         await _disposeCts.CancelAsync();
         await DisconnectAsync();
@@ -543,6 +548,29 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         await ReconnectAsync(cancellationToken);
     }
 
+    private async Task OnTickleSucceededAsync(CancellationToken cancellationToken)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_webSocket is { State: WebSocketState.Open })
+        {
+            return;
+        }
+
+        LogTickleWatchdogTriggeringReconnect();
+        try
+        {
+            await ReconnectAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            LogTickleWatchdogReconnectFailed(ex);
+        }
+    }
+
     private async Task SendTextAsync(string message, CancellationToken cancellationToken)
     {
         var ws = _webSocket;
@@ -619,4 +647,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
     [LoggerMessage(Level = LogLevel.Trace, Message = "WebSocket receive: {Message}")]
     private partial void LogIncomingMessage(string message);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Tickle watchdog detected dead WebSocket — triggering reconnect")]
+    private partial void LogTickleWatchdogTriggeringReconnect();
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Tickle watchdog reconnect attempt failed")]
+    private partial void LogTickleWatchdogReconnectFailed(Exception exception);
 }

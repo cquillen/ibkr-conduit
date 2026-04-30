@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -103,7 +104,7 @@ internal sealed partial class SessionManager : ISessionManager
                 await _sessionApi.InitializeBrokerageSessionAsync(
                     new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
             }
@@ -170,7 +171,7 @@ internal sealed partial class SessionManager : ISessionManager
                 await _sessionApi.InitializeBrokerageSessionAsync(
                     new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
             }
@@ -344,7 +345,7 @@ internal sealed partial class SessionManager : ISessionManager
         }
     }
 
-    private static IbkrConfigurationException WrapCredentialException(Exception ex) =>
+    internal static Exception WrapCredentialException(Exception ex) =>
         ex switch
         {
             CryptographicException ce when ce.Message.Contains("decrypt", StringComparison.OrdinalIgnoreCase) =>
@@ -367,15 +368,15 @@ internal sealed partial class SessionManager : ISessionManager
                     "LST acquisition rejected by IBKR — verify ConsumerKey and AccessToken are correct and not expired",
                     "ConsumerKey, AccessToken", he),
 
-            HttpRequestException { StatusCode: null } he =>
-                new IbkrConfigurationException(
-                    "Cannot reach IBKR API — check network connectivity and BaseUrl configuration",
-                    "BaseUrl", he),
-
             HttpRequestException he =>
-                new IbkrConfigurationException(
-                    "LST acquisition rejected by IBKR — verify ConsumerKey and AccessToken are correct and not expired",
-                    "ConsumerKey, AccessToken", he),
+                new IbkrTransientException(
+                    $"IBKR API returned a transient error ({(he.StatusCode is { } sc ? ((int)sc).ToString(CultureInfo.InvariantCulture) : "no response")}) — retry expected",
+                    he),
+
+            TaskCanceledException tce =>
+                new IbkrTransientException(
+                    "IBKR API request timed out before a response was received — retry expected",
+                    tce),
 
             FormatException fe =>
                 new IbkrConfigurationException(

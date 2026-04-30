@@ -113,6 +113,7 @@ public class SessionModelsTests
         options.SuppressMessageIds.ShouldBeEmpty();
         options.WebSocketHeartbeatIntervalSeconds.ShouldBe(30);
         options.StreamingBufferSize.ShouldBe(256);
+        options.TickleFailureIntervalSeconds.ShouldBe(5);
     }
 
     [Fact]

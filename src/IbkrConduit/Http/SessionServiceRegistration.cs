@@ -58,7 +58,9 @@ internal static class SessionServiceRegistration
             new TickleTimerFactory(
                 sp.GetRequiredService<SessionHealthState>(),
                 sp.GetRequiredService<ILogger<TickleTimer>>(),
+                sp.GetRequiredService<ISessionLifecycleNotifier>(),
                 clientOptions.TickleIntervalSeconds,
+                clientOptions.TickleFailureIntervalSeconds,
                 TimeProvider.System));
 
         // Internal session API client:

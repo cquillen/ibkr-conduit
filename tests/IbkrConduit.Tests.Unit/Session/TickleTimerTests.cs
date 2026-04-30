@@ -24,12 +24,15 @@ public class TickleTimerTests
             return Task.CompletedTask;
         };
 
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
         var timer = new TickleTimer(
             sessionApi,
             onFailure,
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
-            intervalSeconds: 1,
+            notifier,
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
             fakeTime);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
@@ -77,12 +80,15 @@ public class TickleTimerTests
             return Task.CompletedTask;
         };
 
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
         var timer = new TickleTimer(
             sessionApi,
             onFailure,
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
-            intervalSeconds: 1,
+            notifier,
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
             fakeTime);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
@@ -107,12 +113,15 @@ public class TickleTimerTests
             return Task.CompletedTask;
         };
 
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
         var timer = new TickleTimer(
             sessionApi,
             onFailure,
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
-            intervalSeconds: 1,
+            notifier,
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
             fakeTime);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
@@ -132,12 +141,15 @@ public class TickleTimerTests
         var fakeTime = new FakeTimeProvider();
         Func<CancellationToken, Task> onFailure = _ => Task.CompletedTask;
 
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
         var timer = new TickleTimer(
             sessionApi,
             onFailure,
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
-            intervalSeconds: 1,
+            notifier,
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
             fakeTime);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
@@ -162,12 +174,15 @@ public class TickleTimerTests
     {
         var sessionApi = new FakeSessionApi();
         var fakeTime = new FakeTimeProvider();
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
         var timer = new TickleTimer(
             sessionApi,
             _ => Task.CompletedTask,
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
-            intervalSeconds: 1,
+            notifier,
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
             fakeTime);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
@@ -182,15 +197,268 @@ public class TickleTimerTests
     {
         var sessionApi = new FakeSessionApi();
         var fakeTime = new FakeTimeProvider();
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
         var timer = new TickleTimer(
             sessionApi,
             _ => Task.CompletedTask,
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
-            intervalSeconds: 1,
+            notifier,
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
             fakeTime);
 
         await timer.StopAsync(); // Should not throw
+    }
+
+    [Fact]
+    public async Task RunAsync_TickleSuccess_FiresTickleSucceededNotification()
+    {
+        var sessionApi = new FakeSessionApi();
+        var fakeTime = new FakeTimeProvider();
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+        var notificationCount = 0;
+        notifier.SubscribeTickleSucceeded(_ => { Interlocked.Increment(ref notificationCount); return Task.CompletedTask; });
+
+        var timer = new TickleTimer(
+            sessionApi,
+            _ => Task.CompletedTask,
+            new SessionHealthState(),
+            NullLogger<TickleTimer>.Instance,
+            notifier,
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
+            fakeTime);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await timer.StartAsync(cts.Token);
+
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (notificationCount < 2 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+
+        await timer.StopAsync();
+
+        notificationCount.ShouldBeGreaterThanOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task RunAsync_TickleFailure_DoesNotFireTickleSucceededNotification()
+    {
+        var sessionApi = new FakeSessionApi { ShouldThrow = true };
+        var fakeTime = new FakeTimeProvider();
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+        var notificationCount = 0;
+        notifier.SubscribeTickleSucceeded(_ => { Interlocked.Increment(ref notificationCount); return Task.CompletedTask; });
+
+        var timer = new TickleTimer(
+            sessionApi,
+            _ => Task.CompletedTask,
+            new SessionHealthState(),
+            NullLogger<TickleTimer>.Instance,
+            notifier,
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
+            fakeTime);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await timer.StartAsync(cts.Token);
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (sessionApi.TickleCallCount < 3 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+
+        await timer.StopAsync();
+
+        notificationCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_NotifierThrows_TickleLoopContinues()
+    {
+        var sessionApi = new FakeSessionApi();
+        var fakeTime = new FakeTimeProvider();
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+        notifier.SubscribeTickleSucceeded(_ => throw new InvalidOperationException("boom"));
+
+        var timer = new TickleTimer(
+            sessionApi,
+            _ => Task.CompletedTask,
+            new SessionHealthState(),
+            NullLogger<TickleTimer>.Instance,
+            notifier,
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
+            fakeTime);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await timer.StartAsync(cts.Token);
+
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (sessionApi.TickleCallCount < 3 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+
+        await timer.StopAsync();
+
+        sessionApi.TickleCallCount.ShouldBeGreaterThanOrEqualTo(3);
+    }
+
+    [Fact]
+    public async Task RunAsync_AfterSuccess_UsesHealthyInterval()
+    {
+        var sessionApi = new FakeSessionApi();
+        var fakeTime = new FakeTimeProvider();
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+
+        var timer = new TickleTimer(
+            sessionApi,
+            _ => Task.CompletedTask,
+            new SessionHealthState(),
+            NullLogger<TickleTimer>.Instance,
+            notifier,
+            healthyIntervalSeconds: 60,
+            failureIntervalSeconds: 5,
+            fakeTime);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await timer.StartAsync(cts.Token);
+
+        // Advance to first tickle
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (sessionApi.TickleCallCount < 1 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(60));
+            await Task.Yield();
+        }
+        sessionApi.TickleCallCount.ShouldBe(1);
+
+        // Advance 5 seconds — at the failure interval we'd get a second tickle, but we shouldn't
+        for (var i = 0; i < 5; i++)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+        sessionApi.TickleCallCount.ShouldBe(1);
+
+        // Advance another 60 seconds — now we should see the second tickle
+        deadline = DateTime.UtcNow.AddSeconds(5);
+        while (sessionApi.TickleCallCount < 2 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(60));
+            await Task.Yield();
+        }
+        sessionApi.TickleCallCount.ShouldBeGreaterThanOrEqualTo(2);
+
+        await timer.StopAsync();
+    }
+
+    [Fact]
+    public async Task RunAsync_AfterFailure_UsesFailureInterval()
+    {
+        var sessionApi = new FakeSessionApi { ShouldThrow = true };
+        var fakeTime = new FakeTimeProvider();
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+
+        var timer = new TickleTimer(
+            sessionApi,
+            _ => Task.CompletedTask,
+            new SessionHealthState(),
+            NullLogger<TickleTimer>.Instance,
+            notifier,
+            healthyIntervalSeconds: 60,
+            failureIntervalSeconds: 5,
+            fakeTime);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await timer.StartAsync(cts.Token);
+
+        // Advance 60s to trigger first tickle (healthy interval initially because _lastTickleSucceeded defaults to true)
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (sessionApi.TickleCallCount < 1 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(60));
+            await Task.Yield();
+        }
+        sessionApi.TickleCallCount.ShouldBe(1);
+
+        // Advance only 5 seconds — at the failure interval we should now get a second tickle
+        deadline = DateTime.UtcNow.AddSeconds(5);
+        while (sessionApi.TickleCallCount < 2 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(5));
+            await Task.Yield();
+        }
+        sessionApi.TickleCallCount.ShouldBeGreaterThanOrEqualTo(2);
+
+        await timer.StopAsync();
+    }
+
+    [Fact]
+    public async Task RunAsync_RecoversAfterFailure_ReturnsToHealthyInterval()
+    {
+        var sessionApi = new FakeSessionApi { ShouldThrow = true };
+        var fakeTime = new FakeTimeProvider();
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+
+        var timer = new TickleTimer(
+            sessionApi,
+            _ => Task.CompletedTask,
+            new SessionHealthState(),
+            NullLogger<TickleTimer>.Instance,
+            notifier,
+            healthyIntervalSeconds: 60,
+            failureIntervalSeconds: 5,
+            fakeTime);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await timer.StartAsync(cts.Token);
+
+        // First tickle (after 60s healthy interval) fails
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (sessionApi.TickleCallCount < 1 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(60));
+            await Task.Yield();
+        }
+
+        // Second tickle (after 5s failure interval) — flip to success right before
+        sessionApi.ShouldThrow = false;
+        deadline = DateTime.UtcNow.AddSeconds(5);
+        while (sessionApi.TickleCallCount < 2 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(5));
+            await Task.Yield();
+        }
+        sessionApi.TickleCallCount.ShouldBe(2);
+        var afterRecovery = sessionApi.TickleCallCount;
+
+        // Advance 5s — at failure interval we'd get another tickle, but cadence should be back to 60s
+        for (var i = 0; i < 5; i++)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+        sessionApi.TickleCallCount.ShouldBe(afterRecovery);
+
+        // Advance 60s — should see the next tickle
+        deadline = DateTime.UtcNow.AddSeconds(5);
+        while (sessionApi.TickleCallCount < afterRecovery + 1 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(60));
+            await Task.Yield();
+        }
+        sessionApi.TickleCallCount.ShouldBeGreaterThan(afterRecovery);
+
+        await timer.StopAsync();
     }
 
     private class FakeSessionApi : IIbkrSessionApi

@@ -697,6 +697,148 @@ public class IbkrWebSocketClientTests
         unsubscribe();
     }
 
+    [Fact]
+    public async Task OnTickleSucceeded_WhenConnected_DoesNotReconnect()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var connectsBefore = _adapter.ConnectCallCount;
+
+        await _notifier.TriggerTickleSucceededAsync(TestContext.Current.CancellationToken);
+
+        _adapter.ConnectCallCount.ShouldBe(connectsBefore);
+    }
+
+    [Fact]
+    public async Task OnTickleSucceeded_WhenDisconnected_TriggersReconnect()
+    {
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        // Wait for the message pump to reach ReceiveAsync, then make every
+        // future ConnectAsync fail so IsConnected stays false even after the
+        // pump's own reconnect attempt completes. This isolates the watchdog
+        // as the trigger for any post-pump-reconnect connect attempts.
+        await _adapter.WaitForReceiveAsync(TestContext.Current.CancellationToken);
+        _adapter.FailOnConnect = true;
+        _adapter.SignalClose();
+
+        // Wait for the message pump's own reconnect attempt to complete (and
+        // fail) — it will increment ConnectCallCount once.
+        var ct = TestContext.Current.CancellationToken;
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (_adapter.ConnectCallCount < 2 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+        _adapter.ConnectCallCount.ShouldBeGreaterThanOrEqualTo(2);
+
+        client.IsConnected.ShouldBeFalse();
+        var connectsBefore = _adapter.ConnectCallCount;
+
+        // Now fire the watchdog. With the watchdog wired, this should trigger
+        // ANOTHER reconnect attempt, incrementing ConnectCallCount further.
+        // Without the watchdog wiring, CallCount stays put.
+        var watchdogTask = Task.Run(
+            () => _notifier.TriggerTickleSucceededAsync(ct), ct);
+
+        deadline = DateTime.UtcNow.AddSeconds(5);
+        while (_adapter.ConnectCallCount <= connectsBefore && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+
+        await watchdogTask;
+        _adapter.ConnectCallCount.ShouldBeGreaterThan(connectsBefore);
+    }
+
+    [Fact]
+    public async Task OnTickleSucceeded_AfterDispose_DoesNothing()
+    {
+        var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        await client.DisposeAsync();
+        var connectsBefore = _adapter.ConnectCallCount;
+
+        await _notifier.TriggerTickleSucceededAsync(TestContext.Current.CancellationToken);
+
+        _adapter.ConnectCallCount.ShouldBe(connectsBefore);
+    }
+
+    [Fact]
+    public async Task OnTickleSucceeded_ReconnectThrows_ExceptionSwallowed()
+    {
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        await _adapter.WaitForReceiveAsync(TestContext.Current.CancellationToken);
+        _adapter.SignalClose();
+
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (client.IsConnected && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        // Force the next reconnect's session API call (Tickle in ConnectCoreAsync) to throw
+        _sessionApi.NextTickleShouldThrow = true;
+
+        // Run trigger in background so we can pump the clock for the reconnect delay.
+        var ct = TestContext.Current.CancellationToken;
+        var watchdogTask = Task.Run(
+            () => _notifier.TriggerTickleSucceededAsync(ct), ct);
+
+        deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!watchdogTask.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+
+        // Should not throw out of the watchdog
+        await watchdogTask;
+    }
+
+    [Fact]
+    public async Task Reconnect_MessagePumpAndTickleFireConcurrently_BothSerializedViaConnectLock()
+    {
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        await _adapter.WaitForReceiveAsync(TestContext.Current.CancellationToken);
+        var connectsBefore = _adapter.ConnectCallCount;
+
+        // Fire two reconnect triggers near-simultaneously: the message-pump catch
+        // will kick one off after SignalClose; the watchdog kicks the second.
+        _adapter.SignalClose();
+
+        var ct = TestContext.Current.CancellationToken;
+        var watchdogTask = Task.Run(
+            () => _notifier.TriggerTickleSucceededAsync(ct), ct);
+
+        // Wait for any in-flight reconnect to settle, advancing the clock so
+        // the reconnect delay completes.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while ((!watchdogTask.IsCompleted || _adapter.ConnectCallCount <= connectsBefore)
+            && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+
+        await watchdogTask;
+
+        // _connectLock should serialize the attempts. We don't assert exact count
+        // (could be 1 or 2 depending on timing) — the smoke test is "no deadlock,
+        // no exception, eventually a reconnect attempt happens".
+        _adapter.ConnectCallCount.ShouldBeGreaterThan(connectsBefore);
+    }
+
     private IbkrWebSocketClient CreateClient(
         TimeProvider? timeProvider = null,
         int heartbeatIntervalSeconds = 30,
@@ -738,16 +880,25 @@ public class IbkrWebSocketClientTests
 
     internal class FakeSessionApi : IIbkrSessionApi
     {
+        public bool NextTickleShouldThrow { get; set; }
+
         public Task<SsodhInitResponse> InitializeBrokerageSessionAsync(
             SsodhInitRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult(new SsodhInitResponse(true, true, false, true, null, null, null, null));
 
-        public Task<TickleResponse> TickleAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new TickleResponse(
+        public Task<TickleResponse> TickleAsync(CancellationToken cancellationToken = default)
+        {
+            if (NextTickleShouldThrow)
+            {
+                NextTickleShouldThrow = false;
+                throw new System.Net.Http.HttpRequestException("Simulated tickle failure");
+            }
+            return Task.FromResult(new TickleResponse(
                 Session: "fake-session-id",
                 Hmds: null,
                 Iserver: new TickleIserverStatus(
                     AuthStatus: new TickleAuthStatus(true, false, true, true, null, null, null, null))));
+        }
 
         public Task<SuppressResponse> SuppressQuestionsAsync(
             SuppressRequest request, CancellationToken cancellationToken = default) =>
@@ -766,6 +917,7 @@ public class IbkrWebSocketClientTests
 
     internal class FakeLifecycleNotifier : ISessionLifecycleNotifier
     {
+        private readonly List<Func<CancellationToken, Task>> _tickleSubscribers = [];
         private Func<CancellationToken, Task>? _callback;
 
         public bool SubscriptionDisposed { get; private set; }
@@ -778,6 +930,23 @@ public class IbkrWebSocketClientTests
 
         public Task NotifyAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        public IDisposable SubscribeTickleSucceeded(Func<CancellationToken, Task> onTickleSucceeded)
+        {
+            _tickleSubscribers.Add(onTickleSucceeded);
+            return new CallbackDisposable(() => _tickleSubscribers.Remove(onTickleSucceeded));
+        }
+
+        public async Task NotifyTickleSucceededAsync(CancellationToken cancellationToken)
+        {
+            foreach (var subscriber in _tickleSubscribers.ToArray())
+            {
+                await subscriber(cancellationToken);
+            }
+        }
+
+        public Task TriggerTickleSucceededAsync(CancellationToken cancellationToken) =>
+            NotifyTickleSucceededAsync(cancellationToken);
 
         public async Task TriggerRefreshAsync(CancellationToken cancellationToken)
         {
