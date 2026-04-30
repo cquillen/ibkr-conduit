@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -207,6 +208,112 @@ public class SessionManagerTests
         deps.TickleTimerFactory.CreatedTimer.ShouldBeSameAs(
             firstTimer,
             "The original timer instance must remain in use through reauth.");
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_ConcurrentCalls_AcquiresLstOnlyOnce()
+    {
+        // Issue #168: when many requests 401 in a tight burst, each one calls
+        // ReauthenticateAsync. The semaphore serializes them, but without a
+        // Ready-state short-circuit each queued caller still re-runs the full
+        // LST handshake even though the first call has already restored the
+        // session. The fix: after acquiring the semaphore, check if state is
+        // already Ready and return — same double-check pattern that
+        // EnsureInitializedAsync uses.
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        var refreshBefore = deps.TokenProvider.RefreshCallCount;
+        var initBefore = deps.SessionApi.InitCallCount;
+
+        // Fire two concurrent reauths from a Ready state. The semaphore
+        // serializes them; the second one must observe Ready and return
+        // without doing any work.
+        var reauthA = manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
+        var reauthB = manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
+        await Task.WhenAll(reauthA, reauthB);
+
+        (deps.TokenProvider.RefreshCallCount - refreshBefore).ShouldBe(1,
+            "Two concurrent ReauthenticateAsync calls from Ready state must result in exactly one LST refresh.");
+        (deps.SessionApi.InitCallCount - initBefore).ShouldBe(1,
+            "Two concurrent ReauthenticateAsync calls from Ready state must result in exactly one /ssodh/init call.");
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_FirstCallThrows_QueuedCallerStillReauths()
+    {
+        // Pins the invariant that Interlocked.Increment(ref _reauthEpoch) lives
+        // on the success path, NOT in the finally. If reauth A throws, the
+        // epoch must NOT advance — caller B (queued behind A on the semaphore)
+        // must observe epoch == snapshot and proceed with its own reauth
+        // attempt rather than incorrectly short-circuiting.
+        // See issue #168.
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        var refreshBefore = deps.TokenProvider.RefreshCallCount;
+
+        // Configure the token provider to throw on the next RefreshAsync,
+        // succeed on subsequent calls. The first reauth to acquire the
+        // semaphore will hit the failing call; the second (queued) caller
+        // must still execute its own RefreshAsync rather than short-circuit.
+        deps.TokenProvider.ThrowOnNextRefresh = true;
+
+        var reauthA = manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
+        var reauthB = manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
+
+        var results = await Task.WhenAll(
+            CaptureOutcome(reauthA),
+            CaptureOutcome(reauthB));
+
+        // Exactly one threw (the failed first reauth, wrapped to
+        // IbkrTransientException by WrapCredentialException), one succeeded
+        // (the queued caller's own retry).
+        results.Count(r => r.Threw).ShouldBe(1,
+            "Exactly one of the concurrent reauths should have hit the throwing first call.");
+        results.Count(r => !r.Threw).ShouldBe(1,
+            "The other reauth should have proceeded successfully on its own LST refresh.");
+        results.Single(r => r.Threw).Exception.ShouldBeOfType<IbkrTransientException>();
+
+        // RefreshAsync was called twice during the burst: once for the failed
+        // attempt, once for the queued caller's retry. If a future refactor
+        // moved the epoch increment into `finally`, the queued caller would
+        // observe epoch != snapshot and short-circuit, leaving this delta at 1.
+        (deps.TokenProvider.RefreshCallCount - refreshBefore).ShouldBe(2,
+            "Failed reauth must NOT advance the epoch — queued caller must still execute its own LST refresh attempt.");
+
+        static async Task<(bool Threw, Exception? Exception)> CaptureOutcome(Task t)
+        {
+            try
+            {
+                await t;
+                return (false, null);
+            }
+            catch (Exception ex)
+            {
+                return (true, ex);
+            }
+        }
     }
 
     [Fact]
@@ -727,6 +834,14 @@ public class SessionManagerTests
         /// <summary>If set, RefreshAsync throws this exception.</summary>
         public Exception? RefreshException { get; set; }
 
+        /// <summary>
+        /// When true, the next call to <see cref="RefreshAsync"/> throws an
+        /// <see cref="HttpRequestException"/> with status 503 (which
+        /// <c>WrapCredentialException</c> turns into <see cref="IbkrTransientException"/>),
+        /// and the flag auto-resets so subsequent refresh calls succeed.
+        /// </summary>
+        public bool ThrowOnNextRefresh { get; set; }
+
         public Task<LiveSessionToken> GetLiveSessionTokenAsync(CancellationToken cancellationToken)
         {
             GetCallCount++;
@@ -747,6 +862,15 @@ public class SessionManagerTests
         public async Task<LiveSessionToken> RefreshAsync(CancellationToken cancellationToken)
         {
             RefreshCallCount++;
+            if (ThrowOnNextRefresh)
+            {
+                ThrowOnNextRefresh = false;
+                throw new HttpRequestException(
+                    "Simulated transient failure",
+                    inner: null,
+                    statusCode: HttpStatusCode.ServiceUnavailable);
+            }
+
             if (RefreshException != null)
             {
                 throw RefreshException;

@@ -127,9 +127,6 @@ internal sealed partial class TickleTimer : ITickleTimer
     [LoggerMessage(Level = LogLevel.Warning, Message = "Tickle failed with exception")]
     private partial void LogTickleFailed(Exception exception);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Failure callback threw an exception")]
-    private partial void LogFailureCallbackError(Exception exception);
-
     [LoggerMessage(Level = LogLevel.Warning, Message = "Tickle-succeeded notification threw")]
     private partial void LogTickleNotificationFailed(Exception exception);
 
@@ -194,18 +191,16 @@ internal sealed partial class TickleTimer : ITickleTimer
             }
             catch (Exception ex)
             {
+                // Transport-level failures (5xx, network errors, timeouts) are NOT
+                // session-dead signals — IBKR signals session-dead via HTTP 401 or
+                // a response body authenticated=false. Reauth requires the same
+                // network, so firing _onFailure here would just stampede a doomed
+                // handshake. The !isAuthenticated branch above is the only path
+                // that triggers reauth from the tickle loop.
                 _tickleCount.Add(1, new KeyValuePair<string, object?>("success", false));
                 _tickleFailureCount.Add(1);
                 _lastTickleSucceeded = false;
                 LogTickleFailed(ex);
-                try
-                {
-                    await _onFailure(cancellationToken);
-                }
-                catch (Exception cbEx)
-                {
-                    LogFailureCallbackError(cbEx);
-                }
             }
         }
     }
