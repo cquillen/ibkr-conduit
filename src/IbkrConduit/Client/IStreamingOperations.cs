@@ -36,6 +36,12 @@ public interface IStreamingOperations
     DateTimeOffset? LastMessageReceivedAt { get; }
 
     /// <summary>
+    /// Pushed when the brokerage authentication state changes. Subscribe before
+    /// <see cref="ConnectAsync"/> to receive the initial-on-connect state.
+    /// </summary>
+    IObservable<SessionStatusEvent> SessionStatus { get; }
+
+    /// <summary>
     /// Subscribes to real-time market data for the specified contract.
     /// </summary>
     /// <param name="conid">Contract identifier.</param>

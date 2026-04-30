@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Threading;
 using IbkrConduit.Streaming;
 
 namespace IbkrConduit.Client;
@@ -11,6 +12,7 @@ namespace IbkrConduit.Client;
 internal sealed class StreamingOperations : IStreamingOperations
 {
     private readonly IIbkrWebSocketClient _webSocketClient;
+    private readonly Lazy<IObservable<SessionStatusEvent>> _sessionStatus;
 
     /// <summary>
     /// Creates a new <see cref="StreamingOperations"/>.
@@ -19,7 +21,13 @@ internal sealed class StreamingOperations : IStreamingOperations
     public StreamingOperations(IIbkrWebSocketClient webSocketClient)
     {
         _webSocketClient = webSocketClient;
+        _sessionStatus = new Lazy<IObservable<SessionStatusEvent>>(
+            () => CreateUnsolicitedObservable("sts", MapSessionStatus),
+            LazyThreadSafetyMode.ExecutionAndPublication);
     }
+
+    /// <inheritdoc />
+    public IObservable<SessionStatusEvent> SessionStatus => _sessionStatus.Value;
 
     /// <inheritdoc />
     public Task ConnectAsync(CancellationToken cancellationToken = default) =>
@@ -76,6 +84,22 @@ internal sealed class StreamingOperations : IStreamingOperations
         var (reader, _) = await _webSocketClient.SubscribeTopicAsync("sld+{}", "sld", cancellationToken);
 
         return new ChannelObservable<AccountLedgerUpdate>(reader, MapAccountLedgerUpdate);
+    }
+
+    private ChannelObservable<T> CreateUnsolicitedObservable<T>(string topicPrefix, Func<JsonElement, T> mapper)
+    {
+        var (reader, _) = _webSocketClient.RegisterUnsolicitedTopic(topicPrefix);
+        return new ChannelObservable<T>(reader, mapper);
+    }
+
+    private static SessionStatusEvent MapSessionStatus(JsonElement element)
+    {
+        if (element.TryGetProperty("args", out var args)
+            && args.TryGetProperty("authenticated", out var authProp))
+        {
+            return new SessionStatusEvent { Authenticated = authProp.GetBoolean() };
+        }
+        return new SessionStatusEvent();
     }
 
     private static MarketDataTick MapMarketDataTick(JsonElement element)

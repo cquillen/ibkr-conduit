@@ -409,11 +409,23 @@ public class IbkrClientTests
 
         public bool IsConnected => false;
         public DateTimeOffset? LastMessageReceivedAt => null;
+        public IObservable<SessionStatusEvent> SessionStatus => new EmptyObservable<SessionStatusEvent>();
         public Task<IObservable<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IObservable<OrderUpdate>> OrderUpdatesAsync(int? days = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IObservable<PnlUpdate>> ProfitAndLossAsync(CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IObservable<AccountSummaryUpdate>> AccountSummaryAsync(CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IObservable<AccountLedgerUpdate>> AccountLedgerAsync(CancellationToken ct = default) => throw new NotImplementedException();
+    }
+
+    private sealed class EmptyObservable<T> : IObservable<T>
+    {
+        public IDisposable Subscribe(IObserver<T> observer) =>
+            new EmptyDisposable();
+
+        private sealed class EmptyDisposable : IDisposable
+        {
+            public void Dispose() { }
+        }
     }
 
     private class FakeFlexOperations : IFlexOperations

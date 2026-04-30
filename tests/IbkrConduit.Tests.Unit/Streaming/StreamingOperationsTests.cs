@@ -173,6 +173,42 @@ public class StreamingOperationsTests
         ((IStreamingOperations)ops).LastMessageReceivedAt.ShouldBe(stamp);
     }
 
+    [Fact]
+    public async Task SessionStatus_DeliversTypedEventOnTopicMessage()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).SessionStatus;
+        var received = new TaskCompletionSource<SessionStatusEvent>();
+        using var sub = observable.Subscribe(new TestObserver<SessionStatusEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":true}}""").RootElement;
+        await wsClient.UnsolicitedChannels["sts"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Authenticated.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SessionStatus_DeliversAuthenticatedFalse()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).SessionStatus;
+        var received = new TaskCompletionSource<SessionStatusEvent>();
+        using var sub = observable.Subscribe(new TestObserver<SessionStatusEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":false}}""").RootElement;
+        await wsClient.UnsolicitedChannels["sts"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Authenticated.ShouldBeFalse();
+    }
+
     private static (StreamingOperations Operations, FakeWebSocketClient Client) CreateOperations()
     {
         var wsClient = new FakeWebSocketClient();

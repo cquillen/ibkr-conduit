@@ -136,3 +136,11 @@ public record AccountLedgerUpdate
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Data { get; init; }
 }
+
+/// <summary>Pushed when the brokerage authentication state changes (e.g., competing session, server-side timeout).</summary>
+[ExcludeFromCodeCoverage]
+public sealed record SessionStatusEvent
+{
+    /// <summary>True if the brokerage session is currently authenticated.</summary>
+    public bool Authenticated { get; init; }
+}
