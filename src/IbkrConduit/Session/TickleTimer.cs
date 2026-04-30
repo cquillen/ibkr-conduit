@@ -26,11 +26,14 @@ internal sealed partial class TickleTimer : ITickleTimer
     private readonly Func<CancellationToken, Task> _onFailure;
     private readonly SessionHealthState _sessionHealthState;
     private readonly ILogger<TickleTimer> _logger;
-    private readonly int _intervalSeconds;
+    private readonly ISessionLifecycleNotifier _notifier;
+    private readonly int _healthyIntervalSeconds;
+    private readonly int _failureIntervalSeconds;
     private readonly TimeProvider _timeProvider;
     private readonly object _startStopLock = new();
     private CancellationTokenSource? _cts;
     private Task? _backgroundTask;
+    private bool _lastTickleSucceeded = true;
 
     /// <summary>
     /// Creates a new tickle timer.
@@ -39,21 +42,27 @@ internal sealed partial class TickleTimer : ITickleTimer
     /// <param name="onFailure">Callback invoked when the session is detected as dead.</param>
     /// <param name="sessionHealthState">Shared session health state to update after each tickle.</param>
     /// <param name="logger">Logger for tickle events.</param>
-    /// <param name="intervalSeconds">Interval between tickle requests in seconds. Default is 60.</param>
+    /// <param name="notifier">Session lifecycle notifier — used to fire "tickle succeeded" events that the WebSocket client subscribes to as a reconnect watchdog.</param>
+    /// <param name="healthyIntervalSeconds">Interval between tickle requests after a successful tickle, in seconds. Default is 60.</param>
+    /// <param name="failureIntervalSeconds">Interval between tickle requests after a failed tickle, in seconds. Default is 5. Used to recover quickly from network outages and transient backend errors.</param>
     /// <param name="timeProvider">Time provider for delay abstraction. Default is <see cref="TimeProvider.System"/>.</param>
     public TickleTimer(
         IIbkrSessionApi sessionApi,
         Func<CancellationToken, Task> onFailure,
         SessionHealthState sessionHealthState,
         ILogger<TickleTimer> logger,
-        int intervalSeconds = 60,
+        ISessionLifecycleNotifier notifier,
+        int healthyIntervalSeconds = 60,
+        int failureIntervalSeconds = 5,
         TimeProvider? timeProvider = null)
     {
         _sessionApi = sessionApi;
         _onFailure = onFailure;
         _sessionHealthState = sessionHealthState;
         _logger = logger;
-        _intervalSeconds = intervalSeconds;
+        _notifier = notifier;
+        _healthyIntervalSeconds = healthyIntervalSeconds;
+        _failureIntervalSeconds = failureIntervalSeconds;
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -115,6 +124,9 @@ internal sealed partial class TickleTimer : ITickleTimer
     [LoggerMessage(Level = LogLevel.Error, Message = "Failure callback threw an exception")]
     private partial void LogFailureCallbackError(Exception exception);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Tickle-succeeded notification threw")]
+    private partial void LogTickleNotificationFailed(Exception exception);
+
     private void UpdateSessionHealthState(TickleAuthStatus? authStatus)
     {
         if (authStatus is null)
@@ -133,7 +145,8 @@ internal sealed partial class TickleTimer : ITickleTimer
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            await Task.Delay(TimeSpan.FromSeconds(_intervalSeconds), _timeProvider, cancellationToken);
+            var delaySeconds = _lastTickleSucceeded ? _healthyIntervalSeconds : _failureIntervalSeconds;
+            await Task.Delay(TimeSpan.FromSeconds(delaySeconds), _timeProvider, cancellationToken);
 
             try
             {
@@ -150,13 +163,23 @@ internal sealed partial class TickleTimer : ITickleTimer
                 {
                     _tickleCount.Add(1, new KeyValuePair<string, object?>("success", false));
                     _tickleFailureCount.Add(1);
+                    _lastTickleSucceeded = false;
                     LogSessionNotAuthenticated();
                     await _onFailure(cancellationToken);
                 }
                 else
                 {
                     _tickleCount.Add(1, new KeyValuePair<string, object?>("success", true));
+                    _lastTickleSucceeded = true;
                     LogTickleSuccessful();
+                    try
+                    {
+                        await _notifier.NotifyTickleSucceededAsync(cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogTickleNotificationFailed(ex);
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -167,6 +190,7 @@ internal sealed partial class TickleTimer : ITickleTimer
             {
                 _tickleCount.Add(1, new KeyValuePair<string, object?>("success", false));
                 _tickleFailureCount.Add(1);
+                _lastTickleSucceeded = false;
                 LogTickleFailed(ex);
                 try
                 {
@@ -188,25 +212,31 @@ internal sealed class TickleTimerFactory : ITickleTimerFactory
 {
     private readonly SessionHealthState _sessionHealthState;
     private readonly ILogger<TickleTimer> _logger;
-    private readonly int _intervalSeconds;
+    private readonly ISessionLifecycleNotifier _notifier;
+    private readonly int _healthyIntervalSeconds;
+    private readonly int _failureIntervalSeconds;
     private readonly TimeProvider _timeProvider;
 
     /// <summary>
-    /// Creates a new factory with the given logger, interval, and time provider.
+    /// Creates a new factory with the given dependencies.
     /// </summary>
     public TickleTimerFactory(
         SessionHealthState sessionHealthState,
         ILogger<TickleTimer> logger,
-        int intervalSeconds = 60,
-        TimeProvider? timeProvider = null)
+        ISessionLifecycleNotifier notifier,
+        int healthyIntervalSeconds,
+        int failureIntervalSeconds,
+        TimeProvider timeProvider)
     {
         _sessionHealthState = sessionHealthState;
         _logger = logger;
-        _intervalSeconds = intervalSeconds;
-        _timeProvider = timeProvider ?? TimeProvider.System;
+        _notifier = notifier;
+        _healthyIntervalSeconds = healthyIntervalSeconds;
+        _failureIntervalSeconds = failureIntervalSeconds;
+        _timeProvider = timeProvider;
     }
 
     /// <inheritdoc />
     public ITickleTimer Create(IIbkrSessionApi sessionApi, Func<CancellationToken, Task> onFailure) =>
-        new TickleTimer(sessionApi, onFailure, _sessionHealthState, _logger, _intervalSeconds, _timeProvider);
+        new TickleTimer(sessionApi, onFailure, _sessionHealthState, _logger, _notifier, _healthyIntervalSeconds, _failureIntervalSeconds, _timeProvider);
 }
