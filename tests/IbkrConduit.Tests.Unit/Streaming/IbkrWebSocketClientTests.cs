@@ -563,6 +563,89 @@ public class IbkrWebSocketClientTests
         client.LastMessageReceivedAt.ShouldBe(start.AddMinutes(7));
     }
 
+    [Fact]
+    public async Task RegisterUnsolicitedTopic_ReturnsReader_AndDoesNotSendMessage()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var sentBefore = _adapter.SentMessages.Count;
+
+        var (reader, _) = client.RegisterUnsolicitedTopic("sts");
+
+        reader.ShouldNotBeNull();
+        _adapter.SentMessages.Count.ShouldBe(sentBefore);
+    }
+
+    [Fact]
+    public async Task ProcessMessage_StsTopic_RoutesToRegisteredSubscriber()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var (reader, _) = client.RegisterUnsolicitedTopic("sts");
+
+        _adapter.EnqueueServerMessage("""{"topic":"sts","args":{"authenticated":true}}""");
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (reader.Count == 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        reader.TryRead(out var element).ShouldBeTrue();
+        element.GetProperty("topic").GetString().ShouldBe("sts");
+    }
+
+    [Fact]
+    public async Task ProcessMessage_SystemTopic_RoutesToRegisteredSubscriber()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var (reader, _) = client.RegisterUnsolicitedTopic("system");
+
+        _adapter.EnqueueServerMessage("""{"topic":"system","success":"alice"}""");
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (reader.Count == 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        reader.TryRead(out var element).ShouldBeTrue();
+        element.GetProperty("topic").GetString().ShouldBe("system");
+    }
+
+    [Fact]
+    public async Task ProcessMessage_ActTopic_RoutesToRegisteredSubscriber()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var (reader, _) = client.RegisterUnsolicitedTopic("act");
+
+        _adapter.EnqueueServerMessage("""{"topic":"act","args":{"selectedAccount":"DU123"}}""");
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (reader.Count == 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        reader.TryRead(out var element).ShouldBeTrue();
+        element.GetProperty("topic").GetString().ShouldBe("act");
+    }
+
+    [Fact]
+    public async Task ProcessMessage_TicTopic_StillIgnoredEvenWithSubscriber()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var (reader, _) = client.RegisterUnsolicitedTopic("tic");
+
+        _adapter.EnqueueServerMessage("""{"topic":"tic"}""");
+        await Task.Delay(200, TestContext.Current.CancellationToken); // give the pump a chance
+
+        reader.Count.ShouldBe(0);
+    }
+
     private IbkrWebSocketClient CreateClient(
         TimeProvider? timeProvider = null,
         int heartbeatIntervalSeconds = 30,

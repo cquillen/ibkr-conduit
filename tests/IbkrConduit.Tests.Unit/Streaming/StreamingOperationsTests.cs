@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Channels;
@@ -205,6 +206,16 @@ public class StreamingOperationsTests
             LastSubscribeMessage = subscribeMessage;
             LastTopicPrefix = topicPrefix;
             return Task.FromResult<(ChannelReader<JsonElement>, Action)>((Channel.Reader, () => { }));
+        }
+
+        public ConcurrentDictionary<string, Channel<JsonElement>> UnsolicitedChannels { get; } = new();
+
+        public (ChannelReader<JsonElement> Reader, Action Unsubscribe) RegisterUnsolicitedTopic(string topicPrefix)
+        {
+            var channel = UnsolicitedChannels.GetOrAdd(
+                topicPrefix,
+                _ => System.Threading.Channels.Channel.CreateUnbounded<JsonElement>());
+            return (channel.Reader, () => { });
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

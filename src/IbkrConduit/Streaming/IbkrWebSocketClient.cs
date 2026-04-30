@@ -202,6 +202,38 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     }
 
     /// <inheritdoc />
+    public (ChannelReader<JsonElement> Reader, Action Unsubscribe) RegisterUnsolicitedTopic(string topicPrefix)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        var channel = Channel.CreateBounded<JsonElement>(
+            new BoundedChannelOptions(_streamingBufferSize)
+            {
+                FullMode = BoundedChannelFullMode.DropOldest,
+                SingleReader = true,
+            });
+
+        var writers = _subscribers.GetOrAdd(topicPrefix, _ => []);
+        lock (writers)
+        {
+            writers.Add(channel.Writer);
+        }
+
+        return (channel.Reader, () =>
+        {
+            if (_subscribers.TryGetValue(topicPrefix, out var existingWriters))
+            {
+                lock (existingWriters)
+                {
+                    existingWriters.Remove(channel.Writer);
+                }
+            }
+            channel.Writer.TryComplete();
+        }
+        );
+    }
+
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -423,8 +455,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             return;
         }
 
-        // Handle internal topics
-        if (topic == "tic" || topic == "system" || topic == "sts")
+        // Drop heartbeat echoes; sts and system are now surfaced via the
+        // unsolicited-topic dispatch path below.
+        if (topic == "tic")
         {
             return;
         }

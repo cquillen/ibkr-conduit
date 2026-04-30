@@ -41,4 +41,12 @@ internal interface IIbkrWebSocketClient : IAsyncDisposable
         string subscribeMessage,
         string topicPrefix,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Registers a subscriber for an unsolicited topic (sts, system, act, blt, ntf).
+    /// Does NOT send a subscribe message — IBKR pushes these regardless.
+    /// </summary>
+    /// <param name="topicPrefix">The topic prefix to listen on (e.g., "sts", "act").</param>
+    /// <returns>A tuple of the channel reader and an unsubscribe action.</returns>
+    (ChannelReader<JsonElement> Reader, Action Unsubscribe) RegisterUnsolicitedTopic(string topicPrefix);
 }
