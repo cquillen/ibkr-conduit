@@ -139,6 +139,16 @@ public class StreamingOperationsTests
     }
 
     [Fact]
+    public async Task ConnectAsync_DelegatesToWebSocketClient()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await ((IStreamingOperations)ops).ConnectAsync(TestContext.Current.CancellationToken);
+
+        wsClient.ConnectCallCount.ShouldBe(1);
+    }
+
+    [Fact]
     public void IsConnected_DelegatesToUnderlyingWebSocketClient()
     {
         var (ops, wsClient) = CreateOperations();
@@ -179,8 +189,13 @@ public class StreamingOperationsTests
         public int ActiveSubscriptionCount => 0;
         public DateTimeOffset? LastMessageReceivedAt { get; set; }
 
-        public Task ConnectAsync(CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+        public int ConnectCallCount { get; private set; }
+
+        public Task ConnectAsync(CancellationToken cancellationToken)
+        {
+            ConnectCallCount++;
+            return Task.CompletedTask;
+        }
 
         public Task<(ChannelReader<JsonElement> Reader, Action Unsubscribe)> SubscribeTopicAsync(
             string subscribeMessage,

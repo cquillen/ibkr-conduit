@@ -22,6 +22,10 @@ internal sealed class StreamingOperations : IStreamingOperations
     }
 
     /// <inheritdoc />
+    public Task ConnectAsync(CancellationToken cancellationToken = default) =>
+        _webSocketClient.ConnectAsync(cancellationToken);
+
+    /// <inheritdoc />
     public bool IsConnected => _webSocketClient.IsConnected;
 
     /// <inheritdoc />

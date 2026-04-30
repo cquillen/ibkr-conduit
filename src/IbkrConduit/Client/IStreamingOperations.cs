@@ -9,6 +9,19 @@ namespace IbkrConduit.Client;
 public interface IStreamingOperations
 {
     /// <summary>
+    /// Opens the WebSocket connection. Must be called after configuring all
+    /// subscriptions (<see cref="MarketDataAsync"/>, <see cref="OrderUpdatesAsync"/>,
+    /// etc.) so that subscribers are in place before IBKR's initial-on-connect
+    /// messages arrive.
+    ///
+    /// Idempotent: calling on an already-connected client is a no-op.
+    /// Re-calling after disconnect re-opens the connection and replays all
+    /// active subscriptions.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ConnectAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// True when the underlying WebSocket connection is currently open.
     /// Use this to surface a real connection-state indicator in monitoring UIs
     /// instead of inferring connectivity from message-arrival timing.

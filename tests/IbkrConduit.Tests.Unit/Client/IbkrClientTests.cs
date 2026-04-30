@@ -404,6 +404,9 @@ public class IbkrClientTests
 
     private class FakeStreamingOperations : IStreamingOperations
     {
+        public Task ConnectAsync(CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
         public bool IsConnected => false;
         public DateTimeOffset? LastMessageReceivedAt => null;
         public Task<IObservable<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken ct = default) => throw new NotImplementedException();
