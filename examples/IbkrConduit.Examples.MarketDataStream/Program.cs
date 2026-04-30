@@ -43,16 +43,16 @@ internal static class Program
         using var credentials = OAuthCredentialsFactory.FromFile(credentialsPath);
 
         var services = new ServiceCollection();
+        // The Spectre.Console Live region cannot tolerate raw stdout writes from
+        // ConsoleLoggerProvider (they corrupt the table). Capture log entries into
+        // an in-memory ring buffer that the render loop snapshots and renders into
+        // a Spectre Panel below the table. Full-detail capture is opt-in via
+        // --log-file (FileLoggerProvider runs in parallel with the panel buffer).
+        var panelBuffer = new PanelLogBuffer();
         services.AddLogging(b =>
         {
-            // Set the framework's global minimum so the file provider (when enabled)
-            // captures everything at or above the requested level. The console-specific
-            // filter below clamps console output to Warning+ regardless, so the live
-            // table stays readable.
             b.SetMinimumLevel(logLevel);
-            b.AddConsole();
-            b.AddFilter<Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider>(
-                level => level >= LogLevel.Warning);
+            b.AddProvider(panelBuffer);
             if (!string.IsNullOrEmpty(logFilePath))
             {
                 b.AddProvider(new FileLoggerProvider(logFilePath));
@@ -85,7 +85,7 @@ internal static class Program
 
         try
         {
-            var totalTicks = await StreamHost.RunAsync(client, symbols, logger, cts.Token);
+            var totalTicks = await StreamHost.RunAsync(client, symbols, logger, panelBuffer, cts.Token);
             Console.WriteLine($"Streamed {totalTicks} ticks across {symbols.Count} symbols.");
             return 0;
         }
