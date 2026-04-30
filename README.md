@@ -179,34 +179,46 @@ var history = await client.MarketData.GetHistoryAsync(265598, "1d", "5min");
 
 ### WebSocket streaming
 
+Streaming uses an explicit configure-then-connect lifecycle: wire up all subscriptions
+first, then call `ConnectAsync` to open the WebSocket. This guarantees subscribers are
+in place before IBKR's initial-on-connect messages arrive.
+
 ```csharp
-// Subscribe to real-time market data
+// 1. Configure subscriptions (queues locally — no network traffic yet)
 var ticks = await client.Streaming.MarketDataAsync(265598, new[] { "31", "84", "86" });
 using var sub = ticks.Subscribe(tick =>
 {
     Console.WriteLine($"AAPL: {tick.Fields?["31"]} (bid: {tick.Fields?["84"]}, ask: {tick.Fields?["86"]})");
 });
 
-// Subscribe to order updates
 var orders = await client.Streaming.OrderUpdatesAsync();
 using var orderSub = orders.Subscribe(update =>
 {
     Console.WriteLine($"Order {update.OrderId}: {update.Symbol} {update.Side} {update.Status}");
 });
 
-// Subscribe to P&L
 var pnl = await client.Streaming.ProfitAndLossAsync();
 using var pnlSub = pnl.Subscribe(update =>
 {
     Console.WriteLine($"Daily P&L: {update.DailyPnl:C}, Unrealized: {update.UnrealizedPnl:C}");
 });
 
-// Account summary and ledger
 var summary = await client.Streaming.AccountSummaryAsync();
 var ledger = await client.Streaming.AccountLedgerAsync();
+
+// 2. Open the WebSocket — sends queued subscribes and starts receiving
+await client.Streaming.ConnectAsync(cancellationToken);
 ```
 
+Unsolicited server-pushed events are also exposed as observables on `client.Streaming`:
+`SessionStatus`, `Bulletins`, `TradingNotifications`, `SystemEvents`, and `AccountStatus`.
+Subscribe to these *before* `ConnectAsync` to receive the initial-on-connect payload.
+
 WebSocket streaming uses `IObservable<T>`. Add `System.Reactive` for LINQ operators like `Buffer`, `Throttle`, `Where`.
+
+> **Breaking change in 0.5.0:** Subscribing no longer auto-connects. Existing code that
+> relied on the implicit connect must add `await client.Streaming.ConnectAsync(ct)` after
+> configuring subscriptions.
 
 ### Flex Web Service
 
