@@ -80,19 +80,6 @@ internal sealed class LiveTickTable
         }
     }
 
-    /// <summary>Whether any row received a tick within <paramref name="window"/>.</summary>
-    public bool AnyTickWithin(TimeSpan window, DateTimeOffset now)
-    {
-        foreach (var row in _rows.Values)
-        {
-            if (row.LastTickAt is { } when_ && now - when_ <= window)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     private static Markup FormatPercentChange(string? value)
     {
