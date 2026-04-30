@@ -282,12 +282,14 @@ public class StreamingOperationsTests
         using var sub = observable.Subscribe(new TestObserver<SystemEvent>(
             onNext: e => received.TrySetResult(e)));
 
-        var json = JsonDocument.Parse("""{"topic":"system","success":"alice"}""").RootElement;
+        var json = JsonDocument.Parse("""{"topic":"system","success":"alice","isFT":false,"isPaper":true}""").RootElement;
         await wsClient.UnsolicitedChannels["system"].Writer.WriteAsync(json, ct);
 
         var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
         evt.Username.ShouldBe("alice");
         evt.HeartbeatMs.ShouldBeNull();
+        evt.IsFT.ShouldBe(false);
+        evt.IsPaper.ShouldBe(true);
     }
 
     [Fact]
@@ -310,10 +312,12 @@ public class StreamingOperationsTests
               "All":{
                 "hasChildAccounts":false,
                 "supportsCashQty":true,
+                "liteUnderPro":true,
                 "noFXConv":false,
                 "isProp":false,
                 "supportsFractions":true,
-                "allowCustomerTime":true
+                "allowCustomerTime":true,
+                "autoFx":true
               }
             },
             "aliases":{"DU123":"Main"},
@@ -335,7 +339,12 @@ public class StreamingOperationsTests
               "showImpactDashboard":true,
               "allowDynAccount":false,
               "allowCrypto":true,
-              "allowedAssetTypes":"STK,OPT,FUT,CASH"
+              "allowFA":true,
+              "allowLiteUnderPro":false,
+              "allowedAssetTypes":"STK,OPT,FUT,CASH",
+              "restrictTradeSubscription":false,
+              "showUkUserLabels":true,
+              "sideBySide":true
             },
             "chartPeriods":{"STK":["1d","5d"],"OPT":["1d"]},
             "groups":["G1"],
@@ -356,11 +365,18 @@ public class StreamingOperationsTests
         evt.AcctProps.ShouldContainKey("All");
         evt.AcctProps["All"].SupportsCashQty.ShouldBeTrue();
         evt.AcctProps["All"].SupportsFractions.ShouldBeTrue();
+        evt.AcctProps["All"].LiteUnderPro.ShouldBeTrue();
+        evt.AcctProps["All"].AutoFx.ShouldBeTrue();
         evt.Aliases["DU123"].ShouldBe("Main");
         evt.AllowFeatures.ShouldNotBeNull();
         evt.AllowFeatures!.AllowFXConv.ShouldBeTrue();
         evt.AllowFeatures.SnapshotRefreshTimeout.ShouldBe(300);
         evt.AllowFeatures.AllowedAssetTypes.ShouldBe("STK,OPT,FUT,CASH");
+        evt.AllowFeatures.AllowFA.ShouldBeTrue();
+        evt.AllowFeatures.AllowLiteUnderPro.ShouldBeFalse();
+        evt.AllowFeatures.RestrictTradeSubscription.ShouldBeFalse();
+        evt.AllowFeatures.ShowUkUserLabels.ShouldBeTrue();
+        evt.AllowFeatures.SideBySide.ShouldBeTrue();
         evt.ChartPeriods["STK"].ShouldBe(new[] { "1d", "5d" });
         evt.Groups.ShouldBe(new[] { "G1" });
         evt.Profiles.ShouldBe(new[] { "P1" });
@@ -390,6 +406,8 @@ public class StreamingOperationsTests
         var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
         evt.Username.ShouldBeNull();
         evt.HeartbeatMs.ShouldBe(1730000000000);
+        evt.IsFT.ShouldBeNull();
+        evt.IsPaper.ShouldBeNull();
     }
 
     private static (StreamingOperations Operations, FakeWebSocketClient Client) CreateOperations()

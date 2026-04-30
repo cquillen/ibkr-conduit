@@ -182,9 +182,14 @@ public sealed record SystemEvent
 
     /// <summary>
     /// Server-side heartbeat timestamp in unix milliseconds. Set on periodic heartbeats; null on the initial connection message.
-    /// Field name is assumed to be "hb" per IBKR convention; the IBKR doc text references the heartbeat but does not name the field. To be verified against real traffic post-merge.
     /// </summary>
     public long? HeartbeatMs { get; init; }
+
+    /// <summary>True if the account supports fractional trading. Set on the initial connection message; null on periodic heartbeats.</summary>
+    public bool? IsFT { get; init; }
+
+    /// <summary>True if the active account is a paper-trading account. Set on the initial connection message; null on periodic heartbeats.</summary>
+    public bool? IsPaper { get; init; }
 }
 
 /// <summary>
@@ -253,6 +258,12 @@ public sealed record AccountProperties
 
     /// <summary>True if customer-time order routing is allowed.</summary>
     public bool AllowCustomerTime { get; init; }
+
+    /// <summary>True if this is a Lite account operating under a Pro umbrella.</summary>
+    public bool LiteUnderPro { get; init; }
+
+    /// <summary>True if automatic FX conversion is enabled for the account.</summary>
+    public bool AutoFx { get; init; }
 }
 
 /// <summary>Account-level feature flags from the <c>allowFeatures</c> object.</summary>
@@ -310,8 +321,23 @@ public sealed record AccountFeatures
     /// <summary>True if crypto trading is allowed.</summary>
     public bool AllowCrypto { get; init; }
 
+    /// <summary>True if Financial Advisor (FA) features are allowed.</summary>
+    public bool AllowFA { get; init; }
+
+    /// <summary>True if Lite-under-Pro account configuration is allowed.</summary>
+    public bool AllowLiteUnderPro { get; init; }
+
     /// <summary>Comma-separated list of allowed asset types (e.g., "STK,OPT,FUT,CASH").</summary>
     public string? AllowedAssetTypes { get; init; }
+
+    /// <summary>True if subscription-based trade restrictions apply.</summary>
+    public bool RestrictTradeSubscription { get; init; }
+
+    /// <summary>True if UK-specific user labels are shown.</summary>
+    public bool ShowUkUserLabels { get; init; }
+
+    /// <summary>True if side-by-side layout is enabled.</summary>
+    public bool SideBySide { get; init; }
 }
 
 /// <summary>Server identification carried by AccountStatusEvent. Distinct from any session-internal ServerInfo type.</summary>

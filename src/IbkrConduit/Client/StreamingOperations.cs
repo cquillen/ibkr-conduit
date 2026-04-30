@@ -168,10 +168,20 @@ internal sealed class StreamingOperations : IStreamingOperations
             ? hbProp.GetInt64()
             : null;
 
+        bool? isFT = element.TryGetProperty("isFT", out var ftProp) && (ftProp.ValueKind == JsonValueKind.True || ftProp.ValueKind == JsonValueKind.False)
+            ? ftProp.GetBoolean()
+            : null;
+
+        bool? isPaper = element.TryGetProperty("isPaper", out var paperProp) && (paperProp.ValueKind == JsonValueKind.True || paperProp.ValueKind == JsonValueKind.False)
+            ? paperProp.GetBoolean()
+            : null;
+
         return new SystemEvent
         {
             Username = username,
             HeartbeatMs = heartbeatMs,
+            IsFT = isFT,
+            IsPaper = isPaper,
         };
     }
 
@@ -324,6 +334,8 @@ internal sealed class StreamingOperations : IStreamingOperations
             IsProp = el.TryGetProperty("isProp", out var ip) && ip.ValueKind == JsonValueKind.True,
             SupportsFractions = el.TryGetProperty("supportsFractions", out var sf) && sf.ValueKind == JsonValueKind.True,
             AllowCustomerTime = el.TryGetProperty("allowCustomerTime", out var ac) && ac.ValueKind == JsonValueKind.True,
+            LiteUnderPro = el.TryGetProperty("liteUnderPro", out var lup) && lup.ValueKind == JsonValueKind.True,
+            AutoFx = el.TryGetProperty("autoFx", out var afx) && afx.ValueKind == JsonValueKind.True,
         };
 
     private static AccountFeatures MapAccountFeatures(JsonElement el) =>
@@ -346,7 +358,12 @@ internal sealed class StreamingOperations : IStreamingOperations
             ShowImpactDashboard = el.TryGetProperty("showImpactDashboard", out var v15) && v15.ValueKind == JsonValueKind.True,
             AllowDynAccount = el.TryGetProperty("allowDynAccount", out var v16) && v16.ValueKind == JsonValueKind.True,
             AllowCrypto = el.TryGetProperty("allowCrypto", out var v17) && v17.ValueKind == JsonValueKind.True,
+            AllowFA = el.TryGetProperty("allowFA", out var v18) && v18.ValueKind == JsonValueKind.True,
+            AllowLiteUnderPro = el.TryGetProperty("allowLiteUnderPro", out var v19) && v19.ValueKind == JsonValueKind.True,
             AllowedAssetTypes = el.TryGetProperty("allowedAssetTypes", out var aat) ? aat.GetString() : null,
+            RestrictTradeSubscription = el.TryGetProperty("restrictTradeSubscription", out var v20) && v20.ValueKind == JsonValueKind.True,
+            ShowUkUserLabels = el.TryGetProperty("showUkUserLabels", out var v21) && v21.ValueKind == JsonValueKind.True,
+            SideBySide = el.TryGetProperty("sideBySide", out var v22) && v22.ValueKind == JsonValueKind.True,
         };
 
     private static Dictionary<string, IReadOnlyList<string>> ReadChartPeriods(JsonElement parent)
