@@ -112,6 +112,7 @@ public class SessionModelsTests
         options.Compete.ShouldBeTrue();
         options.SuppressMessageIds.ShouldBeEmpty();
         options.WebSocketHeartbeatIntervalSeconds.ShouldBe(30);
+        options.StreamingBufferSize.ShouldBe(256);
     }
 
     [Fact]

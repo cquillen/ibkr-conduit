@@ -61,6 +61,15 @@ public class IbkrClientOptions
     public int WebSocketHeartbeatIntervalSeconds { get; set; } = 30;
 
     /// <summary>
+    /// Per-subscriber buffer size for WebSocket observables. When a consumer
+    /// falls behind, the oldest queued message is dropped to make room for
+    /// the newest. Default is 256. Increase for bursty sources, decrease
+    /// for memory-constrained hosts. The drop policy itself (DropOldest)
+    /// is fixed and not configurable.
+    /// </summary>
+    public int StreamingBufferSize { get; set; } = 256;
+
+    /// <summary>
     /// How long before token expiry to trigger a proactive refresh.
     /// Default is 1 hour. Reduce for integration testing.
     /// </summary>

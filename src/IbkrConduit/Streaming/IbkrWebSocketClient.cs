@@ -40,6 +40,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly ILogger<IbkrWebSocketClient> _logger;
     private readonly Func<IWebSocketAdapter> _webSocketFactory;
     private readonly int _heartbeatIntervalSeconds;
+    private readonly int _streamingBufferSize;
     private readonly TimeProvider _timeProvider;
     private readonly ConcurrentDictionary<string, List<ChannelWriter<JsonElement>>> _subscribers = new();
     private readonly List<string> _activeSubscriptions = [];
@@ -69,6 +70,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <param name="logger">Logger instance.</param>
     /// <param name="webSocketFactory">Factory for creating WebSocket adapter instances.</param>
     /// <param name="heartbeatIntervalSeconds">Seconds between "tic" ping messages used to keep the WebSocket session alive. IBKR requires at least one per minute.</param>
+    /// <param name="streamingBufferSize">Per-subscriber channel capacity. When full, the oldest message is dropped to make room for the newest.</param>
     /// <param name="timeProvider">Time provider for delays; defaults to <see cref="TimeProvider.System"/>.</param>
     public IbkrWebSocketClient(
         IIbkrSessionApi sessionApi,
@@ -77,6 +79,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         ILogger<IbkrWebSocketClient> logger,
         Func<IWebSocketAdapter> webSocketFactory,
         int heartbeatIntervalSeconds,
+        int streamingBufferSize,
         TimeProvider? timeProvider = null)
     {
         _sessionApi = sessionApi;
@@ -85,6 +88,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         _logger = logger;
         _webSocketFactory = webSocketFactory;
         _heartbeatIntervalSeconds = heartbeatIntervalSeconds;
+        _streamingBufferSize = streamingBufferSize;
         _timeProvider = timeProvider ?? TimeProvider.System;
 
         IbkrConduitDiagnostics.Meter.CreateObservableGauge(
@@ -165,7 +169,12 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             await ConnectAsync(cancellationToken);
         }
 
-        var channel = Channel.CreateUnbounded<JsonElement>();
+        var channel = Channel.CreateBounded<JsonElement>(
+            new BoundedChannelOptions(_streamingBufferSize)
+            {
+                FullMode = BoundedChannelFullMode.DropOldest,
+                SingleReader = true,
+            });
 
         var writers = _subscribers.GetOrAdd(topicPrefix, _ => []);
         lock (writers)

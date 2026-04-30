@@ -424,6 +424,55 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
+    public async Task SubscribeTopicAsync_SubscriberFallsBehind_DropsOldestNotNewest()
+    {
+        // Use a small buffer so we can fill it without writing 256 messages.
+        await using var client = new IbkrWebSocketClient(
+            _sessionApi,
+            _credentials,
+            _notifier,
+            NullLogger<IbkrWebSocketClient>.Instance,
+            () => _adapter,
+            heartbeatIntervalSeconds: 30,
+            streamingBufferSize: 4,
+            timeProvider: null);
+
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var ct = TestContext.Current.CancellationToken;
+
+        var (reader, _) = await client.SubscribeTopicAsync(
+            "smd+265598+{}", "smd", ct);
+
+        // Drain the startup signal: the pump started and called ReceiveAsync once already.
+        await _adapter.WaitForReceiveAsync(ct);
+
+        // Inject 6 messages — buffer is 4, so the first 2 should be dropped.
+        for (var i = 1; i <= 6; i++)
+        {
+            _adapter.EnqueueServerMessage($"{{\"topic\":\"smd+265598\",\"seq\":{i}}}");
+        }
+
+        // Wait for all 6 messages to be processed: each message causes the pump to
+        // loop back to ReceiveAsync, releasing one signal per message.
+        for (var i = 0; i < 6; i++)
+        {
+            await _adapter.WaitForReceiveAsync(ct);
+        }
+
+        // Drain everything currently buffered and verify the OLDEST 2 were dropped.
+        var received = new List<int>();
+        while (reader.TryRead(out var element))
+        {
+            received.Add(element.GetProperty("seq").GetInt32());
+        }
+
+        received.Count.ShouldBeLessThanOrEqualTo(4);
+        received.ShouldContain(6); // newest survived
+        received.ShouldNotContain(1); // oldest dropped
+        received.ShouldNotContain(2); // second-oldest dropped
+    }
+
+    [Fact]
     public async Task ReceiveMessage_AfterClockAdvance_StampsNewTime()
     {
         var start = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
@@ -455,7 +504,8 @@ public class IbkrWebSocketClientTests
 
     private IbkrWebSocketClient CreateClient(
         TimeProvider? timeProvider = null,
-        int heartbeatIntervalSeconds = 30) =>
+        int heartbeatIntervalSeconds = 30,
+        int streamingBufferSize = 256) =>
         new(
             _sessionApi,
             _credentials,
@@ -463,6 +513,7 @@ public class IbkrWebSocketClientTests
             NullLogger<IbkrWebSocketClient>.Instance,
             () => _adapter,
             heartbeatIntervalSeconds,
+            streamingBufferSize,
             timeProvider);
 
     internal class FakeSessionApi : IIbkrSessionApi
