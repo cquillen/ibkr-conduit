@@ -33,6 +33,12 @@ internal sealed partial class TickleTimer : ITickleTimer
     private readonly object _startStopLock = new();
     private CancellationTokenSource? _cts;
     private Task? _backgroundTask;
+
+    /// <summary>
+    /// Tracks the previous tickle's outcome to drive cadence selection. Initialized
+    /// to <c>true</c> so the first iteration uses the healthy interval — we have no
+    /// reason to fast-poll before observing a failure.
+    /// </summary>
     private bool _lastTickleSucceeded = true;
 
     /// <summary>
