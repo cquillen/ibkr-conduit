@@ -45,6 +45,15 @@ internal sealed partial class SessionManager : ISessionManager
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly CancellationTokenSource _disposeCts = new();
 
+    /// <summary>
+    /// Monotonically incremented after every successful reauth. Used by
+    /// <see cref="ReauthenticateAsync"/> to dedupe concurrent calls from a
+    /// burst of 401s: a caller snapshots the epoch before waiting on the
+    /// semaphore and short-circuits if the snapshot no longer matches —
+    /// meaning another caller already completed a reauth. See issue #168.
+    /// </summary>
+    private long _reauthEpoch;
+
     private volatile SessionState _state = SessionState.Uninitialized;
     private volatile bool _disposed;
     private readonly object _proactiveRefreshLock = new();
@@ -142,11 +151,34 @@ internal sealed partial class SessionManager : ISessionManager
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Reauthenticate");
 
+        // Snapshot the reauth epoch before waiting on the semaphore. If
+        // another caller completes a reauth while we wait, they will
+        // increment the epoch — we'll detect that after acquiring the
+        // semaphore and short-circuit. See issue #168.
+        var epochBeforeWait = Interlocked.Read(ref _reauthEpoch);
+
+        // Yield once before contending for the semaphore so that concurrent
+        // callers in the same burst — including ones with all-synchronous
+        // dependencies (e.g., unit tests) — get to snapshot the epoch before
+        // any of them progresses past the semaphore. Without this yield, a
+        // burst dispatched from a single thread runs strictly sequentially:
+        // caller A would complete (incrementing the epoch) before caller B
+        // even reads it, and the dedupe would never trigger.
+        await Task.Yield();
+
         await _semaphore.WaitAsync(cancellationToken);
         var sw = Stopwatch.StartNew();
         try
         {
             if (_state == SessionState.ShuttingDown)
+            {
+                return;
+            }
+
+            // Dedupe: if the epoch advanced while we were waiting, another
+            // caller already completed a full reauth — the session is back
+            // to Ready and there is nothing to do.
+            if (Interlocked.Read(ref _reauthEpoch) != epochBeforeWait)
             {
                 return;
             }
@@ -197,6 +229,11 @@ internal sealed partial class SessionManager : ISessionManager
             _state = SessionState.Ready;
             _refreshCount.Add(1, new KeyValuePair<string, object?>(LogFields.Trigger, "reauth"));
             _refreshDuration.Record(sw.Elapsed.TotalMilliseconds);
+
+            // Mark the reauth complete BEFORE releasing the semaphore so any
+            // caller queued behind us short-circuits via the epoch check above.
+            Interlocked.Increment(ref _reauthEpoch);
+
             LogReauthenticated();
         }
         finally
