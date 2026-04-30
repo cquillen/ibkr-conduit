@@ -47,11 +47,23 @@ requiring a credentials file:
 dotnet run --project examples/IbkrConduit.Examples.MarketDataStream --configuration Release -- --help
 ```
 
+Tee every log line (Debug+ from every category) to a file alongside the live UI
+— useful when the live table region overwrites a warning before you can read it:
+
+```bash
+dotnet run --project examples/IbkrConduit.Examples.MarketDataStream --configuration Release -- --log-file ./debug.log
+```
+
+The console keeps its quiet `Warning+` filter; the file captures everything from
+`Debug` upward with timestamps, EventIds, and category names.
+
 Press `Ctrl+C` at any time to exit cleanly.
 
 ## What it shows
 
-- A status header (`● Live` / `● Stale`) driven by tick freshness.
+- A status header (`● Connected` / `● Disconnected` plus a "last msg Ns ago"
+  freshness indicator) driven by `IStreamingOperations.IsConnected` and
+  `IStreamingOperations.LastMessageReceivedAt`.
 - One row per resolved symbol with Symbol, Last, Bid, Ask, Volume, % Change, Age.
 - Age yellow at >5s, red at >30s.
 - % Change green if positive, red if negative.
