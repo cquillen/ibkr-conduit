@@ -22,7 +22,7 @@ internal static class Program
             return 0;
         }
 
-        if (!TryParseArgs(args, out var symbols, out var duration, out var durationDisplay, out var argError))
+        if (!TryParseArgs(args, out var symbols, out var duration, out var durationDisplay, out var logFilePath, out var argError))
         {
             Console.Error.WriteLine(argError);
             return 2;
@@ -43,7 +43,20 @@ internal static class Program
         using var credentials = OAuthCredentialsFactory.FromFile(credentialsPath);
 
         var services = new ServiceCollection();
-        services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
+        services.AddLogging(b =>
+        {
+            // Lower the framework's global minimum so the file provider (when
+            // enabled) can capture Debug+ even while the console stays quiet.
+            // The console-specific filter below clamps console output to Warning+.
+            b.SetMinimumLevel(LogLevel.Debug);
+            b.AddConsole();
+            b.AddFilter<Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider>(
+                level => level >= LogLevel.Warning);
+            if (!string.IsNullOrEmpty(logFilePath))
+            {
+                b.AddProvider(new FileLoggerProvider(logFilePath));
+            }
+        });
         services.AddIbkrClient(opts => opts.Credentials = credentials);
 
         await using var provider = services.BuildServiceProvider();
@@ -94,7 +107,7 @@ internal static class Program
 
     private static void PrintHelp()
     {
-        Console.WriteLine("Usage: ibkr-conduit-stream [SYMBOL...] [--duration <timespan>] [--help]");
+        Console.WriteLine("Usage: ibkr-conduit-stream [SYMBOL...] [--duration <timespan>] [--log-file <path>] [--help]");
         Console.WriteLine();
         Console.WriteLine("Subscribes to live market data for one or more symbols and renders ticks");
         Console.WriteLine("to a continuously-updating Spectre.Console table.");
@@ -110,6 +123,9 @@ internal static class Program
         Console.WriteLine("                           60s, 5m, 1h        Shorthand suffixes");
         Console.WriteLine("                           00:01:30           TimeSpan literal");
         Console.WriteLine("                         If omitted, runs until Ctrl+C.");
+        Console.WriteLine("  --log-file <path>      Tee all log lines (Debug+ from every category) to a file");
+        Console.WriteLine("                         in addition to the console. Useful when the live table");
+        Console.WriteLine("                         clobbers important warnings before you can read them.");
         Console.WriteLine("  -h, --help, /?         Show this help and exit.");
         Console.WriteLine();
         Console.WriteLine("Prerequisites:");
@@ -133,11 +149,13 @@ internal static class Program
         out IReadOnlyList<string> symbols,
         out TimeSpan? duration,
         out string? durationDisplay,
+        out string? logFilePath,
         out string error)
     {
         symbols = Array.Empty<string>();
         duration = null;
         durationDisplay = null;
+        logFilePath = null;
         error = string.Empty;
 
         var positional = new List<string>();
@@ -159,6 +177,19 @@ internal static class Program
 
                 duration = parsed;
                 durationDisplay = args[i + 1];
+                i++;
+                continue;
+            }
+
+            if (args[i] == "--log-file")
+            {
+                if (i + 1 >= args.Length)
+                {
+                    error = "Error: --log-file requires a path (e.g. ./debug.log).";
+                    return false;
+                }
+
+                logFilePath = args[i + 1];
                 i++;
                 continue;
             }
