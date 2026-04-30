@@ -63,3 +63,7 @@ __pycache__/
 # Credentials
 .creds/
 .ibkr-credentials/
+
+# Superpowers brainstorming/planning artifacts (process, not source of truth)
+docs/superpowers/plans/
+docs/superpowers/specs/
