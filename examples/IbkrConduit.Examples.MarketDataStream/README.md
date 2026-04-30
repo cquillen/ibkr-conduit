@@ -47,15 +47,28 @@ requiring a credentials file:
 dotnet run --project examples/IbkrConduit.Examples.MarketDataStream --configuration Release -- --help
 ```
 
-Tee every log line (Debug+ from every category) to a file alongside the live UI
-— useful when the live table region overwrites a warning before you can read it:
+Tee every log line to a file alongside the live UI — useful when the live table
+region overwrites a warning before you can read it:
 
 ```bash
 dotnet run --project examples/IbkrConduit.Examples.MarketDataStream --configuration Release -- --log-file ./debug.log
 ```
 
 The console keeps its quiet `Warning+` filter; the file captures everything from
-`Debug` upward with timestamps, EventIds, and category names.
+the configured minimum (default `Debug`) upward with timestamps, EventIds, and
+category names.
+
+To capture every WebSocket frame (incoming and outgoing), bump the file to
+`Trace`:
+
+```bash
+dotnet run --project examples/IbkrConduit.Examples.MarketDataStream --configuration Release -- --log-file ./trace.log --log-level Trace
+```
+
+`--log-level` accepts `Trace`, `Debug`, `Information`, `Warning`, `Error`,
+`Critical`, or `None`. Trace is opt-in for diagnosing the WebSocket plumbing —
+it logs every `tic` heartbeat, every market-data frame, and every server-pushed
+message, so files grow fast.
 
 Press `Ctrl+C` at any time to exit cleanly.
 

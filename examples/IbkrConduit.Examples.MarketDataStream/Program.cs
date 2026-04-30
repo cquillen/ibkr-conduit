@@ -22,7 +22,7 @@ internal static class Program
             return 0;
         }
 
-        if (!TryParseArgs(args, out var symbols, out var duration, out var durationDisplay, out var logFilePath, out var argError))
+        if (!TryParseArgs(args, out var symbols, out var duration, out var durationDisplay, out var logFilePath, out var logLevel, out var argError))
         {
             Console.Error.WriteLine(argError);
             return 2;
@@ -45,10 +45,11 @@ internal static class Program
         var services = new ServiceCollection();
         services.AddLogging(b =>
         {
-            // Lower the framework's global minimum so the file provider (when
-            // enabled) can capture Debug+ even while the console stays quiet.
-            // The console-specific filter below clamps console output to Warning+.
-            b.SetMinimumLevel(LogLevel.Debug);
+            // Set the framework's global minimum so the file provider (when enabled)
+            // captures everything at or above the requested level. The console-specific
+            // filter below clamps console output to Warning+ regardless, so the live
+            // table stays readable.
+            b.SetMinimumLevel(logLevel);
             b.AddConsole();
             b.AddFilter<Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider>(
                 level => level >= LogLevel.Warning);
@@ -107,7 +108,7 @@ internal static class Program
 
     private static void PrintHelp()
     {
-        Console.WriteLine("Usage: ibkr-conduit-stream [SYMBOL...] [--duration <timespan>] [--log-file <path>] [--help]");
+        Console.WriteLine("Usage: ibkr-conduit-stream [SYMBOL...] [--duration <timespan>] [--log-file <path>] [--log-level <level>] [--help]");
         Console.WriteLine();
         Console.WriteLine("Subscribes to live market data for one or more symbols and renders ticks");
         Console.WriteLine("to a continuously-updating Spectre.Console table.");
@@ -123,9 +124,13 @@ internal static class Program
         Console.WriteLine("                           60s, 5m, 1h        Shorthand suffixes");
         Console.WriteLine("                           00:01:30           TimeSpan literal");
         Console.WriteLine("                         If omitted, runs until Ctrl+C.");
-        Console.WriteLine("  --log-file <path>      Tee all log lines (Debug+ from every category) to a file");
-        Console.WriteLine("                         in addition to the console. Useful when the live table");
-        Console.WriteLine("                         clobbers important warnings before you can read them.");
+        Console.WriteLine("  --log-file <path>      Tee all log lines (at the configured level, default Debug)");
+        Console.WriteLine("                         to a file in addition to the console. Useful when the live");
+        Console.WriteLine("                         table clobbers important warnings before you can read them.");
+        Console.WriteLine("  --log-level <level>    Minimum log level captured by the file provider. One of:");
+        Console.WriteLine("                           Trace, Debug, Information, Warning, Error, Critical, None");
+        Console.WriteLine("                         Default is Debug. Use Trace to capture every WebSocket frame");
+        Console.WriteLine("                         (only useful with --log-file; console stays Warning+).");
         Console.WriteLine("  -h, --help, /?         Show this help and exit.");
         Console.WriteLine();
         Console.WriteLine("Prerequisites:");
@@ -150,12 +155,14 @@ internal static class Program
         out TimeSpan? duration,
         out string? durationDisplay,
         out string? logFilePath,
+        out LogLevel logLevel,
         out string error)
     {
         symbols = Array.Empty<string>();
         duration = null;
         durationDisplay = null;
         logFilePath = null;
+        logLevel = LogLevel.Debug;
         error = string.Empty;
 
         var positional = new List<string>();
@@ -190,6 +197,25 @@ internal static class Program
                 }
 
                 logFilePath = args[i + 1];
+                i++;
+                continue;
+            }
+
+            if (args[i] == "--log-level")
+            {
+                if (i + 1 >= args.Length)
+                {
+                    error = "Error: --log-level requires a value (Trace, Debug, Information, Warning, Error, Critical, None).";
+                    return false;
+                }
+
+                if (!Enum.TryParse<LogLevel>(args[i + 1], ignoreCase: true, out var parsedLevel))
+                {
+                    error = $"Error: --log-level must be one of Trace, Debug, Information, Warning, Error, Critical, None (got '{args[i + 1]}').";
+                    return false;
+                }
+
+                logLevel = parsedLevel;
                 i++;
                 continue;
             }
