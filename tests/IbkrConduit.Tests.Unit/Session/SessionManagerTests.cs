@@ -210,6 +210,45 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task ReauthenticateAsync_ConcurrentCalls_AcquiresLstOnlyOnce()
+    {
+        // Issue #168: when many requests 401 in a tight burst, each one calls
+        // ReauthenticateAsync. The semaphore serializes them, but without a
+        // Ready-state short-circuit each queued caller still re-runs the full
+        // LST handshake even though the first call has already restored the
+        // session. The fix: after acquiring the semaphore, check if state is
+        // already Ready and return — same double-check pattern that
+        // EnsureInitializedAsync uses.
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        var refreshBefore = deps.TokenProvider.RefreshCallCount;
+        var initBefore = deps.SessionApi.InitCallCount;
+
+        // Fire two concurrent reauths from a Ready state. The semaphore
+        // serializes them; the second one must observe Ready and return
+        // without doing any work.
+        var reauthA = manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
+        var reauthB = manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
+        await Task.WhenAll(reauthA, reauthB);
+
+        (deps.TokenProvider.RefreshCallCount - refreshBefore).ShouldBe(1,
+            "Two concurrent ReauthenticateAsync calls from Ready state must result in exactly one LST refresh.");
+        (deps.SessionApi.InitCallCount - initBefore).ShouldBe(1,
+            "Two concurrent ReauthenticateAsync calls from Ready state must result in exactly one /ssodh/init call.");
+    }
+
+    [Fact]
     public async Task ReauthenticateAsync_WithSuppressIds_ResuppressesQuestions()
     {
         var deps = CreateDependencies();
