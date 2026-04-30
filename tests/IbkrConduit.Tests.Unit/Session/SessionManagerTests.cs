@@ -474,7 +474,7 @@ public class SessionManagerTests
     }
 
     [Fact]
-    public async Task EnsureInitializedAsync_HttpRequestException_NetworkError_WrapsInConfigurationException()
+    public async Task EnsureInitializedAsync_HttpRequestException_NetworkError_WrapsInTransientException()
     {
         var deps = CreateDependencies();
         deps.TokenProvider.GetException = new HttpRequestException("Connection refused");
@@ -488,11 +488,9 @@ public class SessionManagerTests
             deps.SessionHealthState,
             NullLogger<SessionManager>.Instance);
 
-        var ex = await Should.ThrowAsync<IbkrConfigurationException>(
+        var ex = await Should.ThrowAsync<IbkrTransientException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
 
-        ex.Message.ShouldContain("network");
-        ex.CredentialHint.ShouldBe("BaseUrl");
         ex.InnerException.ShouldBeOfType<HttpRequestException>();
     }
 
@@ -616,10 +614,12 @@ public class SessionManagerTests
     }
 
     [Fact]
-    public async Task EnsureInitializedAsync_OperationCanceledException_NotWrapped()
+    public async Task EnsureInitializedAsync_CallerCancelled_OperationCanceledException_NotWrapped()
     {
         var deps = CreateDependencies();
-        deps.TokenProvider.GetException = new OperationCanceledException("Canceled");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        deps.TokenProvider.GetException = new OperationCanceledException("Canceled", cts.Token);
 
         await using var manager = new SessionManager(
             deps.TokenProvider,
@@ -631,7 +631,7 @@ public class SessionManagerTests
             NullLogger<SessionManager>.Instance);
 
         await Should.ThrowAsync<OperationCanceledException>(
-            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+            () => manager.EnsureInitializedAsync(cts.Token));
     }
 
     [Fact]
