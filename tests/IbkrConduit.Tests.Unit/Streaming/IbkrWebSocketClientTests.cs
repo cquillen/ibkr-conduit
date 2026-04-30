@@ -115,16 +115,16 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
-    public async Task SubscribeTopicAsync_ConnectsIfNotConnected()
+    public async Task SubscribeTopicAsync_WhenConnected_SendsSubscribeMessage()
     {
         await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
 
-        // Do not call ConnectAsync -- subscribe should trigger it
         var (_, unsubscribe) = await client.SubscribeTopicAsync(
             "smd+123+{}", "smd",
             TestContext.Current.CancellationToken);
 
-        _adapter.ConnectedUri.ShouldNotBeNull();
+        _adapter.SentMessages.ShouldContain("smd+123+{}");
         unsubscribe();
     }
 
@@ -494,6 +494,38 @@ public class IbkrWebSocketClientTests
         // Wait briefly for the reconnect's replay to complete.
         var deadline = DateTime.UtcNow.AddSeconds(5);
         while (_adapter.SentMessages.Count <= sentBeforeReconnect && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        _adapter.SentMessages.ShouldContain("smd+265598+{}");
+    }
+
+    [Fact]
+    public async Task SubscribeTopicAsync_BeforeConnect_DoesNotSendMessage()
+    {
+        await using var client = CreateClient();
+
+        // Do NOT call ConnectAsync first.
+        await client.SubscribeTopicAsync(
+            "smd+265598+{}", "smd", TestContext.Current.CancellationToken);
+
+        _adapter.ConnectCallCount.ShouldBe(0);
+        _adapter.SentMessages.ShouldNotContain("smd+265598+{}");
+    }
+
+    [Fact]
+    public async Task SubscribeBeforeConnect_ThenConnectAsync_SendsQueuedMessage()
+    {
+        await using var client = CreateClient();
+
+        await client.SubscribeTopicAsync(
+            "smd+265598+{}", "smd", TestContext.Current.CancellationToken);
+        _adapter.SentMessages.ShouldNotContain("smd+265598+{}");
+
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!_adapter.SentMessages.Contains("smd+265598+{}") && DateTime.UtcNow < deadline)
         {
             await Task.Yield();
         }

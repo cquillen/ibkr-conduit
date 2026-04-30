@@ -160,14 +160,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         string topicPrefix,
         CancellationToken cancellationToken)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Subscribe");
         activity?.SetTag(LogFields.Topic, topicPrefix);
-
-        var ws = _webSocket;
-        if (ws == null || ws.State != WebSocketState.Open)
-        {
-            await ConnectAsync(cancellationToken);
-        }
 
         var channel = Channel.CreateBounded<JsonElement>(
             new BoundedChannelOptions(_streamingBufferSize)
@@ -187,7 +183,13 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             _activeSubscriptions.Add(subscribeMessage);
         }
 
-        await SendTextAsync(subscribeMessage, cancellationToken);
+        // Only send the subscribe message immediately if the WebSocket is
+        // already open. Otherwise leave it in _activeSubscriptions and let
+        // ConnectCoreAsync's replay path send it after the WebSocket opens.
+        if (_webSocket?.State == WebSocketState.Open)
+        {
+            await SendTextAsync(subscribeMessage, cancellationToken);
+        }
 
         return (channel.Reader, () => Unsubscribe(topicPrefix, channel.Writer, subscribeMessage));
     }
