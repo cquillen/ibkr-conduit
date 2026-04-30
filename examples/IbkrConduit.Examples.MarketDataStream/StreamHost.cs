@@ -1,8 +1,10 @@
+using System.Globalization;
 using IbkrConduit.Client;
 using IbkrConduit.MarketData;
 using IbkrConduit.Streaming;
 using Microsoft.Extensions.Logging;
 using Spectre.Console;
+using Spectre.Console.Rendering;
 
 namespace IbkrConduit.Examples.MarketDataStream;
 
@@ -48,6 +50,7 @@ internal static class StreamHost
         IIbkrClient client,
         IReadOnlyList<string> symbols,
         ILogger logger,
+        PanelLogBuffer panelBuffer,
         CancellationToken cancellationToken)
     {
         var resolved = await SymbolResolver.ResolveAsync(client, symbols, logger, cancellationToken);
@@ -91,7 +94,7 @@ internal static class StreamHost
             // initial-on-connect messages arrive.
             await client.Streaming.ConnectAsync(cancellationToken);
 
-            await RenderLoopAsync(table, client.Streaming, cancellationToken);
+            await RenderLoopAsync(table, client.Streaming, panelBuffer, cancellationToken);
         }
         finally
         {
@@ -138,19 +141,25 @@ internal static class StreamHost
     }
 
     /// <summary>
-    /// Spectre.Console Live render loop. Refreshes the table and the status header
-    /// every 250ms until <paramref name="ct"/> is cancelled. The header reflects the
-    /// real WebSocket connection state from <see cref="IStreamingOperations.IsConnected"/>
-    /// and the freshness of the last received message from
-    /// <see cref="IStreamingOperations.LastMessageReceivedAt"/>.
+    /// Spectre.Console Live render loop. Refreshes the table, the status header, and
+    /// the Logs panel every 250ms until <paramref name="ct"/> is cancelled. The header
+    /// reflects the real WebSocket connection state from
+    /// <see cref="IStreamingOperations.IsConnected"/> and the freshness of the last
+    /// received message from <see cref="IStreamingOperations.LastMessageReceivedAt"/>.
+    /// The Logs panel snapshots <paramref name="panelBuffer"/> on every tick.
     /// </summary>
-    private static async Task RenderLoopAsync(LiveTickTable table, IStreamingOperations streaming, CancellationToken ct)
+    private static async Task RenderLoopAsync(
+        LiveTickTable table,
+        IStreamingOperations streaming,
+        PanelLogBuffer panelBuffer,
+        CancellationToken ct)
     {
-        var layout = new Rows(
+        var initial = new Rows(
             new Markup("[grey]● initializing…[/]"),
-            table.Table);
+            table.Table,
+            BuildLogPanel(panelBuffer));
 
-        await AnsiConsole.Live(layout)
+        await AnsiConsole.Live(initial)
             .StartAsync(async ctx =>
             {
                 while (!ct.IsCancellationRequested)
@@ -158,7 +167,10 @@ internal static class StreamHost
                     var now = TimeProvider.System.GetUtcNow();
                     table.RefreshDisplay(now);
 
-                    var refreshed = new Rows(BuildStatus(streaming, now), table.Table);
+                    var refreshed = new Rows(
+                        BuildStatus(streaming, now),
+                        table.Table,
+                        BuildLogPanel(panelBuffer));
                     ctx.UpdateTarget(refreshed);
                     ctx.Refresh();
 
@@ -172,6 +184,41 @@ internal static class StreamHost
                     }
                 }
             });
+    }
+
+    /// <summary>
+    /// Builds the Logs panel for the current tick. Always renders exactly 8 rows
+    /// (padded with blank rows when fewer entries exist) so the layout does not
+    /// shift when the first warning arrives. Each entry is a single line:
+    /// <c>HH:mm:ss [level] {message}</c>, truncated with an ellipsis if it
+    /// overflows the rendered width.
+    /// </summary>
+    private static Panel BuildLogPanel(PanelLogBuffer buffer)
+    {
+        var entries = buffer.Snapshot();
+        var lines = new List<IRenderable>(8);
+
+        foreach (var entry in entries)
+        {
+            var timestamp = entry.Timestamp.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+            var levelToken = entry.Level switch
+            {
+                LogLevel.Critical or LogLevel.Error => "[red]error[/]",
+                LogLevel.Warning => "[yellow]warn[/]",
+                LogLevel.Information => "[grey]info[/]",
+                LogLevel.Debug or LogLevel.Trace => "[dim]debug[/]",
+                _ => "[dim]?[/]",
+            };
+            var msg = Markup.Escape(entry.Message);
+            lines.Add(new Markup($"{timestamp} {levelToken} {msg}").Overflow(Overflow.Ellipsis));
+        }
+
+        while (lines.Count < 8)
+        {
+            lines.Add(new Markup(string.Empty));
+        }
+
+        return new Panel(new Rows(lines)).Header("Logs").Expand();
     }
 
     /// <summary>
