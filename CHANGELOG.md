@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.4.0...IbkrConduit-v0.5.0) (2026-04-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **streaming:** add ConnectAsync, fix OOM, surface unsolicited events ([#166](https://github.com/cquillen/ibkr-conduit/issues/166))
+
+### Features
+
+* add TimeProviderExtensions.Delay for FakeTimeProvider compatibility ([e57b88c](https://github.com/cquillen/ibkr-conduit/commit/e57b88cfca88906217f68746b427cd453b21e0b2))
+* configurable WebSocket heartbeat interval (default 30s) ([#165](https://github.com/cquillen/ibkr-conduit/issues/165)) ([d0e5284](https://github.com/cquillen/ibkr-conduit/commit/d0e52849ecee3cfab71580e6dcf5e7f588e4ef47))
+* **example:** add --log-file flag for diagnosis-friendly logging ([#163](https://github.com/cquillen/ibkr-conduit/issues/163)) ([7b161bb](https://github.com/cquillen/ibkr-conduit/commit/7b161bbf01cf4e992f78c425f08f7735b83d0cb9))
+* **example:** add WebSocket market-data streaming example ([6989616](https://github.com/cquillen/ibkr-conduit/commit/6989616e978098f366bf3bde099e1f38f9c470e0))
+* **example:** render logs in a Spectre panel below the live tick table ([#171](https://github.com/cquillen/ibkr-conduit/issues/171)) ([9216c3e](https://github.com/cquillen/ibkr-conduit/commit/9216c3e626fbd3723c4ef427281c52cee6cd4229))
+* **example:** use real connection state in StreamHost header ([39c5145](https://github.com/cquillen/ibkr-conduit/commit/39c51450a452107301a89e865142c578e423fe3e))
+* expose IsConnected and LastMessageReceivedAt on IStreamingOperations ([9fdacac](https://github.com/cquillen/ibkr-conduit/commit/9fdacacc5b1635782b915d15ed13dd2f0dc878e0))
+* inject TimeProvider into HealthStatusCollector for testable staleness and expiry math ([31382b7](https://github.com/cquillen/ibkr-conduit/commit/31382b79bfd5e28fd6088e2ef8dd57cf6a6d2e00))
+* inject TimeProvider into IbkrWebSocketClient for testable heartbeat and reconnect delays ([f03b6f3](https://github.com/cquillen/ibkr-conduit/commit/f03b6f3930afa4055ebfbf063604f11ab65a4b05))
+* inject TimeProvider into LastSuccessfulCallTracker for deterministic timestamp tests ([b768a5c](https://github.com/cquillen/ibkr-conduit/commit/b768a5c9141fe98c5abe4f9fb3a45f415cb34d04))
+* inject TimeProvider into MarketDataOperations for testable preflight delay ([edd65bb](https://github.com/cquillen/ibkr-conduit/commit/edd65bbbaa5148e8184f9d59e487b385993116e7))
+* inject TimeProvider into SessionManager for testable proactive refresh delay ([da0ca9b](https://github.com/cquillen/ibkr-conduit/commit/da0ca9b2d84896e598ca1a4300b508cf1609aa72))
+* **packaging:** populate PackageReleaseNotes from CHANGELOG.md at pack time ([#172](https://github.com/cquillen/ibkr-conduit/issues/172)) ([ec926ff](https://github.com/cquillen/ibkr-conduit/commit/ec926ffe9ac894133dd43b40f35deca59412c94a))
+* stamp LastMessageReceivedAt via TimeProvider for testable staleness detection ([530613c](https://github.com/cquillen/ibkr-conduit/commit/530613cdbe843b07284df71569f8ce07b8ddb9cd))
+* **streaming:** add ConnectAsync, fix OOM, surface unsolicited events ([#166](https://github.com/cquillen/ibkr-conduit/issues/166)) ([f06e451](https://github.com/cquillen/ibkr-conduit/commit/f06e4513a41112297bdca69d4597d80ad929c98c))
+
+
+### Bug Fixes
+
+* add timeout to WaitForTickleCount and make TickleCallCount thread-safe ([5e45c65](https://github.com/cquillen/ibkr-conduit/commit/5e45c65a899e7ff9233a1acb6e9903198602a477))
+* dispose CancellationTokenRegistration in ContinueWith to prevent leak ([39efa2c](https://github.com/cquillen/ibkr-conduit/commit/39efa2c9c81c7c7bb075a2594c9c98e524ac11b6))
+* register proactive-refresh delay timer synchronously to avoid FakeTimeProvider race ([8e0f50d](https://github.com/cquillen/ibkr-conduit/commit/8e0f50de9ab84523aee9aba494dac10016c339d9))
+* session reauth deadlock when triggered from tickle failure callback ([#164](https://github.com/cquillen/ibkr-conduit/issues/164)) ([e3b3c8c](https://github.com/cquillen/ibkr-conduit/commit/e3b3c8ced7df79405d1eeadb74a40cb388fc1a46))
+* **session:** dedupe redundant LST acquisition on concurrent 401 and tickle transport failures ([#170](https://github.com/cquillen/ibkr-conduit/issues/170)) ([81f7814](https://github.com/cquillen/ibkr-conduit/commit/81f7814f545a92bd26e5e5aa9584fd51b2cf1f3d))
+* **streaming:** recover from sustained network outages via tickle-driven reconnect watchdog ([#167](https://github.com/cquillen/ibkr-conduit/issues/167)) ([dfc8ecc](https://github.com/cquillen/ibkr-conduit/commit/dfc8ecca0b69703f30f14ea1184c77d213f6a036))
+* use pump loop in TickleTimerTests to avoid race on second FakeTimeProvider.Advance ([3cefc72](https://github.com/cquillen/ibkr-conduit/commit/3cefc72731efaa182622d0de2cddd345b9fdfc29))
+
 ## [0.4.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.3.0...IbkrConduit-v0.4.0) (2026-04-23)
 
 
