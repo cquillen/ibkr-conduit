@@ -14,6 +14,7 @@ internal sealed class StreamingOperations : IStreamingOperations
     private readonly IIbkrWebSocketClient _webSocketClient;
     private readonly Lazy<IObservable<SessionStatusEvent>> _sessionStatus;
     private readonly Lazy<IObservable<BulletinEvent>> _bulletins;
+    private readonly Lazy<IObservable<NotificationEvent>> _tradingNotifications;
 
     /// <summary>
     /// Creates a new <see cref="StreamingOperations"/>.
@@ -28,6 +29,9 @@ internal sealed class StreamingOperations : IStreamingOperations
         _bulletins = new Lazy<IObservable<BulletinEvent>>(
             () => CreateUnsolicitedObservable("blt", MapBulletin),
             LazyThreadSafetyMode.ExecutionAndPublication);
+        _tradingNotifications = new Lazy<IObservable<NotificationEvent>>(
+            () => CreateUnsolicitedObservable("ntf", MapNotification),
+            LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <inheritdoc />
@@ -35,6 +39,9 @@ internal sealed class StreamingOperations : IStreamingOperations
 
     /// <inheritdoc />
     public IObservable<BulletinEvent> Bulletins => _bulletins.Value;
+
+    /// <inheritdoc />
+    public IObservable<NotificationEvent> TradingNotifications => _tradingNotifications.Value;
 
     /// <inheritdoc />
     public Task ConnectAsync(CancellationToken cancellationToken = default) =>
@@ -119,6 +126,21 @@ internal sealed class StreamingOperations : IStreamingOperations
         {
             Id = args.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? string.Empty : string.Empty,
             Message = args.TryGetProperty("message", out var msgProp) ? msgProp.GetString() ?? string.Empty : string.Empty,
+        };
+    }
+
+    private static NotificationEvent MapNotification(JsonElement element)
+    {
+        if (!element.TryGetProperty("args", out var args))
+        {
+            return new NotificationEvent();
+        }
+        return new NotificationEvent
+        {
+            Id = args.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? string.Empty : string.Empty,
+            Title = args.TryGetProperty("title", out var titleProp) ? titleProp.GetString() ?? string.Empty : string.Empty,
+            Text = args.TryGetProperty("text", out var textProp) ? textProp.GetString() ?? string.Empty : string.Empty,
+            Url = args.TryGetProperty("url", out var urlProp) ? urlProp.GetString() : null,
         };
     }
 

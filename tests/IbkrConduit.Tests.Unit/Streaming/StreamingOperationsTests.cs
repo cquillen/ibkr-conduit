@@ -228,6 +228,49 @@ public class StreamingOperationsTests
         evt.Message.ShouldBe("Exchange XYZ delayed");
     }
 
+    [Fact]
+    public async Task TradingNotifications_DeliversTypedEvent_AllFieldsPresent()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).TradingNotifications;
+        var received = new TaskCompletionSource<NotificationEvent>();
+        using var sub = observable.Subscribe(new TestObserver<NotificationEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""
+            {"topic":"ntf","args":{"id":"N-7","title":"Order filled","text":"Your AAPL order was filled","url":"https://example.com/n7"}}
+            """).RootElement;
+        await wsClient.UnsolicitedChannels["ntf"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Id.ShouldBe("N-7");
+        evt.Title.ShouldBe("Order filled");
+        evt.Text.ShouldBe("Your AAPL order was filled");
+        evt.Url.ShouldBe("https://example.com/n7");
+    }
+
+    [Fact]
+    public async Task TradingNotifications_DeliversTypedEvent_UrlMissing_StaysNull()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).TradingNotifications;
+        var received = new TaskCompletionSource<NotificationEvent>();
+        using var sub = observable.Subscribe(new TestObserver<NotificationEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""
+            {"topic":"ntf","args":{"id":"N-8","title":"T","text":"X"}}
+            """).RootElement;
+        await wsClient.UnsolicitedChannels["ntf"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Url.ShouldBeNull();
+    }
+
     private static (StreamingOperations Operations, FakeWebSocketClient Client) CreateOperations()
     {
         var wsClient = new FakeWebSocketClient();

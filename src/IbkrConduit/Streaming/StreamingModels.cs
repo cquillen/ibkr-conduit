@@ -155,3 +155,20 @@ public sealed record BulletinEvent
     /// <summary>The bulletin text.</summary>
     public string Message { get; init; } = string.Empty;
 }
+
+/// <summary>Brief message regarding trading activity.</summary>
+[ExcludeFromCodeCoverage]
+public sealed record NotificationEvent
+{
+    /// <summary>Unique identifier for the notification.</summary>
+    public string Id { get; init; } = string.Empty;
+
+    /// <summary>The notification headline.</summary>
+    public string Title { get; init; } = string.Empty;
+
+    /// <summary>The notification body text.</summary>
+    public string Text { get; init; } = string.Empty;
+
+    /// <summary>Optional URL with more information; null if not provided.</summary>
+    public string? Url { get; init; }
+}

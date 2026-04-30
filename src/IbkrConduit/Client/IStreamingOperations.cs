@@ -44,6 +44,9 @@ public interface IStreamingOperations
     /// <summary>Urgent bulletins about exchange issues, system problems, or trading information.</summary>
     IObservable<BulletinEvent> Bulletins { get; }
 
+    /// <summary>Brief messages regarding trading activity. Distinct from <see cref="IIbkrClient.Notifications"/> which is the FYI/alerts HTTP API.</summary>
+    IObservable<NotificationEvent> TradingNotifications { get; }
+
     /// <summary>
     /// Subscribes to real-time market data for the specified contract.
     /// </summary>
