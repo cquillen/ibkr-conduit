@@ -102,14 +102,20 @@ public class TickleTimerTests
     }
 
     [Fact]
-    public async Task StartAsync_WhenTickleThrows_InvokesFailureCallback()
+    public async Task StartAsync_WhenTickleThrows_DoesNotInvokeFailureCallback()
     {
+        // Per IBKR's behavior, session-dead is signalled by 401 or
+        // response-body authenticated=false — NEVER by transport-level
+        // failures (5xx, network errors, timeouts). Reauthing on those
+        // is pure waste because reauth needs the same network. Only the
+        // !isAuthenticated branch (covered by the test above) should
+        // trigger _onFailure.
         var sessionApi = new FakeSessionApi { ShouldThrow = true };
         var fakeTime = new FakeTimeProvider();
-        var failureTcs = new TaskCompletionSource();
+        var failureCount = 0;
         Func<CancellationToken, Task> onFailure = _ =>
         {
-            failureTcs.TrySetResult();
+            Interlocked.Increment(ref failureCount);
             return Task.CompletedTask;
         };
 
@@ -127,11 +133,20 @@ public class TickleTimerTests
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         await timer.StartAsync(cts.Token);
 
-        fakeTime.Advance(TimeSpan.FromSeconds(1));
-        await failureTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
+        // Advance until the throwing tickle has been observed at least once.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (sessionApi.TickleCallCount < 1 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+        sessionApi.TickleCallCount.ShouldBeGreaterThanOrEqualTo(1,
+            "Tickle should have been attempted at least once");
 
-        failureTcs.Task.IsCompletedSuccessfully.ShouldBeTrue("Failure callback should have been invoked on exception");
         await timer.StopAsync();
+
+        failureCount.ShouldBe(0,
+            "Transport-level tickle failures must NOT invoke the failure callback — they are not session-dead signals.");
     }
 
     [Fact]
