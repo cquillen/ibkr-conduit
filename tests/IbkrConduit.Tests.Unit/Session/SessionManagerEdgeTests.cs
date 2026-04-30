@@ -316,6 +316,12 @@ public class SessionManagerEdgeTests
             NotifyCallCount++;
             return Task.CompletedTask;
         }
+
+        public IDisposable SubscribeTickleSucceeded(Func<CancellationToken, Task> onTickleSucceeded) =>
+            throw new NotImplementedException();
+
+        public Task NotifyTickleSucceededAsync(CancellationToken cancellationToken) =>
+            throw new NotImplementedException();
     }
 
     internal class FakeSessionApi : IIbkrSessionApi

@@ -779,6 +779,12 @@ public class IbkrWebSocketClientTests
         public Task NotifyAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
+        public IDisposable SubscribeTickleSucceeded(Func<CancellationToken, Task> onTickleSucceeded) =>
+            new CallbackDisposable(() => { });
+
+        public Task NotifyTickleSucceededAsync(CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
         public async Task TriggerRefreshAsync(CancellationToken cancellationToken)
         {
             if (_callback != null)
