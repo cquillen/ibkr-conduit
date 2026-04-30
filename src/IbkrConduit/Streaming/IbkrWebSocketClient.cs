@@ -40,6 +40,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly ILogger<IbkrWebSocketClient> _logger;
     private readonly Func<IWebSocketAdapter> _webSocketFactory;
     private readonly int _heartbeatIntervalSeconds;
+    private readonly int _streamingBufferSize;
     private readonly TimeProvider _timeProvider;
     private readonly ConcurrentDictionary<string, List<ChannelWriter<JsonElement>>> _subscribers = new();
     private readonly List<string> _activeSubscriptions = [];
@@ -69,6 +70,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <param name="logger">Logger instance.</param>
     /// <param name="webSocketFactory">Factory for creating WebSocket adapter instances.</param>
     /// <param name="heartbeatIntervalSeconds">Seconds between "tic" ping messages used to keep the WebSocket session alive. IBKR requires at least one per minute.</param>
+    /// <param name="streamingBufferSize">Per-subscriber channel capacity. When full, the oldest message is dropped to make room for the newest.</param>
     /// <param name="timeProvider">Time provider for delays; defaults to <see cref="TimeProvider.System"/>.</param>
     public IbkrWebSocketClient(
         IIbkrSessionApi sessionApi,
@@ -77,6 +79,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         ILogger<IbkrWebSocketClient> logger,
         Func<IWebSocketAdapter> webSocketFactory,
         int heartbeatIntervalSeconds,
+        int streamingBufferSize,
         TimeProvider? timeProvider = null)
     {
         _sessionApi = sessionApi;
@@ -85,6 +88,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         _logger = logger;
         _webSocketFactory = webSocketFactory;
         _heartbeatIntervalSeconds = heartbeatIntervalSeconds;
+        _streamingBufferSize = streamingBufferSize;
         _timeProvider = timeProvider ?? TimeProvider.System;
 
         IbkrConduitDiagnostics.Meter.CreateObservableGauge(
@@ -151,21 +155,29 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <param name="topicPrefix">The topic prefix for routing (e.g., "smd", "sor").</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A tuple of the channel reader and an unsubscribe action.</returns>
+    /// <remarks>
+    /// If the WebSocket is not yet connected, the subscription is queued in memory
+    /// and replayed automatically when <see cref="ConnectAsync"/> is called. No wire
+    /// message is sent until the connection is open. The returned channel reader is
+    /// usable immediately; messages will start flowing once <see cref="ConnectAsync"/>
+    /// completes.
+    /// </remarks>
     public async Task<(ChannelReader<JsonElement> Reader, Action Unsubscribe)> SubscribeTopicAsync(
         string subscribeMessage,
         string topicPrefix,
         CancellationToken cancellationToken)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Subscribe");
         activity?.SetTag(LogFields.Topic, topicPrefix);
 
-        var ws = _webSocket;
-        if (ws == null || ws.State != WebSocketState.Open)
-        {
-            await ConnectAsync(cancellationToken);
-        }
-
-        var channel = Channel.CreateUnbounded<JsonElement>();
+        var channel = Channel.CreateBounded<JsonElement>(
+            new BoundedChannelOptions(_streamingBufferSize)
+            {
+                FullMode = BoundedChannelFullMode.DropOldest,
+                SingleReader = true,
+            });
 
         var writers = _subscribers.GetOrAdd(topicPrefix, _ => []);
         lock (writers)
@@ -178,9 +190,47 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             _activeSubscriptions.Add(subscribeMessage);
         }
 
-        await SendTextAsync(subscribeMessage, cancellationToken);
+        // Only send the subscribe message immediately if the WebSocket is
+        // already open. Otherwise leave it in _activeSubscriptions and let
+        // ConnectCoreAsync's replay path send it after the WebSocket opens.
+        if (_webSocket?.State == WebSocketState.Open)
+        {
+            await SendTextAsync(subscribeMessage, cancellationToken);
+        }
 
         return (channel.Reader, () => Unsubscribe(topicPrefix, channel.Writer, subscribeMessage));
+    }
+
+    /// <inheritdoc />
+    public (ChannelReader<JsonElement> Reader, Action Unsubscribe) RegisterUnsolicitedTopic(string topicPrefix)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        var channel = Channel.CreateBounded<JsonElement>(
+            new BoundedChannelOptions(_streamingBufferSize)
+            {
+                FullMode = BoundedChannelFullMode.DropOldest,
+                SingleReader = true,
+            });
+
+        var writers = _subscribers.GetOrAdd(topicPrefix, _ => []);
+        lock (writers)
+        {
+            writers.Add(channel.Writer);
+        }
+
+        return (channel.Reader, () =>
+        {
+            if (_subscribers.TryGetValue(topicPrefix, out var existingWriters))
+            {
+                lock (existingWriters)
+                {
+                    existingWriters.Remove(channel.Writer);
+                }
+            }
+            channel.Writer.TryComplete();
+        }
+        );
     }
 
     /// <inheritdoc />
@@ -245,6 +295,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         StartHeartbeat();
         StartMessagePump();
+        await ReplayActiveSubscriptionsAsync(cancellationToken);
     }
 
     private async Task DisconnectAsync()
@@ -359,6 +410,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                         Interlocked.Exchange(ref _lastMessageReceivedAtTicks, _timeProvider.GetUtcNow().UtcTicks);
 
                         var text = Encoding.UTF8.GetString(ms.ToArray());
+                        if (_logger.IsEnabled(LogLevel.Trace))
+                        {
+                            LogIncomingMessage(text);
+                        }
                         ProcessMessage(text);
                     }
                     catch (OperationCanceledException)
@@ -404,8 +459,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             return;
         }
 
-        // Handle internal topics
-        if (topic == "tic" || topic == "system" || topic == "sts")
+        // Drop heartbeat echoes; sts and system are now surfaced via the
+        // unsolicited-topic dispatch path below.
+        if (topic == "tic")
         {
             return;
         }
@@ -450,18 +506,6 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(_reconnectDelayMs), _timeProvider, cancellationToken);
                 await ConnectCoreAsync(cancellationToken);
-
-                // Replay active subscriptions
-                string[] subscriptions;
-                lock (_subscriptionLock)
-                {
-                    subscriptions = [.. _activeSubscriptions];
-                }
-
-                foreach (var sub in subscriptions)
-                {
-                    await SendTextAsync(sub, cancellationToken);
-                }
             }
             catch (Exception ex)
             {
@@ -471,6 +515,20 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         finally
         {
             _connectLock.Release();
+        }
+    }
+
+    private async Task ReplayActiveSubscriptionsAsync(CancellationToken cancellationToken)
+    {
+        string[] subscriptions;
+        lock (_subscriptionLock)
+        {
+            subscriptions = [.. _activeSubscriptions];
+        }
+
+        foreach (var sub in subscriptions)
+        {
+            await SendTextAsync(sub, cancellationToken);
         }
     }
 
@@ -491,6 +549,11 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         if (ws == null || ws.State != WebSocketState.Open)
         {
             return;
+        }
+
+        if (_logger.IsEnabled(LogLevel.Trace))
+        {
+            LogOutgoingMessage(message);
         }
 
         var bytes = Encoding.UTF8.GetBytes(message);
@@ -550,4 +613,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Session refreshed, triggering WebSocket reconnect")]
     private partial void LogSessionRefreshed();
+
+    [LoggerMessage(Level = LogLevel.Trace, Message = "WebSocket send: {Message}")]
+    private partial void LogOutgoingMessage(string message);
+
+    [LoggerMessage(Level = LogLevel.Trace, Message = "WebSocket receive: {Message}")]
+    private partial void LogIncomingMessage(string message);
 }

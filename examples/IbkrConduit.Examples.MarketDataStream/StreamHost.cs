@@ -85,6 +85,12 @@ internal static class StreamHost
                     "No subscriptions succeeded; nothing to render.");
             }
 
+            // Open the WebSocket. With explicit-connect semantics, all
+            // subscriptions are queued locally above and sent over the wire
+            // here. Subscribers are guaranteed to be in place before IBKR's
+            // initial-on-connect messages arrive.
+            await client.Streaming.ConnectAsync(cancellationToken);
+
             await RenderLoopAsync(table, client.Streaming, cancellationToken);
         }
         finally

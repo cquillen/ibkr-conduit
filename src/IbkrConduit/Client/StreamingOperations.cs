@@ -1,16 +1,24 @@
 using System.Text.Json;
+using System.Threading;
 using IbkrConduit.Streaming;
+using IbkrConduit.Streaming.Mappers;
 
 namespace IbkrConduit.Client;
 
 /// <summary>
 /// Implementation of <see cref="IStreamingOperations"/> that builds topic subscribe messages,
-/// maps JSON to typed models, and returns <see cref="IObservable{T}"/> streams via
+/// delegates JSON-to-DTO transformations to the per-topic mappers in
+/// <c>IbkrConduit.Streaming.Mappers</c>, and returns <see cref="IObservable{T}"/> streams via
 /// <see cref="ChannelObservable{T}"/>.
 /// </summary>
 internal sealed class StreamingOperations : IStreamingOperations
 {
     private readonly IIbkrWebSocketClient _webSocketClient;
+    private readonly Lazy<IObservable<SessionStatusEvent>> _sessionStatus;
+    private readonly Lazy<IObservable<BulletinEvent>> _bulletins;
+    private readonly Lazy<IObservable<NotificationEvent>> _tradingNotifications;
+    private readonly Lazy<IObservable<SystemEvent>> _systemEvents;
+    private readonly Lazy<IObservable<AccountStatusEvent>> _accountStatus;
 
     /// <summary>
     /// Creates a new <see cref="StreamingOperations"/>.
@@ -19,7 +27,41 @@ internal sealed class StreamingOperations : IStreamingOperations
     public StreamingOperations(IIbkrWebSocketClient webSocketClient)
     {
         _webSocketClient = webSocketClient;
+        _sessionStatus = new Lazy<IObservable<SessionStatusEvent>>(
+            () => CreateUnsolicitedObservable("sts", SessionStatusMapper.Map),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+        _bulletins = new Lazy<IObservable<BulletinEvent>>(
+            () => CreateUnsolicitedObservable("blt", BulletinMapper.Map),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+        _tradingNotifications = new Lazy<IObservable<NotificationEvent>>(
+            () => CreateUnsolicitedObservable("ntf", NotificationMapper.Map),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+        _systemEvents = new Lazy<IObservable<SystemEvent>>(
+            () => CreateUnsolicitedObservable("system", SystemEventMapper.Map),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+        _accountStatus = new Lazy<IObservable<AccountStatusEvent>>(
+            () => CreateUnsolicitedObservable("act", AccountStatusMapper.Map),
+            LazyThreadSafetyMode.ExecutionAndPublication);
     }
+
+    /// <inheritdoc />
+    public IObservable<SessionStatusEvent> SessionStatus => _sessionStatus.Value;
+
+    /// <inheritdoc />
+    public IObservable<BulletinEvent> Bulletins => _bulletins.Value;
+
+    /// <inheritdoc />
+    public IObservable<NotificationEvent> TradingNotifications => _tradingNotifications.Value;
+
+    /// <inheritdoc />
+    public IObservable<SystemEvent> SystemEvents => _systemEvents.Value;
+
+    /// <inheritdoc />
+    public IObservable<AccountStatusEvent> AccountStatus => _accountStatus.Value;
+
+    /// <inheritdoc />
+    public Task ConnectAsync(CancellationToken cancellationToken = default) =>
+        _webSocketClient.ConnectAsync(cancellationToken);
 
     /// <inheritdoc />
     public bool IsConnected => _webSocketClient.IsConnected;
@@ -35,7 +77,7 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "smd", cancellationToken);
 
-        return new ChannelObservable<MarketDataTick>(reader, MapMarketDataTick);
+        return new ChannelObservable<MarketDataTick>(reader, MarketDataTickMapper.Map);
     }
 
     /// <inheritdoc />
@@ -47,7 +89,7 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sor", cancellationToken);
 
-        return new ChannelObservable<OrderUpdate>(reader, MapOrderUpdate);
+        return new ChannelObservable<OrderUpdate>(reader, OrderUpdateMapper.Map);
     }
 
     /// <inheritdoc />
@@ -55,7 +97,7 @@ internal sealed class StreamingOperations : IStreamingOperations
     {
         var (reader, _) = await _webSocketClient.SubscribeTopicAsync("spl+{}", "spl", cancellationToken);
 
-        return new ChannelObservable<PnlUpdate>(reader, MapPnlUpdate);
+        return new ChannelObservable<PnlUpdate>(reader, PnlUpdateMapper.Map);
     }
 
     /// <inheritdoc />
@@ -63,7 +105,7 @@ internal sealed class StreamingOperations : IStreamingOperations
     {
         var (reader, _) = await _webSocketClient.SubscribeTopicAsync("ssd+{}", "ssd", cancellationToken);
 
-        return new ChannelObservable<AccountSummaryUpdate>(reader, MapAccountSummaryUpdate);
+        return new ChannelObservable<AccountSummaryUpdate>(reader, AccountSummaryUpdateMapper.Map);
     }
 
     /// <inheritdoc />
@@ -71,72 +113,12 @@ internal sealed class StreamingOperations : IStreamingOperations
     {
         var (reader, _) = await _webSocketClient.SubscribeTopicAsync("sld+{}", "sld", cancellationToken);
 
-        return new ChannelObservable<AccountLedgerUpdate>(reader, MapAccountLedgerUpdate);
+        return new ChannelObservable<AccountLedgerUpdate>(reader, AccountLedgerUpdateMapper.Map);
     }
 
-    private static MarketDataTick MapMarketDataTick(JsonElement element)
+    private ChannelObservable<T> CreateUnsolicitedObservable<T>(string topicPrefix, Func<JsonElement, T> mapper)
     {
-        var conid = 0;
-        long? updated = null;
-        var fields = new Dictionary<string, string>();
-
-        // Extract conid from the topic string: "smd+265598" -> 265598
-        if (element.TryGetProperty("topic", out var topicProp))
-        {
-            var topic = topicProp.GetString();
-            if (topic != null)
-            {
-                var plusIndex = topic.IndexOf('+');
-                if (plusIndex >= 0 && int.TryParse(topic[(plusIndex + 1)..], out var parsedConid))
-                {
-                    conid = parsedConid;
-                }
-            }
-        }
-
-        // Also try conid property directly
-        if (conid == 0 && element.TryGetProperty("conid", out var conidProp))
-        {
-            conid = conidProp.GetInt32();
-        }
-
-        if (element.TryGetProperty("_updated", out var updatedProp))
-        {
-            updated = updatedProp.GetInt64();
-        }
-
-        // Extract numeric field keys into the Fields dictionary
-        foreach (var prop in element.EnumerateObject())
-        {
-            if (prop.Name == "topic" || prop.Name == "conid" || prop.Name == "_updated")
-            {
-                continue;
-            }
-
-            // Numeric keys are market data field IDs
-            if (int.TryParse(prop.Name, out _))
-            {
-                fields[prop.Name] = prop.Value.ToString();
-            }
-        }
-
-        return new MarketDataTick
-        {
-            Conid = conid,
-            Updated = updated,
-            Fields = fields.Count > 0 ? fields : null,
-        };
+        var (reader, _) = _webSocketClient.RegisterUnsolicitedTopic(topicPrefix);
+        return new ChannelObservable<T>(reader, mapper);
     }
-
-    private static OrderUpdate MapOrderUpdate(JsonElement element) =>
-        JsonSerializer.Deserialize<OrderUpdate>(element.GetRawText()) ?? new OrderUpdate();
-
-    private static PnlUpdate MapPnlUpdate(JsonElement element) =>
-        JsonSerializer.Deserialize<PnlUpdate>(element.GetRawText()) ?? new PnlUpdate();
-
-    private static AccountSummaryUpdate MapAccountSummaryUpdate(JsonElement element) =>
-        JsonSerializer.Deserialize<AccountSummaryUpdate>(element.GetRawText()) ?? new AccountSummaryUpdate();
-
-    private static AccountLedgerUpdate MapAccountLedgerUpdate(JsonElement element) =>
-        JsonSerializer.Deserialize<AccountLedgerUpdate>(element.GetRawText()) ?? new AccountLedgerUpdate();
 }

@@ -404,13 +404,32 @@ public class IbkrClientTests
 
     private class FakeStreamingOperations : IStreamingOperations
     {
+        public Task ConnectAsync(CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
         public bool IsConnected => false;
         public DateTimeOffset? LastMessageReceivedAt => null;
+        public IObservable<SessionStatusEvent> SessionStatus => new EmptyObservable<SessionStatusEvent>();
+        public IObservable<BulletinEvent> Bulletins => new EmptyObservable<BulletinEvent>();
+        public IObservable<NotificationEvent> TradingNotifications => new EmptyObservable<NotificationEvent>();
+        public IObservable<SystemEvent> SystemEvents => new EmptyObservable<SystemEvent>();
+        public IObservable<AccountStatusEvent> AccountStatus => new EmptyObservable<AccountStatusEvent>();
         public Task<IObservable<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IObservable<OrderUpdate>> OrderUpdatesAsync(int? days = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IObservable<PnlUpdate>> ProfitAndLossAsync(CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IObservable<AccountSummaryUpdate>> AccountSummaryAsync(CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IObservable<AccountLedgerUpdate>> AccountLedgerAsync(CancellationToken ct = default) => throw new NotImplementedException();
+    }
+
+    private sealed class EmptyObservable<T> : IObservable<T>
+    {
+        public IDisposable Subscribe(IObserver<T> observer) =>
+            new EmptyDisposable();
+
+        private sealed class EmptyDisposable : IDisposable
+        {
+            public void Dispose() { }
+        }
     }
 
     private class FakeFlexOperations : IFlexOperations

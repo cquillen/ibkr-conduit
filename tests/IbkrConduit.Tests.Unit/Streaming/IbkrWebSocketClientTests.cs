@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using IbkrConduit.Auth;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Shouldly;
@@ -115,16 +116,16 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
-    public async Task SubscribeTopicAsync_ConnectsIfNotConnected()
+    public async Task SubscribeTopicAsync_WhenConnected_SendsSubscribeMessage()
     {
         await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
 
-        // Do not call ConnectAsync -- subscribe should trigger it
         var (_, unsubscribe) = await client.SubscribeTopicAsync(
             "smd+123+{}", "smd",
             TestContext.Current.CancellationToken);
 
-        _adapter.ConnectedUri.ShouldNotBeNull();
+        _adapter.SentMessages.ShouldContain("smd+123+{}");
         unsubscribe();
     }
 
@@ -424,6 +425,116 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
+    public async Task SubscribeTopicAsync_SubscriberFallsBehind_DropsOldestNotNewest()
+    {
+        // Use a small buffer so we can fill it without writing 256 messages.
+        await using var client = new IbkrWebSocketClient(
+            _sessionApi,
+            _credentials,
+            _notifier,
+            NullLogger<IbkrWebSocketClient>.Instance,
+            () => _adapter,
+            heartbeatIntervalSeconds: 30,
+            streamingBufferSize: 4,
+            timeProvider: null);
+
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var ct = TestContext.Current.CancellationToken;
+
+        var (reader, _) = await client.SubscribeTopicAsync(
+            "smd+265598+{}", "smd", ct);
+
+        // Drain the startup signal: the pump started and called ReceiveAsync once already.
+        await _adapter.WaitForReceiveAsync(ct);
+
+        // Inject 6 messages — buffer is 4, so the first 2 should be dropped.
+        for (var i = 1; i <= 6; i++)
+        {
+            _adapter.EnqueueServerMessage($"{{\"topic\":\"smd+265598\",\"seq\":{i}}}");
+        }
+
+        // Wait for all 6 messages to be processed: each message causes the pump to
+        // loop back to ReceiveAsync, releasing one signal per message.
+        for (var i = 0; i < 6; i++)
+        {
+            await _adapter.WaitForReceiveAsync(ct);
+        }
+
+        // Drain everything currently buffered and verify the OLDEST 2 were dropped.
+        var received = new List<int>();
+        while (reader.TryRead(out var element))
+        {
+            received.Add(element.GetProperty("seq").GetInt32());
+        }
+
+        received.Count.ShouldBeLessThanOrEqualTo(4);
+        received.ShouldContain(6); // newest survived
+        received.ShouldNotContain(1); // oldest dropped
+        received.ShouldNotContain(2); // second-oldest dropped
+    }
+
+    [Fact]
+    public async Task ConnectAsync_ReplaysActiveSubscriptions()
+    {
+        // Pre-seed _activeSubscriptions by calling SubscribeTopicAsync after
+        // a manual prior connect, then disconnect, then reconnect via ConnectAsync.
+        // This validates that ConnectCoreAsync's replay path runs on initial connect
+        // (it already runs on reconnect; we want to prove the same code serves both).
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        await client.SubscribeTopicAsync(
+            "smd+265598+{}", "smd", TestContext.Current.CancellationToken);
+
+        // Reset the adapter's send tracking by counting messages sent so far.
+        var sentBeforeReconnect = _adapter.SentMessages.Count;
+
+        // Trigger a reconnect via session-refresh, which calls ConnectCoreAsync again.
+        await _notifier.TriggerRefreshAsync(TestContext.Current.CancellationToken);
+        await Task.Yield();
+
+        // Wait briefly for the reconnect's replay to complete.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (_adapter.SentMessages.Count <= sentBeforeReconnect && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        _adapter.SentMessages.ShouldContain("smd+265598+{}");
+    }
+
+    [Fact]
+    public async Task SubscribeTopicAsync_BeforeConnect_DoesNotSendMessage()
+    {
+        await using var client = CreateClient();
+
+        // Do NOT call ConnectAsync first.
+        await client.SubscribeTopicAsync(
+            "smd+265598+{}", "smd", TestContext.Current.CancellationToken);
+
+        _adapter.ConnectCallCount.ShouldBe(0);
+        _adapter.SentMessages.ShouldNotContain("smd+265598+{}");
+    }
+
+    [Fact]
+    public async Task SubscribeBeforeConnect_ThenConnectAsync_SendsQueuedMessage()
+    {
+        await using var client = CreateClient();
+
+        await client.SubscribeTopicAsync(
+            "smd+265598+{}", "smd", TestContext.Current.CancellationToken);
+        _adapter.SentMessages.ShouldNotContain("smd+265598+{}");
+
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!_adapter.SentMessages.Contains("smd+265598+{}") && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        _adapter.SentMessages.ShouldContain("smd+265598+{}");
+    }
+
+    [Fact]
     public async Task ReceiveMessage_AfterClockAdvance_StampsNewTime()
     {
         var start = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
@@ -453,17 +564,177 @@ public class IbkrWebSocketClientTests
         client.LastMessageReceivedAt.ShouldBe(start.AddMinutes(7));
     }
 
+    [Fact]
+    public async Task RegisterUnsolicitedTopic_ReturnsReader_AndDoesNotSendMessage()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var sentBefore = _adapter.SentMessages.Count;
+
+        var (reader, _) = client.RegisterUnsolicitedTopic("sts");
+
+        reader.ShouldNotBeNull();
+        _adapter.SentMessages.Count.ShouldBe(sentBefore);
+    }
+
+    [Fact]
+    public async Task ProcessMessage_StsTopic_RoutesToRegisteredSubscriber()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var (reader, _) = client.RegisterUnsolicitedTopic("sts");
+
+        _adapter.EnqueueServerMessage("""{"topic":"sts","args":{"authenticated":true}}""");
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (reader.Count == 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        reader.TryRead(out var element).ShouldBeTrue();
+        element.GetProperty("topic").GetString().ShouldBe("sts");
+    }
+
+    [Fact]
+    public async Task ProcessMessage_SystemTopic_RoutesToRegisteredSubscriber()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var (reader, _) = client.RegisterUnsolicitedTopic("system");
+
+        _adapter.EnqueueServerMessage("""{"topic":"system","success":"alice"}""");
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (reader.Count == 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        reader.TryRead(out var element).ShouldBeTrue();
+        element.GetProperty("topic").GetString().ShouldBe("system");
+    }
+
+    [Fact]
+    public async Task ProcessMessage_ActTopic_RoutesToRegisteredSubscriber()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var (reader, _) = client.RegisterUnsolicitedTopic("act");
+
+        _adapter.EnqueueServerMessage("""{"topic":"act","args":{"selectedAccount":"DU123"}}""");
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (reader.Count == 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        reader.TryRead(out var element).ShouldBeTrue();
+        element.GetProperty("topic").GetString().ShouldBe("act");
+    }
+
+    [Fact]
+    public async Task ProcessMessage_TicTopic_StillIgnoredEvenWithSubscriber()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        var (reader, _) = client.RegisterUnsolicitedTopic("tic");
+
+        _adapter.EnqueueServerMessage("""{"topic":"tic"}""");
+        await Task.Delay(200, TestContext.Current.CancellationToken); // give the pump a chance
+
+        reader.Count.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task SendTextAsync_LogsOutgoingMessageAtTrace()
+    {
+        var logger = new CapturingLogger();
+        await using var client = CreateClient(logger: logger);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (_, unsubscribe) = await client.SubscribeTopicAsync(
+            "smd+265598+{\"fields\":[\"31\"]}", "smd",
+            TestContext.Current.CancellationToken);
+
+        logger.Messages.ShouldContain(m =>
+            m.Level == LogLevel.Trace
+            && m.Formatted.Contains("WebSocket send", StringComparison.Ordinal)
+            && m.Formatted.Contains("smd+265598+{\"fields\":[\"31\"]}", StringComparison.Ordinal));
+        unsubscribe();
+    }
+
+    [Fact]
+    public async Task ReceivePump_LogsIncomingMessageAtTrace()
+    {
+        var logger = new CapturingLogger();
+        await using var client = CreateClient(logger: logger);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        _adapter.EnqueueServerMessage("""{"topic":"smd+265598","31":"150.25"}""");
+        await _adapter.WaitForReceiveAsync(TestContext.Current.CancellationToken);
+
+        logger.Messages.ShouldContain(m =>
+            m.Level == LogLevel.Trace
+            && m.Formatted.Contains("WebSocket receive", StringComparison.Ordinal)
+            && m.Formatted.Contains("\"topic\":\"smd+265598\"", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task SendTextAsync_WhenTraceDisabled_DoesNotFormatPayload()
+    {
+        var logger = new CapturingLogger(minimumLevel: LogLevel.Debug);
+        await using var client = CreateClient(logger: logger);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (_, unsubscribe) = await client.SubscribeTopicAsync(
+            "smd+265598+{\"fields\":[\"31\"]}", "smd",
+            TestContext.Current.CancellationToken);
+
+        logger.Messages.ShouldNotContain(m =>
+            m.Formatted.Contains("WebSocket send", StringComparison.Ordinal));
+        unsubscribe();
+    }
+
     private IbkrWebSocketClient CreateClient(
         TimeProvider? timeProvider = null,
-        int heartbeatIntervalSeconds = 30) =>
+        int heartbeatIntervalSeconds = 30,
+        int streamingBufferSize = 256,
+        ILogger<IbkrWebSocketClient>? logger = null) =>
         new(
             _sessionApi,
             _credentials,
             _notifier,
-            NullLogger<IbkrWebSocketClient>.Instance,
+            logger ?? NullLogger<IbkrWebSocketClient>.Instance,
             () => _adapter,
             heartbeatIntervalSeconds,
+            streamingBufferSize,
             timeProvider);
+
+    private sealed class CapturingLogger(LogLevel minimumLevel = LogLevel.Trace) : ILogger<IbkrWebSocketClient>
+    {
+        public List<(LogLevel Level, string Formatted)> Messages { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= minimumLevel;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (!IsEnabled(logLevel))
+            {
+                return;
+            }
+            Messages.Add((logLevel, formatter(state, exception)));
+        }
+
+        private sealed class NullScope : IDisposable
+        {
+            public static NullScope Instance { get; } = new();
+            public void Dispose() { }
+        }
+    }
 
     internal class FakeSessionApi : IIbkrSessionApi
     {

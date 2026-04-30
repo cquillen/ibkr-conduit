@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Channels;
@@ -139,6 +140,16 @@ public class StreamingOperationsTests
     }
 
     [Fact]
+    public async Task ConnectAsync_DelegatesToWebSocketClient()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await ((IStreamingOperations)ops).ConnectAsync(TestContext.Current.CancellationToken);
+
+        wsClient.ConnectCallCount.ShouldBe(1);
+    }
+
+    [Fact]
     public void IsConnected_DelegatesToUnderlyingWebSocketClient()
     {
         var (ops, wsClient) = CreateOperations();
@@ -162,6 +173,243 @@ public class StreamingOperationsTests
         ((IStreamingOperations)ops).LastMessageReceivedAt.ShouldBe(stamp);
     }
 
+    [Fact]
+    public async Task SessionStatus_DeliversTypedEventOnTopicMessage()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).SessionStatus;
+        var received = new TaskCompletionSource<SessionStatusEvent>();
+        using var sub = observable.Subscribe(new TestObserver<SessionStatusEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":true}}""").RootElement;
+        await wsClient.UnsolicitedChannels["sts"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Authenticated.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SessionStatus_DeliversAuthenticatedFalse()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).SessionStatus;
+        var received = new TaskCompletionSource<SessionStatusEvent>();
+        using var sub = observable.Subscribe(new TestObserver<SessionStatusEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":false}}""").RootElement;
+        await wsClient.UnsolicitedChannels["sts"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Authenticated.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Bulletins_DeliversTypedEventOnTopicMessage()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).Bulletins;
+        var received = new TaskCompletionSource<BulletinEvent>();
+        using var sub = observable.Subscribe(new TestObserver<BulletinEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""{"topic":"blt","args":{"id":"B-42","message":"Exchange XYZ delayed"}}""").RootElement;
+        await wsClient.UnsolicitedChannels["blt"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Id.ShouldBe("B-42");
+        evt.Message.ShouldBe("Exchange XYZ delayed");
+    }
+
+    [Fact]
+    public async Task TradingNotifications_DeliversTypedEvent_AllFieldsPresent()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).TradingNotifications;
+        var received = new TaskCompletionSource<NotificationEvent>();
+        using var sub = observable.Subscribe(new TestObserver<NotificationEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""
+            {"topic":"ntf","args":{"id":"N-7","title":"Order filled","text":"Your AAPL order was filled","url":"https://example.com/n7"}}
+            """).RootElement;
+        await wsClient.UnsolicitedChannels["ntf"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Id.ShouldBe("N-7");
+        evt.Title.ShouldBe("Order filled");
+        evt.Text.ShouldBe("Your AAPL order was filled");
+        evt.Url.ShouldBe("https://example.com/n7");
+    }
+
+    [Fact]
+    public async Task TradingNotifications_DeliversTypedEvent_UrlMissing_StaysNull()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).TradingNotifications;
+        var received = new TaskCompletionSource<NotificationEvent>();
+        using var sub = observable.Subscribe(new TestObserver<NotificationEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""
+            {"topic":"ntf","args":{"id":"N-8","title":"T","text":"X"}}
+            """).RootElement;
+        await wsClient.UnsolicitedChannels["ntf"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Url.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task SystemEvents_DeliversConnectionVariant_WithUsername()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).SystemEvents;
+        var received = new TaskCompletionSource<SystemEvent>();
+        using var sub = observable.Subscribe(new TestObserver<SystemEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""{"topic":"system","success":"alice","isFT":false,"isPaper":true}""").RootElement;
+        await wsClient.UnsolicitedChannels["system"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Username.ShouldBe("alice");
+        evt.HeartbeatMs.ShouldBeNull();
+        evt.IsFT.ShouldBe(false);
+        evt.IsPaper.ShouldBe(true);
+    }
+
+    [Fact]
+    public async Task AccountStatus_DeliversTypedEvent_AllFieldsPresent()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).AccountStatus;
+        var received = new TaskCompletionSource<AccountStatusEvent>();
+        using var sub = observable.Subscribe(new TestObserver<AccountStatusEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""
+        {
+          "topic":"act",
+          "args":{
+            "accounts":["DU123","DU124"],
+            "acctProps":{
+              "All":{
+                "hasChildAccounts":false,
+                "supportsCashQty":true,
+                "liteUnderPro":true,
+                "noFXConv":false,
+                "isProp":false,
+                "supportsFractions":true,
+                "allowCustomerTime":true,
+                "autoFx":true
+              }
+            },
+            "aliases":{"DU123":"Main"},
+            "allowFeatures":{
+              "showGFIS":true,
+              "showEUCostReport":false,
+              "allowEventContract":false,
+              "allowFXConv":true,
+              "allowFinancialLens":false,
+              "allowMTA":true,
+              "allowTypeAhead":true,
+              "allowEventTrading":false,
+              "snapshotRefreshTimeout":300,
+              "liteUser":false,
+              "showWebNews":true,
+              "research":true,
+              "debugPnl":false,
+              "showTaxOpt":false,
+              "showImpactDashboard":true,
+              "allowDynAccount":false,
+              "allowCrypto":true,
+              "allowFA":true,
+              "allowLiteUnderPro":false,
+              "allowedAssetTypes":"STK,OPT,FUT,CASH",
+              "restrictTradeSubscription":false,
+              "showUkUserLabels":true,
+              "sideBySide":true
+            },
+            "chartPeriods":{"STK":["1d","5d"],"OPT":["1d"]},
+            "groups":["G1"],
+            "profiles":["P1"],
+            "selectedAccount":"DU123",
+            "serverInfo":{"serverName":"server-east-1","serverVersion":"10.42.0"},
+            "sessionId":"SESS-XYZ",
+            "isFT":true,
+            "isPaper":true
+          }
+        }
+        """).RootElement;
+        await wsClient.UnsolicitedChannels["act"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+        evt.Accounts.ShouldBe(new[] { "DU123", "DU124" });
+        evt.AcctProps.ShouldContainKey("All");
+        evt.AcctProps["All"].SupportsCashQty.ShouldBeTrue();
+        evt.AcctProps["All"].SupportsFractions.ShouldBeTrue();
+        evt.AcctProps["All"].LiteUnderPro.ShouldBeTrue();
+        evt.AcctProps["All"].AutoFx.ShouldBeTrue();
+        evt.Aliases["DU123"].ShouldBe("Main");
+        evt.AllowFeatures.ShouldNotBeNull();
+        evt.AllowFeatures!.AllowFXConv.ShouldBeTrue();
+        evt.AllowFeatures.SnapshotRefreshTimeout.ShouldBe(300);
+        evt.AllowFeatures.AllowedAssetTypes.ShouldBe("STK,OPT,FUT,CASH");
+        evt.AllowFeatures.AllowFA.ShouldBeTrue();
+        evt.AllowFeatures.AllowLiteUnderPro.ShouldBeFalse();
+        evt.AllowFeatures.RestrictTradeSubscription.ShouldBeFalse();
+        evt.AllowFeatures.ShowUkUserLabels.ShouldBeTrue();
+        evt.AllowFeatures.SideBySide.ShouldBeTrue();
+        evt.ChartPeriods["STK"].ShouldBe(new[] { "1d", "5d" });
+        evt.Groups.ShouldBe(new[] { "G1" });
+        evt.Profiles.ShouldBe(new[] { "P1" });
+        evt.SelectedAccount.ShouldBe("DU123");
+        evt.ServerInfo.ShouldNotBeNull();
+        evt.ServerInfo!.ServerName.ShouldBe("server-east-1");
+        evt.ServerInfo.ServerVersion.ShouldBe("10.42.0");
+        evt.SessionId.ShouldBe("SESS-XYZ");
+        evt.IsFT.ShouldBeTrue();
+        evt.IsPaper.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SystemEvents_DeliversHeartbeatVariant_WithHbMillis()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).SystemEvents;
+        var received = new TaskCompletionSource<SystemEvent>();
+        using var sub = observable.Subscribe(new TestObserver<SystemEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""{"topic":"system","hb":1730000000000}""").RootElement;
+        await wsClient.UnsolicitedChannels["system"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Username.ShouldBeNull();
+        evt.HeartbeatMs.ShouldBe(1730000000000);
+        evt.IsFT.ShouldBeNull();
+        evt.IsPaper.ShouldBeNull();
+    }
+
     private static (StreamingOperations Operations, FakeWebSocketClient Client) CreateOperations()
     {
         var wsClient = new FakeWebSocketClient();
@@ -179,8 +427,13 @@ public class StreamingOperationsTests
         public int ActiveSubscriptionCount => 0;
         public DateTimeOffset? LastMessageReceivedAt { get; set; }
 
-        public Task ConnectAsync(CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+        public int ConnectCallCount { get; private set; }
+
+        public Task ConnectAsync(CancellationToken cancellationToken)
+        {
+            ConnectCallCount++;
+            return Task.CompletedTask;
+        }
 
         public Task<(ChannelReader<JsonElement> Reader, Action Unsubscribe)> SubscribeTopicAsync(
             string subscribeMessage,
@@ -190,6 +443,16 @@ public class StreamingOperationsTests
             LastSubscribeMessage = subscribeMessage;
             LastTopicPrefix = topicPrefix;
             return Task.FromResult<(ChannelReader<JsonElement>, Action)>((Channel.Reader, () => { }));
+        }
+
+        public ConcurrentDictionary<string, Channel<JsonElement>> UnsolicitedChannels { get; } = new();
+
+        public (ChannelReader<JsonElement> Reader, Action Unsubscribe) RegisterUnsolicitedTopic(string topicPrefix)
+        {
+            var channel = UnsolicitedChannels.GetOrAdd(
+                topicPrefix,
+                _ => System.Threading.Channels.Channel.CreateUnbounded<JsonElement>());
+            return (channel.Reader, () => { });
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

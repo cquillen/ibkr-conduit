@@ -9,6 +9,19 @@ namespace IbkrConduit.Client;
 public interface IStreamingOperations
 {
     /// <summary>
+    /// Opens the WebSocket connection. Must be called after configuring all
+    /// subscriptions (<see cref="MarketDataAsync"/>, <see cref="OrderUpdatesAsync"/>,
+    /// etc.) so that subscribers are in place before IBKR's initial-on-connect
+    /// messages arrive.
+    ///
+    /// Idempotent: calling on an already-connected client is a no-op.
+    /// Re-calling after disconnect re-opens the connection and replays all
+    /// active subscriptions.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ConnectAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// True when the underlying WebSocket connection is currently open.
     /// Use this to surface a real connection-state indicator in monitoring UIs
     /// instead of inferring connectivity from message-arrival timing.
@@ -21,6 +34,24 @@ public interface IStreamingOperations
     /// where the connection is still healthy but no ticks are arriving.
     /// </summary>
     DateTimeOffset? LastMessageReceivedAt { get; }
+
+    /// <summary>
+    /// Pushed when the brokerage authentication state changes. Subscribe before
+    /// <see cref="ConnectAsync"/> to receive the initial-on-connect state.
+    /// </summary>
+    IObservable<SessionStatusEvent> SessionStatus { get; }
+
+    /// <summary>Urgent bulletins about exchange issues, system problems, or trading information.</summary>
+    IObservable<BulletinEvent> Bulletins { get; }
+
+    /// <summary>Brief messages regarding trading activity. Distinct from <see cref="IIbkrClient.Notifications"/> which is the FYI/alerts HTTP API.</summary>
+    IObservable<NotificationEvent> TradingNotifications { get; }
+
+    /// <summary>System-level events: initial connection confirmation and periodic 10-second server heartbeats. Subscribe before <see cref="ConnectAsync"/> to receive the initial username confirmation.</summary>
+    IObservable<SystemEvent> SystemEvents { get; }
+
+    /// <summary>Account configuration updates: account list, capabilities, allowed asset types. Not financial data — see <see cref="PnlUpdate"/> / <see cref="AccountSummaryUpdate"/> / <see cref="AccountLedgerUpdate"/>. Subscribe before <see cref="ConnectAsync"/> to receive the initial account configuration.</summary>
+    IObservable<AccountStatusEvent> AccountStatus { get; }
 
     /// <summary>
     /// Subscribes to real-time market data for the specified contract.

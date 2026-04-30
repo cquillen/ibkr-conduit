@@ -5,9 +5,10 @@ namespace IbkrConduit.Examples.MarketDataStream;
 
 /// <summary>
 /// A minimal <see cref="ILoggerProvider"/> that appends log lines to a file.
-/// Captures every level from <see cref="LogLevel.Debug"/> upward so diagnosis
-/// sessions have full visibility regardless of the console logger's filter.
-/// Auto-flushes on each write so a Ctrl+C exit doesn't lose the trailing lines.
+/// Defers level filtering to the framework's filter chain (configured via
+/// <c>SetMinimumLevel</c> in <c>Program.cs</c>) so callers control verbosity
+/// uniformly. Auto-flushes on each write so a Ctrl+C exit doesn't lose the
+/// trailing lines.
 /// </summary>
 internal sealed class FileLoggerProvider : ILoggerProvider
 {
@@ -79,7 +80,7 @@ internal sealed class FileLogger : ILogger
 
     public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
-    public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Debug;
+    public bool IsEnabled(LogLevel logLevel) => logLevel != LogLevel.None;
 
     public void Log<TState>(
         LogLevel logLevel,
@@ -88,11 +89,6 @@ internal sealed class FileLogger : ILogger
         Exception? exception,
         Func<TState, Exception?, string> formatter)
     {
-        if (!IsEnabled(logLevel))
-        {
-            return;
-        }
-
         var message = formatter(state, exception);
         _provider.Write(logLevel, _category, eventId, message, exception);
     }

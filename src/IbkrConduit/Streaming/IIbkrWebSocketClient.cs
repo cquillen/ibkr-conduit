@@ -30,8 +30,23 @@ internal interface IIbkrWebSocketClient : IAsyncDisposable
     /// <param name="topicPrefix">The topic prefix for routing.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A tuple of the channel reader and an unsubscribe action.</returns>
+    /// <remarks>
+    /// If the WebSocket is not yet connected, the subscription is queued in memory
+    /// and replayed automatically when <see cref="ConnectAsync"/> is called. No wire
+    /// message is sent until the connection is open. The returned channel reader is
+    /// usable immediately; messages will start flowing once <see cref="ConnectAsync"/>
+    /// completes.
+    /// </remarks>
     Task<(ChannelReader<JsonElement> Reader, Action Unsubscribe)> SubscribeTopicAsync(
         string subscribeMessage,
         string topicPrefix,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Registers a subscriber for an unsolicited topic (sts, system, act, blt, ntf).
+    /// Does NOT send a subscribe message — IBKR pushes these regardless.
+    /// </summary>
+    /// <param name="topicPrefix">The topic prefix to listen on (e.g., "sts", "act").</param>
+    /// <returns>A tuple of the channel reader and an unsubscribe action.</returns>
+    (ChannelReader<JsonElement> Reader, Action Unsubscribe) RegisterUnsolicitedTopic(string topicPrefix);
 }
