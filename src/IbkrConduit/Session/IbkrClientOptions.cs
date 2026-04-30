@@ -54,6 +54,13 @@ public class IbkrClientOptions
     public int TickleIntervalSeconds { get; set; } = 60;
 
     /// <summary>
+    /// Interval in seconds between WebSocket "tic" ping messages used to keep
+    /// the streaming session alive. IBKR requires a ping at least once per
+    /// minute. Default is 30. Reduce for integration testing.
+    /// </summary>
+    public int WebSocketHeartbeatIntervalSeconds { get; set; } = 30;
+
+    /// <summary>
     /// How long before token expiry to trigger a proactive refresh.
     /// Default is 1 hour. Reduce for integration testing.
     /// </summary>

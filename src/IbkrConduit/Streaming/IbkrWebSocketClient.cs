@@ -19,7 +19,6 @@ namespace IbkrConduit.Streaming;
 internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 {
     private const string _webSocketBaseUrl = "wss://api.ibkr.com/v1/api/ws";
-    private const int _heartbeatIntervalSeconds = 10;
     private const int _reconnectDelayMs = 1000;
     private const int _receiveBufferSize = 8192;
 
@@ -40,6 +39,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly ISessionLifecycleNotifier _notifier;
     private readonly ILogger<IbkrWebSocketClient> _logger;
     private readonly Func<IWebSocketAdapter> _webSocketFactory;
+    private readonly int _heartbeatIntervalSeconds;
     private readonly TimeProvider _timeProvider;
     private readonly ConcurrentDictionary<string, List<ChannelWriter<JsonElement>>> _subscribers = new();
     private readonly List<string> _activeSubscriptions = [];
@@ -68,6 +68,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <param name="notifier">Session lifecycle notifier for reconnect on re-auth.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="webSocketFactory">Factory for creating WebSocket adapter instances.</param>
+    /// <param name="heartbeatIntervalSeconds">Seconds between "tic" ping messages used to keep the WebSocket session alive. IBKR requires at least one per minute.</param>
     /// <param name="timeProvider">Time provider for delays; defaults to <see cref="TimeProvider.System"/>.</param>
     public IbkrWebSocketClient(
         IIbkrSessionApi sessionApi,
@@ -75,6 +76,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         ISessionLifecycleNotifier notifier,
         ILogger<IbkrWebSocketClient> logger,
         Func<IWebSocketAdapter> webSocketFactory,
+        int heartbeatIntervalSeconds,
         TimeProvider? timeProvider = null)
     {
         _sessionApi = sessionApi;
@@ -82,6 +84,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         _notifier = notifier;
         _logger = logger;
         _webSocketFactory = webSocketFactory;
+        _heartbeatIntervalSeconds = heartbeatIntervalSeconds;
         _timeProvider = timeProvider ?? TimeProvider.System;
 
         IbkrConduitDiagnostics.Meter.CreateObservableGauge(
