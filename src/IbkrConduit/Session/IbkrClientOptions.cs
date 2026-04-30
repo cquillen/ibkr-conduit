@@ -54,6 +54,16 @@ public class IbkrClientOptions
     public int TickleIntervalSeconds { get; set; } = 60;
 
     /// <summary>
+    /// Interval between tickle attempts after a failure, in seconds. Default is 5.
+    /// During a failure burst (network outage, IBKR backend transient errors), the tickle
+    /// loop polls at this faster cadence so the WebSocket reconnect watchdog can detect
+    /// recovery quickly. The first successful tickle returns the loop to
+    /// <see cref="TickleIntervalSeconds"/>. Set lower for faster recovery; set higher to
+    /// reduce load against a degraded backend.
+    /// </summary>
+    public int TickleFailureIntervalSeconds { get; set; } = 5;
+
+    /// <summary>
     /// Interval in seconds between WebSocket "tic" ping messages used to keep
     /// the streaming session alive. IBKR requires a ping at least once per
     /// minute. Default is 30. Reduce for integration testing.
