@@ -15,7 +15,7 @@ namespace IbkrConduit.Examples.MarketDataStream;
 /// </remarks>
 internal sealed class PanelLogBuffer : ILoggerProvider
 {
-    private const int Capacity = 8;
+    private const int _capacity = 8;
     private readonly ConcurrentQueue<LogEntry> _entries = new();
 
     /// <summary>Creates a per-category logger that appends into the shared buffer.</summary>
@@ -27,11 +27,11 @@ internal sealed class PanelLogBuffer : ILoggerProvider
         // Intentionally empty — the ConcurrentQueue holds only managed memory.
     }
 
-    /// <summary>Appends an entry, evicting the oldest entries beyond <see cref="Capacity"/>.</summary>
+    /// <summary>Appends an entry, evicting the oldest entries beyond <see cref="_capacity"/>.</summary>
     internal void Append(LogLevel level, string message)
     {
         _entries.Enqueue(new LogEntry(DateTimeOffset.UtcNow, level, message));
-        while (_entries.Count > Capacity && _entries.TryDequeue(out _))
+        while (_entries.Count > _capacity && _entries.TryDequeue(out _))
         {
             // Drop oldest — by design, the panel only shows the most recent N entries.
         }
