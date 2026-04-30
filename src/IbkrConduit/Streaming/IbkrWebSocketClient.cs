@@ -254,6 +254,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         StartHeartbeat();
         StartMessagePump();
+        await ReplayActiveSubscriptionsAsync(cancellationToken);
     }
 
     private async Task DisconnectAsync()
@@ -459,18 +460,6 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(_reconnectDelayMs), _timeProvider, cancellationToken);
                 await ConnectCoreAsync(cancellationToken);
-
-                // Replay active subscriptions
-                string[] subscriptions;
-                lock (_subscriptionLock)
-                {
-                    subscriptions = [.. _activeSubscriptions];
-                }
-
-                foreach (var sub in subscriptions)
-                {
-                    await SendTextAsync(sub, cancellationToken);
-                }
             }
             catch (Exception ex)
             {
@@ -480,6 +469,20 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         finally
         {
             _connectLock.Release();
+        }
+    }
+
+    private async Task ReplayActiveSubscriptionsAsync(CancellationToken cancellationToken)
+    {
+        string[] subscriptions;
+        lock (_subscriptionLock)
+        {
+            subscriptions = [.. _activeSubscriptions];
+        }
+
+        foreach (var sub in subscriptions)
+        {
+            await SendTextAsync(sub, cancellationToken);
         }
     }
 

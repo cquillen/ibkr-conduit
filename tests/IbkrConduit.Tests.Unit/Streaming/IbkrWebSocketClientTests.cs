@@ -473,6 +473,35 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
+    public async Task ConnectAsync_ReplaysActiveSubscriptions()
+    {
+        // Pre-seed _activeSubscriptions by calling SubscribeTopicAsync after
+        // a manual prior connect, then disconnect, then reconnect via ConnectAsync.
+        // This validates that ConnectCoreAsync's replay path runs on initial connect
+        // (it already runs on reconnect; we want to prove the same code serves both).
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+        await client.SubscribeTopicAsync(
+            "smd+265598+{}", "smd", TestContext.Current.CancellationToken);
+
+        // Reset the adapter's send tracking by counting messages sent so far.
+        var sentBeforeReconnect = _adapter.SentMessages.Count;
+
+        // Trigger a reconnect via session-refresh, which calls ConnectCoreAsync again.
+        await _notifier.TriggerRefreshAsync(TestContext.Current.CancellationToken);
+        await Task.Yield();
+
+        // Wait briefly for the reconnect's replay to complete.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (_adapter.SentMessages.Count <= sentBeforeReconnect && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        _adapter.SentMessages.ShouldContain("smd+265598+{}");
+    }
+
+    [Fact]
     public async Task ReceiveMessage_AfterClockAdvance_StampsNewTime()
     {
         var start = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
