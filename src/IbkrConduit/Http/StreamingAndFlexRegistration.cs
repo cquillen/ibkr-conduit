@@ -34,6 +34,7 @@ internal static class StreamingAndFlexRegistration
                 sp.GetRequiredService<ISessionLifecycleNotifier>(),
                 sp.GetRequiredService<ILogger<IbkrWebSocketClient>>(),
                 () => new ClientWebSocketAdapter(),
+                clientOptions.WebSocketHeartbeatIntervalSeconds,
                 TimeProvider.System));
         services.AddSingleton<IStreamingOperations>(sp =>
             new StreamingOperations(
