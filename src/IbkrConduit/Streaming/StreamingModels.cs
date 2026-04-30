@@ -172,3 +172,17 @@ public sealed record NotificationEvent
     /// <summary>Optional URL with more information; null if not provided.</summary>
     public string? Url { get; init; }
 }
+
+/// <summary>System-level WebSocket events: initial connection confirmation and periodic 10-second server heartbeats.</summary>
+[ExcludeFromCodeCoverage]
+public sealed record SystemEvent
+{
+    /// <summary>The IBKR username confirmed by the server. Set on the initial connection message; null on periodic heartbeats.</summary>
+    public string? Username { get; init; }
+
+    /// <summary>
+    /// Server-side heartbeat timestamp in unix milliseconds. Set on periodic heartbeats; null on the initial connection message.
+    /// Field name is assumed to be "hb" per IBKR convention; the IBKR doc text references the heartbeat but does not name the field. To be verified against real traffic post-merge.
+    /// </summary>
+    public long? HeartbeatMs { get; init; }
+}

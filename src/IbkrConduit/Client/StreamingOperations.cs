@@ -15,6 +15,7 @@ internal sealed class StreamingOperations : IStreamingOperations
     private readonly Lazy<IObservable<SessionStatusEvent>> _sessionStatus;
     private readonly Lazy<IObservable<BulletinEvent>> _bulletins;
     private readonly Lazy<IObservable<NotificationEvent>> _tradingNotifications;
+    private readonly Lazy<IObservable<SystemEvent>> _systemEvents;
 
     /// <summary>
     /// Creates a new <see cref="StreamingOperations"/>.
@@ -32,6 +33,9 @@ internal sealed class StreamingOperations : IStreamingOperations
         _tradingNotifications = new Lazy<IObservable<NotificationEvent>>(
             () => CreateUnsolicitedObservable("ntf", MapNotification),
             LazyThreadSafetyMode.ExecutionAndPublication);
+        _systemEvents = new Lazy<IObservable<SystemEvent>>(
+            () => CreateUnsolicitedObservable("system", MapSystemEvent),
+            LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <inheritdoc />
@@ -42,6 +46,9 @@ internal sealed class StreamingOperations : IStreamingOperations
 
     /// <inheritdoc />
     public IObservable<NotificationEvent> TradingNotifications => _tradingNotifications.Value;
+
+    /// <inheritdoc />
+    public IObservable<SystemEvent> SystemEvents => _systemEvents.Value;
 
     /// <inheritdoc />
     public Task ConnectAsync(CancellationToken cancellationToken = default) =>
@@ -141,6 +148,23 @@ internal sealed class StreamingOperations : IStreamingOperations
             Title = args.TryGetProperty("title", out var titleProp) ? titleProp.GetString() ?? string.Empty : string.Empty,
             Text = args.TryGetProperty("text", out var textProp) ? textProp.GetString() ?? string.Empty : string.Empty,
             Url = args.TryGetProperty("url", out var urlProp) ? urlProp.GetString() : null,
+        };
+    }
+
+    private static SystemEvent MapSystemEvent(JsonElement element)
+    {
+        var username = element.TryGetProperty("success", out var successProp)
+            ? successProp.GetString()
+            : null;
+
+        long? heartbeatMs = element.TryGetProperty("hb", out var hbProp) && hbProp.ValueKind == JsonValueKind.Number
+            ? hbProp.GetInt64()
+            : null;
+
+        return new SystemEvent
+        {
+            Username = username,
+            HeartbeatMs = heartbeatMs,
         };
     }
 

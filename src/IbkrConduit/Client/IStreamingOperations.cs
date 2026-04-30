@@ -47,6 +47,9 @@ public interface IStreamingOperations
     /// <summary>Brief messages regarding trading activity. Distinct from <see cref="IIbkrClient.Notifications"/> which is the FYI/alerts HTTP API.</summary>
     IObservable<NotificationEvent> TradingNotifications { get; }
 
+    /// <summary>System-level events: initial connection confirmation and periodic 10-second server heartbeats. Subscribe before <see cref="ConnectAsync"/> to receive the initial username confirmation.</summary>
+    IObservable<SystemEvent> SystemEvents { get; }
+
     /// <summary>
     /// Subscribes to real-time market data for the specified contract.
     /// </summary>

@@ -271,6 +271,44 @@ public class StreamingOperationsTests
         evt.Url.ShouldBeNull();
     }
 
+    [Fact]
+    public async Task SystemEvents_DeliversConnectionVariant_WithUsername()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).SystemEvents;
+        var received = new TaskCompletionSource<SystemEvent>();
+        using var sub = observable.Subscribe(new TestObserver<SystemEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""{"topic":"system","success":"alice"}""").RootElement;
+        await wsClient.UnsolicitedChannels["system"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Username.ShouldBe("alice");
+        evt.HeartbeatMs.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task SystemEvents_DeliversHeartbeatVariant_WithHbMillis()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).SystemEvents;
+        var received = new TaskCompletionSource<SystemEvent>();
+        using var sub = observable.Subscribe(new TestObserver<SystemEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""{"topic":"system","hb":1730000000000}""").RootElement;
+        await wsClient.UnsolicitedChannels["system"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Username.ShouldBeNull();
+        evt.HeartbeatMs.ShouldBe(1730000000000);
+    }
+
     private static (StreamingOperations Operations, FakeWebSocketClient Client) CreateOperations()
     {
         var wsClient = new FakeWebSocketClient();
