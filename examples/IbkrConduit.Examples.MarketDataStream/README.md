@@ -72,6 +72,9 @@ Press `Ctrl+C` at any time to exit cleanly.
 
 - Standard DI bootstrap via `services.AddIbkrClient(...)`.
 - Hybrid contract resolution: `SearchBySymbolAsync` for stocks, `GetCurrencyPairsAsync` for forex.
+- **Configure-then-connect lifecycle**: all subscriptions are wired up first, then
+  `await client.Streaming.ConnectAsync(...)` opens the WebSocket. Ensures
+  subscribers are in place before IBKR's initial-on-connect messages arrive.
 - Live subscription via `IIbkrClient.Streaming.MarketDataAsync` (returns `IObservable<MarketDataTick>`).
 - Graceful disposal: cancellation propagates through the subscription chain;
   the WebSocket closes cleanly on shutdown.
