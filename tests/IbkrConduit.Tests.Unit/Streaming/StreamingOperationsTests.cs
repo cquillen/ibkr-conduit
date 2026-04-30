@@ -291,6 +291,89 @@ public class StreamingOperationsTests
     }
 
     [Fact]
+    public async Task AccountStatus_DeliversTypedEvent_AllFieldsPresent()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).AccountStatus;
+        var received = new TaskCompletionSource<AccountStatusEvent>();
+        using var sub = observable.Subscribe(new TestObserver<AccountStatusEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""
+        {
+          "topic":"act",
+          "args":{
+            "accounts":["DU123","DU124"],
+            "acctProps":{
+              "All":{
+                "hasChildAccounts":false,
+                "supportsCashQty":true,
+                "noFXConv":false,
+                "isProp":false,
+                "supportsFractions":true,
+                "allowCustomerTime":true
+              }
+            },
+            "aliases":{"DU123":"Main"},
+            "allowFeatures":{
+              "showGFIS":true,
+              "showEUCostReport":false,
+              "allowEventContract":false,
+              "allowFXConv":true,
+              "allowFinancialLens":false,
+              "allowMTA":true,
+              "allowTypeAhead":true,
+              "allowEventTrading":false,
+              "snapshotRefreshTimeout":300,
+              "liteUser":false,
+              "showWebNews":true,
+              "research":true,
+              "debugPnl":false,
+              "showTaxOpt":false,
+              "showImpactDashboard":true,
+              "allowDynAccount":false,
+              "allowCrypto":true,
+              "allowedAssetTypes":"STK,OPT,FUT,CASH"
+            },
+            "chartPeriods":{"STK":["1d","5d"],"OPT":["1d"]},
+            "groups":["G1"],
+            "profiles":["P1"],
+            "selectedAccount":"DU123",
+            "serverInfo":{"serverName":"server-east-1","serverVersion":"10.42.0"},
+            "sessionId":"SESS-XYZ",
+            "isFT":true,
+            "isPaper":true
+          }
+        }
+        """).RootElement;
+        await wsClient.UnsolicitedChannels["act"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+        evt.Accounts.ShouldBe(new[] { "DU123", "DU124" });
+        evt.AcctProps.ShouldContainKey("All");
+        evt.AcctProps["All"].SupportsCashQty.ShouldBeTrue();
+        evt.AcctProps["All"].SupportsFractions.ShouldBeTrue();
+        evt.Aliases["DU123"].ShouldBe("Main");
+        evt.AllowFeatures.ShouldNotBeNull();
+        evt.AllowFeatures!.AllowFXConv.ShouldBeTrue();
+        evt.AllowFeatures.SnapshotRefreshTimeout.ShouldBe(300);
+        evt.AllowFeatures.AllowedAssetTypes.ShouldBe("STK,OPT,FUT,CASH");
+        evt.ChartPeriods["STK"].ShouldBe(new[] { "1d", "5d" });
+        evt.Groups.ShouldBe(new[] { "G1" });
+        evt.Profiles.ShouldBe(new[] { "P1" });
+        evt.SelectedAccount.ShouldBe("DU123");
+        evt.ServerInfo.ShouldNotBeNull();
+        evt.ServerInfo!.ServerName.ShouldBe("server-east-1");
+        evt.ServerInfo.ServerVersion.ShouldBe("10.42.0");
+        evt.SessionId.ShouldBe("SESS-XYZ");
+        evt.IsFT.ShouldBeTrue();
+        evt.IsPaper.ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task SystemEvents_DeliversHeartbeatVariant_WithHbMillis()
     {
         var ct = TestContext.Current.CancellationToken;

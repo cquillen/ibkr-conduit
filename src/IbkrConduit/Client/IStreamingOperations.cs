@@ -50,6 +50,9 @@ public interface IStreamingOperations
     /// <summary>System-level events: initial connection confirmation and periodic 10-second server heartbeats. Subscribe before <see cref="ConnectAsync"/> to receive the initial username confirmation.</summary>
     IObservable<SystemEvent> SystemEvents { get; }
 
+    /// <summary>Account configuration updates: account list, capabilities, allowed asset types. Not financial data — see <see cref="PnlUpdate"/> / <see cref="AccountSummaryUpdate"/> / <see cref="AccountLedgerUpdate"/>. Subscribe before <see cref="ConnectAsync"/> to receive the initial account configuration.</summary>
+    IObservable<AccountStatusEvent> AccountStatus { get; }
+
     /// <summary>
     /// Subscribes to real-time market data for the specified contract.
     /// </summary>
