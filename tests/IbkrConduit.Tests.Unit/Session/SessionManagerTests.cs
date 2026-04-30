@@ -170,8 +170,19 @@ public class SessionManagerTests
     }
 
     [Fact]
-    public async Task ReauthenticateAsync_StopsAndRestartsTickleTimer()
+    public async Task ReauthenticateAsync_DoesNotStopOrRecreateTickleTimer()
     {
+        // Stopping the tickle timer from inside ReauthenticateAsync is a deadlock
+        // hazard when reauth is itself triggered from the tickle's own failure
+        // callback (TickleTimer.RunAsync awaits the callback; the callback calls
+        // ReauthenticateAsync; ReauthenticateAsync.StopAsync awaits the same
+        // background task). The fix is to keep the existing tickle timer running
+        // through the reauth — the OAuth signing layer reads the new LST once
+        // SessionTokenProvider updates it, so the next tickle cycle uses the
+        // refreshed credentials automatically.
+        //
+        // This test pins the new contract: the original timer keeps running
+        // through reauth, and no second timer is created.
         var deps = CreateDependencies();
 
         await using var manager = new SessionManager(
@@ -188,10 +199,14 @@ public class SessionManagerTests
 
         await manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
 
-        firstTimer.Stopped.ShouldBeTrue();
-        // A new timer was created and started
-        deps.TickleTimerFactory.CreateCount.ShouldBe(2);
-        deps.TickleTimerFactory.CreatedTimer!.Started.ShouldBeTrue();
+        firstTimer.Stopped.ShouldBeFalse(
+            "Reauth must not stop the tickle timer (would deadlock when reauth is triggered from the tickle's own failure callback).");
+        deps.TickleTimerFactory.CreateCount.ShouldBe(
+            1,
+            "Reauth must not create a second tickle timer.");
+        deps.TickleTimerFactory.CreatedTimer.ShouldBeSameAs(
+            firstTimer,
+            "The original timer instance must remain in use through reauth.");
     }
 
     [Fact]

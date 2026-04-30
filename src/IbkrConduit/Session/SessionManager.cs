@@ -153,11 +153,14 @@ internal sealed partial class SessionManager : ISessionManager
             _state = SessionState.Reauthenticating;
             LogReauthenticating();
 
-            if (_tickleTimer != null)
-            {
-                await _tickleTimer.StopAsync();
-            }
-
+            // Intentionally NOT stopping the existing tickle timer here.
+            // ReauthenticateAsync can be invoked from the tickle's own failure
+            // callback; awaiting StopAsync from within that callback chain
+            // would deadlock (StopAsync awaits the background task, which is
+            // awaiting the callback, which is awaiting StopAsync). The OAuth
+            // signing layer reads the new LST as soon as SessionTokenProvider
+            // updates it below, so the next tickle cycle uses the refreshed
+            // credentials automatically — no restart needed.
             CancelProactiveRefresh();
 
             try
@@ -184,9 +187,8 @@ internal sealed partial class SessionManager : ISessionManager
 
             _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);
 
-            _tickleTimer = _tickleTimerFactory.Create(_sessionApi, OnTickleFailureAsync);
-            await _tickleTimer.StartAsync(cancellationToken);
-
+            // No tickle timer recreate either — see comment above the
+            // CancelProactiveRefresh call. The existing timer keeps running.
             ScheduleProactiveRefresh();
 
             await _notifier.NotifyAsync(cancellationToken);
