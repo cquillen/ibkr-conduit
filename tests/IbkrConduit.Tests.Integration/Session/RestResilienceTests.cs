@@ -202,24 +202,14 @@ public class RestResilienceTests : IAsyncLifetime, IDisposable
     }
 
     /// <summary>
-    /// Pins: SessionManager._semaphore serializes concurrent re-auth attempts —
-    /// they cannot run in parallel, both calls succeed, and the session is healthy
-    /// afterwards.
-    /// <para>
-    /// FINDING (Task 8): the plan asserted that two concurrent 401-recoveries trigger
-    /// only ONE LST acquisition. In the current implementation
-    /// <see cref="IbkrConduit.Session.SessionManager.ReauthenticateAsync"/> does not
-    /// short-circuit on the post-handshake <c>Ready</c> state, so the second
-    /// reauth waits on the semaphore, observes <c>Ready</c>, and refreshes the LST
-    /// again. Net effect: two concurrent 401s -> two LST handshakes (wasteful but
-    /// not broken). This test pins current behavior (delta == 2). If a future change
-    /// adds a Ready-state short-circuit (a worthwhile optimization that avoids
-    /// hammering IBKR's LST endpoint when many concurrent requests 401 together),
-    /// update this assertion to <c>delta == 1</c>.
-    /// </para>
+    /// Pins: when many concurrent requests 401 in a burst, the SessionManager
+    /// serializes the reauths via <c>_semaphore</c> AND short-circuits queued
+    /// callers once the first reauth restores <c>Ready</c> state. Net effect:
+    /// exactly ONE LST acquisition per burst, regardless of how many callers
+    /// see the 401. See issue #168.
     /// </summary>
     [Fact]
-    public async Task Concurrent401_SerializesReauth()
+    public async Task Concurrent401_TriggersSingleReauth()
     {
         var ct = TestContext.Current.CancellationToken;
 
@@ -275,14 +265,12 @@ public class RestResilienceTests : IAsyncLifetime, IDisposable
         (await taskA).IsSuccess.ShouldBeTrue("Orders call should recover via re-auth");
         (await taskB).IsSuccess.ShouldBeTrue("Trades call should recover via re-auth");
 
-        // Pin current behavior: each concurrent 401 triggers its own LST refresh
-        // (semaphore serializes them but does not de-dup). See test docstring for
-        // the recommended optimization.
+        // Pin the dedupe contract: the SessionManager epoch-counter dedupe
+        // means two concurrent 401-recoveries result in exactly ONE LST refresh.
         var lstCountAfterCalls = _harness.Server.FindLogEntries(
             Request.Create().WithPath("/v1/api/oauth/live_session_token").UsingPost()).Count;
-        (lstCountAfterCalls - lstCountAfterInit).ShouldBe(2,
-            "Two concurrent 401-recoveries currently each acquire their own LST. " +
-            "If this changes to de-dup via a Ready-state short-circuit, update the assertion to 1.");
+        (lstCountAfterCalls - lstCountAfterInit).ShouldBe(1,
+            "Two concurrent 401-recoveries must dedupe to a single LST acquisition (issue #168).");
     }
 
     /// <inheritdoc />
