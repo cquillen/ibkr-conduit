@@ -10,6 +10,10 @@ A C#/.NET client library for the Interactive Brokers Client Portal Web API (CPAP
 > **Fixed in v0.4.0 — regenerate any credentials produced by earlier versions.**
 > The setup tool in v0.3.0 and earlier emitted DH parameters that IBKR's server parsed as a negative integer, silently producing credentials that authenticated locally but caused every request to return `401 Unauthorized`. If you generated your credential JSON with an earlier version of the setup tool, **re-run the setup tool with v0.4.0+ to regenerate your credentials.** See [docs/credential-setup.md](docs/credential-setup.md) for steps.
 
+## Release Notes
+
+See [CHANGELOG.md](https://github.com/cquillen/ibkr-conduit/blob/main/CHANGELOG.md) for the full release history. Each NuGet version page also surfaces its own release notes inline.
+
 ## Disclaimer
 
 **IbkrConduit is an independent, community-developed open source library. It is not affiliated with, endorsed by, or supported by Interactive Brokers LLC or any of its subsidiaries.** "Interactive Brokers," "IBKR," "TWS," "Client Portal," and all related product and service names are trademarks or registered trademarks of Interactive Brokers LLC. Their use herein is for identification purposes only and does not imply endorsement.

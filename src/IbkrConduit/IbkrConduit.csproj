@@ -24,6 +24,22 @@
     <None Include="../../README.md" Pack="true" PackagePath=""/>
   </ItemGroup>
 
+  <!--
+    Populate <PackageReleaseNotes> from the latest section of CHANGELOG.md so
+    nuget.org's per-version "Release Notes" surface gets the right content
+    automatically. release-please writes CHANGELOG.md on each release; this
+    target extracts the topmost '## [version](...)' section (everything from
+    the first '## [' heading up to the next one or end of file).
+  -->
+  <Target Name="SetPackageReleaseNotesFromChangelog"
+          BeforeTargets="GenerateNuspec"
+          Condition="Exists('$(MSBuildThisFileDirectory)../../CHANGELOG.md')">
+    <PropertyGroup>
+      <_ChangelogText>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../../CHANGELOG.md'))</_ChangelogText>
+      <PackageReleaseNotes>$([System.Text.RegularExpressions.Regex]::Match($(_ChangelogText), '## \[\d[\s\S]*?(?=\n## \[|\Z)').Value.Trim())</PackageReleaseNotes>
+    </PropertyGroup>
+  </Target>
+
   <ItemGroup>
     <InternalsVisibleTo Include="IbkrConduit.HealthChecks"/>
     <InternalsVisibleTo Include="IbkrConduit.Tests.Unit"/>
