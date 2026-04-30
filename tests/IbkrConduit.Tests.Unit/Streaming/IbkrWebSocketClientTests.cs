@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using IbkrConduit.Auth;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Shouldly;
@@ -646,19 +647,94 @@ public class IbkrWebSocketClientTests
         reader.Count.ShouldBe(0);
     }
 
+    [Fact]
+    public async Task SendTextAsync_LogsOutgoingMessageAtTrace()
+    {
+        var logger = new CapturingLogger();
+        await using var client = CreateClient(logger: logger);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (_, unsubscribe) = await client.SubscribeTopicAsync(
+            "smd+265598+{\"fields\":[\"31\"]}", "smd",
+            TestContext.Current.CancellationToken);
+
+        logger.Messages.ShouldContain(m =>
+            m.Level == LogLevel.Trace
+            && m.Formatted.Contains("WebSocket send", StringComparison.Ordinal)
+            && m.Formatted.Contains("smd+265598+{\"fields\":[\"31\"]}", StringComparison.Ordinal));
+        unsubscribe();
+    }
+
+    [Fact]
+    public async Task ReceivePump_LogsIncomingMessageAtTrace()
+    {
+        var logger = new CapturingLogger();
+        await using var client = CreateClient(logger: logger);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        _adapter.EnqueueServerMessage("""{"topic":"smd+265598","31":"150.25"}""");
+        await _adapter.WaitForReceiveAsync(TestContext.Current.CancellationToken);
+
+        logger.Messages.ShouldContain(m =>
+            m.Level == LogLevel.Trace
+            && m.Formatted.Contains("WebSocket receive", StringComparison.Ordinal)
+            && m.Formatted.Contains("\"topic\":\"smd+265598\"", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task SendTextAsync_WhenTraceDisabled_DoesNotFormatPayload()
+    {
+        var logger = new CapturingLogger(minimumLevel: LogLevel.Debug);
+        await using var client = CreateClient(logger: logger);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (_, unsubscribe) = await client.SubscribeTopicAsync(
+            "smd+265598+{\"fields\":[\"31\"]}", "smd",
+            TestContext.Current.CancellationToken);
+
+        logger.Messages.ShouldNotContain(m =>
+            m.Formatted.Contains("WebSocket send", StringComparison.Ordinal));
+        unsubscribe();
+    }
+
     private IbkrWebSocketClient CreateClient(
         TimeProvider? timeProvider = null,
         int heartbeatIntervalSeconds = 30,
-        int streamingBufferSize = 256) =>
+        int streamingBufferSize = 256,
+        ILogger<IbkrWebSocketClient>? logger = null) =>
         new(
             _sessionApi,
             _credentials,
             _notifier,
-            NullLogger<IbkrWebSocketClient>.Instance,
+            logger ?? NullLogger<IbkrWebSocketClient>.Instance,
             () => _adapter,
             heartbeatIntervalSeconds,
             streamingBufferSize,
             timeProvider);
+
+    private sealed class CapturingLogger(LogLevel minimumLevel = LogLevel.Trace) : ILogger<IbkrWebSocketClient>
+    {
+        public List<(LogLevel Level, string Formatted)> Messages { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= minimumLevel;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (!IsEnabled(logLevel))
+            {
+                return;
+            }
+            Messages.Add((logLevel, formatter(state, exception)));
+        }
+
+        private sealed class NullScope : IDisposable
+        {
+            public static NullScope Instance { get; } = new();
+            public void Dispose() { }
+        }
+    }
 
     internal class FakeSessionApi : IIbkrSessionApi
     {

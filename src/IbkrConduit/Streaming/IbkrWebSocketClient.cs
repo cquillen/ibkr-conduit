@@ -410,6 +410,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                         Interlocked.Exchange(ref _lastMessageReceivedAtTicks, _timeProvider.GetUtcNow().UtcTicks);
 
                         var text = Encoding.UTF8.GetString(ms.ToArray());
+                        if (_logger.IsEnabled(LogLevel.Trace))
+                        {
+                            LogIncomingMessage(text);
+                        }
                         ProcessMessage(text);
                     }
                     catch (OperationCanceledException)
@@ -547,6 +551,11 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             return;
         }
 
+        if (_logger.IsEnabled(LogLevel.Trace))
+        {
+            LogOutgoingMessage(message);
+        }
+
         var bytes = Encoding.UTF8.GetBytes(message);
         await ws.SendAsync(
             bytes.AsMemory(),
@@ -604,4 +613,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Session refreshed, triggering WebSocket reconnect")]
     private partial void LogSessionRefreshed();
+
+    [LoggerMessage(Level = LogLevel.Trace, Message = "WebSocket send: {Message}")]
+    private partial void LogOutgoingMessage(string message);
+
+    [LoggerMessage(Level = LogLevel.Trace, Message = "WebSocket receive: {Message}")]
+    private partial void LogIncomingMessage(string message);
 }
