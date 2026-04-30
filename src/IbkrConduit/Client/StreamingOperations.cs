@@ -13,6 +13,7 @@ internal sealed class StreamingOperations : IStreamingOperations
 {
     private readonly IIbkrWebSocketClient _webSocketClient;
     private readonly Lazy<IObservable<SessionStatusEvent>> _sessionStatus;
+    private readonly Lazy<IObservable<BulletinEvent>> _bulletins;
 
     /// <summary>
     /// Creates a new <see cref="StreamingOperations"/>.
@@ -24,10 +25,16 @@ internal sealed class StreamingOperations : IStreamingOperations
         _sessionStatus = new Lazy<IObservable<SessionStatusEvent>>(
             () => CreateUnsolicitedObservable("sts", MapSessionStatus),
             LazyThreadSafetyMode.ExecutionAndPublication);
+        _bulletins = new Lazy<IObservable<BulletinEvent>>(
+            () => CreateUnsolicitedObservable("blt", MapBulletin),
+            LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <inheritdoc />
     public IObservable<SessionStatusEvent> SessionStatus => _sessionStatus.Value;
+
+    /// <inheritdoc />
+    public IObservable<BulletinEvent> Bulletins => _bulletins.Value;
 
     /// <inheritdoc />
     public Task ConnectAsync(CancellationToken cancellationToken = default) =>
@@ -100,6 +107,19 @@ internal sealed class StreamingOperations : IStreamingOperations
             return new SessionStatusEvent { Authenticated = authProp.GetBoolean() };
         }
         return new SessionStatusEvent();
+    }
+
+    private static BulletinEvent MapBulletin(JsonElement element)
+    {
+        if (!element.TryGetProperty("args", out var args))
+        {
+            return new BulletinEvent();
+        }
+        return new BulletinEvent
+        {
+            Id = args.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? string.Empty : string.Empty,
+            Message = args.TryGetProperty("message", out var msgProp) ? msgProp.GetString() ?? string.Empty : string.Empty,
+        };
     }
 
     private static MarketDataTick MapMarketDataTick(JsonElement element)

@@ -144,3 +144,14 @@ public sealed record SessionStatusEvent
     /// <summary>True if the brokerage session is currently authenticated.</summary>
     public bool Authenticated { get; init; }
 }
+
+/// <summary>Urgent message about exchange issues, system problems, or trading information.</summary>
+[ExcludeFromCodeCoverage]
+public sealed record BulletinEvent
+{
+    /// <summary>Unique identifier for the bulletin (use to dedupe across reconnects).</summary>
+    public string Id { get; init; } = string.Empty;
+
+    /// <summary>The bulletin text.</summary>
+    public string Message { get; init; } = string.Empty;
+}

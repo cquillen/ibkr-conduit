@@ -209,6 +209,25 @@ public class StreamingOperationsTests
         evt.Authenticated.ShouldBeFalse();
     }
 
+    [Fact]
+    public async Task Bulletins_DeliversTypedEventOnTopicMessage()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = ((IStreamingOperations)ops).Bulletins;
+        var received = new TaskCompletionSource<BulletinEvent>();
+        using var sub = observable.Subscribe(new TestObserver<BulletinEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""{"topic":"blt","args":{"id":"B-42","message":"Exchange XYZ delayed"}}""").RootElement;
+        await wsClient.UnsolicitedChannels["blt"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Id.ShouldBe("B-42");
+        evt.Message.ShouldBe("Exchange XYZ delayed");
+    }
+
     private static (StreamingOperations Operations, FakeWebSocketClient Client) CreateOperations()
     {
         var wsClient = new FakeWebSocketClient();

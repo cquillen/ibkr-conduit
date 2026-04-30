@@ -41,6 +41,9 @@ public interface IStreamingOperations
     /// </summary>
     IObservable<SessionStatusEvent> SessionStatus { get; }
 
+    /// <summary>Urgent bulletins about exchange issues, system problems, or trading information.</summary>
+    IObservable<BulletinEvent> Bulletins { get; }
+
     /// <summary>
     /// Subscribes to real-time market data for the specified contract.
     /// </summary>
