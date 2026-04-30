@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -378,6 +379,30 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
+    public async Task Heartbeat_FiresAtConfiguredInterval()
+    {
+        // Pin the contract: the heartbeat interval is constructor-injected,
+        // not a hardcoded const. With a 5-second interval, advancing the fake
+        // clock by 5s should produce a "tic" send.
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime, heartbeatIntervalSeconds: 5);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        _adapter.SentMessages.ShouldNotContain("tic", "no heartbeat should fire before the interval elapses");
+
+        // Advance the fake clock past the configured interval, yielding so
+        // the heartbeat task picks up the new time.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!_adapter.SentMessages.Any(m => m == "tic") && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+
+        _adapter.SentMessages.ShouldContain("tic");
+    }
+
+    [Fact]
     public async Task ReceiveMessage_StampsLastMessageReceivedAt_FromTimeProvider()
     {
         var fakeTime = new FakeTimeProvider(
@@ -428,13 +453,16 @@ public class IbkrWebSocketClientTests
         client.LastMessageReceivedAt.ShouldBe(start.AddMinutes(7));
     }
 
-    private IbkrWebSocketClient CreateClient(TimeProvider? timeProvider = null) =>
+    private IbkrWebSocketClient CreateClient(
+        TimeProvider? timeProvider = null,
+        int heartbeatIntervalSeconds = 30) =>
         new(
             _sessionApi,
             _credentials,
             _notifier,
             NullLogger<IbkrWebSocketClient>.Instance,
             () => _adapter,
+            heartbeatIntervalSeconds,
             timeProvider);
 
     internal class FakeSessionApi : IIbkrSessionApi
