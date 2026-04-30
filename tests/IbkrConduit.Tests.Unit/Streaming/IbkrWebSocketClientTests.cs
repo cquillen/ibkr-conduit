@@ -675,6 +675,21 @@ public class IbkrWebSocketClientTests
         _adapter.EnqueueServerMessage("""{"topic":"smd+265598","31":"150.25"}""");
         await _adapter.WaitForReceiveAsync(TestContext.Current.CancellationToken);
 
+        // WaitForReceiveAsync signals when the pump's ReceiveAsync call returns,
+        // but the pump still has work to do after that (decode bytes, fire
+        // LogIncomingMessage, dispatch to subscribers). Poll briefly for the
+        // expected log entry rather than asserting immediately — on slow CI
+        // runners the post-receive continuation may not have run yet when
+        // the test thread resumes.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline && !logger.Messages.Any(m =>
+            m.Level == LogLevel.Trace
+            && m.Formatted.Contains("WebSocket receive", StringComparison.Ordinal)
+            && m.Formatted.Contains("\"topic\":\"smd+265598\"", StringComparison.Ordinal)))
+        {
+            await Task.Yield();
+        }
+
         logger.Messages.ShouldContain(m =>
             m.Level == LogLevel.Trace
             && m.Formatted.Contains("WebSocket receive", StringComparison.Ordinal)
