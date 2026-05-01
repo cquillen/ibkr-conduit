@@ -16,6 +16,13 @@ namespace IbkrConduit.Http;
 /// </summary>
 internal sealed partial class GlobalRateLimitingHandler : DelegatingHandler
 {
+    /// <summary>
+    /// Threshold above which an <c>AcquireAsync</c> wait is considered abnormal
+    /// and surfaced at <see cref="LogLevel.Warning"/> with limiter state. Tracks
+    /// issue #173 (silent rate-limiter hangs were hard to diagnose post-hoc).
+    /// </summary>
+    private const int _slowAcquireThresholdMs = 5000;
+
     private static readonly Histogram<double> _waitDuration =
         IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.ratelimiter.global.wait_duration", "ms");
 
@@ -56,6 +63,16 @@ internal sealed partial class GlobalRateLimitingHandler : DelegatingHandler
             LogGlobalRateLimiterWait(requestPath, sw.ElapsedMilliseconds);
             using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.GlobalRateLimit.Wait");
             activity?.SetTag("wait_ms", sw.ElapsedMilliseconds);
+
+            if (sw.ElapsedMilliseconds >= _slowAcquireThresholdMs)
+            {
+                var stats = _limiter.GetStatistics();
+                LogGlobalRateLimiterSlowAcquire(
+                    requestPath,
+                    sw.ElapsedMilliseconds,
+                    stats?.CurrentQueuedCount ?? -1,
+                    stats?.CurrentAvailablePermits ?? -1);
+            }
         }
 
         if (!lease.IsAcquired)
@@ -75,4 +92,10 @@ internal sealed partial class GlobalRateLimitingHandler : DelegatingHandler
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Global rate limiter wait for {RequestPath}: {WaitDurationMs}ms")]
     private partial void LogGlobalRateLimiterWait(string requestPath, long waitDurationMs);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Global rate limiter slow acquire for {RequestPath}: waited {WaitDurationMs}ms (queue depth {QueueDepth}, available permits {AvailablePermits}). See issue #173.")]
+    private partial void LogGlobalRateLimiterSlowAcquire(
+        string requestPath, long waitDurationMs, long queueDepth, long availablePermits);
 }
