@@ -5,7 +5,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>ibkr-conduit-setup</ToolCommandName>
     <PackageId>IbkrConduit.Setup</PackageId>
-    <Version>0.5.0</Version>
+    <Version>0.5.1</Version>
     <Authors>Robert Craig Quillen</Authors>
     <Description>Setup tool for IBKR OAuth 1.0a credentials. Generates cryptographic keys, guides portal configuration, writes credential files, and validates connections. Part of the IbkrConduit library.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
