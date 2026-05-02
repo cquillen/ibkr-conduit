@@ -18,6 +18,13 @@ namespace IbkrConduit.Http;
 /// </summary>
 internal sealed partial class EndpointRateLimitingHandler : DelegatingHandler
 {
+    /// <summary>
+    /// Threshold above which an <c>AcquireAsync</c> wait is considered abnormal
+    /// and surfaced at <see cref="LogLevel.Warning"/> with limiter state. Tracks
+    /// issue #173 (silent rate-limiter hangs were hard to diagnose post-hoc).
+    /// </summary>
+    private const int _slowAcquireThresholdMs = 5000;
+
     private static readonly Histogram<double> _waitDuration =
         IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.ratelimiter.endpoint.wait_duration", "ms");
 
@@ -65,6 +72,17 @@ internal sealed partial class EndpointRateLimitingHandler : DelegatingHandler
                 using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.EndpointRateLimit.Wait");
                 activity?.SetTag(LogFields.Endpoint, endpoint);
                 activity?.SetTag("wait_ms", sw.ElapsedMilliseconds);
+
+                if (sw.ElapsedMilliseconds >= _slowAcquireThresholdMs)
+                {
+                    var stats = limiter.GetStatistics();
+                    LogEndpointRateLimiterSlowAcquire(
+                        pattern!,
+                        endpoint,
+                        sw.ElapsedMilliseconds,
+                        stats?.CurrentQueuedCount ?? -1,
+                        stats?.CurrentAvailablePermits ?? -1);
+                }
             }
 
             if (!lease.IsAcquired)
@@ -85,6 +103,12 @@ internal sealed partial class EndpointRateLimitingHandler : DelegatingHandler
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Endpoint rate limiter wait for {RequestPath} (pattern: {EndpointPattern}): {WaitDurationMs}ms")]
     private partial void LogEndpointRateLimiterWait(string endpointPattern, string requestPath, long waitDurationMs);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Endpoint rate limiter slow acquire for {RequestPath} (pattern: {EndpointPattern}): waited {WaitDurationMs}ms (queue depth {QueueDepth}, available permits {AvailablePermits}). See issue #173.")]
+    private partial void LogEndpointRateLimiterSlowAcquire(
+        string endpointPattern, string requestPath, long waitDurationMs, long queueDepth, long availablePermits);
 
     private (RateLimiter? Limiter, string? Pattern) FindLimiter(HttpRequestMessage request)
     {
