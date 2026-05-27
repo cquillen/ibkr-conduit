@@ -81,7 +81,7 @@ public record ContractDetails(
 /// <param name="Exchange">The exchange.</param>
 /// <param name="ListingExchange">The listing exchange.</param>
 /// <param name="Right">The option right ("C" or "P"), if applicable.</param>
-/// <param name="Strike">The strike price as a string, if applicable.</param>
+/// <param name="Strike">The strike price as a decimal, if applicable.</param>
 /// <param name="MaturityDate">The maturity date (YYYYMMDD), if applicable.</param>
 [ExcludeFromCodeCoverage]
 public record SecurityDefinitionInfo(
@@ -93,7 +93,7 @@ public record SecurityDefinitionInfo(
     [property: JsonPropertyName("exchange")] string Exchange,
     [property: JsonPropertyName("listingExchange")] string ListingExchange,
     [property: JsonPropertyName("right")] string? Right,
-    [property: JsonPropertyName("strike")] string? Strike,
+    [property: JsonPropertyName("strike")] decimal? Strike,
     [property: JsonPropertyName("maturityDate")] string? MaturityDate)
 {
     /// <summary>
