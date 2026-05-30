@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.5.0...IbkrConduit-v0.5.1) (2026-05-30)
+
+
+### Features
+
+* **http:** warn-level log when rate-limiter AcquireAsync exceeds 5s ([#174](https://github.com/cquillen/ibkr-conduit/issues/174)) ([bdafd10](https://github.com/cquillen/ibkr-conduit/commit/bdafd10c2464a900df026036f4ea10cc1f9a99b9))
+
+
+### Bug Fixes
+
+* change strike type from string to decimal in SecurityDefinitionInfo ([#181](https://github.com/cquillen/ibkr-conduit/issues/181)) ([8d05463](https://github.com/cquillen/ibkr-conduit/commit/8d05463ff970d9d6ad1c22dea236e4130c5c8431))
+
 ## [0.5.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.4.0...IbkrConduit-v0.5.0) (2026-04-30)
 
 
