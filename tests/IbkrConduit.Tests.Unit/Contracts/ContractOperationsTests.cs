@@ -50,7 +50,7 @@ public class ContractOperationsTests
     {
         var expected = new List<SecurityDefinitionInfo>
         {
-            new(265598, "AAPL", "OPT", "CBOE", "CBOE", "C", "150", "20241220"),
+            new(265598, "AAPL", "OPT", "CBOE", "CBOE", "C", 150, "20241220"),
         };
         _api.GetSecurityDefinitionInfoAsync(
             Arg.Any<string>(), Arg.Any<SecurityType>(), Arg.Any<string>(),

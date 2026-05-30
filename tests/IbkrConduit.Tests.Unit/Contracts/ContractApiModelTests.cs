@@ -22,7 +22,7 @@ public class ContractApiModelTests
                 "exchange": "SMART",
                 "listingExchange": "AMEX",
                 "right": "C",
-                "strike": "450",
+                "strike": 450,
                 "maturityDate": "20261218",
                 "isUS": true
             }
@@ -37,7 +37,7 @@ public class ContractApiModelTests
         result.Exchange.ShouldBe("SMART");
         result.ListingExchange.ShouldBe("AMEX");
         result.Right.ShouldBe("C");
-        result.Strike.ShouldBe("450");
+        result.Strike.ShouldBe(450L);
         result.MaturityDate.ShouldBe("20261218");
     }
 
