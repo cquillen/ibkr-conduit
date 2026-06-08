@@ -4,7 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- HTTP client and DI -->
-    <PackageVersion Include="Refit" Version="10.1.6" />
+    <PackageVersion Include="Refit" Version="11.0.1" />
     <PackageVersion Include="Refit.HttpClientFactory" Version="10.1.6" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.8" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.8" />
