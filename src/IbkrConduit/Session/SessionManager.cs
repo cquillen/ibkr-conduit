@@ -123,7 +123,11 @@ internal sealed partial class SessionManager : ISessionManager
                 // Refit 11 wraps caller cancellation from raw Task<T> session calls in
                 // ApiRequestException; unwrap so cancellation is not misreported as a credential error.
                 ex.RethrowIfWrappedCancellation(cancellationToken);
-                throw WrapCredentialException(ex);
+                // Refit 11 also wraps transport failures (network error / timeout) in
+                // ApiRequestException. Unwrap to the original SendAsync exception so the
+                // type-switch in WrapCredentialException classifies it correctly (e.g.
+                // transient) rather than falling through to the configuration-error default.
+                throw WrapCredentialException(ex.InnerException ?? ex);
             }
             catch (Exception ex)
             {
@@ -228,7 +232,11 @@ internal sealed partial class SessionManager : ISessionManager
                 // Refit 11 wraps caller cancellation from raw Task<T> session calls in
                 // ApiRequestException; unwrap so cancellation is not misreported as a credential error.
                 ex.RethrowIfWrappedCancellation(cancellationToken);
-                throw WrapCredentialException(ex);
+                // Refit 11 also wraps transport failures (network error / timeout) in
+                // ApiRequestException. Unwrap to the original SendAsync exception so the
+                // type-switch in WrapCredentialException classifies it correctly (e.g.
+                // transient) rather than falling through to the configuration-error default.
+                throw WrapCredentialException(ex.InnerException ?? ex);
             }
             catch (Exception ex)
             {

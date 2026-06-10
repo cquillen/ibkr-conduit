@@ -806,6 +806,97 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task EnsureInitializedAsync_WrappedTransportFailure_ThrowsTransient()
+    {
+        // Refit 11 wraps a transport failure (e.g. connection refused) thrown from the
+        // raw Task<T> /ssodh/init call in an ApiRequestException whose InnerException is
+        // the original HttpRequestException. The SessionManager must unwrap it so the
+        // failure is classified as transient (retryable) rather than misreported as a
+        // non-retryable configuration error.
+        var deps = CreateDependencies();
+        var inner = new HttpRequestException("connection refused");
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/auth/ssodh/init");
+        deps.SessionApi.InitException = new ApiRequestException(
+            request, HttpMethod.Post, new RefitSettings(), inner);
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrTransientException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.InnerException.ShouldBeSameAs(inner);
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_WrappedTimeout_ThrowsTransient()
+    {
+        // Refit 11 wraps a request timeout (TaskCanceledException, with the caller's
+        // token NOT cancelled) from the raw Task<T> /ssodh/init call in an
+        // ApiRequestException. With an uncancelled token, RethrowIfWrappedCancellation
+        // is a no-op, so the flow reaches WrapCredentialException, which must classify
+        // the unwrapped TaskCanceledException as a transient timeout.
+        var deps = CreateDependencies();
+        var inner = new TaskCanceledException("timed out");
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/auth/ssodh/init");
+        deps.SessionApi.InitException = new ApiRequestException(
+            request, HttpMethod.Post, new RefitSettings(), inner);
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrTransientException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.InnerException.ShouldBeSameAs(inner);
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_WrappedTransportFailure_ThrowsTransient()
+    {
+        // Same Refit 11 wrapping applies to the reauth path's /ssodh/init call: a
+        // wrapped transport failure must surface as a transient (retryable) error.
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        // Initialize successfully first.
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        var inner = new HttpRequestException("connection refused");
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/auth/ssodh/init");
+        deps.SessionApi.InitException = new ApiRequestException(
+            request, HttpMethod.Post, new RefitSettings(), inner);
+
+        var ex = await Should.ThrowAsync<IbkrTransientException>(
+            () => manager.ReauthenticateAsync(TestContext.Current.CancellationToken));
+
+        ex.InnerException.ShouldBeSameAs(inner);
+    }
+
+    [Fact]
     public async Task DisposeAsync_CalledTwice_DoesNotThrow()
     {
         var deps = CreateDependencies();
