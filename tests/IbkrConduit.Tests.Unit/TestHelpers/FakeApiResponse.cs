@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using System.Net.Http;
 using Refit;
@@ -29,4 +30,16 @@ internal static class FakeApiResponse
             },
             default,
             new RefitSettings());
+
+    /// <summary>
+    /// Creates an <see cref="IApiResponse{T}"/> that models a Refit 11 send-time failure:
+    /// no HTTP response was received and <c>Error</c> is an <see cref="ApiRequestException"/>
+    /// wrapping the original exception.
+    /// </summary>
+    public static IApiResponse<T> SendFailure<T>(Exception inner)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://api.ibkr.com/test");
+        var error = new ApiRequestException(request, HttpMethod.Get, new RefitSettings(), inner);
+        return new ApiResponse<T>(request, null, default, new RefitSettings(), error);
+    }
 }
