@@ -4,6 +4,7 @@ using System.Diagnostics.Metrics;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Diagnostics;
+using IbkrConduit.Errors;
 using IbkrConduit.Health;
 using Microsoft.Extensions.Logging;
 using Refit;
@@ -190,16 +191,16 @@ internal sealed partial class TickleTimer : ITickleTimer
             {
                 throw;
             }
-            catch (ApiRequestException ex)
-                when (ex.InnerException is OperationCanceledException && cancellationToken.IsCancellationRequested)
-            {
-                // Cancellation during the tickle's own SendAsync is wrapped by Refit 11;
-                // treat it as shutdown rather than a tickle failure. A genuine transport
-                // ApiRequestException still flows to the failure log below.
-                throw;
-            }
             catch (Exception ex)
             {
+                // Refit 11 wraps a cancelled in-flight tickle SendAsync in ApiRequestException; unwrap so
+                // shutdown cancellation propagates as OperationCanceledException (handled by StopAsync) rather
+                // than being logged as a tickle failure. Genuine transport errors fall through to the log below.
+                if (ex is ApiRequestException are)
+                {
+                    are.RethrowIfWrappedCancellation(cancellationToken);
+                }
+
                 // Transport-level failures (5xx, network errors, timeouts) are NOT
                 // session-dead signals — IBKR signals session-dead via HTTP 401 or
                 // a response body authenticated=false. Reauth requires the same

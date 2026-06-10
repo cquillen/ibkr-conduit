@@ -1,4 +1,5 @@
 using System.Runtime.ExceptionServices;
+using System.Threading;
 using Refit;
 
 namespace IbkrConduit.Errors;
@@ -25,6 +26,25 @@ internal static class RefitResponseExtensions
         if (response.Error is ApiRequestException { InnerException: { } inner })
         {
             ExceptionDispatchInfo.Capture(inner).Throw();
+        }
+    }
+
+    /// <summary>
+    /// Refit 11 wraps exceptions thrown by <c>HttpClient.SendAsync</c> — including caller
+    /// cancellation — in <see cref="ApiRequestException"/> for raw (non-<see cref="IApiResponse"/>)
+    /// interface methods. When <paramref name="cancellationToken"/> has been cancelled and the wrapped
+    /// exception is an <see cref="OperationCanceledException"/>, this re-throws the original
+    /// cancellation (preserving its stack) so callers observe <see cref="OperationCanceledException"/>
+    /// exactly as they did under Refit 10. Otherwise it returns normally, leaving the
+    /// <see cref="ApiRequestException"/> for the caller to handle.
+    /// </summary>
+    /// <param name="error">The Refit send-failure exception to inspect.</param>
+    /// <param name="cancellationToken">The caller's cancellation token.</param>
+    public static void RethrowIfWrappedCancellation(this ApiRequestException error, CancellationToken cancellationToken)
+    {
+        if (error.InnerException is OperationCanceledException oce && cancellationToken.IsCancellationRequested)
+        {
+            ExceptionDispatchInfo.Capture(oce).Throw();
         }
     }
 }

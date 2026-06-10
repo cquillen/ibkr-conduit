@@ -4,7 +4,6 @@ using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Net;
 using System.Net.Http;
-using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -120,12 +119,11 @@ internal sealed partial class SessionManager : ISessionManager
                 throw;
             }
             catch (ApiRequestException ex)
-                when (ex.InnerException is OperationCanceledException && cancellationToken.IsCancellationRequested)
             {
                 // Refit 11 wraps caller cancellation from raw Task<T> session calls in
                 // ApiRequestException; unwrap so cancellation is not misreported as a credential error.
-                ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
-                throw; // unreachable; satisfies definite-assignment analysis
+                ex.RethrowIfWrappedCancellation(cancellationToken);
+                throw WrapCredentialException(ex);
             }
             catch (Exception ex)
             {
@@ -134,8 +132,16 @@ internal sealed partial class SessionManager : ISessionManager
 
             if (_options.SuppressMessageIds.Count > 0)
             {
-                await _sessionApi.SuppressQuestionsAsync(
-                    new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+                try
+                {
+                    await _sessionApi.SuppressQuestionsAsync(
+                        new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+                }
+                catch (ApiRequestException ex)
+                {
+                    ex.RethrowIfWrappedCancellation(cancellationToken);
+                    throw;
+                }
             }
 
             _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);
@@ -218,12 +224,11 @@ internal sealed partial class SessionManager : ISessionManager
                 throw;
             }
             catch (ApiRequestException ex)
-                when (ex.InnerException is OperationCanceledException && cancellationToken.IsCancellationRequested)
             {
                 // Refit 11 wraps caller cancellation from raw Task<T> session calls in
                 // ApiRequestException; unwrap so cancellation is not misreported as a credential error.
-                ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
-                throw; // unreachable; satisfies definite-assignment analysis
+                ex.RethrowIfWrappedCancellation(cancellationToken);
+                throw WrapCredentialException(ex);
             }
             catch (Exception ex)
             {
@@ -232,8 +237,16 @@ internal sealed partial class SessionManager : ISessionManager
 
             if (_options.SuppressMessageIds.Count > 0)
             {
-                await _sessionApi.SuppressQuestionsAsync(
-                    new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+                try
+                {
+                    await _sessionApi.SuppressQuestionsAsync(
+                        new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+                }
+                catch (ApiRequestException ex)
+                {
+                    ex.RethrowIfWrappedCancellation(cancellationToken);
+                    throw;
+                }
             }
 
             _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);
