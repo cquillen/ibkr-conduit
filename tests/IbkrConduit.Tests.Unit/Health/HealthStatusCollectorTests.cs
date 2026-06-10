@@ -1,4 +1,5 @@
 using System;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
@@ -8,6 +9,8 @@ using IbkrConduit.Session;
 using IbkrConduit.Streaming;
 using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
+using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Health;
@@ -115,6 +118,29 @@ public class HealthStatusCollectorTests
         result.OverallStatus.ShouldBe(HealthState.Healthy);
         result.Session.Authenticated.ShouldBeTrue();
         await _sessionApi.Received(1).GetAuthStatusAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetHealthStatusAsync_ActiveProbe_WrappedTransportFault_ThrowsOriginalHttpRequestException()
+    {
+        // Refit 11 wraps the raw Task<T> auth-status call's transport fault in
+        // ApiRequestException. The active-probe path must surface the original
+        // HttpRequestException, not the wrapper.
+        _tokenProvider.CurrentTokenExpiry.Returns(DateTimeOffset.UtcNow.AddHours(1));
+        _wsClient.IsConnected.Returns(false);
+        _wsClient.ActiveSubscriptionCount.Returns(0);
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://api.ibkr.com/v1/api/iserver/auth/status");
+        var inner = new HttpRequestException("connection refused");
+        _sessionApi.GetAuthStatusAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new ApiRequestException(request, HttpMethod.Get, new RefitSettings(), inner));
+
+        var collector = CreateCollector();
+
+        var ex = await Should.ThrowAsync<HttpRequestException>(
+            () => collector.GetHealthStatusAsync(
+                activeProbe: true, cancellationToken: TestContext.Current.CancellationToken));
+        ex.ShouldBeSameAs(inner);
     }
 
     [Fact]

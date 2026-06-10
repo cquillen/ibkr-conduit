@@ -108,10 +108,10 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
         }
         catch (ApiRequestException ex)
         {
-            // Refit 11 wraps caller cancellation from the raw Task<T> auth-status call in
-            // ApiRequestException; unwrap so callers still observe OperationCanceledException.
-            ex.RethrowIfWrappedCancellation(cancellationToken);
-            throw;
+            // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
+            // exception type (transport/timeout/cancellation) they did under Refit 10.
+            ex.RethrowOriginal();
+            throw; // unreachable unless InnerException is null
         }
 
         return new BrokerageSessionHealth(

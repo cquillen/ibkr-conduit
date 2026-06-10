@@ -109,6 +109,39 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task EnsureInitializedAsync_SuppressWrappedTransportFault_ThrowsOriginalHttpRequestException()
+    {
+        // Refit 11 wraps the raw Task<T> /suppress call's transport fault in
+        // ApiRequestException. EnsureInitializedAsync must surface the original
+        // HttpRequestException — not the wrapper, and not a credential exception.
+        var deps = CreateDependencies();
+        deps.Options = new IbkrClientOptions
+        {
+            Compete = true,
+            SuppressMessageIds = new List<string> { "o163" },
+        };
+
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/questions/suppress");
+        var inner = new HttpRequestException("connection refused");
+        deps.SessionApi.SuppressException = new ApiRequestException(
+            request, HttpMethod.Post, new RefitSettings(), inner);
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<HttpRequestException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+        ex.ShouldBeSameAs(inner);
+    }
+
+    [Fact]
     public async Task EnsureInitializedAsync_WithoutSuppressIds_SkipsSuppression()
     {
         var deps = CreateDependencies();
@@ -1112,6 +1145,9 @@ public class SessionManagerTests
         /// <summary>If set, InitializeBrokerageSessionAsync throws this exception.</summary>
         public Exception? InitException { get; set; }
 
+        /// <summary>If set, SuppressQuestionsAsync throws this exception.</summary>
+        public Exception? SuppressException { get; set; }
+
         /// <summary>
         /// If set, invoked at the start of <see cref="InitializeBrokerageSessionAsync"/>
         /// before <see cref="InitException"/> is thrown. Lets a test simulate caller
@@ -1152,6 +1188,11 @@ public class SessionManagerTests
         {
             SuppressCallCount++;
             LastSuppressRequest = request;
+            if (SuppressException != null)
+            {
+                throw SuppressException;
+            }
+
             return Task.FromResult(new SuppressResponse(Status: "submitted"));
         }
 

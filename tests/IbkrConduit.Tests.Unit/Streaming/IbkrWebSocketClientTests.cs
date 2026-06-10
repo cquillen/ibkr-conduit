@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +11,7 @@ using IbkrConduit.Streaming;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
+using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Streaming;
@@ -45,6 +47,41 @@ public class IbkrWebSocketClientTests
         _adapter.RequestHeaders.ShouldContainKey("Cookie");
         _adapter.RequestHeaders.ShouldContainKey("User-Agent");
         _adapter.RequestHeaders["User-Agent"].ShouldBe("ClientPortalGW/1");
+    }
+
+    [Fact]
+    public async Task ConnectAsync_TickleWrappedTransportFault_ThrowsOriginalHttpRequestException()
+    {
+        // Refit 11 wraps the raw Task<T> tickle call's transport fault in ApiRequestException.
+        // ConnectAsync must surface the original HttpRequestException, not the wrapper.
+        await using var client = CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://api.ibkr.com/v1/api/tickle");
+        var inner = new HttpRequestException("connection refused");
+        _sessionApi.NextTickleException = new ApiRequestException(
+            request, HttpMethod.Get, new RefitSettings(), inner);
+
+        var ex = await Should.ThrowAsync<HttpRequestException>(
+            () => client.ConnectAsync(TestContext.Current.CancellationToken));
+        ex.ShouldBeSameAs(inner);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_TickleWrappedCancellation_PropagatesOperationCanceled()
+    {
+        // A wrapped OperationCanceledException with a cancelled caller token must still
+        // surface as OperationCanceledException (not ApiRequestException).
+        await using var client = CreateClient();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://api.ibkr.com/v1/api/tickle");
+        var inner = new OperationCanceledException(cts.Token);
+        _sessionApi.NextTickleException = new ApiRequestException(
+            request, HttpMethod.Get, new RefitSettings(), inner);
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => client.ConnectAsync(cts.Token));
     }
 
     [Fact]
@@ -897,12 +934,21 @@ public class IbkrWebSocketClientTests
     {
         public bool NextTickleShouldThrow { get; set; }
 
+        /// <summary>If set, <see cref="TickleAsync"/> throws this exception (cleared after one throw).</summary>
+        public Exception? NextTickleException { get; set; }
+
         public Task<SsodhInitResponse> InitializeBrokerageSessionAsync(
             SsodhInitRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult(new SsodhInitResponse(true, true, false, true, null, null, null, null));
 
         public Task<TickleResponse> TickleAsync(CancellationToken cancellationToken = default)
         {
+            if (NextTickleException != null)
+            {
+                var ex = NextTickleException;
+                NextTickleException = null;
+                throw ex;
+            }
             if (NextTickleShouldThrow)
             {
                 NextTickleShouldThrow = false;

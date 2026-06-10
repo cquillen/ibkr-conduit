@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
+using System.Threading.Tasks;
 using IbkrConduit.Errors;
 using IbkrConduit.Tests.Unit.TestHelpers;
 using Refit;
@@ -76,6 +77,36 @@ public class RefitResponseExtensionsTests
         cts.Cancel();
 
         Should.NotThrow(() => error.RethrowIfWrappedCancellation(cts.Token));
+    }
+
+    [Fact]
+    public void RethrowOriginal_WrappedTransportError_RethrowsSameInstance()
+    {
+        var inner = new HttpRequestException("connection refused");
+        var error = CreateSendFailure(inner);
+
+        var ex = Should.Throw<HttpRequestException>(() => error.RethrowOriginal());
+        ex.ShouldBeSameAs(inner);
+    }
+
+    [Fact]
+    public void RethrowOriginal_WrappedCancellation_RethrowsSameInstance()
+    {
+        var inner = new OperationCanceledException("cancelled");
+        var error = CreateSendFailure(inner);
+
+        var ex = Should.Throw<OperationCanceledException>(() => error.RethrowOriginal());
+        ex.ShouldBeSameAs(inner);
+    }
+
+    [Fact]
+    public void RethrowOriginal_WrappedTaskCanceled_RethrowsSameInstance()
+    {
+        var inner = new TaskCanceledException("timed out");
+        var error = CreateSendFailure(inner);
+
+        var ex = Should.Throw<TaskCanceledException>(() => error.RethrowOriginal());
+        ex.ShouldBeSameAs(inner);
     }
 
     private static ApiRequestException CreateSendFailure(Exception inner)

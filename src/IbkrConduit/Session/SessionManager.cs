@@ -143,8 +143,10 @@ internal sealed partial class SessionManager : ISessionManager
                 }
                 catch (ApiRequestException ex)
                 {
-                    ex.RethrowIfWrappedCancellation(cancellationToken);
-                    throw;
+                    // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
+                    // exception type (transport/timeout/cancellation) they did under Refit 10.
+                    ex.RethrowOriginal();
+                    throw; // unreachable unless InnerException is null
                 }
             }
 
@@ -252,8 +254,10 @@ internal sealed partial class SessionManager : ISessionManager
                 }
                 catch (ApiRequestException ex)
                 {
-                    ex.RethrowIfWrappedCancellation(cancellationToken);
-                    throw;
+                    // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
+                    // exception type (transport/timeout/cancellation) they did under Refit 10.
+                    ex.RethrowOriginal();
+                    throw; // unreachable unless InnerException is null
                 }
             }
 

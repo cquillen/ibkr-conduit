@@ -47,4 +47,19 @@ internal static class RefitResponseExtensions
             ExceptionDispatchInfo.Capture(oce).Throw();
         }
     }
+
+    /// <summary>
+    /// Re-throws (with original type and stack, via <see cref="System.Runtime.ExceptionServices.ExceptionDispatchInfo"/>)
+    /// the original exception that Refit 11 wrapped in this <see cref="ApiRequestException"/> for a raw
+    /// (non-<see cref="IApiResponse"/>) interface method, so callers observe the same exception type they
+    /// did under Refit 10. No-op when there is no inner exception.
+    /// </summary>
+    /// <param name="error">The Refit send-failure exception to unwrap.</param>
+    public static void RethrowOriginal(this ApiRequestException error)
+    {
+        if (error.InnerException is { } inner)
+        {
+            ExceptionDispatchInfo.Capture(inner).Throw();
+        }
+    }
 }
