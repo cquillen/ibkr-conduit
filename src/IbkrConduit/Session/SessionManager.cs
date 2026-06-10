@@ -4,6 +4,7 @@ using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Net;
 using System.Net.Http;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -13,6 +14,7 @@ using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.Health;
 using Microsoft.Extensions.Logging;
+using Refit;
 
 namespace IbkrConduit.Session;
 
@@ -117,6 +119,14 @@ internal sealed partial class SessionManager : ISessionManager
             {
                 throw;
             }
+            catch (ApiRequestException ex)
+                when (ex.InnerException is OperationCanceledException && cancellationToken.IsCancellationRequested)
+            {
+                // Refit 11 wraps caller cancellation from raw Task<T> session calls in
+                // ApiRequestException; unwrap so cancellation is not misreported as a credential error.
+                ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+                throw; // unreachable; satisfies definite-assignment analysis
+            }
             catch (Exception ex)
             {
                 throw WrapCredentialException(ex);
@@ -206,6 +216,14 @@ internal sealed partial class SessionManager : ISessionManager
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
+            }
+            catch (ApiRequestException ex)
+                when (ex.InnerException is OperationCanceledException && cancellationToken.IsCancellationRequested)
+            {
+                // Refit 11 wraps caller cancellation from raw Task<T> session calls in
+                // ApiRequestException; unwrap so cancellation is not misreported as a credential error.
+                ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+                throw; // unreachable; satisfies definite-assignment analysis
             }
             catch (Exception ex)
             {

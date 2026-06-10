@@ -13,6 +13,7 @@ using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
+using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Session;
@@ -742,6 +743,69 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task EnsureInitializedAsync_WrappedCancellation_PropagatesOperationCanceled()
+    {
+        // Refit 11 wraps caller cancellation thrown from a raw Task<T> session call
+        // (e.g. /ssodh/init) in an ApiRequestException. The SessionManager must unwrap
+        // it so cancellation propagates as OperationCanceledException rather than being
+        // misreported as a credential error by WrapCredentialException.
+        var deps = CreateDependencies();
+        using var cts = new CancellationTokenSource();
+
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/auth/ssodh/init");
+        // Cancel the token mid-init (so the semaphore wait succeeds first), then throw
+        // the Refit 11 ApiRequestException wrapping the resulting OperationCanceledException.
+        deps.SessionApi.OnInit = () => cts.Cancel();
+        deps.SessionApi.InitException = new ApiRequestException(
+            request, HttpMethod.Post, new RefitSettings(),
+            new OperationCanceledException(cts.Token));
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => manager.EnsureInitializedAsync(cts.Token));
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_WrappedCancellation_PropagatesOperationCanceled()
+    {
+        // Same Refit 11 wrapping applies to the reauth path's /ssodh/init call.
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        // Initialize successfully first.
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        using var cts = new CancellationTokenSource();
+
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/auth/ssodh/init");
+        deps.SessionApi.OnInit = () => cts.Cancel();
+        deps.SessionApi.InitException = new ApiRequestException(
+            request, HttpMethod.Post, new RefitSettings(),
+            new OperationCanceledException(cts.Token));
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => manager.ReauthenticateAsync(cts.Token));
+    }
+
+    [Fact]
     public async Task DisposeAsync_CalledTwice_DoesNotThrow()
     {
         var deps = CreateDependencies();
@@ -957,6 +1021,13 @@ public class SessionManagerTests
         /// <summary>If set, InitializeBrokerageSessionAsync throws this exception.</summary>
         public Exception? InitException { get; set; }
 
+        /// <summary>
+        /// If set, invoked at the start of <see cref="InitializeBrokerageSessionAsync"/>
+        /// before <see cref="InitException"/> is thrown. Lets a test simulate caller
+        /// cancellation occurring during the in-flight init call.
+        /// </summary>
+        public Action? OnInit { get; set; }
+
         /// <summary>Completes when <see cref="InitCallCount"/> reaches 2 (first re-auth).</summary>
         public Task SecondInitTask => _secondInitTcs.Task;
 
@@ -968,6 +1039,8 @@ public class SessionManagerTests
             {
                 _secondInitTcs.TrySetResult();
             }
+
+            OnInit?.Invoke();
 
             if (InitException != null)
             {
