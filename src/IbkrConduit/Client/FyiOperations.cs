@@ -3,6 +3,7 @@ using IbkrConduit.Errors;
 using IbkrConduit.Fyi;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging;
+using Refit;
 
 namespace IbkrConduit.Client;
 
@@ -130,6 +131,7 @@ internal partial class FyiOperations : IFyiOperations
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Fyi.DeleteDevice");
         var response = await _api.DeleteDeviceAsync(deviceId, cancellationToken);
+        response.ThrowOnSendFailure();
         // Void-returning endpoint: check success status and return Result<bool>
         if (response.IsSuccessStatusCode)
         {
@@ -138,7 +140,7 @@ internal partial class FyiOperations : IFyiOperations
             return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
         }
 
-        var rawBody = response.Error?.Content ?? "";
+        var rawBody = (response.Error as ApiException)?.Content ?? "";
         var error = new IbkrApiError(response.StatusCode, rawBody, rawBody, response.RequestMessage?.RequestUri?.AbsolutePath);
         var failResult = Result<bool>.Failure(error);
         LogResult(failResult, "DeleteDevice");

@@ -6,6 +6,7 @@ using IbkrConduit.Errors;
 using IbkrConduit.Portfolio;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging;
+using Refit;
 
 namespace IbkrConduit.Client;
 
@@ -142,6 +143,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.InvalidateCache");
         activity?.SetTag(LogFields.AccountId, accountId);
         var response = await _api.InvalidatePortfolioCacheAsync(accountId, cancellationToken);
+        response.ThrowOnSendFailure();
         if (response.IsSuccessStatusCode)
         {
             var result = Result<bool>.Success(true);
@@ -149,7 +151,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
             return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
         }
 
-        var rawBody = response.Error?.Content ?? "";
+        var rawBody = (response.Error as ApiException)?.Content ?? "";
         var error = new IbkrApiError(response.StatusCode, rawBody, rawBody, response.RequestMessage?.RequestUri?.AbsolutePath);
         var failResult = Result<bool>.Failure(error);
         LogResult(failResult, "InvalidatePortfolioCache");
