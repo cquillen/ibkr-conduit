@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Health;
 using Microsoft.Extensions.Logging;
+using Refit;
 
 namespace IbkrConduit.Session;
 
@@ -187,6 +188,14 @@ internal sealed partial class TickleTimer : ITickleTimer
             }
             catch (OperationCanceledException)
             {
+                throw;
+            }
+            catch (ApiRequestException ex)
+                when (ex.InnerException is OperationCanceledException && cancellationToken.IsCancellationRequested)
+            {
+                // Cancellation during the tickle's own SendAsync is wrapped by Refit 11;
+                // treat it as shutdown rather than a tickle failure. A genuine transport
+                // ApiRequestException still flows to the failure log below.
                 throw;
             }
             catch (Exception ex)
