@@ -8,6 +8,7 @@ using IbkrConduit.Orders;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging;
 using OneOf;
+using Refit;
 
 namespace IbkrConduit.Client;
 
@@ -181,9 +182,11 @@ internal partial class OrderOperations : IOrderOperations
         var replyApiResponse = await _orderApi.ReplyAsync(
             replyId, new ReplyRequest(confirmed), cancellationToken);
 
+        replyApiResponse.ThrowOnSendFailure();
+
         if (!replyApiResponse.IsSuccessStatusCode)
         {
-            var rawBody = replyApiResponse.Error?.Content ?? "";
+            var rawBody = (replyApiResponse.Error as ApiException)?.Content ?? "";
             var error = new IbkrApiError(replyApiResponse.StatusCode, rawBody, rawBody, replyApiResponse.RequestMessage?.RequestUri?.AbsolutePath);
             var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(error);
             return _options.ThrowOnApiError ? failResult.EnsureSuccess() : failResult;

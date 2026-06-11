@@ -7,8 +7,10 @@ using System.Text.Json;
 using System.Threading.Channels;
 using IbkrConduit.Auth;
 using IbkrConduit.Diagnostics;
+using IbkrConduit.Errors;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging;
+using Refit;
 
 namespace IbkrConduit.Streaming;
 
@@ -283,7 +285,18 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         LogConnecting();
 
-        var tickleResponse = await _sessionApi.TickleAsync(cancellationToken);
+        TickleResponse tickleResponse;
+        try
+        {
+            tickleResponse = await _sessionApi.TickleAsync(cancellationToken);
+        }
+        catch (ApiRequestException ex)
+        {
+            // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
+            // exception type (transport/timeout/cancellation) they did under Refit 10.
+            ex.RethrowOriginal();
+            throw; // unreachable unless InnerException is null
+        }
 
         var uri = new Uri($"{_webSocketBaseUrl}?oauth_token={_credentials.AccessToken}");
         var ws = _webSocketFactory();

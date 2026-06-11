@@ -13,6 +13,7 @@ using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.Health;
 using Microsoft.Extensions.Logging;
+using Refit;
 
 namespace IbkrConduit.Session;
 
@@ -117,6 +118,17 @@ internal sealed partial class SessionManager : ISessionManager
             {
                 throw;
             }
+            catch (ApiRequestException ex)
+            {
+                // Refit 11 wraps caller cancellation from raw Task<T> session calls in
+                // ApiRequestException; unwrap so cancellation is not misreported as a credential error.
+                ex.RethrowIfWrappedCancellation(cancellationToken);
+                // Refit 11 also wraps transport failures (network error / timeout) in
+                // ApiRequestException. Unwrap to the original SendAsync exception so the
+                // type-switch in WrapCredentialException classifies it correctly (e.g.
+                // transient) rather than falling through to the configuration-error default.
+                throw WrapCredentialException(ex.InnerException ?? ex);
+            }
             catch (Exception ex)
             {
                 throw WrapCredentialException(ex);
@@ -124,8 +136,18 @@ internal sealed partial class SessionManager : ISessionManager
 
             if (_options.SuppressMessageIds.Count > 0)
             {
-                await _sessionApi.SuppressQuestionsAsync(
-                    new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+                try
+                {
+                    await _sessionApi.SuppressQuestionsAsync(
+                        new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+                }
+                catch (ApiRequestException ex)
+                {
+                    // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
+                    // exception type (transport/timeout/cancellation) they did under Refit 10.
+                    ex.RethrowOriginal();
+                    throw; // unreachable unless InnerException is null
+                }
             }
 
             _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);
@@ -207,6 +229,17 @@ internal sealed partial class SessionManager : ISessionManager
             {
                 throw;
             }
+            catch (ApiRequestException ex)
+            {
+                // Refit 11 wraps caller cancellation from raw Task<T> session calls in
+                // ApiRequestException; unwrap so cancellation is not misreported as a credential error.
+                ex.RethrowIfWrappedCancellation(cancellationToken);
+                // Refit 11 also wraps transport failures (network error / timeout) in
+                // ApiRequestException. Unwrap to the original SendAsync exception so the
+                // type-switch in WrapCredentialException classifies it correctly (e.g.
+                // transient) rather than falling through to the configuration-error default.
+                throw WrapCredentialException(ex.InnerException ?? ex);
+            }
             catch (Exception ex)
             {
                 throw WrapCredentialException(ex);
@@ -214,8 +247,18 @@ internal sealed partial class SessionManager : ISessionManager
 
             if (_options.SuppressMessageIds.Count > 0)
             {
-                await _sessionApi.SuppressQuestionsAsync(
-                    new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+                try
+                {
+                    await _sessionApi.SuppressQuestionsAsync(
+                        new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+                }
+                catch (ApiRequestException ex)
+                {
+                    // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
+                    // exception type (transport/timeout/cancellation) they did under Refit 10.
+                    ex.RethrowOriginal();
+                    throw; // unreachable unless InnerException is null
+                }
             }
 
             _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);

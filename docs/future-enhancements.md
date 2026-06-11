@@ -76,6 +76,18 @@ Ideas that aren't worth building now but may be valuable later. Each entry descr
 
 ---
 
+## Unified Transport-Error Handling (Refit 11 "failures-as-values")
+
+**What:** Convert pre-response send failures (DNS, connection refused, timeout) on the consumer `IApiResponse<T>` APIs into `Result.Failure(IbkrApiError)` with a null `StatusCode`, instead of re-throwing the original exception — so *every* failure flows through the `Result<T>` channel uniformly. This is "Option B" from the Refit 11 migration; Option A (preserve throwing) was the one shipped.
+
+**Current behavior:** After the Refit 11 upgrade, `RefitResponseExtensions.ThrowOnSendFailure()` re-throws send-time failures to preserve the Refit 10 contract exactly: transport errors surface as thrown `HttpRequestException`/`TaskCanceledException`, caller cancellation as `OperationCanceledException`, and handler-thrown `IbkrApiException` (token refresh) / `IbkrSchemaViolationException` (schema validation) propagate to the caller. Normal HTTP errors (4xx/5xx with a received response) already become `Result.Failure`.
+
+**Why deferred:** It is a breaking change to the library's public contract, so it must not ride along on a dependency bump. Under the default `ThrowOnApiError = false`, code catching `HttpRequestException` around an operations call would silently stop catching (the fault becomes a `Result.Failure` the caller may not inspect); under `ThrowOnApiError = true`, the thrown type would change from `HttpRequestException` to `IbkrApiException`. Either way it warrants a semver-major release, a changelog entry, and consumer migration notes. Option A was chosen for the Refit 11 upgrade specifically to keep observable behavior identical.
+
+**Trigger to build:** A deliberate pre-v1.0 / major-version pass to unify all failure handling into the `Result<T>` channel (no thrown exceptions for transport faults). Likely scope: narrow `ThrowOnSendFailure` to re-throw only `OperationCanceledException` and `Ibkr*` exceptions; map the remaining `ApiRequestException` cases to a dedicated `IbkrTransportError : IbkrError` (with `StatusCode == null`); reconcile `ThrowOnApiError` semantics; and document the new contract. See the "DECISION REQUIRED" section of `docs/superpowers/plans/2026-06-10-refit-11-migration.md` for the original A/B analysis.
+
+---
+
 ## Completed (removed from active list)
 
 These items were previously on this list and have been implemented:

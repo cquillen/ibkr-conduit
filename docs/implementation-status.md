@@ -151,3 +151,11 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 |---|---|---|---|
 | 7.1 | Samples project | Not Started | — |
 | 7.2 | API documentation audit | Not Started | — |
+
+---
+
+## Dependency Upgrades
+
+| Upgrade | Status | Notes |
+|---|---|---|
+| Refit `10.1.6` → `11.0.1` | Done | Refit 11 reworks the error model — pre-response send failures (transport faults, caller cancellation, handler-thrown exceptions) are now captured into `IApiResponse.Error` as `ApiRequestException` instead of propagating. Added `RefitResponseExtensions.ThrowOnSendFailure` (wired into both `ResultFactory.FromResponse` overloads and the Order/Fyi/Portfolio error paths) to re-throw the captured exception via `ExceptionDispatchInfo`, preserving the library's existing Refit-10 throwing semantics ("Option A"). The failures-as-values alternative ("Option B") is recorded in [future-enhancements.md](future-enhancements.md). |

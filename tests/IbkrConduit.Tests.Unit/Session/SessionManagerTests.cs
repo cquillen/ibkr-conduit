@@ -13,6 +13,7 @@ using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
+using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Session;
@@ -105,6 +106,39 @@ public class SessionManagerTests
         deps.SessionApi.LastSuppressRequest.ShouldNotBeNull();
         deps.SessionApi.LastSuppressRequest!.MessageIds.ShouldBe(
             new List<string> { "o163", "o451" });
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_SuppressWrappedTransportFault_ThrowsOriginalHttpRequestException()
+    {
+        // Refit 11 wraps the raw Task<T> /suppress call's transport fault in
+        // ApiRequestException. EnsureInitializedAsync must surface the original
+        // HttpRequestException — not the wrapper, and not a credential exception.
+        var deps = CreateDependencies();
+        deps.Options = new IbkrClientOptions
+        {
+            Compete = true,
+            SuppressMessageIds = new List<string> { "o163" },
+        };
+
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/questions/suppress");
+        var inner = new HttpRequestException("connection refused");
+        deps.SessionApi.SuppressException = new ApiRequestException(
+            request, HttpMethod.Post, new RefitSettings(), inner);
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<HttpRequestException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+        ex.ShouldBeSameAs(inner);
     }
 
     [Fact]
@@ -742,6 +776,160 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task EnsureInitializedAsync_WrappedCancellation_PropagatesOperationCanceled()
+    {
+        // Refit 11 wraps caller cancellation thrown from a raw Task<T> session call
+        // (e.g. /ssodh/init) in an ApiRequestException. The SessionManager must unwrap
+        // it so cancellation propagates as OperationCanceledException rather than being
+        // misreported as a credential error by WrapCredentialException.
+        var deps = CreateDependencies();
+        using var cts = new CancellationTokenSource();
+
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/auth/ssodh/init");
+        // Cancel the token mid-init (so the semaphore wait succeeds first), then throw
+        // the Refit 11 ApiRequestException wrapping the resulting OperationCanceledException.
+        deps.SessionApi.OnInit = () => cts.Cancel();
+        deps.SessionApi.InitException = new ApiRequestException(
+            request, HttpMethod.Post, new RefitSettings(),
+            new OperationCanceledException(cts.Token));
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => manager.EnsureInitializedAsync(cts.Token));
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_WrappedCancellation_PropagatesOperationCanceled()
+    {
+        // Same Refit 11 wrapping applies to the reauth path's /ssodh/init call.
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        // Initialize successfully first.
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        using var cts = new CancellationTokenSource();
+
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/auth/ssodh/init");
+        deps.SessionApi.OnInit = () => cts.Cancel();
+        deps.SessionApi.InitException = new ApiRequestException(
+            request, HttpMethod.Post, new RefitSettings(),
+            new OperationCanceledException(cts.Token));
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => manager.ReauthenticateAsync(cts.Token));
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_WrappedTransportFailure_ThrowsTransient()
+    {
+        // Refit 11 wraps a transport failure (e.g. connection refused) thrown from the
+        // raw Task<T> /ssodh/init call in an ApiRequestException whose InnerException is
+        // the original HttpRequestException. The SessionManager must unwrap it so the
+        // failure is classified as transient (retryable) rather than misreported as a
+        // non-retryable configuration error.
+        var deps = CreateDependencies();
+        var inner = new HttpRequestException("connection refused");
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/auth/ssodh/init");
+        deps.SessionApi.InitException = new ApiRequestException(
+            request, HttpMethod.Post, new RefitSettings(), inner);
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrTransientException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.InnerException.ShouldBeSameAs(inner);
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_WrappedTimeout_ThrowsTransient()
+    {
+        // Refit 11 wraps a request timeout (TaskCanceledException, with the caller's
+        // token NOT cancelled) from the raw Task<T> /ssodh/init call in an
+        // ApiRequestException. With an uncancelled token, RethrowIfWrappedCancellation
+        // is a no-op, so the flow reaches WrapCredentialException, which must classify
+        // the unwrapped TaskCanceledException as a transient timeout.
+        var deps = CreateDependencies();
+        var inner = new TaskCanceledException("timed out");
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/auth/ssodh/init");
+        deps.SessionApi.InitException = new ApiRequestException(
+            request, HttpMethod.Post, new RefitSettings(), inner);
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        var ex = await Should.ThrowAsync<IbkrTransientException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        ex.InnerException.ShouldBeSameAs(inner);
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_WrappedTransportFailure_ThrowsTransient()
+    {
+        // Same Refit 11 wrapping applies to the reauth path's /ssodh/init call: a
+        // wrapped transport failure must surface as a transient (retryable) error.
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance);
+
+        // Initialize successfully first.
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        var inner = new HttpRequestException("connection refused");
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/auth/ssodh/init");
+        deps.SessionApi.InitException = new ApiRequestException(
+            request, HttpMethod.Post, new RefitSettings(), inner);
+
+        var ex = await Should.ThrowAsync<IbkrTransientException>(
+            () => manager.ReauthenticateAsync(TestContext.Current.CancellationToken));
+
+        ex.InnerException.ShouldBeSameAs(inner);
+    }
+
+    [Fact]
     public async Task DisposeAsync_CalledTwice_DoesNotThrow()
     {
         var deps = CreateDependencies();
@@ -957,6 +1145,16 @@ public class SessionManagerTests
         /// <summary>If set, InitializeBrokerageSessionAsync throws this exception.</summary>
         public Exception? InitException { get; set; }
 
+        /// <summary>If set, SuppressQuestionsAsync throws this exception.</summary>
+        public Exception? SuppressException { get; set; }
+
+        /// <summary>
+        /// If set, invoked at the start of <see cref="InitializeBrokerageSessionAsync"/>
+        /// before <see cref="InitException"/> is thrown. Lets a test simulate caller
+        /// cancellation occurring during the in-flight init call.
+        /// </summary>
+        public Action? OnInit { get; set; }
+
         /// <summary>Completes when <see cref="InitCallCount"/> reaches 2 (first re-auth).</summary>
         public Task SecondInitTask => _secondInitTcs.Task;
 
@@ -968,6 +1166,8 @@ public class SessionManagerTests
             {
                 _secondInitTcs.TrySetResult();
             }
+
+            OnInit?.Invoke();
 
             if (InitException != null)
             {
@@ -988,6 +1188,11 @@ public class SessionManagerTests
         {
             SuppressCallCount++;
             LastSuppressRequest = request;
+            if (SuppressException != null)
+            {
+                throw SuppressException;
+            }
+
             return Task.FromResult(new SuppressResponse(Status: "submitted"));
         }
 

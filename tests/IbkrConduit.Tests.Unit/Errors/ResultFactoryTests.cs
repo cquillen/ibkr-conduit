@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using IbkrConduit.Errors;
+using IbkrConduit.Tests.Unit.TestHelpers;
 using Refit;
 using Shouldly;
 
@@ -97,6 +98,21 @@ public class ResultFactoryTests
         var result = ResultFactory.FromResponse(rawResponse, body => body, "/test");
         result.IsSuccess.ShouldBeFalse();
         result.Error.Message.ShouldBe("server error");
+    }
+
+    [Fact]
+    public void FromResponse_SendFailureCancellation_Propagates()
+    {
+        var response = FakeApiResponse.SendFailure<string>(new OperationCanceledException("cancelled"));
+        Should.Throw<OperationCanceledException>(() => ResultFactory.FromResponse(response, "/test"));
+    }
+
+    [Fact]
+    public void FromResponse_SendFailureSchemaViolation_PropagatesAsIbkrException()
+    {
+        var inner = new IbkrSchemaViolationException("/test", typeof(string), new[] { "extra" }, System.Array.Empty<string>());
+        var response = FakeApiResponse.SendFailure<string>(inner);
+        Should.Throw<IbkrSchemaViolationException>(() => ResultFactory.FromResponse(response, "/test"));
     }
 
     // Helper to create mock IApiResponse<T>

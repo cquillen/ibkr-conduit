@@ -4,8 +4,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Health;
 using IbkrConduit.Session;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
+using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Session;
@@ -522,6 +524,86 @@ public class TickleTimerTests
         await timer.StopAsync();
     }
 
+    [Fact]
+    public async Task RunAsync_WrappedCancellationDuringTickle_DoesNotCountAsFailureAndStopsCleanly()
+    {
+        // Refit 11 wraps a cancelled in-flight tickle SendAsync in ApiRequestException. On a
+        // shutdown-during-tickle race this must be treated as shutdown — NOT logged/counted as a
+        // tickle failure — and must not escape StopAsync (which only catches OperationCanceledException).
+        using var startCts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+
+        var sessionApi = new FakeSessionApi
+        {
+            // On tickle: cancel the timer's token (mirroring shutdown), then throw the Refit 11
+            // wrapper exactly as a cancelled in-flight SendAsync would surface it.
+            TickleHook = () =>
+            {
+                startCts.Cancel();
+                var inner = new OperationCanceledException("cancelled in flight");
+                var request = new HttpRequestMessage(HttpMethod.Get, "https://api.ibkr.com/tickle");
+                throw new ApiRequestException(request, HttpMethod.Get, new RefitSettings(), inner);
+            },
+        };
+
+        var fakeTime = new FakeTimeProvider();
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+        var healthState = new SessionHealthState();
+        var logger = new CapturingLogger<TickleTimer>();
+        var timer = new TickleTimer(
+            sessionApi,
+            _ => Task.CompletedTask,
+            healthState,
+            logger,
+            notifier,
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
+            fakeTime);
+
+        await timer.StartAsync(startCts.Token);
+
+        // Pump until the throwing tickle has been observed.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (sessionApi.TickleCallCount < 1 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+        sessionApi.TickleCallCount.ShouldBeGreaterThanOrEqualTo(1, "The tickle should have been attempted.");
+
+        // StopAsync awaits the background task and only catches OperationCanceledException.
+        // The wrapped cancellation must unwrap so this completes cleanly.
+        await Should.NotThrowAsync(async () => await timer.StopAsync());
+
+        // The wrapped cancellation must NOT be logged as a tickle failure.
+        logger.Messages.ShouldNotContain(
+            m => m.Level == LogLevel.Warning,
+            "Shutdown cancellation wrapped by Refit 11 must not be logged as a tickle failure.");
+    }
+
+    /// <summary>
+    /// Minimal <see cref="ILogger{T}"/> that captures emitted entries with their level so a test
+    /// can assert which log paths did (or did not) run. Mirrors the capturing-logger pattern used
+    /// by other test classes in this suite.
+    /// </summary>
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, string Message)> Messages { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Messages.Add((logLevel, formatter(state, exception)));
+        }
+    }
+
     private class FakeSessionApi : IIbkrSessionApi
     {
         private int _tickleCallCount;
@@ -529,9 +611,17 @@ public class TickleTimerTests
         public bool Authenticated { get; set; } = true;
         public bool ShouldThrow { get; set; }
 
+        /// <summary>
+        /// Optional hook invoked inside <see cref="TickleAsync"/> before returning. Lets a test
+        /// simulate a cancelled in-flight SendAsync by cancelling the timer's token and throwing.
+        /// </summary>
+        public Action? TickleHook { get; set; }
+
         public Task<TickleResponse> TickleAsync(CancellationToken cancellationToken = default)
         {
             Interlocked.Increment(ref _tickleCallCount);
+
+            TickleHook?.Invoke();
 
             if (ShouldThrow)
             {

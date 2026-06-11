@@ -21,9 +21,11 @@ internal static class ResultFactory
     /// </summary>
     public static Result<T> FromResponse<T>(IApiResponse<T> response, string? requestPath = null)
     {
+        response.ThrowOnSendFailure();
+
         // Prefer the raw body captured by ResponseBodyCaptureHandler (available for all status codes).
         // Fall back to response.Error?.Content (only populated for non-2xx by Refit).
-        var rawBody = GetCapturedBody(response) ?? response.Error?.Content ?? "";
+        var rawBody = GetCapturedBody(response) ?? (response.Error as ApiException)?.Content ?? "";
 
         if (response.IsSuccessStatusCode)
         {
@@ -53,7 +55,9 @@ internal static class ResultFactory
     /// </summary>
     public static Result<T> FromResponse<T>(IApiResponse<string> response, Func<string, T> parser, string? requestPath = null)
     {
-        var rawBody = GetCapturedBody(response) ?? response.Content ?? response.Error?.Content ?? "";
+        response.ThrowOnSendFailure();
+
+        var rawBody = GetCapturedBody(response) ?? response.Content ?? (response.Error as ApiException)?.Content ?? "";
 
         if (response.IsSuccessStatusCode)
         {
@@ -71,7 +75,7 @@ internal static class ResultFactory
     }
 
     private static IbkrError ParseError(
-        HttpStatusCode statusCode, string rawBody,
+        HttpStatusCode? statusCode, string rawBody,
         System.Net.Http.Headers.HttpResponseHeaders? headers, string? requestPath)
     {
         // 429 — rate limit

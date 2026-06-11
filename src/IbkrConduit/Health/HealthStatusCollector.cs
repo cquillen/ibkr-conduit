@@ -1,8 +1,10 @@
 using System.Threading.RateLimiting;
 using IbkrConduit.Auth;
 using IbkrConduit.Diagnostics;
+using IbkrConduit.Errors;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
+using Refit;
 
 namespace IbkrConduit.Health;
 
@@ -99,7 +101,19 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
 
     private async Task<BrokerageSessionHealth> CollectActiveSessionHealthAsync(CancellationToken cancellationToken)
     {
-        var authStatus = await _sessionApi.GetAuthStatusAsync(cancellationToken);
+        AuthStatusResponse authStatus;
+        try
+        {
+            authStatus = await _sessionApi.GetAuthStatusAsync(cancellationToken);
+        }
+        catch (ApiRequestException ex)
+        {
+            // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
+            // exception type (transport/timeout/cancellation) they did under Refit 10.
+            ex.RethrowOriginal();
+            throw; // unreachable unless InnerException is null
+        }
+
         return new BrokerageSessionHealth(
             Authenticated: authStatus.Authenticated,
             Connected: authStatus.Connected,
