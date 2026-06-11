@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.2](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.5.1...IbkrConduit-v0.5.2) (2026-06-11)
+
+
+### Continuous Integration
+
+* build single-file example apps ([#190](https://github.com/cquillen/ibkr-conduit/issues/190)) ([e88bd24](https://github.com/cquillen/ibkr-conduit/commit/e88bd24a1f83395bfc376c2a5b7704bda6233579))
+
 ## [0.5.1](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.5.0...IbkrConduit-v0.5.1) (2026-05-30)
 
 
