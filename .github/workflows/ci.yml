@@ -21,6 +21,7 @@ jobs:
             code:
               - 'src/**'
               - 'tests/**'
+              - 'examples/**'
               - '*.slnx'
               - '*.props'
               - '*.targets'
@@ -59,6 +60,21 @@ jobs:
       - name: Build
         if: needs.changes.outputs.code == 'true'
         run: dotnet build --no-restore --configuration Release
+
+      # The single-file (file-based) example apps under examples/*.cs reference the
+      # IbkrConduit project directly but are NOT part of the solution, so the solution
+      # build above does not compile them. Build each so API/dependency changes that
+      # break a documented example fail CI. (The example project in examples/ that IS
+      # in the solution is already covered by the Build step.)
+      - name: Build single-file example apps
+        if: needs.changes.outputs.code == 'true'
+        run: |
+          shopt -s nullglob
+          for app in examples/*.cs; do
+            echo "::group::Building $app"
+            dotnet build "$app" --configuration Release
+            echo "::endgroup::"
+          done
 
       - name: Test
         if: needs.changes.outputs.code == 'true'
