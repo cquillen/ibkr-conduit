@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.2](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.5.1...IbkrConduit-v0.5.2) (2026-06-11)
+
+
+### Dependencies
+
+* Upgrade Refit and Refit.HttpClientFactory 10.1.6 → 11.0.1 ([#189](https://github.com/cquillen/ibkr-conduit/issues/189)) ([073d31d](https://github.com/cquillen/ibkr-conduit/commit/073d31df0f62ec609338e8baec3bb82e9fb1f451)). Resolves the `NU3012` restore failure caused by revocation of the Refit 10.1.6 NuGet signing certificate — packages depending on 0.5.1 could no longer be restored.
+
+
+### Notes
+
+* The Refit 11 upgrade is **behavior-preserving**. IbkrConduit adapts internally to Refit 11's reworked error model (`ApiExceptionBase`, nullable `StatusCode`, and `SendAsync`-exception wrapping via `ApiRequestException`) while keeping all consumer-facing behavior identical: the same `Result<T>` outcomes and the same thrown exception types (`HttpRequestException`, `OperationCanceledException`, `IbkrTransientException`, `IbkrSchemaViolationException`) on transport faults, timeouts, cancellation, and session errors. No public API changes.
+
+
+### Continuous Integration
+
+* build single-file example apps ([#190](https://github.com/cquillen/ibkr-conduit/issues/190)) ([e88bd24](https://github.com/cquillen/ibkr-conduit/commit/e88bd24a1f83395bfc376c2a5b7704bda6233579))
+
 ## [0.5.1](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.5.0...IbkrConduit-v0.5.1) (2026-05-30)
 
 
