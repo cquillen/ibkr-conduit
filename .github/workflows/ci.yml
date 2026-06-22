@@ -13,7 +13,7 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -38,7 +38,7 @@ jobs:
         if: needs.changes.outputs.code != 'true'
         run: echo "No code changes detected — skipping build and test."
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: needs.changes.outputs.code == 'true'
 
       - name: Setup .NET SDKs
