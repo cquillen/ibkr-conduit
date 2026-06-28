@@ -604,6 +604,11 @@ public static class EndpointTable
         // /iserver/questions/suppress, or run with questions pre-suppressed.
         // ---------------------------------------------------------------
 
+        // Suppress the common order warnings so placements transmit directly.
+        new("OrderRef", "SuppressOrderQuestions", HttpMethod.Post,
+            "/v1/api/iserver/questions/suppress", 200,
+            """{"messageIds":["o163","o354","o382","o383","o403","o451","o10138","o10151","o10152","o10153","o10331"]}"""),
+
         // Resting LMT @ $1.00 (won't fill) carrying a cOID; capture its order_id.
         new("OrderRef", "PlaceLimitWithCoid", HttpMethod.Post,
             "/v1/api/iserver/account/{accountId}/orders", 200,
@@ -632,11 +637,6 @@ public static class EndpointTable
             """{"orders":[{"conid":756733,"side":"BUY","quantity":1,"orderType":"MKT","tif":"DAY","cOID":"conduit-ref-002"}]}""",
             CaptureAs: "mktOrderId", CaptureJsonPath: "$[0].order_id"),
 
-        // Confirm the market order if a reply is required.
-        new("OrderRef", "ReplyConfirm_Market", HttpMethod.Post,
-            "/v1/api/iserver/reply/{mktOrderId}", 200,
-            """{"confirmed":true}"""),
-
         // Trades should echo order_ref == "conduit-ref-002" on the fill.
         new("OrderRef", "GetTrades_WithRef", HttpMethod.Get,
             "/v1/api/iserver/account/trades", 200),
@@ -644,11 +644,104 @@ public static class EndpointTable
         // Flatten the position opened by the market order (no cOID needed).
         new("OrderRef", "CloseMarketPosition", HttpMethod.Post,
             "/v1/api/iserver/account/{accountId}/orders", 200,
-            """{"orders":[{"conid":756733,"side":"SELL","quantity":1,"orderType":"MKT","tif":"DAY"}]}""",
-            CaptureAs: "closeRefId", CaptureJsonPath: "$[0].order_id"),
+            """{"orders":[{"conid":756733,"side":"SELL","quantity":1,"orderType":"MKT","tif":"DAY"}]}"""),
 
-        new("OrderRef", "ReplyConfirm_Close", HttpMethod.Post,
-            "/v1/api/iserver/reply/{closeRefId}", 200,
-            """{"confirmed":true}"""),
+        // ---------------------------------------------------------------
+        // Oca — Submit a real one-cancels-all group (isSingleGroup) to validate
+        // the native multi-order array contract end to end: IBKR accepts our
+        // exact field names (cOID, parentId, isSingleGroup, outsideRTH), the
+        // response is an array (one element per leg), and live orders echo the
+        // order_ref + group linkage. A resting parent LMT + two linked child
+        // LMTs (an OCA group needs >1 member; a parent + single child leaves
+        // only one group member, which IBKR rejects). All far below market so
+        // none fill. Run in isolation:
+        //   dotnet run --project tools/ApiCapture -- oca
+        // NOTE: cOID must be unique within 24h — bump the suffix between runs.
+        // Cancelling the parent leg should clean up the linked children.
+        // ---------------------------------------------------------------
+
+        new("Oca", "SuppressOrderQuestions", HttpMethod.Post,
+            "/v1/api/iserver/questions/suppress", 200,
+            """{"messageIds":["o163","o354","o382","o383","o403","o451","o10138","o10151","o10152","o10153","o10331"]}"""),
+
+        // Place two independent sibling LMTs in one OCA group (isSingleGroup on
+        // each, NO parentId — parentId attaches as a bracket child instead of an
+        // OCA sibling). Capture the first leg's order_id.
+        new("Oca", "PlaceOcaGroup", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/orders", 200,
+            """{"orders":[{"conid":756733,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC","cOID":"conduit-oca-a","isSingleGroup":true,"outsideRTH":false},{"conid":756733,"side":"BUY","quantity":1,"orderType":"LMT","price":1.01,"tif":"GTC","cOID":"conduit-oca-b","isSingleGroup":true,"outsideRTH":false}]}""",
+            CaptureAs: "ocaLeg1", CaptureJsonPath: "$[0].order_id"),
+
+        new("Oca", "GetLiveOrders_Prime", HttpMethod.Get,
+            "/v1/api/iserver/account/orders", 200),
+
+        // Live orders should show the OCA group with order_ref + linkage.
+        new("Oca", "GetLiveOrders_Oca", HttpMethod.Get,
+            "/v1/api/iserver/account/orders", 200),
+
+        // NOTE: an OCA group of independent siblings cannot be torn down by
+        // cancelling one leg, and a multi-order POST returns fewer response
+        // elements than orders placed — so leg order_ids are not all captured
+        // here. Run the dynamic `cleanup` command afterward to cancel every
+        // open conduit-* order:  dotnet run --project tools/ApiCapture -- cleanup
+
+        // ---------------------------------------------------------------
+        // Bracket — Submit a standard bracket (parent entry + profit-taker +
+        // stop-loss) linked via parentId, to validate the bracket mechanism
+        // and the multi-order response shape. Parent is a resting BUY LMT far
+        // below market so it never fills (children stay held/inactive). The
+        // children are opposite-side exits: SELL LMT above entry (take profit)
+        // + SELL STP below entry (stop). Run in isolation:
+        //   dotnet run --project tools/ApiCapture -- bracket
+        // Then tear down (cancelling the parent cascades to the children):
+        //   dotnet run --project tools/ApiCapture -- cleanup
+        // NOTE: cOID must be unique within 24h — bump the suffix between runs.
+        // ---------------------------------------------------------------
+
+        new("Bracket", "SuppressOrderQuestions", HttpMethod.Post,
+            "/v1/api/iserver/questions/suppress", 200,
+            """{"messageIds":["o163","o354","o382","o383","o403","o451","o10138","o10151","o10152","o10153","o10331"]}"""),
+
+        // Parent BUY LMT @ 1.00 + take-profit SELL LMT @ 1.50 + stop SELL STP
+        // @ 0.50; children linked via parentId = parent cOID.
+        new("Bracket", "PlaceBracket", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/orders", 200,
+            """{"orders":[{"conid":756733,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC","cOID":"conduit-bracket-001","outsideRTH":false},{"conid":756733,"side":"SELL","quantity":1,"orderType":"LMT","price":1.50,"tif":"GTC","parentId":"conduit-bracket-001","outsideRTH":false},{"conid":756733,"side":"SELL","quantity":1,"orderType":"STP","price":0.50,"tif":"GTC","parentId":"conduit-bracket-001","outsideRTH":false}]}""",
+            CaptureAs: "bracketParent", CaptureJsonPath: "$[0].order_id"),
+
+        new("Bracket", "GetLiveOrders_Prime", HttpMethod.Get,
+            "/v1/api/iserver/account/orders", 200),
+
+        // Live orders should show the parent plus its attached children.
+        new("Bracket", "GetLiveOrders_Bracket", HttpMethod.Get,
+            "/v1/api/iserver/account/orders", 200),
+
+        // ---------------------------------------------------------------
+        // Bulk — Submit two UNRELATED orders (different conids, no parentId /
+        // isSingleGroup linkage) in one array to see whether the response
+        // array can carry more than one element. Probes whether the single-
+        // element responses seen for OCA/bracket are an IBKR group behavior or
+        // universal. Each leg carries its own cOID so both surface an order_ref
+        // and the dynamic `cleanup` can cancel them.
+        //   dotnet run --project tools/ApiCapture -- bulk
+        //   dotnet run --project tools/ApiCapture -- cleanup
+        // NOTE: cOID must be unique within 24h — bump suffixes between runs.
+        // ---------------------------------------------------------------
+
+        new("Bulk", "SuppressOrderQuestions", HttpMethod.Post,
+            "/v1/api/iserver/questions/suppress", 200,
+            """{"messageIds":["o163","o354","o382","o383","o403","o451","o10138","o10151","o10152","o10153","o10331"]}"""),
+
+        // Two unrelated resting LMTs: SPY (756733) and AAPL (265598), no linkage.
+        new("Bulk", "PlaceUnrelatedBulk", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/orders", 200,
+            """{"orders":[{"conid":756733,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC","cOID":"conduit-bulk-a","outsideRTH":false},{"conid":265598,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC","cOID":"conduit-bulk-b","outsideRTH":false}]}""",
+            CaptureAs: "bulkA", CaptureJsonPath: "$[0].order_id"),
+
+        new("Bulk", "GetLiveOrders_Prime", HttpMethod.Get,
+            "/v1/api/iserver/account/orders", 200),
+
+        new("Bulk", "GetLiveOrders_Bulk", HttpMethod.Get,
+            "/v1/api/iserver/account/orders", 200),
     ];
 }
