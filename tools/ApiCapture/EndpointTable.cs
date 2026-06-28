@@ -585,5 +585,70 @@ public static class EndpointTable
             "/v1/api/iserver/watchlists?SC=USER_WATCHLIST", 200),
         new("WatchlistBug", "DeleteNonExistent_AfterWarmUp", HttpMethod.Delete,
             "/v1/api/iserver/watchlist?id=77777777", 200),
+
+        // ---------------------------------------------------------------
+        // OrderRef — Verify the order_ref echo of the cOID set at placement.
+        // Places orders WITH a cOID, then captures the inbound shapes to
+        // confirm exactly which responses echo order_ref:
+        //   - Live orders  -> expect order_ref == the cOID
+        //   - Order status -> expect order_ref ABSENT (validates model exclusion)
+        //   - Trades       -> expect order_ref == the cOID on the filled order
+        // Also validates IBKR accepts our exact outbound field names/casing
+        // (cOID, outsideRTH). Run in isolation:
+        //   dotnet run --project tools/ApiCapture -- orderref
+        // NOTE: cOID must be unique within a rolling 24h span — bump the
+        // numeric suffixes below between runs. The MKT order fills and is
+        // closed by the final SELL; the resting LMT is cancelled.
+        // If placement returns a confirmation (id instead of order_id), the
+        // order_id capture will miss — suppress order questions first via
+        // /iserver/questions/suppress, or run with questions pre-suppressed.
+        // ---------------------------------------------------------------
+
+        // Resting LMT @ $1.00 (won't fill) carrying a cOID; capture its order_id.
+        new("OrderRef", "PlaceLimitWithCoid", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/orders", 200,
+            """{"orders":[{"conid":756733,"side":"BUY","quantity":1,"orderType":"LMT","price":1.00,"tif":"GTC","cOID":"conduit-ref-001","outsideRTH":false}]}""",
+            CaptureAs: "refOrderId", CaptureJsonPath: "$[0].order_id"),
+
+        // Prime the live-orders endpoint (IBKR quirk: first call returns empty).
+        new("OrderRef", "GetLiveOrders_Prime", HttpMethod.Get,
+            "/v1/api/iserver/account/orders", 200),
+
+        // Live orders should now echo order_ref == "conduit-ref-001".
+        new("OrderRef", "GetLiveOrders_WithRef", HttpMethod.Get,
+            "/v1/api/iserver/account/orders", 200),
+
+        // Order status for the placed order — confirm order_ref is ABSENT here.
+        new("OrderRef", "GetOrderStatus_WithRef", HttpMethod.Get,
+            "/v1/api/iserver/account/order/status/{refOrderId}", 200),
+
+        // Cancel the resting order to clean up.
+        new("OrderRef", "CancelLimitWithCoid", HttpMethod.Delete,
+            "/v1/api/iserver/account/{accountId}/order/{refOrderId}", 200),
+
+        // Marketable MKT buy carrying a cOID so it fills and surfaces on Trades.
+        new("OrderRef", "PlaceMarketWithCoid", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/orders", 200,
+            """{"orders":[{"conid":756733,"side":"BUY","quantity":1,"orderType":"MKT","tif":"DAY","cOID":"conduit-ref-002"}]}""",
+            CaptureAs: "mktOrderId", CaptureJsonPath: "$[0].order_id"),
+
+        // Confirm the market order if a reply is required.
+        new("OrderRef", "ReplyConfirm_Market", HttpMethod.Post,
+            "/v1/api/iserver/reply/{mktOrderId}", 200,
+            """{"confirmed":true}"""),
+
+        // Trades should echo order_ref == "conduit-ref-002" on the fill.
+        new("OrderRef", "GetTrades_WithRef", HttpMethod.Get,
+            "/v1/api/iserver/account/trades", 200),
+
+        // Flatten the position opened by the market order (no cOID needed).
+        new("OrderRef", "CloseMarketPosition", HttpMethod.Post,
+            "/v1/api/iserver/account/{accountId}/orders", 200,
+            """{"orders":[{"conid":756733,"side":"SELL","quantity":1,"orderType":"MKT","tif":"DAY"}]}""",
+            CaptureAs: "closeRefId", CaptureJsonPath: "$[0].order_id"),
+
+        new("OrderRef", "ReplyConfirm_Close", HttpMethod.Post,
+            "/v1/api/iserver/reply/{closeRefId}", 200,
+            """{"confirmed":true}"""),
     ];
 }

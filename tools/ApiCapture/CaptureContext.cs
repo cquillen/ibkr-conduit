@@ -46,7 +46,9 @@ public sealed class CaptureContext : IAsyncDisposable
     /// <param name="outputDirectory">Directory where recording JSON files are written.</param>
     public async Task InitializeAsync(string outputDirectory)
     {
-        _credentials = OAuthCredentialsFactory.FromEnvironment();
+        var credentialsPath = ResolveCredentialsPath();
+        Console.WriteLine($"Loading credentials from: {credentialsPath}");
+        _credentials = OAuthCredentialsFactory.FromFile(credentialsPath);
 
         var services = new ServiceCollection();
         services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
@@ -78,6 +80,26 @@ public sealed class CaptureContext : IAsyncDisposable
         {
             BaseAddress = new Uri("https://api.ibkr.com"),
         };
+    }
+
+    /// <summary>
+    /// Resolves the path to the JSON credential file produced by the ibkr-conduit-setup tool.
+    /// Defaults to <c>.ibkr-credentials/ibkr-credentials.json</c> in the repository root
+    /// (resolved relative to the build output, so it works from any working directory).
+    /// Override with the <c>IBKR_CREDENTIALS_FILE</c> environment variable.
+    /// </summary>
+    private static string ResolveCredentialsPath()
+    {
+        var overridePath = Environment.GetEnvironmentVariable("IBKR_CREDENTIALS_FILE");
+        if (!string.IsNullOrWhiteSpace(overridePath))
+        {
+            return overridePath;
+        }
+
+        // tools/ApiCapture/bin/<cfg>/<tfm>/ -> up 5 to the repo root (mirrors Program.cs).
+        var repoRoot = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        return Path.Combine(repoRoot, ".ibkr-credentials", "ibkr-credentials.json");
     }
 
     /// <summary>
