@@ -294,7 +294,13 @@ internal partial class OrderOperations : IOrderOperations
 
     private static OrderWireModel ToWireModel(OrderRequest order) =>
         new(order.Conid, order.Side, order.Quantity, order.OrderType,
-            order.Price, order.AuxPrice, order.Tif, order.ManualIndicator);
+            order.Price, order.AuxPrice, order.Tif, order.ManualIndicator)
+        {
+            CustomerOrderId = order.CustomerOrderId,
+            ParentId = order.ParentId,
+            IsSingleGroup = order.IsSingleGroup,
+            OutsideRth = order.OutsideRth,
+        };
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Replying to IBKR order question {ReplyId} with confirmed={Confirmed}")]
     private partial void LogReplyAttempt(string replyId, bool confirmed);
