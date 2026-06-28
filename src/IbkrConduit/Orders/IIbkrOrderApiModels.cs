@@ -221,6 +221,14 @@ public record LiveOrder(
     [property: JsonPropertyName("timeInForce")] string? TimeInForce,
     [property: JsonPropertyName("orderDesc")] string? OrderDescription)
 {
+    /// <summary>
+    /// User-defined order reference echoing the <c>cOID</c> supplied at placement
+    /// (IBKR <c>order_ref</c>). Present only when a <see cref="OrderRequest.CustomerOrderId"/>
+    /// was set on the order; otherwise null.
+    /// </summary>
+    [JsonPropertyName("order_ref")]
+    public string? OrderRef { get; init; }
+
     /// <summary>Additional unmapped properties from the API response.</summary>
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? AdditionalData { get; init; }

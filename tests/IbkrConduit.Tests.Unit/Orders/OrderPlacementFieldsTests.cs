@@ -1,5 +1,6 @@
 using System.Text.Json;
 using IbkrConduit.Orders;
+using IbkrConduit.Streaming;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Orders;
@@ -83,5 +84,32 @@ public class OrderPlacementFieldsTests
         response.ShouldNotBeNull();
         response.LocalOrderId.ShouldBe("conduit-oca-a");
         response.OcaGroupId.ShouldBe("oco-636441077");
+    }
+
+    [Fact]
+    public void LiveOrder_WithOrderRef_DeserializesTypedProperty()
+    {
+        var json = """
+        {"conid":265598,"orderId":111,"side":"BUY","status":"Filled",
+         "order_ref":"Parent","filledQuantity":1,"remainingQuantity":0,"totalSize":1}
+        """;
+
+        var order = JsonSerializer.Deserialize<LiveOrder>(json);
+
+        order.ShouldNotBeNull();
+        order.OrderRef.ShouldBe("Parent");
+        order.AdditionalData?.ContainsKey("order_ref").ShouldNotBe(true);
+    }
+
+    [Fact]
+    public void OrderUpdate_WithOrderRef_DeserializesTypedProperty()
+    {
+        var json = """{"orderId":"111","conid":265598,"symbol":"SPY","side":"BUY","order_ref":"Parent"}""";
+
+        var update = JsonSerializer.Deserialize<OrderUpdate>(json);
+
+        update.ShouldNotBeNull();
+        update.OrderRef.ShouldBe("Parent");
+        update.AdditionalData?.ContainsKey("order_ref").ShouldNotBe(true);
     }
 }
