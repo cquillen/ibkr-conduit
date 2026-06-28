@@ -702,6 +702,81 @@ public class OrderTests : IAsyncLifetime, IDisposable
         _harness.VerifyReauthenticationOccurred();
     }
 
+    // --- Bracket / OCA group submission ---
+
+    [Fact]
+    public async Task PlaceOrders_BracketGroup_ReturnsParentResultAndSendsNativeLinkage()
+    {
+        _harness.StubAuthenticatedPost(
+            "/v1/api/iserver/account/*/orders",
+            FixtureLoader.LoadBody("Orders", "POST-place-bracket-submitted"));
+
+        var parent = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "LMT",
+            Price = 1.00m,
+            Tif = "GTC",
+            CustomerOrderId = "Parent",
+            OutsideRth = true,
+        };
+        var takeProfit = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "SELL",
+            Quantity = 1,
+            OrderType = "LMT",
+            Price = 2.00m,
+            Tif = "GTC",
+            ParentId = "Parent",
+        };
+        var stop = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "SELL",
+            Quantity = 1,
+            OrderType = "STP",
+            Price = 0.50m,
+            Tif = "GTC",
+            ParentId = "Parent",
+        };
+
+        var result = (await _harness.Client.Orders.PlaceOrdersAsync(
+            "U1234567", [parent, takeProfit, stop], TestContext.Current.CancellationToken)).Value;
+
+        // A grouped submission returns a single parent result (verified live).
+        result.IsT0.ShouldBeTrue("Expected OrderSubmitted but got OrderConfirmationRequired");
+        var submitted = result.AsT0;
+        submitted.OrderId.ShouldBe("111");
+
+        var entries = _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/account/*/orders").UsingPost());
+        var body = entries.ShouldHaveSingleItem().RequestMessage.Body;
+        body.ShouldNotBeNull();
+        body.ShouldContain("\"cOID\":\"Parent\"");
+        body.ShouldContain("\"parentId\":\"Parent\"");
+        body.ShouldContain("\"outsideRTH\":true");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetLiveOrders_WithOrderRef_ExposesTypedOrderRef()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/orders",
+            FixtureLoader.LoadBody("Orders", "GET-live-orders-with-ref"));
+
+        var orders = (await _harness.Client.Orders.GetLiveOrdersAsync(
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        orders.ShouldHaveSingleItem().OrderRef.ShouldBe("Parent");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _harness.DisposeAsync();
