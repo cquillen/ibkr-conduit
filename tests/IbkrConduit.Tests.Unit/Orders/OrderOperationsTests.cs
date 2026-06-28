@@ -401,6 +401,93 @@ public class OrderOperationsTests
     }
 
     [Fact]
+    public async Task PlaceOrdersAsync_BracketGroup_ReturnsParentResultAndSendsLinkage()
+    {
+        // A grouped submission returns a single parent element (verified live).
+        _fakeApi.PlaceOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(null, null, null, null, "parent-1", "PreSubmitted"),
+        ]);
+
+        var parent = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 50, OrderType = "LMT", Price = 1.00m, Tif = "GTC", CustomerOrderId = "Parent" };
+        var takeProfit = new OrderRequest { Conid = 265598, Side = "SELL", Quantity = 50, OrderType = "LMT", Price = 157.00m, Tif = "GTC", ParentId = "Parent" };
+        var stop = new OrderRequest { Conid = 265598, Side = "SELL", Quantity = 50, OrderType = "STP", Price = 150.00m, Tif = "GTC", ParentId = "Parent" };
+
+        var result = await _sut.PlaceOrdersAsync("DU1234567", [parent, takeProfit, stop], TestContext.Current.CancellationToken);
+
+        result.Value.AsT0.OrderId.ShouldBe("parent-1");
+
+        var payload = _fakeApi.LastPlaceOrderPayload;
+        payload.ShouldNotBeNull();
+        payload.Orders.Count.ShouldBe(3);
+        payload.Orders[0].CustomerOrderId.ShouldBe("Parent");
+        payload.Orders[1].ParentId.ShouldBe("Parent");
+        payload.Orders[2].ParentId.ShouldBe("Parent");
+    }
+
+    [Fact]
+    public async Task PlaceOrdersAsync_OcaGroup_ReturnsParentResult()
+    {
+        _fakeApi.PlaceOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(null, null, null, null, "leg-a", "PreSubmitted"),
+        ]);
+
+        var a = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC", CustomerOrderId = "A", IsSingleGroup = true };
+        var b = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.01m, Tif = "GTC", CustomerOrderId = "B", IsSingleGroup = true };
+
+        var result = await _sut.PlaceOrdersAsync("DU1234567", [a, b], TestContext.Current.CancellationToken);
+
+        result.Value.AsT0.OrderId.ShouldBe("leg-a");
+    }
+
+    [Fact]
+    public async Task PlaceOrdersAsync_ConfirmationRequired_ReturnsConfirmation()
+    {
+        _fakeApi.PlaceOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse("reply-1", ["Confirm?"], false, ["o163"], null, null),
+        ]);
+
+        var parent = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC", CustomerOrderId = "Parent" };
+        var child = new OrderRequest { Conid = 265598, Side = "SELL", Quantity = 1, OrderType = "LMT", Price = 2.00m, Tif = "GTC", ParentId = "Parent" };
+
+        var result = await _sut.PlaceOrdersAsync("DU1234567", [parent, child], TestContext.Current.CancellationToken);
+
+        result.Value.AsT1.ReplyId.ShouldBe("reply-1");
+    }
+
+    [Fact]
+    public async Task PlaceOrdersAsync_UnrelatedOrders_ThrowsArgumentException()
+    {
+        // IBKR rejects unrelated bulk (400); the library pre-empts it with a clear error.
+        var a = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC" };
+        var b = new OrderRequest { Conid = 756733, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC" };
+
+        await Should.ThrowAsync<ArgumentException>(
+            () => _sut.PlaceOrdersAsync("DU1234567", [a, b], TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task PlaceOrdersAsync_EmptyList_ThrowsArgumentException()
+    {
+        await Should.ThrowAsync<ArgumentException>(
+            () => _sut.PlaceOrdersAsync("DU1234567", System.Array.Empty<OrderRequest>(), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task PlaceOrdersAsync_SingleOrder_Succeeds()
+    {
+        _fakeApi.PlaceOrderResponses.Enqueue([new OrderSubmissionResponse(null, null, null, null, "ord-1", "Submitted")]);
+
+        var order = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "MKT", Tif = "DAY" };
+
+        var result = await _sut.PlaceOrdersAsync("DU1234567", [order], TestContext.Current.CancellationToken);
+
+        result.Value.AsT0.OrderId.ShouldBe("ord-1");
+    }
+
+    [Fact]
     public async Task PlaceOrderAsync_DifferentAccounts_RunInParallel()
     {
         var api = new ParallelVerifyingOrderApi();
