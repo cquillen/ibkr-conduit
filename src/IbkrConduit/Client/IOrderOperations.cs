@@ -17,6 +17,24 @@ public interface IOrderOperations
         string accountId, OrderRequest order, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Places a single linked order group — a bracket or OCA group — in one submission.
+    /// The first order is the parent; every child must be linked: set
+    /// <see cref="OrderRequest.ParentId"/> (equal to the parent's
+    /// <see cref="OrderRequest.CustomerOrderId"/>) on each child for a bracket, or
+    /// <see cref="OrderRequest.IsSingleGroup"/> on every order for an OCA group.
+    /// IBKR returns a single result for the group (the parent's outcome): either a confirmed
+    /// submission or a confirmation-required response to handle via <see cref="ReplyAsync"/>.
+    /// Child order ids are NOT returned here — query <see cref="GetLiveOrdersAsync"/> and
+    /// correlate on the parent's cOID/order_ref. For unrelated orders, call
+    /// <see cref="PlaceOrderAsync"/> once per order (IBKR rejects unrelated bulk).
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="orders">The linked group to submit (parent first). At least one order; multiple orders must form a valid bracket or OCA group.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> PlaceOrdersAsync(
+        string accountId, IReadOnlyList<OrderRequest> orders, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Cancels an existing order.
     /// </summary>
     /// <param name="accountId">The account identifier.</param>

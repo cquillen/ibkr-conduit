@@ -36,6 +36,31 @@ public record OrderRequest
     /// Set to false for programmatic orders. CME Group Rule 536-B compliance.
     /// </summary>
     public bool? ManualIndicator { get; init; }
+
+    /// <summary>
+    /// Customer Order ID (IBKR <c>cOID</c>). An arbitrary string identifying the order; must be
+    /// unique within a rolling 24-hour span. Set on a parent order to link children that reference
+    /// it via <see cref="ParentId"/>. Do not set on child orders. Echoed back as <c>order_ref</c>
+    /// on live orders and trades.
+    /// </summary>
+    public string? CustomerOrderId { get; init; }
+
+    /// <summary>
+    /// Parent linkage for bracket/OCA child orders (IBKR <c>parentId</c>). Set only on child orders;
+    /// the value must equal the parent order's <see cref="CustomerOrderId"/>.
+    /// </summary>
+    public string? ParentId { get; init; }
+
+    /// <summary>
+    /// Marks the order as part of a one-cancels-all (OCA) group (IBKR <c>isSingleGroup</c>).
+    /// Set to <c>true</c> on every order in the group.
+    /// </summary>
+    public bool? IsSingleGroup { get; init; }
+
+    /// <summary>
+    /// Allows the order to execute outside regular trading hours (IBKR <c>outsideRTH</c>).
+    /// </summary>
+    public bool? OutsideRth { get; init; }
 }
 
 /// <summary>
@@ -82,7 +107,28 @@ public record OrderWireModel(
     [property: JsonPropertyName("price")] decimal? Price,
     [property: JsonPropertyName("auxPrice")] decimal? AuxPrice,
     [property: JsonPropertyName("tif")] string Tif,
-    [property: JsonPropertyName("manualIndicator")] bool? ManualIndicator);
+    [property: JsonPropertyName("manualIndicator")] bool? ManualIndicator)
+{
+    /// <summary>Customer Order ID (<c>cOID</c>); omitted from the wire payload when null.</summary>
+    [JsonPropertyName("cOID")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CustomerOrderId { get; init; }
+
+    /// <summary>Parent linkage for child orders (<c>parentId</c>); omitted when null.</summary>
+    [JsonPropertyName("parentId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ParentId { get; init; }
+
+    /// <summary>OCA group flag (<c>isSingleGroup</c>); omitted when null.</summary>
+    [JsonPropertyName("isSingleGroup")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IsSingleGroup { get; init; }
+
+    /// <summary>Outside-regular-trading-hours flag (<c>outsideRTH</c>); omitted when null.</summary>
+    [JsonPropertyName("outsideRTH")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? OutsideRth { get; init; }
+}
 
 /// <summary>
 /// Raw response from order submission or reply. Can be a question or a confirmation.
@@ -93,6 +139,8 @@ public record OrderWireModel(
 /// <param name="MessageIds">Message IDs associated with the question.</param>
 /// <param name="OrderId">The order identifier, present on successful placement.</param>
 /// <param name="OrderStatus">The order status, present on successful placement.</param>
+/// <param name="LocalOrderId">The customer order ID (<c>cOID</c>) echoed back on the parent of a bracket/OCA group.</param>
+/// <param name="OcaGroupId">The OCA group identifier assigned by IBKR for a one-cancels-all group.</param>
 [ExcludeFromCodeCoverage]
 public record OrderSubmissionResponse(
     [property: JsonPropertyName("id")] string? Id,
@@ -100,7 +148,9 @@ public record OrderSubmissionResponse(
     [property: JsonPropertyName("isSuppressed")] bool? IsSuppressed,
     [property: JsonPropertyName("messageIds")] List<string>? MessageIds,
     [property: JsonPropertyName("order_id")] string? OrderId,
-    [property: JsonPropertyName("order_status")] string? OrderStatus);
+    [property: JsonPropertyName("order_status")] string? OrderStatus,
+    [property: JsonPropertyName("local_order_id")] string? LocalOrderId = null,
+    [property: JsonPropertyName("oca_group_id")] string? OcaGroupId = null);
 
 /// <summary>
 /// Reply confirmation body sent to IBKR to confirm or reject an order question.
@@ -171,6 +221,14 @@ public record LiveOrder(
     [property: JsonPropertyName("timeInForce")] string? TimeInForce,
     [property: JsonPropertyName("orderDesc")] string? OrderDescription)
 {
+    /// <summary>
+    /// User-defined order reference echoing the <c>cOID</c> supplied at placement
+    /// (IBKR <c>order_ref</c>). Present only when a <see cref="OrderRequest.CustomerOrderId"/>
+    /// was set on the order; otherwise null.
+    /// </summary>
+    [JsonPropertyName("order_ref")]
+    public string? OrderRef { get; init; }
+
     /// <summary>Additional unmapped properties from the API response.</summary>
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? AdditionalData { get; init; }

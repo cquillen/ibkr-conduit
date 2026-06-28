@@ -71,6 +71,14 @@ public record OrderUpdate
     [JsonPropertyName("remainingQuantity")]
     public decimal RemainingQuantity { get; init; }
 
+    /// <summary>
+    /// User-defined order reference echoing the <c>cOID</c> supplied at placement
+    /// (IBKR <c>order_ref</c>). Present only when a <see cref="IbkrConduit.Orders.OrderRequest.CustomerOrderId"/>
+    /// was set on the order; otherwise null.
+    /// </summary>
+    [JsonPropertyName("order_ref")]
+    public string? OrderRef { get; init; }
+
     /// <summary>Additional data not mapped to known properties.</summary>
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? AdditionalData { get; init; }

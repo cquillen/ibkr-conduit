@@ -89,6 +89,89 @@ internal partial class OrderOperations : IOrderOperations
     }
 
     /// <inheritdoc />
+    public async Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> PlaceOrdersAsync(
+        string accountId, IReadOnlyList<OrderRequest> orders, CancellationToken cancellationToken = default)
+    {
+        // Validate the group shape up front — fail fast on caller error before opening a span/lock.
+        ValidateOrderGroup(orders);
+
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.PlaceGroup");
+        activity?.SetTag(LogFields.AccountId, accountId);
+        activity?.SetTag("ibkr.order_count", orders.Count);
+
+        var semaphore = _accountLocks.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
+        await semaphore.WaitAsync(cancellationToken);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var payload = new OrdersPayload(orders.Select(ToWireModel).ToList());
+            var response = await _orderApi.PlaceOrderAsync(accountId, payload, cancellationToken);
+            var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+            if (!apiResult.IsSuccess)
+            {
+                var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(apiResult.Error);
+                return _options.ThrowOnApiError ? failResult.EnsureSuccess() : failResult;
+            }
+
+            // A grouped submission returns a single parent element (verified live); child
+            // order ids are obtained via GetLiveOrdersAsync, correlated on the parent cOID.
+            var classified = ClassifyResponse(apiResult.Value[0]);
+
+            _submissionDuration.Record(sw.Elapsed.TotalMilliseconds);
+
+            // Count every leg; tag with the parent order's side/type (legs vary across the group).
+            _submissionCount.Add(orders.Count,
+                new KeyValuePair<string, object?>(LogFields.Side, orders[0].Side),
+                new KeyValuePair<string, object?>(LogFields.OrderType, orders[0].OrderType));
+
+            var result = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(classified);
+            return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// Validates that a submission forms a single linked group, matching IBKR's contract:
+    /// orders[0] is the parent and every child must be linked (ParentId for a bracket, or
+    /// IsSingleGroup on every order for an OCA). IBKR rejects unrelated orders in bulk.
+    /// </summary>
+    private static void ValidateOrderGroup(IReadOnlyList<OrderRequest> orders)
+    {
+        ArgumentNullException.ThrowIfNull(orders);
+        if (orders.Count == 0)
+        {
+            throw new ArgumentException("At least one order must be supplied.", nameof(orders));
+        }
+
+        if (orders.Count == 1)
+        {
+            return;
+        }
+
+        // OCA group: every order flags isSingleGroup.
+        if (orders.All(o => o.IsSingleGroup == true))
+        {
+            return;
+        }
+
+        // Bracket: the parent carries a cOID and every child links to it via ParentId.
+        var parentCoid = orders[0].CustomerOrderId;
+        if (!string.IsNullOrEmpty(parentCoid) && orders.Skip(1).All(o => o.ParentId == parentCoid))
+        {
+            return;
+        }
+
+        throw new ArgumentException(
+            "Multiple orders must form a linked group: a bracket (the parent has CustomerOrderId and " +
+            "every child's ParentId equals it) or an OCA group (IsSingleGroup set on every order). " +
+            "IBKR rejects unrelated orders in bulk — call PlaceOrderAsync once per unrelated order.",
+            nameof(orders));
+    }
+
+    /// <inheritdoc />
     public async Task<Result<CancelOrderResponse>> CancelOrderAsync(
         string accountId, string orderId,
         string? extOperator = null, bool? manualIndicator = null, DateTimeOffset? manualCancelTime = null,
@@ -246,7 +329,11 @@ internal partial class OrderOperations : IOrderOperations
     {
         if (response.OrderId is not null)
         {
-            return new OrderSubmitted(response.OrderId, response.OrderStatus ?? string.Empty);
+            return new OrderSubmitted(
+                response.OrderId,
+                response.OrderStatus ?? string.Empty,
+                response.LocalOrderId,
+                response.OcaGroupId);
         }
 
         if (response.Id is not null && response.Message is not null)
@@ -294,7 +381,13 @@ internal partial class OrderOperations : IOrderOperations
 
     private static OrderWireModel ToWireModel(OrderRequest order) =>
         new(order.Conid, order.Side, order.Quantity, order.OrderType,
-            order.Price, order.AuxPrice, order.Tif, order.ManualIndicator);
+            order.Price, order.AuxPrice, order.Tif, order.ManualIndicator)
+        {
+            CustomerOrderId = order.CustomerOrderId,
+            ParentId = order.ParentId,
+            IsSingleGroup = order.IsSingleGroup,
+            OutsideRth = order.OutsideRth,
+        };
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Replying to IBKR order question {ReplyId} with confirmed={Confirmed}")]
     private partial void LogReplyAttempt(string replyId, bool confirmed);
