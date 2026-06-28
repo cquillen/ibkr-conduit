@@ -123,6 +123,57 @@ public static class CaptureRunner
         return new CaptureResult(passed, failed, errors);
     }
 
+    /// <summary>
+    /// Cancels every open order whose <c>order_ref</c> begins with <c>conduit-</c>.
+    /// Used to tear down resting test orders left by capture runs (e.g. OCA siblings
+    /// whose order_ids are not all returned in the multi-order POST response).
+    /// Does not write recordings — intended purely as cleanup.
+    /// </summary>
+    public static async Task<int> CancelOpenConduitOrdersAsync(CaptureContext ctx, int delayMs = 1000)
+    {
+        var openStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "PreSubmitted", "Submitted", "PendingSubmit", "PendingCancel",
+        };
+
+        // Prime then fetch (IBKR quirk: the first live-orders call can be empty).
+        using (await ctx.CaptureClient.GetAsync("/v1/api/iserver/account/orders")) { }
+        await Task.Delay(delayMs);
+        using var response = await ctx.CaptureClient.GetAsync("/v1/api/iserver/account/orders");
+        var body = await response.Content.ReadAsStringAsync();
+
+        var orders = JsonNode.Parse(body)?["orders"]?.AsArray();
+        if (orders is null || orders.Count == 0)
+        {
+            Console.WriteLine("No live orders to clean up.");
+            return 0;
+        }
+
+        var cancelled = 0;
+        foreach (var order in orders)
+        {
+            var orderRef = order?["order_ref"]?.ToString() ?? string.Empty;
+            var status = order?["status"]?.ToString() ?? string.Empty;
+            var orderId = order?["orderId"]?.ToString() ?? string.Empty;
+
+            if (!orderRef.StartsWith("conduit-", StringComparison.Ordinal)
+                || !openStatuses.Contains(status)
+                || string.IsNullOrEmpty(orderId))
+            {
+                continue;
+            }
+
+            using var delete = await ctx.CaptureClient.DeleteAsync(
+                $"/v1/api/iserver/account/{ctx.AccountId}/order/{orderId}");
+            Console.WriteLine($"  cancel {orderId} ({orderRef}, {status}) -> {(int)delete.StatusCode}");
+            cancelled++;
+            await Task.Delay(delayMs);
+        }
+
+        Console.WriteLine($"Cancelled {cancelled} open conduit-* order(s).");
+        return cancelled;
+    }
+
     private static void PrintVerboseDetail(EndpointEntry entry, string? requestBody, int status, string responseBody)
     {
         Console.WriteLine();

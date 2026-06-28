@@ -49,6 +49,14 @@ if (verbose)
 await using var ctx = new CaptureContext();
 await ctx.InitializeAsync(outputDir);
 
+// Special command: cancel all open conduit-* test orders left by capture runs.
+if (category == "cleanup")
+{
+    Console.WriteLine("\nCancelling open conduit-* orders...\n");
+    await CaptureRunner.CancelOpenConduitOrdersAsync(ctx, delayMs);
+    return;
+}
+
 // Filter endpoints
 var allEntries = EndpointTable.Entries;
 var entries = category == "all"
