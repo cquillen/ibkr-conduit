@@ -750,6 +750,7 @@ public class OrderTests : IAsyncLifetime, IDisposable
         result.IsT0.ShouldBeTrue("Expected OrderSubmitted but got OrderConfirmationRequired");
         var submitted = result.AsT0;
         submitted.OrderId.ShouldBe("111");
+        submitted.LocalOrderId.ShouldBe("Parent");
 
         var entries = _harness.Server.FindLogEntries(
             Request.Create().WithPath("/v1/api/iserver/account/*/orders").UsingPost());

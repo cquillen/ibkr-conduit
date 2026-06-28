@@ -469,6 +469,34 @@ public class OrderOperationsTests
     }
 
     [Fact]
+    public async Task PlaceOrdersAsync_BracketChildParentIdMismatch_ThrowsArgumentException()
+    {
+        var parent = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC", CustomerOrderId = "Parent" };
+        var child = new OrderRequest { Conid = 265598, Side = "SELL", Quantity = 1, OrderType = "LMT", Price = 2.00m, Tif = "GTC", ParentId = "WrongParent" };
+
+        await Should.ThrowAsync<ArgumentException>(
+            () => _sut.PlaceOrdersAsync("DU1234567", [parent, child], TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task PlaceOrdersAsync_OcaGroup_SurfacesLocalOrderIdAndOcaGroupId()
+    {
+        _fakeApi.PlaceOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(null, null, null, null, "leg-a", "PreSubmitted", "A", "oco-636441077"),
+        ]);
+
+        var a = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC", CustomerOrderId = "A", IsSingleGroup = true };
+        var b = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.01m, Tif = "GTC", CustomerOrderId = "B", IsSingleGroup = true };
+
+        var submitted = (await _sut.PlaceOrdersAsync("DU1234567", [a, b], TestContext.Current.CancellationToken)).Value.AsT0;
+
+        submitted.OrderId.ShouldBe("leg-a");
+        submitted.LocalOrderId.ShouldBe("A");
+        submitted.OcaGroupId.ShouldBe("oco-636441077");
+    }
+
+    [Fact]
     public async Task PlaceOrdersAsync_EmptyList_ThrowsArgumentException()
     {
         await Should.ThrowAsync<ArgumentException>(

@@ -97,7 +97,7 @@ internal partial class OrderOperations : IOrderOperations
 
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.PlaceGroup");
         activity?.SetTag(LogFields.AccountId, accountId);
-        activity?.SetTag("ibkr.order.count", orders.Count);
+        activity?.SetTag("ibkr.order_count", orders.Count);
 
         var semaphore = _accountLocks.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
         await semaphore.WaitAsync(cancellationToken);
@@ -151,16 +151,24 @@ internal partial class OrderOperations : IOrderOperations
             return;
         }
 
-        var allSingleGroup = orders.All(o => o.IsSingleGroup == true);
-        var childrenLinked = orders.Skip(1).All(o => !string.IsNullOrEmpty(o.ParentId));
-        if (!allSingleGroup && !childrenLinked)
+        // OCA group: every order flags isSingleGroup.
+        if (orders.All(o => o.IsSingleGroup == true))
         {
-            throw new ArgumentException(
-                "Multiple orders must form a linked group: set ParentId on each child (bracket) " +
-                "or IsSingleGroup on every order (OCA). IBKR rejects unrelated orders in bulk — " +
-                "call PlaceOrderAsync once per unrelated order.",
-                nameof(orders));
+            return;
         }
+
+        // Bracket: the parent carries a cOID and every child links to it via ParentId.
+        var parentCoid = orders[0].CustomerOrderId;
+        if (!string.IsNullOrEmpty(parentCoid) && orders.Skip(1).All(o => o.ParentId == parentCoid))
+        {
+            return;
+        }
+
+        throw new ArgumentException(
+            "Multiple orders must form a linked group: a bracket (the parent has CustomerOrderId and " +
+            "every child's ParentId equals it) or an OCA group (IsSingleGroup set on every order). " +
+            "IBKR rejects unrelated orders in bulk — call PlaceOrderAsync once per unrelated order.",
+            nameof(orders));
     }
 
     /// <inheritdoc />
@@ -321,7 +329,11 @@ internal partial class OrderOperations : IOrderOperations
     {
         if (response.OrderId is not null)
         {
-            return new OrderSubmitted(response.OrderId, response.OrderStatus ?? string.Empty);
+            return new OrderSubmitted(
+                response.OrderId,
+                response.OrderStatus ?? string.Empty,
+                response.LocalOrderId,
+                response.OcaGroupId);
         }
 
         if (response.Id is not null && response.Message is not null)
