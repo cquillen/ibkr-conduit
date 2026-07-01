@@ -27,7 +27,7 @@ public class GlobalRateLimitingHandlerTests
             QueueLimit = 0,
         });
 
-        var handler = new GlobalRateLimitingHandler(limiter, NullLogger<GlobalRateLimitingHandler>.Instance)
+        var handler = new GlobalRateLimitingHandler(new NoOpSharedRateGovernor(), limiter, NullLogger<GlobalRateLimitingHandler>.Instance)
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };
@@ -51,7 +51,7 @@ public class GlobalRateLimitingHandlerTests
             QueueLimit = 0,
         });
 
-        var handler = new GlobalRateLimitingHandler(limiter, NullLogger<GlobalRateLimitingHandler>.Instance)
+        var handler = new GlobalRateLimitingHandler(new NoOpSharedRateGovernor(), limiter, NullLogger<GlobalRateLimitingHandler>.Instance)
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };
@@ -79,7 +79,7 @@ public class GlobalRateLimitingHandlerTests
             QueueLimit = 0,
         });
 
-        var handler = new GlobalRateLimitingHandler(limiter, NullLogger<GlobalRateLimitingHandler>.Instance)
+        var handler = new GlobalRateLimitingHandler(new NoOpSharedRateGovernor(), limiter, NullLogger<GlobalRateLimitingHandler>.Instance)
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };
@@ -114,7 +114,7 @@ public class GlobalRateLimitingHandlerTests
         });
 
         var logger = new CapturingLogger();
-        var handler = new GlobalRateLimitingHandler(limiter, logger)
+        var handler = new GlobalRateLimitingHandler(new NoOpSharedRateGovernor(), limiter, logger)
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };

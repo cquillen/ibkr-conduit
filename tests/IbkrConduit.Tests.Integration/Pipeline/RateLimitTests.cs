@@ -47,7 +47,7 @@ public class RateLimitTests : IDisposable
             QueueLimit = 0,
         });
 
-        var globalHandler = new GlobalRateLimitingHandler(tightLimiter, NullLogger<GlobalRateLimitingHandler>.Instance)
+        var globalHandler = new GlobalRateLimitingHandler(new NoOpSharedRateGovernor(), tightLimiter, NullLogger<GlobalRateLimitingHandler>.Instance)
         {
             InnerHandler = new HttpClientHandler(),
         };

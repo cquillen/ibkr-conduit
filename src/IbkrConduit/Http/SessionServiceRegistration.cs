@@ -73,6 +73,7 @@ internal static class SessionServiceRegistration
             })
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
+                    sp.GetRequiredService<ISharedRateGovernor>(),
                     sp.GetRequiredService<RateLimiter>(),
                     sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>()))
             .AddHttpMessageHandler(sp =>

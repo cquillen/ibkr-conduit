@@ -29,16 +29,19 @@ internal sealed partial class GlobalRateLimitingHandler : DelegatingHandler
     private static readonly Counter<long> _rejectedCount =
         IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.ratelimiter.global.rejected.count");
 
+    private readonly ISharedRateGovernor _governor;
     private readonly RateLimiter _limiter;
     private readonly ILogger<GlobalRateLimitingHandler> _logger;
 
     /// <summary>
     /// Creates a new global rate limiting handler.
     /// </summary>
+    /// <param name="governor">Process-wide shared rate governor, acquired before the tenant limiter.</param>
     /// <param name="limiter">The shared token bucket rate limiter instance.</param>
     /// <param name="logger">Logger for rate limit events.</param>
-    public GlobalRateLimitingHandler(RateLimiter limiter, ILogger<GlobalRateLimitingHandler> logger)
+    public GlobalRateLimitingHandler(ISharedRateGovernor governor, RateLimiter limiter, ILogger<GlobalRateLimitingHandler> logger)
     {
+        _governor = governor;
         _limiter = limiter;
         _logger = logger;
 
@@ -51,6 +54,7 @@ internal sealed partial class GlobalRateLimitingHandler : DelegatingHandler
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        await _governor.AcquireAsync(cancellationToken);
         var sw = Stopwatch.StartNew();
         using var lease = await _limiter.AcquireAsync(1, cancellationToken);
         sw.Stop();

@@ -80,10 +80,12 @@ internal static class StreamingAndFlexRegistration
                     sp.GetRequiredService<ILogger<AuditLogHandler>>()))
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
+                    sp.GetRequiredService<ISharedRateGovernor>(),
                     flexBurstLimiter,
                     sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>()))
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
+                    sp.GetRequiredService<ISharedRateGovernor>(),
                     flexSustainedLimiter,
                     sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>()));
 

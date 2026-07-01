@@ -104,6 +104,7 @@ internal static class ConsumerPipelineRegistration
                     sp.GetRequiredService<ILogger<ResponseSchemaValidationHandler>>()))
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
+                    sp.GetRequiredService<ISharedRateGovernor>(),
                     sp.GetRequiredService<RateLimiter>(),
                     sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>()))
             .AddHttpMessageHandler(sp =>

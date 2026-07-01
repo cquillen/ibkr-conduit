@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace IbkrConduit.Http;
 
@@ -18,6 +19,7 @@ internal static class RateLimitingAndResilienceRegistration
         var globalRateLimiter = CreateGlobalRateLimiter();
         var endpointRateLimiters = CreateEndpointRateLimiters();
 
+        services.TryAddSingleton<ISharedRateGovernor, NoOpSharedRateGovernor>();
         services.AddSingleton<RateLimiter>(globalRateLimiter);
         services.AddSingleton<IReadOnlyDictionary<string, RateLimiter>>(endpointRateLimiters);
     }
