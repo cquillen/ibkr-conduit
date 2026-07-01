@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.RateLimiting;
 using IbkrConduit.Accounts;
 using IbkrConduit.Alerts;
@@ -37,6 +38,16 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         Action<IbkrClientOptions> configure)
     {
+        if (services.Any(d => d.ServiceType == typeof(IbkrClientRegistrationMarker)))
+        {
+            throw new InvalidOperationException(
+                "AddIbkrClient has already been called on this IServiceCollection. " +
+                "Register at most one IbkrConduit per IServiceProvider, or use " +
+                "IIbkrClientManager (AddIbkrClientManager) to host multiple accounts.");
+        }
+
+        services.AddSingleton<IbkrClientRegistrationMarker>();
+
         var clientOptions = new IbkrClientOptions();
         configure(clientOptions);
 
@@ -84,6 +95,9 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>Marker proving AddIbkrClient has already run on a collection.</summary>
+    private sealed class IbkrClientRegistrationMarker;
 
     /// <summary>
     /// Validates all <see cref="IbkrClientOptions"/> fields at registration time
