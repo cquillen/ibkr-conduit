@@ -56,6 +56,23 @@ public static class ServiceCollectionExtensions
         var credentials = clientOptions.Credentials!;
         var baseUrl = clientOptions.BaseUrl ?? _ibkrBaseUrl;
 
+        BuildTenantServices(services, credentials, clientOptions, baseUrl);
+        return services;
+    }
+
+    /// <summary>
+    /// Registers one fully-isolated IbkrConduit graph (all Refit pipelines,
+    /// operations, session lifecycle, health, and the IIbkrClient facade) into
+    /// <paramref name="services"/> for a single tenant's credentials. Shared by
+    /// the single-account AddIbkrClient path and IIbkrClientManager's per-tenant
+    /// child providers, so both build an identical graph.
+    /// </summary>
+    internal static void BuildTenantServices(
+        IServiceCollection services,
+        IbkrOAuthCredentials credentials,
+        IbkrClientOptions clientOptions,
+        string baseUrl)
+    {
         // Response schema validation map (built once, used by all consumer pipelines)
         var endpointMap = RefitEndpointMap.Build([
             typeof(IIbkrPortfolioApi),
@@ -92,8 +109,6 @@ public static class ServiceCollectionExtensions
 
         // Unified facade
         services.AddSingleton<IIbkrClient, IbkrClient>();
-
-        return services;
     }
 
     /// <summary>Marker proving AddIbkrClient has already run on a collection.</summary>
