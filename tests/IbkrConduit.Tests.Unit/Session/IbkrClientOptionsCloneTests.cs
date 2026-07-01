@@ -42,4 +42,17 @@ public class IbkrClientOptionsCloneTests
         clone.FlexToken.ShouldBe("flex");
         clone.BaseUrl.ShouldBe("https://example.test");
     }
+
+    [Fact]
+    public void Clone_CopiesWebSocketBaseUrl()
+    {
+        var original = new IbkrClientOptions
+        {
+            WebSocketBaseUrl = "wss://custom.test/v1/api/ws",
+        };
+
+        var clone = original.Clone();
+
+        clone.WebSocketBaseUrl.ShouldBe("wss://custom.test/v1/api/ws");
+    }
 }

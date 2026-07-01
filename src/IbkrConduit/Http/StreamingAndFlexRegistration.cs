@@ -38,7 +38,8 @@ internal static class StreamingAndFlexRegistration
                 clientOptions.WebSocketHeartbeatIntervalSeconds,
                 clientOptions.StreamingBufferSize,
                 sp.GetRequiredService<TenantContext>(),
-                TimeProvider.System));
+                TimeProvider.System,
+                clientOptions.WebSocketBaseUrl));
         services.AddSingleton<IStreamingOperations>(sp =>
             new StreamingOperations(
                 sp.GetRequiredService<IIbkrWebSocketClient>()));

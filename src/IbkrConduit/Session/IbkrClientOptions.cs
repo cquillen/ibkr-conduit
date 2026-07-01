@@ -48,6 +48,13 @@ public class IbkrClientOptions
     public string? BaseUrl { get; set; }
 
     /// <summary>
+    /// Override the base URL for WebSocket connections.
+    /// Default is <c>wss://api.ibkr.com/v1/api/ws</c>. Set this to a mock
+    /// WebSocket server URL for integration testing.
+    /// </summary>
+    public string? WebSocketBaseUrl { get; set; }
+
+    /// <summary>
     /// Interval in seconds between tickle requests to keep the session alive.
     /// Default is 60. Reduce for integration testing.
     /// </summary>
@@ -127,6 +134,7 @@ public class IbkrClientOptions
         PreflightCacheDuration = PreflightCacheDuration,
         FlexToken = FlexToken,
         BaseUrl = BaseUrl,
+        WebSocketBaseUrl = WebSocketBaseUrl,
         TickleIntervalSeconds = TickleIntervalSeconds,
         TickleFailureIntervalSeconds = TickleFailureIntervalSeconds,
         WebSocketHeartbeatIntervalSeconds = WebSocketHeartbeatIntervalSeconds,

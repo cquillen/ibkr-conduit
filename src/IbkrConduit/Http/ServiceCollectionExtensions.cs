@@ -202,6 +202,13 @@ public static class ServiceCollectionExtensions
                 $"BaseUrl must be a valid absolute URI, got: '{options.BaseUrl}'.",
                 "IbkrClientOptions.BaseUrl");
         }
+
+        if (options.WebSocketBaseUrl is not null && !Uri.TryCreate(options.WebSocketBaseUrl, UriKind.Absolute, out _))
+        {
+            throw new ArgumentException(
+                $"WebSocketBaseUrl must be a valid absolute URI, got: '{options.WebSocketBaseUrl}'.",
+                "IbkrClientOptions.WebSocketBaseUrl");
+        }
     }
 #pragma warning restore CA2208
 }

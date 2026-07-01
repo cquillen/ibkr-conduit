@@ -51,6 +51,18 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
+    public async Task ConnectAsync_WithCustomWebSocketBaseUrl_UsesConfiguredBaseForUri()
+    {
+        const string customBase = "wss://custom.test/v1/api/ws";
+        await using var client = CreateClient(webSocketBaseUrl: customBase);
+
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        _adapter.ConnectedUri.ShouldNotBeNull();
+        _adapter.ConnectedUri!.ToString().ShouldStartWith(customBase);
+    }
+
+    [Fact]
     public async Task ConnectAsync_TickleWrappedTransportFault_ThrowsOriginalHttpRequestException()
     {
         // Refit 11 wraps the raw Task<T> tickle call's transport fault in ApiRequestException.
@@ -897,7 +909,8 @@ public class IbkrWebSocketClientTests
         TimeProvider? timeProvider = null,
         int heartbeatIntervalSeconds = 30,
         int streamingBufferSize = 256,
-        ILogger<IbkrWebSocketClient>? logger = null) =>
+        ILogger<IbkrWebSocketClient>? logger = null,
+        string? webSocketBaseUrl = null) =>
         new(
             _sessionApi,
             _credentials,
@@ -907,7 +920,8 @@ public class IbkrWebSocketClientTests
             heartbeatIntervalSeconds,
             streamingBufferSize,
             new TenantContext("test"),
-            timeProvider);
+            timeProvider,
+            webSocketBaseUrl);
 
     private sealed class CapturingLogger(LogLevel minimumLevel = LogLevel.Trace) : ILogger<IbkrWebSocketClient>
     {

@@ -46,6 +46,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly int _heartbeatIntervalSeconds;
     private readonly int _streamingBufferSize;
     private readonly TimeProvider _timeProvider;
+    private readonly string _resolvedWebSocketBaseUrl;
     private readonly ConcurrentDictionary<string, List<ChannelWriter<JsonElement>>> _subscribers = new();
     private readonly List<string> _activeSubscriptions = [];
     private readonly SemaphoreSlim _connectLock = new(1, 1);
@@ -78,6 +79,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <param name="streamingBufferSize">Per-subscriber channel capacity. When full, the oldest message is dropped to make room for the newest.</param>
     /// <param name="tenant">Per-provider tenant identity used to tag telemetry.</param>
     /// <param name="timeProvider">Time provider for delays; defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <param name="webSocketBaseUrl">Override for the WebSocket base URL. When null, defaults to <c>wss://api.ibkr.com/v1/api/ws</c>.</param>
     public IbkrWebSocketClient(
         IIbkrSessionApi sessionApi,
         IbkrOAuthCredentials credentials,
@@ -87,7 +89,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         int heartbeatIntervalSeconds,
         int streamingBufferSize,
         TenantContext tenant,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        string? webSocketBaseUrl = null)
     {
         _sessionApi = sessionApi;
         _credentials = credentials;
@@ -99,6 +102,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         _heartbeatIntervalSeconds = heartbeatIntervalSeconds;
         _streamingBufferSize = streamingBufferSize;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _resolvedWebSocketBaseUrl = webSocketBaseUrl ?? _webSocketBaseUrl;
 
         IbkrConduitDiagnostics.Meter.CreateObservableGauge(
             "ibkr.conduit.websocket.connection_state",
@@ -289,7 +293,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Connect");
         activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
-        activity?.SetTag("url", _webSocketBaseUrl);
+        activity?.SetTag("url", _resolvedWebSocketBaseUrl);
         using var _ = _logger.BeginScope(_logScope);
 
         LogConnecting();
@@ -307,7 +311,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             throw; // unreachable unless InnerException is null
         }
 
-        var uri = new Uri($"{_webSocketBaseUrl}?oauth_token={_credentials.AccessToken}");
+        var uri = new Uri($"{_resolvedWebSocketBaseUrl}?oauth_token={_credentials.AccessToken}");
         var ws = _webSocketFactory();
         ws.SetRequestHeader("Cookie", $"api={tickleResponse.Session}");
         ws.SetRequestHeader("User-Agent", "ClientPortalGW/1");
