@@ -113,4 +113,28 @@ public class IbkrClientOptions
     /// still takes a query ID parameter.
     /// </summary>
     public FlexQueryOptions FlexQueries { get; set; } = new();
+
+    /// <summary>
+    /// Creates a per-tenant copy: scalars are copied, the mutable
+    /// <see cref="SuppressMessageIds"/> list and <see cref="FlexQueries"/> are
+    /// deep-copied so a per-tenant override cannot mutate the shared baseline.
+    /// </summary>
+    internal IbkrClientOptions Clone() => new()
+    {
+        Credentials = Credentials,
+        Compete = Compete,
+        SuppressMessageIds = new List<string>(SuppressMessageIds),
+        PreflightCacheDuration = PreflightCacheDuration,
+        FlexToken = FlexToken,
+        BaseUrl = BaseUrl,
+        TickleIntervalSeconds = TickleIntervalSeconds,
+        TickleFailureIntervalSeconds = TickleFailureIntervalSeconds,
+        WebSocketHeartbeatIntervalSeconds = WebSocketHeartbeatIntervalSeconds,
+        StreamingBufferSize = StreamingBufferSize,
+        ProactiveRefreshMargin = ProactiveRefreshMargin,
+        StrictResponseValidation = StrictResponseValidation,
+        ThrowOnApiError = ThrowOnApiError,
+        FlexPollTimeout = FlexPollTimeout,
+        FlexQueries = FlexQueries.Clone(),
+    };
 }

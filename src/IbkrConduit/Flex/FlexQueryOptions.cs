@@ -24,4 +24,11 @@ public class FlexQueryOptions
     /// then copy the numeric ID here.
     /// </summary>
     public string? TradeConfirmationsQueryId { get; set; }
+
+    /// <summary>Creates a shallow copy of these query IDs.</summary>
+    internal FlexQueryOptions Clone() => new()
+    {
+        CashTransactionsQueryId = CashTransactionsQueryId,
+        TradeConfirmationsQueryId = TradeConfirmationsQueryId,
+    };
 }
