@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.5.2...IbkrConduit-v0.6.0) (2026-07-01)
+
+
+### Features
+
+* **apicapture:** OCA/bracket/bulk capture scenarios + dynamic cleanup ([#202](https://github.com/cquillen/ibkr-conduit/issues/202)) ([fdf5cab](https://github.com/cquillen/ibkr-conduit/commit/fdf5cab77588b8723b253c8bc1fb6d3c7619880d))
+* **client:** add dynamic multi-tenant client manager (IIbkrClientManager) ([#207](https://github.com/cquillen/ibkr-conduit/issues/207)) ([0496987](https://github.com/cquillen/ibkr-conduit/commit/0496987417f5dc92876294a9806d1c2f686777de))
+* **orders:** native bracket/OCA order placement + cOID correlation ([#203](https://github.com/cquillen/ibkr-conduit/issues/203)) ([a77b3b8](https://github.com/cquillen/ibkr-conduit/commit/a77b3b89d2bc131ed7212165f1c112a2b6877681))
+
+
+### Bug Fixes
+
+* **apicapture:** restore build, load file creds, add OrderRef capture ([#199](https://github.com/cquillen/ibkr-conduit/issues/199)) ([5954b29](https://github.com/cquillen/ibkr-conduit/commit/5954b29eb99642ef6e48f348335ad51905637671))
+
+
+### Miscellaneous Chores
+
+* **deps:** upgrade to Refit 12.1.0 ([#209](https://github.com/cquillen/ibkr-conduit/issues/209)) ([6e8709e](https://github.com/cquillen/ibkr-conduit/commit/6e8709e06ff6a9c90d97c0623d6d2201d4d905d4))
+
 ## [0.5.2](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.5.1...IbkrConduit-v0.5.2) (2026-06-11)
 
 
