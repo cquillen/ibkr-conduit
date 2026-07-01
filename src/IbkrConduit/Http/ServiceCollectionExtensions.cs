@@ -62,6 +62,38 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>Marker proving AddIbkrClientManager has already run.</summary>
+    private sealed class IbkrClientManagerRegistrationMarker;
+
+    /// <summary>
+    /// Registers the multi-tenant <see cref="IIbkrClientManager"/> singleton with the
+    /// given baseline options applied to every tenant. Credentials are supplied per
+    /// tenant via <see cref="IIbkrClientManager.AddAsync"/>, not here.
+    /// </summary>
+    public static IServiceCollection AddIbkrClientManager(
+        this IServiceCollection services,
+        Action<IbkrClientOptions>? configureBaseline = null)
+    {
+        if (services.Any(d => d.ServiceType == typeof(IbkrClientManagerRegistrationMarker)))
+        {
+            throw new InvalidOperationException("AddIbkrClientManager has already been called on this IServiceCollection.");
+        }
+        services.AddSingleton<IbkrClientManagerRegistrationMarker>();
+
+        var baseline = new IbkrClientOptions();
+        configureBaseline?.Invoke(baseline);
+
+        services.TryAddSingleton<ISharedRateGovernor, NoOpSharedRateGovernor>();
+        services.AddSingleton<ITenantBuilder, TenantBuilder>();
+        services.AddSingleton<IIbkrClientManager>(sp =>
+            new IbkrClientManager(
+                sp.GetRequiredService<ITenantBuilder>(),
+                baseline,
+                sp.GetRequiredService<ISharedRateGovernor>()));
+
+        return services;
+    }
+
     /// <summary>
     /// Registers one fully-isolated IbkrConduit graph (all Refit pipelines,
     /// operations, session lifecycle, health, and the IIbkrClient facade) into
