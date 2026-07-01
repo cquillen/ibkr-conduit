@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.MarketData;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
@@ -25,6 +26,7 @@ public class MarketDataOperationsTests : IDisposable
             _fakeApi,
             new IbkrClientOptions(),
             NullLogger<MarketDataOperations>.Instance,
+            new TenantContext("test"),
             TimeProvider.System);
     }
 
@@ -111,6 +113,7 @@ public class MarketDataOperationsTests : IDisposable
             _fakeApi,
             new IbkrClientOptions(),
             NullLogger<MarketDataOperations>.Instance,
+            new TenantContext("test"),
             fakeTime);
 
         // First call: no Fields — triggers preflight (HasFieldData returns false).

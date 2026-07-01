@@ -42,6 +42,8 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     private readonly IIbkrMarketDataApi _api;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<MarketDataOperations> _logger;
+    private readonly TenantContext _tenant;
+    private readonly Dictionary<string, object> _logScope;
     private readonly MemoryCache _preflightCache;
     private readonly TimeProvider _timeProvider;
 
@@ -51,16 +53,20 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     /// <param name="api">The Refit market data API client.</param>
     /// <param name="options">Client options for pre-flight cache duration.</param>
     /// <param name="logger">Logger instance.</param>
+    /// <param name="tenant">Per-provider tenant identity used to tag telemetry.</param>
     /// <param name="timeProvider">Time provider for delay abstraction; defaults to <see cref="TimeProvider.System"/>.</param>
     public MarketDataOperations(
         IIbkrMarketDataApi api,
         IbkrClientOptions options,
         ILogger<MarketDataOperations> logger,
+        TenantContext tenant,
         TimeProvider? timeProvider = null)
     {
         _api = api;
         _options = options;
         _logger = logger;
+        _tenant = tenant;
+        _logScope = new Dictionary<string, object> { [LogFields.TenantId] = _tenant.TenantId };
         _timeProvider = timeProvider ?? TimeProvider.System;
         // MemoryCache doesn't support global default expiration — it's set per-entry
         // in GetSnapshotAsync using _options.PreflightCacheDuration
@@ -72,10 +78,13 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.Snapshot");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
+        using var _ = _logger.BeginScope(_logScope);
         activity?.SetTag("conid_count", conids.Length);
         activity?.SetTag("field_count", fields.Length);
 
-        _snapshotCount.Add(1);
+        _snapshotCount.Add(1,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
         var sw = Stopwatch.StartNew();
 
         var conidsStr = string.Join(",", conids);
@@ -95,7 +104,8 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
 
         if (preflightNeeded.Count > 0)
         {
-            _preflightCount.Add(1);
+            _preflightCount.Add(1,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
             foreach (var conid in preflightNeeded)
             {
                 _preflightCache.Set(conid, true, new MemoryCacheEntryOptions
@@ -120,6 +130,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         }
 
         _snapshotDuration.Record(sw.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
             new KeyValuePair<string, object?>("preflight", preflightNeeded.Count > 0));
 
         var mapped = MapSnapshots(rawSnapshots);
@@ -134,15 +145,18 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.History");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.Conid, conid);
         activity?.SetTag("period", period.ToString());
         activity?.SetTag("bar", bar.ToString());
 
-        _historyCount.Add(1);
+        _historyCount.Add(1,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
         var sw = Stopwatch.StartNew();
         var startTimeStr = startTime?.UtcDateTime.ToString("yyyyMMdd-HH:mm:ss", CultureInfo.InvariantCulture);
         var response = await _api.GetHistoryAsync(conid.ToString(CultureInfo.InvariantCulture), period.ToString(), bar.ToString(), outsideRth, exchange, startTimeStr, direction, source, cancellationToken);
-        _historyDuration.Record(sw.Elapsed.TotalMilliseconds);
+        _historyDuration.Record(sw.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
@@ -152,6 +166,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.RegulatorySnapshot");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.Conid, conid);
 
         LogRegulatorySnapshotWarning(conid);
@@ -167,6 +182,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.Unsubscribe");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.Conid, conid);
         var response = await _api.UnsubscribeAsync(new UnsubscribeRequest(conid), cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
@@ -178,6 +194,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.UnsubscribeAll");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         var response = await _api.UnsubscribeAllAsync(cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -188,6 +205,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.RunScanner");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         var response = await _api.RunScannerAsync(request, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -198,6 +216,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.GetScannerParams");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         var response = await _api.GetScannerParametersAsync(cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -208,6 +227,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.MarketData.RunHmdsScanner");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         var response = await _api.RunHmdsScannerAsync(request, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;

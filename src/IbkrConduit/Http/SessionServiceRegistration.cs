@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.RateLimiting;
 using IbkrConduit.Auth;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.DependencyInjection;
@@ -59,6 +60,7 @@ internal static class SessionServiceRegistration
                 sp.GetRequiredService<SessionHealthState>(),
                 sp.GetRequiredService<ILogger<TickleTimer>>(),
                 sp.GetRequiredService<ISessionLifecycleNotifier>(),
+                sp.GetRequiredService<TenantContext>(),
                 clientOptions.TickleIntervalSeconds,
                 clientOptions.TickleFailureIntervalSeconds,
                 TimeProvider.System));
@@ -75,16 +77,19 @@ internal static class SessionServiceRegistration
                 new GlobalRateLimitingHandler(
                     sp.GetRequiredService<ISharedRateGovernor>(),
                     sp.GetRequiredService<RateLimiter>(),
-                    sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>()))
+                    sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>(),
+                    sp.GetRequiredService<TenantContext>()))
             .AddHttpMessageHandler(sp =>
                 new EndpointRateLimitingHandler(
                     sp.GetRequiredService<IReadOnlyDictionary<string, RateLimiter>>(),
-                    sp.GetRequiredService<ILogger<EndpointRateLimitingHandler>>()))
+                    sp.GetRequiredService<ILogger<EndpointRateLimitingHandler>>(),
+                    sp.GetRequiredService<TenantContext>()))
             .AddHttpMessageHandler(sp =>
                 new OAuthSigningHandler(
                     sp.GetRequiredService<ISessionTokenProvider>(),
                     credentials.ConsumerKey,
-                    credentials.AccessToken));
+                    credentials.AccessToken,
+                    sp.GetRequiredService<TenantContext>()));
 
         // Session lifecycle notifier
         services.AddSingleton<ISessionLifecycleNotifier, SessionLifecycleNotifier>();
@@ -99,6 +104,7 @@ internal static class SessionServiceRegistration
                 sp.GetRequiredService<ISessionLifecycleNotifier>(),
                 sp.GetRequiredService<SessionHealthState>(),
                 sp.GetRequiredService<ILogger<SessionManager>>(),
+                sp.GetRequiredService<TenantContext>(),
                 TimeProvider.System));
     }
 }

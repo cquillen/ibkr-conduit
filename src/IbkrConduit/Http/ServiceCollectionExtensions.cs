@@ -6,6 +6,7 @@ using IbkrConduit.Alerts;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.EventContracts;
 using IbkrConduit.Fyi;
 using IbkrConduit.Health;
@@ -16,6 +17,7 @@ using IbkrConduit.Session;
 using IbkrConduit.Streaming;
 using IbkrConduit.Watchlists;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace IbkrConduit.Http;
 
@@ -73,6 +75,11 @@ public static class ServiceCollectionExtensions
         IbkrClientOptions clientOptions,
         string baseUrl)
     {
+        // Per-provider tenant identity for telemetry tagging. TryAdd so a future
+        // manager-seeded TenantContext (registered before this call) takes precedence;
+        // single-account usage falls back to the credentials' TenantId.
+        services.TryAddSingleton(new TenantContext(credentials.TenantId));
+
         // Response schema validation map (built once, used by all consumer pipelines)
         var endpointMap = RefitEndpointMap.Build([
             typeof(IIbkrPortfolioApi),

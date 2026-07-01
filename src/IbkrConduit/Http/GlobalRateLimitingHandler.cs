@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Net.Http;
@@ -32,6 +33,8 @@ internal sealed partial class GlobalRateLimitingHandler : DelegatingHandler
     private readonly ISharedRateGovernor _governor;
     private readonly RateLimiter _limiter;
     private readonly ILogger<GlobalRateLimitingHandler> _logger;
+    private readonly TenantContext _tenant;
+    private readonly Dictionary<string, object> _logScope;
 
     /// <summary>
     /// Creates a new global rate limiting handler.
@@ -39,11 +42,14 @@ internal sealed partial class GlobalRateLimitingHandler : DelegatingHandler
     /// <param name="governor">Process-wide shared rate governor, acquired before the tenant limiter.</param>
     /// <param name="limiter">The shared token bucket rate limiter instance.</param>
     /// <param name="logger">Logger for rate limit events.</param>
-    public GlobalRateLimitingHandler(ISharedRateGovernor governor, RateLimiter limiter, ILogger<GlobalRateLimitingHandler> logger)
+    /// <param name="tenant">Per-provider tenant identity used to tag telemetry.</param>
+    public GlobalRateLimitingHandler(ISharedRateGovernor governor, RateLimiter limiter, ILogger<GlobalRateLimitingHandler> logger, TenantContext tenant)
     {
         _governor = governor;
         _limiter = limiter;
         _logger = logger;
+        _tenant = tenant;
+        _logScope = new Dictionary<string, object> { [LogFields.TenantId] = _tenant.TenantId };
 
         IbkrConduitDiagnostics.Meter.CreateObservableGauge(
             "ibkr.conduit.ratelimiter.global.queue_depth",
@@ -54,18 +60,22 @@ internal sealed partial class GlobalRateLimitingHandler : DelegatingHandler
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        using var _ = _logger.BeginScope(_logScope);
+
         await _governor.AcquireAsync(cancellationToken);
         var sw = Stopwatch.StartNew();
         using var lease = await _limiter.AcquireAsync(1, cancellationToken);
         sw.Stop();
 
-        _waitDuration.Record(sw.Elapsed.TotalMilliseconds);
+        _waitDuration.Record(sw.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
 
         if (sw.ElapsedMilliseconds > 0)
         {
             var requestPath = request.RequestUri?.AbsolutePath ?? "unknown";
             LogGlobalRateLimiterWait(requestPath, sw.ElapsedMilliseconds);
             using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.GlobalRateLimit.Wait");
+            activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
             activity?.SetTag("wait_ms", sw.ElapsedMilliseconds);
 
             if (sw.ElapsedMilliseconds >= _slowAcquireThresholdMs)
@@ -82,7 +92,8 @@ internal sealed partial class GlobalRateLimitingHandler : DelegatingHandler
         if (!lease.IsAcquired)
         {
             var requestPath = request.RequestUri?.AbsolutePath ?? "unknown";
-            _rejectedCount.Add(1);
+            _rejectedCount.Add(1,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
             LogGlobalRateLimiterRejected(requestPath);
             throw new RateLimitRejectedException(
                 "Global rate limit exceeded — queue is full.");

@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -47,7 +48,7 @@ public class RateLimitTests : IDisposable
             QueueLimit = 0,
         });
 
-        var globalHandler = new GlobalRateLimitingHandler(new NoOpSharedRateGovernor(), tightLimiter, NullLogger<GlobalRateLimitingHandler>.Instance)
+        var globalHandler = new GlobalRateLimitingHandler(new NoOpSharedRateGovernor(), tightLimiter, NullLogger<GlobalRateLimitingHandler>.Instance, new TenantContext("test"))
         {
             InnerHandler = new HttpClientHandler(),
         };

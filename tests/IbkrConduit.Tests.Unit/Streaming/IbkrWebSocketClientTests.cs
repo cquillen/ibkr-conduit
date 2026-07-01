@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
 using Microsoft.Extensions.Logging;
@@ -473,6 +474,7 @@ public class IbkrWebSocketClientTests
             () => _adapter,
             heartbeatIntervalSeconds: 30,
             streamingBufferSize: 4,
+            tenant: new TenantContext("test"),
             timeProvider: null);
 
         await client.ConnectAsync(TestContext.Current.CancellationToken);
@@ -904,6 +906,7 @@ public class IbkrWebSocketClientTests
             () => _adapter,
             heartbeatIntervalSeconds,
             streamingBufferSize,
+            new TenantContext("test"),
             timeProvider);
 
     private sealed class CapturingLogger(LogLevel minimumLevel = LogLevel.Trace) : ILogger<IbkrWebSocketClient>

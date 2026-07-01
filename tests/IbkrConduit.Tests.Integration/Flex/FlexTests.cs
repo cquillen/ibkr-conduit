@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.Flex;
 using IbkrConduit.Session;
@@ -295,7 +296,8 @@ public class FlexTests : IDisposable
         var ops = new FlexOperations(
             null,
             new IbkrClientOptions(),
-            NullLogger<FlexOperations>.Instance);
+            NullLogger<FlexOperations>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<InvalidOperationException>(
             () => ops.ExecuteQueryAsync("12345", TestContext.Current.CancellationToken));
@@ -321,7 +323,7 @@ public class FlexTests : IDisposable
             ThrowOnApiError = throwOnApiError,
         };
         configure?.Invoke(options);
-        return new FlexOperations(flexClient, options, NullLogger<FlexOperations>.Instance);
+        return new FlexOperations(flexClient, options, NullLogger<FlexOperations>.Instance, new TenantContext("test"));
     }
 
     private static string LoadFlexFixture(string fileName)
