@@ -8,7 +8,7 @@ Updated at the end of each implementation session.
 | Status | Meaning |
 |---|---|
 | Not Started | No work begun |
-| Spec'd | Design spec written in `docs/superpowers/specs/` |
+| Spec'd | Design spec written |
 | In Progress | Implementation underway |
 | Done | Implemented and tested |
 
@@ -20,15 +20,15 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 ## Repo Scaffolding (Done)
 
-| Task | Status | Spec |
-|---|---|---|
-| Git init and foundation files | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| Solution and project structure | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| CI/CD pipelines | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| Open source documents | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| GitHub templates and config | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| Claude Code configuration | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
-| NuGet packaging and metadata | Done | [scaffolding](superpowers/specs/2026-03-26-repo-scaffolding-design.md) |
+| Task | Status |
+|---|---|
+| Git init and foundation files | Done |
+| Solution and project structure | Done |
+| CI/CD pipelines | Done |
+| Open source documents | Done |
+| GitHub templates and config | Done |
+| Claude Code configuration | Done |
+| NuGet packaging and metadata | Done |
 
 ---
 
@@ -36,14 +36,14 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 **Goal:** Prove the OAuth 1.0a pipeline works end-to-end by calling `GET /portfolio/accounts` against a real IBKR paper account.
 
-| # | Task | Status | Spec |
-|---|---|---|---|
-| 1.1 | OAuth key generation script | Done | [M1 spec](superpowers/specs/2026-03-26-milestone1-oauth-pipeline-design.md) |
-| 1.2 | OAuth credentials model + crypto primitives | Done | [M1 spec](superpowers/specs/2026-03-26-milestone1-oauth-pipeline-design.md) |
-| 1.3 | OAuth signature and header builder | Done | [M1 spec](superpowers/specs/2026-03-26-milestone1-oauth-pipeline-design.md) |
-| 1.4 | Live session token client | Done | [M1 spec](superpowers/specs/2026-03-26-milestone1-oauth-pipeline-design.md) |
-| 1.5 | OAuthSigningHandler + HTTP pipeline | Done | [M1 spec](superpowers/specs/2026-03-26-milestone1-oauth-pipeline-design.md) |
-| 1.6 | Portfolio accounts endpoint + paper account validation | Done | [M1 spec](superpowers/specs/2026-03-26-milestone1-oauth-pipeline-design.md) |
+| # | Task | Status |
+|---|---|---|
+| 1.1 | OAuth key generation script | Done |
+| 1.2 | OAuth credentials model + crypto primitives | Done |
+| 1.3 | OAuth signature and header builder | Done |
+| 1.4 | Live session token client | Done |
+| 1.5 | OAuthSigningHandler + HTTP pipeline | Done |
+| 1.6 | Portfolio accounts endpoint + paper account validation | Done |
 
 ---
 
@@ -51,16 +51,16 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 **Goal:** Library can initialize a brokerage session, keep it alive, and recover from expiry — validated against a paper account.
 
-| # | Task | Status | Spec |
-|---|---|---|---|
-| 2.1 | Refit session interfaces + response models | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
-| 2.2 | SessionTokenProvider refresh support | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
-| 2.3 | Tickle timer | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
-| 2.4 | Session manager | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
-| 2.5 | Token refresh handler (reactive 401 + proactive) | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
-| 2.6 | Pipeline wiring + IbkrClientOptions | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
-| 2.7 | Session lifecycle integration tests | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
-| 2.8 | Suppressible message IDs + constants | Done | [M2 spec](superpowers/specs/2026-03-30-milestone2-session-lifecycle-design.md) |
+| # | Task | Status |
+|---|---|---|
+| 2.1 | Refit session interfaces + response models | Done |
+| 2.2 | SessionTokenProvider refresh support | Done |
+| 2.3 | Tickle timer | Done |
+| 2.4 | Session manager | Done |
+| 2.5 | Token refresh handler (reactive 401 + proactive) | Done |
+| 2.6 | Pipeline wiring + IbkrClientOptions | Done |
+| 2.7 | Session lifecycle integration tests | Done |
+| 2.8 | Suppressible message IDs + constants | Done |
 
 ---
 
@@ -68,21 +68,21 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 **Goal:** Submit and cancel orders against a paper account, with rate limiting and resilience protecting the pipeline.
 
-| # | Task | Status | Spec |
-|---|---|---|---|
-| 3a.1 | RateLimitRejectedException + NuGet deps | Done | [M3a spec](superpowers/specs/2026-03-30-milestone3a-rate-limiting-resilience-design.md) |
-| 3a.2 | GlobalRateLimitingHandler (10 req/s) | Done | [M3a spec](superpowers/specs/2026-03-30-milestone3a-rate-limiting-resilience-design.md) |
-| 3a.3 | EndpointRateLimitingHandler (per-endpoint) | Done | [M3a spec](superpowers/specs/2026-03-30-milestone3a-rate-limiting-resilience-design.md) |
-| 3a.4 | ResilienceHandler (Polly retry) | Done | [M3a spec](superpowers/specs/2026-03-30-milestone3a-rate-limiting-resilience-design.md) |
-| 3a.5 | Pipeline wiring | Done | [M3a spec](superpowers/specs/2026-03-30-milestone3a-rate-limiting-resilience-design.md) |
-| 3a.6 | Integration tests | Done | [M3a spec](superpowers/specs/2026-03-30-milestone3a-rate-limiting-resilience-design.md) |
-| 3b.1 | Contract Refit interface + models | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
-| 3b.2 | Order Refit interface + models | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
-| 3b.3 | Operations interfaces | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
-| 3b.4 | OrderOperations (question/reply loop) | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
-| 3b.5 | IIbkrClient facade | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
-| 3b.6 | DI wiring update | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
-| 3b.7 | Integration tests + SPY order E2E | Done | [M3b spec](superpowers/specs/2026-03-31-milestone3b-order-management-design.md) |
+| # | Task | Status |
+|---|---|---|
+| 3a.1 | RateLimitRejectedException + NuGet deps | Done |
+| 3a.2 | GlobalRateLimitingHandler (10 req/s) | Done |
+| 3a.3 | EndpointRateLimitingHandler (per-endpoint) | Done |
+| 3a.4 | ResilienceHandler (Polly retry) | Done |
+| 3a.5 | Pipeline wiring | Done |
+| 3a.6 | Integration tests | Done |
+| 3b.1 | Contract Refit interface + models | Done |
+| 3b.2 | Order Refit interface + models | Done |
+| 3b.3 | Operations interfaces | Done |
+| 3b.4 | OrderOperations (question/reply loop) | Done |
+| 3b.5 | IIbkrClient facade | Done |
+| 3b.6 | DI wiring update | Done |
+| 3b.7 | Integration tests + SPY order E2E | Done |
 
 ---
 
@@ -90,14 +90,14 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 **Goal:** Retrieve positions, account summary, and market data from a paper account.
 
-| # | Task | Status | Spec |
-|---|---|---|---|
-| 4.1 | Portfolio Refit expansion + models | Done | [M4 spec](superpowers/specs/2026-03-31-milestone4-portfolio-marketdata-design.md) |
-| 4.2 | MarketData Refit interface + models + MarketDataFields (110 constants) | Done | [M4 spec](superpowers/specs/2026-03-31-milestone4-portfolio-marketdata-design.md) |
-| 4.3 | IPortfolioOperations expansion (10 new methods) | Done | [M4 spec](superpowers/specs/2026-03-31-milestone4-portfolio-marketdata-design.md) |
-| 4.4 | IMarketDataOperations + pre-flight handling (MemoryCache) | Done | [M4 spec](superpowers/specs/2026-03-31-milestone4-portfolio-marketdata-design.md) |
-| 4.5 | IIbkrClient facade update + DI wiring | Done | [M4 spec](superpowers/specs/2026-03-31-milestone4-portfolio-marketdata-design.md) |
-| 4.6 | Integration tests + E2E (positions, summary, snapshot) | Done | [M4 spec](superpowers/specs/2026-03-31-milestone4-portfolio-marketdata-design.md) |
+| # | Task | Status |
+|---|---|---|
+| 4.1 | Portfolio Refit expansion + models | Done |
+| 4.2 | MarketData Refit interface + models + MarketDataFields (110 constants) | Done |
+| 4.3 | IPortfolioOperations expansion (10 new methods) | Done |
+| 4.4 | IMarketDataOperations + pre-flight handling (MemoryCache) | Done |
+| 4.5 | IIbkrClient facade update + DI wiring | Done |
+| 4.6 | Integration tests + E2E (positions, summary, snapshot) | Done |
 
 ---
 
@@ -105,14 +105,14 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 **Goal:** Stream real-time order updates and market data from a paper account via WebSocket.
 
-| # | Task | Status | Spec |
-|---|---|---|---|
-| 5.1 | ISessionLifecycleNotifier + wire into SessionManager | Done | [M5 spec](superpowers/specs/2026-03-31-milestone5-websocket-streaming-design.md) |
-| 5.2 | IbkrWebSocketClient (heartbeat, message pump, reconnect) | Done | [M5 spec](superpowers/specs/2026-03-31-milestone5-websocket-streaming-design.md) |
-| 5.3 | Streaming response models | Done | [M5 spec](superpowers/specs/2026-03-31-milestone5-websocket-streaming-design.md) |
-| 5.4 | ChannelObservable + IStreamingOperations | Done | [M5 spec](superpowers/specs/2026-03-31-milestone5-websocket-streaming-design.md) |
-| 5.5 | IIbkrClient facade + DI wiring | Done | [M5 spec](superpowers/specs/2026-03-31-milestone5-websocket-streaming-design.md) |
-| 5.6 | Tests + WebSocket E2E | Done | [M5 spec](superpowers/specs/2026-03-31-milestone5-websocket-streaming-design.md) |
+| # | Task | Status |
+|---|---|---|
+| 5.1 | ISessionLifecycleNotifier + wire into SessionManager | Done |
+| 5.2 | IbkrWebSocketClient (heartbeat, message pump, reconnect) | Done |
+| 5.3 | Streaming response models | Done |
+| 5.4 | ChannelObservable + IStreamingOperations | Done |
+| 5.5 | IIbkrClient facade + DI wiring | Done |
+| 5.6 | Tests + WebSocket E2E | Done |
 
 ---
 
@@ -120,12 +120,12 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 **Goal:** Execute a Flex query against a paper account and parse trade confirmations and open orders.
 
-| # | Task | Status | Spec |
-|---|---|---|---|
-| 6.1 | FlexClient + models + FlexQueryException | Done | [M6 spec](superpowers/specs/2026-03-31-milestone6-flex-web-service-design.md) |
-| 6.2 | IFlexOperations + FlexQueryResult (typed Trades/OpenPositions) | Done | [M6 spec](superpowers/specs/2026-03-31-milestone6-flex-web-service-design.md) |
-| 6.3 | IIbkrClient facade + DI wiring | Done | [M6 spec](superpowers/specs/2026-03-31-milestone6-flex-web-service-design.md) |
-| 6.4 | Tests + Flex E2E (paper account query) | Done | [M6 spec](superpowers/specs/2026-03-31-milestone6-flex-web-service-design.md) |
+| # | Task | Status |
+|---|---|---|
+| 6.1 | FlexClient + models + FlexQueryException | Done |
+| 6.2 | IFlexOperations + FlexQueryResult (typed Trades/OpenPositions) | Done |
+| 6.3 | IIbkrClient facade + DI wiring | Done |
+| 6.4 | Tests + Flex E2E (paper account query) | Done |
 
 ---
 
@@ -133,13 +133,13 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 **Goal:** Production-grade observability with zero external dependencies.
 
-| # | Task | Status | Spec |
-|---|---|---|---|
-| O.1 | IbkrConduitDiagnostics + LogFields foundation | Done | [Observability spec](superpowers/specs/2026-03-31-observability-design.md) |
-| O.2 | Distributed tracing (38 spans) | Done | [Observability spec](superpowers/specs/2026-03-31-observability-design.md) |
-| O.3 | Metrics (34 instruments) | Done | [Observability spec](superpowers/specs/2026-03-31-observability-design.md) |
-| O.4 | Structured logging audit (17 components) | Done | [Observability spec](superpowers/specs/2026-03-31-observability-design.md) |
-| O.5 | Tests + observability consumer guide | Done | [Observability spec](superpowers/specs/2026-03-31-observability-design.md) |
+| # | Task | Status |
+|---|---|---|
+| O.1 | IbkrConduitDiagnostics + LogFields foundation | Done |
+| O.2 | Distributed tracing (38 spans) | Done |
+| O.3 | Metrics (34 instruments) | Done |
+| O.4 | Structured logging audit (17 components) | Done |
+| O.5 | Tests + observability consumer guide | Done |
 
 ---
 
@@ -147,10 +147,10 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 
 **Goal:** Library is documented and has working samples demonstrating all major features.
 
-| # | Task | Status | Spec |
-|---|---|---|---|
-| 7.1 | Samples project | Not Started | — |
-| 7.2 | API documentation audit | Not Started | — |
+| # | Task | Status |
+|---|---|---|
+| 7.1 | Samples project | Not Started |
+| 7.2 | API documentation audit | Not Started |
 
 ---
 
@@ -167,3 +167,23 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 | Enhancement | Status | Notes |
 |---|---|---|
 | Native bracket/OCA group placement + cOID correlation | Done | Added `cOID`, `parentId`, `isSingleGroup`, `outsideRTH` to `OrderRequest`/`OrderWireModel` (omit-when-null on the wire); `local_order_id`/`oca_group_id` on `OrderSubmissionResponse`; `PlaceOrdersAsync` for a single linked bracket/OCA group (validates linkage and returns the parent result — IBKR returns one response element per group and rejects unrelated bulk with 400); and typed `order_ref` on `LiveOrder` and streaming `OrderUpdate`. `OrderStatus` is intentionally excluded — its response carries no `order_ref` (spec, OpenAPI, and a live recording all confirm). |
+
+---
+
+## Milestone 8 — Dynamic Multi-Tenant Client Manager
+
+**Goal:** Host multiple isolated IbkrConduit instances (one per credential/tenant) in a single process, with runtime add/remove. Spec: [multi-tenant-client-manager-design](superpowers/specs/2026-06-30-multi-tenant-client-manager-design.md).
+
+| # | Task | Status |
+|---|---|---|
+| 8.1 | `IbkrClientOptions.Clone()` for per-tenant options | Done |
+| 8.2 | Double-registration guard on `AddIbkrClient` / `AddIbkrClientManager` | Done |
+| 8.3 | Extract `BuildTenantServices` (shared per-tenant graph builder) | Done |
+| 8.4 | `ISharedRateGovernor` no-op seam (for a future shared IP governor) | Done |
+| 8.5 | Per-tenant telemetry tagging (`TenantId` on metrics/spans/logs) | Done |
+| 8.6 | `IManagedTenant` / `ITenantBuilder` / `TenantBuilder` | Done |
+| 8.7 | `IIbkrClientManager` + `AddIbkrClientManager` | Done |
+| 8.8 | `WebSocketBaseUrl` option (configurable WS endpoint) | Done |
+| 8.9 | Integration tests (WireMock + mock WS): eager add, two-tenant isolation, remove/logout, 401 recovery, telemetry attribution | Done |
+
+**Deferred follow-ups:** two-account real E2E (needs a second paper account); adaptive shared IP rate governor (replaces the no-op); option validation on the manager path; best-effort logout on eager-init failure.
