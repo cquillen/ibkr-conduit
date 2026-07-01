@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
 using Microsoft.Extensions.Logging;
@@ -47,6 +48,18 @@ public class IbkrWebSocketClientTests
         _adapter.RequestHeaders.ShouldContainKey("Cookie");
         _adapter.RequestHeaders.ShouldContainKey("User-Agent");
         _adapter.RequestHeaders["User-Agent"].ShouldBe("ClientPortalGW/1");
+    }
+
+    [Fact]
+    public async Task ConnectAsync_WithCustomWebSocketBaseUrl_UsesConfiguredBaseForUri()
+    {
+        const string customBase = "wss://custom.test/v1/api/ws";
+        await using var client = CreateClient(webSocketBaseUrl: customBase);
+
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        _adapter.ConnectedUri.ShouldNotBeNull();
+        _adapter.ConnectedUri!.ToString().ShouldStartWith(customBase);
     }
 
     [Fact]
@@ -473,6 +486,7 @@ public class IbkrWebSocketClientTests
             () => _adapter,
             heartbeatIntervalSeconds: 30,
             streamingBufferSize: 4,
+            tenant: new TenantContext("test"),
             timeProvider: null);
 
         await client.ConnectAsync(TestContext.Current.CancellationToken);
@@ -895,7 +909,8 @@ public class IbkrWebSocketClientTests
         TimeProvider? timeProvider = null,
         int heartbeatIntervalSeconds = 30,
         int streamingBufferSize = 256,
-        ILogger<IbkrWebSocketClient>? logger = null) =>
+        ILogger<IbkrWebSocketClient>? logger = null,
+        string? webSocketBaseUrl = null) =>
         new(
             _sessionApi,
             _credentials,
@@ -904,7 +919,9 @@ public class IbkrWebSocketClientTests
             () => _adapter,
             heartbeatIntervalSeconds,
             streamingBufferSize,
-            timeProvider);
+            new TenantContext("test"),
+            timeProvider,
+            webSocketBaseUrl);
 
     private sealed class CapturingLogger(LogLevel minimumLevel = LogLevel.Trace) : ILogger<IbkrWebSocketClient>
     {

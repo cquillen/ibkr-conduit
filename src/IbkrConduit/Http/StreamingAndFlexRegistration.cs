@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading.RateLimiting;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Flex;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
@@ -36,7 +37,9 @@ internal static class StreamingAndFlexRegistration
                 () => new ClientWebSocketAdapter(),
                 clientOptions.WebSocketHeartbeatIntervalSeconds,
                 clientOptions.StreamingBufferSize,
-                TimeProvider.System));
+                sp.GetRequiredService<TenantContext>(),
+                TimeProvider.System,
+                clientOptions.WebSocketBaseUrl));
         services.AddSingleton<IStreamingOperations>(sp =>
             new StreamingOperations(
                 sp.GetRequiredService<IIbkrWebSocketClient>()));
@@ -80,12 +83,16 @@ internal static class StreamingAndFlexRegistration
                     sp.GetRequiredService<ILogger<AuditLogHandler>>()))
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
+                    sp.GetRequiredService<ISharedRateGovernor>(),
                     flexBurstLimiter,
-                    sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>()))
+                    sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>(),
+                    sp.GetRequiredService<TenantContext>()))
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
+                    sp.GetRequiredService<ISharedRateGovernor>(),
                     flexSustainedLimiter,
-                    sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>()));
+                    sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>(),
+                    sp.GetRequiredService<TenantContext>()));
 
             services.AddSingleton(sp =>
                 new FlexClient(
@@ -98,6 +105,7 @@ internal static class StreamingAndFlexRegistration
                     sp.GetRequiredService<FlexClient>(),
                     clientOptions,
                     sp.GetRequiredService<ILogger<FlexOperations>>(),
+                    sp.GetRequiredService<TenantContext>(),
                     TimeProvider.System));
         }
         else
@@ -107,6 +115,7 @@ internal static class StreamingAndFlexRegistration
                     null,
                     clientOptions,
                     sp.GetRequiredService<ILogger<FlexOperations>>(),
+                    sp.GetRequiredService<TenantContext>(),
                     TimeProvider.System));
         }
     }

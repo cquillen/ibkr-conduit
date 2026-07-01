@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -29,7 +30,8 @@ public class SessionManagerEdgeTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -60,7 +62,8 @@ public class SessionManagerEdgeTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         // Start initialization in background
         var initTask = Task.Run(
@@ -100,7 +103,8 @@ public class SessionManagerEdgeTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -127,7 +131,8 @@ public class SessionManagerEdgeTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -149,7 +154,8 @@ public class SessionManagerEdgeTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -173,7 +179,8 @@ public class SessionManagerEdgeTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -200,7 +207,8 @@ public class SessionManagerEdgeTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 

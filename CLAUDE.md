@@ -6,7 +6,7 @@ C#/.NET client library for the Interactive Brokers Client Portal Web API with OA
 
 - **Design document:** `docs/ibkr_conduit_design.md` — authoritative design reference for all implementation decisions
 - **Implementation status:** `docs/implementation-status.md` — check at session start to know what's done and what's next
-- **Specs and plans:** `docs/superpowers/specs/` and `docs/superpowers/plans/`
+- **Specs, plans, and prompts:** `docs/superpowers/specs/` (committed design specs), `docs/superpowers/plans/`, and `docs/superpowers/prompts/`
 
 ## Commands
 

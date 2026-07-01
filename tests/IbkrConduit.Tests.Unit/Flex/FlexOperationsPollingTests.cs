@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.Flex;
 using IbkrConduit.Session;
@@ -325,6 +326,7 @@ public class FlexOperationsPollingTests
             null,
             new IbkrClientOptions(),
             NullLogger<FlexOperations>.Instance,
+            new TenantContext("test"),
             TimeProvider.System);
 
         var ex = await Should.ThrowAsync<InvalidOperationException>(
@@ -561,6 +563,7 @@ public class FlexOperationsPollingTests
             flexClient,
             options ?? new IbkrClientOptions { FlexPollTimeout = TimeSpan.FromSeconds(60) },
             NullLogger<FlexOperations>.Instance,
+            new TenantContext("test"),
             timeProvider ?? TimeProvider.System);
     }
 

@@ -8,6 +8,7 @@ using IbkrConduit.Alerts;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.EventContracts;
 using IbkrConduit.Fyi;
 using IbkrConduit.Health;
@@ -61,6 +62,7 @@ internal static class ConsumerPipelineRegistration
                 sp.GetRequiredService<IIbkrMarketDataApi>(),
                 clientOptions,
                 sp.GetRequiredService<ILogger<MarketDataOperations>>(),
+                sp.GetRequiredService<TenantContext>(),
                 TimeProvider.System));
         services.AddSingleton<IAccountOperations, AccountOperations>();
         services.AddSingleton<IAlertOperations, AlertOperations>();
@@ -104,17 +106,21 @@ internal static class ConsumerPipelineRegistration
                     sp.GetRequiredService<ILogger<ResponseSchemaValidationHandler>>()))
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
+                    sp.GetRequiredService<ISharedRateGovernor>(),
                     sp.GetRequiredService<RateLimiter>(),
-                    sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>()))
+                    sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>(),
+                    sp.GetRequiredService<TenantContext>()))
             .AddHttpMessageHandler(sp =>
                 new EndpointRateLimitingHandler(
                     sp.GetRequiredService<IReadOnlyDictionary<string, RateLimiter>>(),
-                    sp.GetRequiredService<ILogger<EndpointRateLimitingHandler>>()))
+                    sp.GetRequiredService<ILogger<EndpointRateLimitingHandler>>(),
+                    sp.GetRequiredService<TenantContext>()))
             .AddHttpMessageHandler(sp =>
                 new OAuthSigningHandler(
                     sp.GetRequiredService<ISessionTokenProvider>(),
                     credentials.ConsumerKey,
                     credentials.AccessToken,
+                    sp.GetRequiredService<TenantContext>(),
                     sp.GetRequiredService<ISessionManager>()));
     }
 }

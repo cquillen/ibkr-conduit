@@ -309,8 +309,47 @@ services.AddIbkrClient(opts =>
     opts.TickleIntervalSeconds = 60;                             // Session keepalive interval
     opts.ProactiveRefreshMargin = TimeSpan.FromHours(1);         // Re-auth before token expires
     opts.PreflightCacheDuration = TimeSpan.FromMinutes(5);       // Market data pre-flight cache TTL
+    // opts.WebSocketBaseUrl = "wss://...";                      // Override WebSocket endpoint (default IBKR; mainly for testing)
 });
 ```
+
+## Multiple Accounts (Multi-Tenant)
+
+To manage several IBKR accounts in one process — each with its own credentials, session, WebSocket, and rate-limit budget — register `IIbkrClientManager` and add each account at runtime. Each tenant is a fully isolated graph; there is no shared mutable state between accounts, and telemetry (metrics, traces, logs) is tagged with the tenant id so accounts are distinguishable.
+
+```csharp
+using IbkrConduit.Client;
+
+var services = new ServiceCollection();
+services.AddLogging();
+services.AddIbkrClientManager(baseline =>
+{
+    // Shared defaults applied to every tenant (do NOT set Credentials here).
+    baseline.TickleIntervalSeconds = 60;
+});
+
+await using var provider = services.BuildServiceProvider();
+var manager = provider.GetRequiredService<IIbkrClientManager>();
+
+// The manager takes ownership of each credentials object — do NOT dispose them yourself.
+var credsA = OAuthCredentialsFactory.FromFile(".ibkr-credentials/account-a.json");
+
+// AddAsync is eager: it authenticates, initializes the brokerage session, and connects
+// the WebSocket, throwing if any of that fails. On success the account is live and streaming.
+var accountA = await manager.AddAsync("account-a", credsA);
+var accountB = await manager.AddAsync("account-b", credsB, o => o.FlexToken = "tokenB");
+
+// Retrieve a live client and use the normal IIbkrClient API:
+var client = manager.GetClient("account-a");            // throws if the tenant is not active
+var positions = await client.Portfolio.GetAccountsAsync();
+
+// Remove an account (stops the tickle timer, closes the socket, logs out, disposes):
+await manager.RemoveAsync("account-a");
+
+foreach (var tenantId in manager.ActiveTenants) { /* iterate active accounts */ }
+```
+
+> **Single vs. multi-account:** keep using `AddIbkrClient` for a single account. Do **not** call `AddIbkrClient` more than once on the same `IServiceCollection` — it throws; use `IIbkrClientManager` for multiple accounts. Disposing the manager (or its `IServiceProvider`) tears down every account.
 
 ## Examples
 

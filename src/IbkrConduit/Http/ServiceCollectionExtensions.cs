@@ -1,10 +1,12 @@
 using System;
+using System.Linq;
 using System.Threading.RateLimiting;
 using IbkrConduit.Accounts;
 using IbkrConduit.Alerts;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Contracts;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.EventContracts;
 using IbkrConduit.Fyi;
 using IbkrConduit.Health;
@@ -15,6 +17,7 @@ using IbkrConduit.Session;
 using IbkrConduit.Streaming;
 using IbkrConduit.Watchlists;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace IbkrConduit.Http;
 
@@ -37,6 +40,16 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         Action<IbkrClientOptions> configure)
     {
+        if (services.Any(d => d.ServiceType == typeof(IbkrClientRegistrationMarker)))
+        {
+            throw new InvalidOperationException(
+                "AddIbkrClient has already been called on this IServiceCollection. " +
+                "Register at most one IbkrConduit per IServiceProvider, or use " +
+                "IIbkrClientManager (AddIbkrClientManager) to host multiple accounts.");
+        }
+
+        services.AddSingleton<IbkrClientRegistrationMarker>();
+
         var clientOptions = new IbkrClientOptions();
         configure(clientOptions);
 
@@ -44,6 +57,60 @@ public static class ServiceCollectionExtensions
 
         var credentials = clientOptions.Credentials!;
         var baseUrl = clientOptions.BaseUrl ?? _ibkrBaseUrl;
+
+        BuildTenantServices(services, credentials, clientOptions, baseUrl);
+        return services;
+    }
+
+    /// <summary>Marker proving AddIbkrClientManager has already run.</summary>
+    private sealed class IbkrClientManagerRegistrationMarker;
+
+    /// <summary>
+    /// Registers the multi-tenant <see cref="IIbkrClientManager"/> singleton with the
+    /// given baseline options applied to every tenant. Credentials are supplied per
+    /// tenant via <see cref="IIbkrClientManager.AddAsync"/>, not here.
+    /// </summary>
+    public static IServiceCollection AddIbkrClientManager(
+        this IServiceCollection services,
+        Action<IbkrClientOptions>? configureBaseline = null)
+    {
+        if (services.Any(d => d.ServiceType == typeof(IbkrClientManagerRegistrationMarker)))
+        {
+            throw new InvalidOperationException("AddIbkrClientManager has already been called on this IServiceCollection.");
+        }
+        services.AddSingleton<IbkrClientManagerRegistrationMarker>();
+
+        var baseline = new IbkrClientOptions();
+        configureBaseline?.Invoke(baseline);
+
+        services.TryAddSingleton<ISharedRateGovernor, NoOpSharedRateGovernor>();
+        services.AddSingleton<ITenantBuilder, TenantBuilder>();
+        services.AddSingleton<IIbkrClientManager>(sp =>
+            new IbkrClientManager(
+                sp.GetRequiredService<ITenantBuilder>(),
+                baseline,
+                sp.GetRequiredService<ISharedRateGovernor>()));
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers one fully-isolated IbkrConduit graph (all Refit pipelines,
+    /// operations, session lifecycle, health, and the IIbkrClient facade) into
+    /// <paramref name="services"/> for a single tenant's credentials. Shared by
+    /// the single-account AddIbkrClient path and IIbkrClientManager's per-tenant
+    /// child providers, so both build an identical graph.
+    /// </summary>
+    internal static void BuildTenantServices(
+        IServiceCollection services,
+        IbkrOAuthCredentials credentials,
+        IbkrClientOptions clientOptions,
+        string baseUrl)
+    {
+        // Per-provider tenant identity for telemetry tagging. TryAdd so a future
+        // manager-seeded TenantContext (registered before this call) takes precedence;
+        // single-account usage falls back to the credentials' TenantId.
+        services.TryAddSingleton(new TenantContext(credentials.TenantId));
 
         // Response schema validation map (built once, used by all consumer pipelines)
         var endpointMap = RefitEndpointMap.Build([
@@ -81,9 +148,10 @@ public static class ServiceCollectionExtensions
 
         // Unified facade
         services.AddSingleton<IIbkrClient, IbkrClient>();
-
-        return services;
     }
+
+    /// <summary>Marker proving AddIbkrClient has already run on a collection.</summary>
+    private sealed class IbkrClientRegistrationMarker;
 
     /// <summary>
     /// Validates all <see cref="IbkrClientOptions"/> fields at registration time
@@ -133,6 +201,13 @@ public static class ServiceCollectionExtensions
             throw new ArgumentException(
                 $"BaseUrl must be a valid absolute URI, got: '{options.BaseUrl}'.",
                 "IbkrClientOptions.BaseUrl");
+        }
+
+        if (options.WebSocketBaseUrl is not null && !Uri.TryCreate(options.WebSocketBaseUrl, UriKind.Absolute, out _))
+        {
+            throw new ArgumentException(
+                $"WebSocketBaseUrl must be a valid absolute URI, got: '{options.WebSocketBaseUrl}'.",
+                "IbkrClientOptions.WebSocketBaseUrl");
         }
     }
 #pragma warning restore CA2208

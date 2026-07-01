@@ -33,6 +33,8 @@ internal sealed partial class EndpointRateLimitingHandler : DelegatingHandler
 
     private readonly IReadOnlyDictionary<string, RateLimiter> _endpointLimiters;
     private readonly ILogger<EndpointRateLimitingHandler> _logger;
+    private readonly TenantContext _tenant;
+    private readonly Dictionary<string, object> _logScope;
 
     /// <summary>
     /// Creates a new endpoint rate limiting handler.
@@ -42,12 +44,16 @@ internal sealed partial class EndpointRateLimitingHandler : DelegatingHandler
     /// A request matches if its path contains the pattern (case-insensitive).
     /// </param>
     /// <param name="logger">Logger for rate limit events.</param>
+    /// <param name="tenant">Per-provider tenant identity used to tag telemetry.</param>
     public EndpointRateLimitingHandler(
         IReadOnlyDictionary<string, RateLimiter> endpointLimiters,
-        ILogger<EndpointRateLimitingHandler> logger)
+        ILogger<EndpointRateLimitingHandler> logger,
+        TenantContext tenant)
     {
         _endpointLimiters = endpointLimiters;
         _logger = logger;
+        _tenant = tenant;
+        _logScope = new Dictionary<string, object> { [LogFields.TenantId] = _tenant.TenantId };
     }
 
     /// <inheritdoc />
@@ -58,18 +64,22 @@ internal sealed partial class EndpointRateLimitingHandler : DelegatingHandler
 
         if (limiter != null)
         {
+            using var _ = _logger.BeginScope(_logScope);
+
             var endpoint = request.RequestUri?.PathAndQuery ?? "unknown";
             var sw = Stopwatch.StartNew();
             using var lease = await limiter.AcquireAsync(1, cancellationToken);
             sw.Stop();
 
             _waitDuration.Record(sw.Elapsed.TotalMilliseconds,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
                 new KeyValuePair<string, object?>(LogFields.Endpoint, endpoint));
 
             if (sw.ElapsedMilliseconds > 0)
             {
                 LogEndpointRateLimiterWait(pattern!, endpoint, sw.ElapsedMilliseconds);
                 using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.EndpointRateLimit.Wait");
+                activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
                 activity?.SetTag(LogFields.Endpoint, endpoint);
                 activity?.SetTag("wait_ms", sw.ElapsedMilliseconds);
 
@@ -88,6 +98,7 @@ internal sealed partial class EndpointRateLimitingHandler : DelegatingHandler
             if (!lease.IsAcquired)
             {
                 _rejectedCount.Add(1,
+                    new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
                     new KeyValuePair<string, object?>(LogFields.Endpoint, endpoint));
                 LogEndpointRateLimiterRejected(pattern!, endpoint);
                 throw new RateLimitRejectedException(

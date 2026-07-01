@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Session;
 using Shouldly;
 
@@ -27,7 +28,7 @@ public class OAuthSigningHandlerTests
             return new HttpResponseMessage(HttpStatusCode.OK);
         });
 
-        var signingHandler = new OAuthSigningHandler(provider, "MYKEY", "mytoken")
+        var signingHandler = new OAuthSigningHandler(provider, "MYKEY", "mytoken", new TenantContext("test"))
         {
             InnerHandler = innerHandler,
         };
@@ -60,7 +61,7 @@ public class OAuthSigningHandlerTests
 
         var innerHandler = new FakeInnerHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
 
-        var signingHandler = new OAuthSigningHandler(provider, "MYKEY", "mytoken")
+        var signingHandler = new OAuthSigningHandler(provider, "MYKEY", "mytoken", new TenantContext("test"))
         {
             InnerHandler = innerHandler,
         };
@@ -85,7 +86,7 @@ public class OAuthSigningHandlerTests
         var innerHandler = new FakeInnerHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
 
         var signingHandler = new OAuthSigningHandler(
-            provider, "MYKEY", "mytoken", sessionManager)
+            provider, "MYKEY", "mytoken", new TenantContext("test"), sessionManager)
         {
             InnerHandler = innerHandler,
         };
@@ -112,7 +113,7 @@ public class OAuthSigningHandlerTests
         var innerHandler = new FakeInnerHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
 
         var signingHandler = new OAuthSigningHandler(
-            provider, "MYKEY", "mytoken", sessionManager)
+            provider, "MYKEY", "mytoken", new TenantContext("test"), sessionManager)
         {
             InnerHandler = innerHandler,
         };
@@ -140,7 +141,7 @@ public class OAuthSigningHandlerTests
             return new HttpResponseMessage(HttpStatusCode.OK);
         });
 
-        var signingHandler = new OAuthSigningHandler(provider, "MYKEY", "mytoken")
+        var signingHandler = new OAuthSigningHandler(provider, "MYKEY", "mytoken", new TenantContext("test"))
         {
             InnerHandler = innerHandler,
         };
@@ -172,7 +173,7 @@ public class OAuthSigningHandlerTests
         var innerHandler = new FakeInnerHandler(_ =>
             throw new HttpRequestException("Simulated network failure"));
 
-        var signingHandler = new OAuthSigningHandler(provider, "MYKEY", "mytoken")
+        var signingHandler = new OAuthSigningHandler(provider, "MYKEY", "mytoken", new TenantContext("test"))
         {
             InnerHandler = innerHandler,
         };

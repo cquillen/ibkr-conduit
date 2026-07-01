@@ -40,10 +40,13 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly IbkrOAuthCredentials _credentials;
     private readonly ISessionLifecycleNotifier _notifier;
     private readonly ILogger<IbkrWebSocketClient> _logger;
+    private readonly TenantContext _tenant;
+    private readonly Dictionary<string, object> _logScope;
     private readonly Func<IWebSocketAdapter> _webSocketFactory;
     private readonly int _heartbeatIntervalSeconds;
     private readonly int _streamingBufferSize;
     private readonly TimeProvider _timeProvider;
+    private readonly string _resolvedWebSocketBaseUrl;
     private readonly ConcurrentDictionary<string, List<ChannelWriter<JsonElement>>> _subscribers = new();
     private readonly List<string> _activeSubscriptions = [];
     private readonly SemaphoreSlim _connectLock = new(1, 1);
@@ -74,7 +77,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <param name="webSocketFactory">Factory for creating WebSocket adapter instances.</param>
     /// <param name="heartbeatIntervalSeconds">Seconds between "tic" ping messages used to keep the WebSocket session alive. IBKR requires at least one per minute.</param>
     /// <param name="streamingBufferSize">Per-subscriber channel capacity. When full, the oldest message is dropped to make room for the newest.</param>
+    /// <param name="tenant">Per-provider tenant identity used to tag telemetry.</param>
     /// <param name="timeProvider">Time provider for delays; defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <param name="webSocketBaseUrl">Override for the WebSocket base URL. When null, defaults to <c>wss://api.ibkr.com/v1/api/ws</c>.</param>
     public IbkrWebSocketClient(
         IIbkrSessionApi sessionApi,
         IbkrOAuthCredentials credentials,
@@ -83,16 +88,21 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         Func<IWebSocketAdapter> webSocketFactory,
         int heartbeatIntervalSeconds,
         int streamingBufferSize,
-        TimeProvider? timeProvider = null)
+        TenantContext tenant,
+        TimeProvider? timeProvider = null,
+        string? webSocketBaseUrl = null)
     {
         _sessionApi = sessionApi;
         _credentials = credentials;
         _notifier = notifier;
         _logger = logger;
+        _tenant = tenant;
+        _logScope = new Dictionary<string, object> { [LogFields.TenantId] = _tenant.TenantId };
         _webSocketFactory = webSocketFactory;
         _heartbeatIntervalSeconds = heartbeatIntervalSeconds;
         _streamingBufferSize = streamingBufferSize;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _resolvedWebSocketBaseUrl = webSocketBaseUrl ?? _webSocketBaseUrl;
 
         IbkrConduitDiagnostics.Meter.CreateObservableGauge(
             "ibkr.conduit.websocket.connection_state",
@@ -174,6 +184,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Subscribe");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.Topic, topicPrefix);
 
         var channel = Channel.CreateBounded<JsonElement>(
@@ -281,7 +292,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         }
 
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Connect");
-        activity?.SetTag("url", _webSocketBaseUrl);
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
+        activity?.SetTag("url", _resolvedWebSocketBaseUrl);
+        using var _ = _logger.BeginScope(_logScope);
 
         LogConnecting();
 
@@ -298,7 +311,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             throw; // unreachable unless InnerException is null
         }
 
-        var uri = new Uri($"{_webSocketBaseUrl}?oauth_token={_credentials.AccessToken}");
+        var uri = new Uri($"{_resolvedWebSocketBaseUrl}?oauth_token={_credentials.AccessToken}");
         var ws = _webSocketFactory();
         ws.SetRequestHeader("Cookie", $"api={tickleResponse.Session}");
         ws.SetRequestHeader("User-Agent", "ClientPortalGW/1");
@@ -319,6 +332,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private async Task DisconnectAsync()
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Disconnect");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
 
         _heartbeatCts?.Cancel();
         _messagePumpCts?.Cancel();
@@ -369,7 +383,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                     try
                     {
                         await SendTextAsync("tic", ct);
-                        _heartbeatCount.Add(1);
+                        _heartbeatCount.Add(1,
+                            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
@@ -488,7 +503,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         var plusIndex = topic.IndexOf('+');
         var prefix = plusIndex >= 0 ? topic[..plusIndex] : topic;
 
-        _messagesReceived.Add(1, new KeyValuePair<string, object?>(LogFields.Topic, prefix));
+        _messagesReceived.Add(1,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+            new KeyValuePair<string, object?>(LogFields.Topic, prefix));
 
         if (_subscribers.TryGetValue(prefix, out var writers))
         {
@@ -513,9 +530,12 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         try
         {
             using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Reconnect");
+            activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
             activity?.SetTag(LogFields.Trigger, "connection_lost");
 
-            _reconnectCount.Add(1, new KeyValuePair<string, object?>(LogFields.Trigger, "connection_lost"));
+            _reconnectCount.Add(1,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+                new KeyValuePair<string, object?>(LogFields.Trigger, "connection_lost"));
             LogReconnecting();
 
             await DisconnectAsync();
@@ -604,7 +624,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             true,
             cancellationToken);
 
-        _messagesSent.Add(1);
+        _messagesSent.Add(1,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
     }
 
     private void Unsubscribe(string topicPrefix, ChannelWriter<JsonElement> writer, string subscribeMessage)

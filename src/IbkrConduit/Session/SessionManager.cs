@@ -42,6 +42,8 @@ internal sealed partial class SessionManager : ISessionManager
     private readonly ISessionLifecycleNotifier _notifier;
     private readonly SessionHealthState _sessionHealthState;
     private readonly ILogger<SessionManager> _logger;
+    private readonly TenantContext _tenant;
+    private readonly Dictionary<string, object> _logScope;
     private readonly TimeProvider _timeProvider;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly CancellationTokenSource _disposeCts = new();
@@ -73,6 +75,7 @@ internal sealed partial class SessionManager : ISessionManager
         ISessionLifecycleNotifier notifier,
         SessionHealthState sessionHealthState,
         ILogger<SessionManager> logger,
+        TenantContext tenant,
         TimeProvider? timeProvider = null)
     {
         _sessionTokenProvider = sessionTokenProvider;
@@ -82,6 +85,8 @@ internal sealed partial class SessionManager : ISessionManager
         _notifier = notifier;
         _sessionHealthState = sessionHealthState;
         _logger = logger;
+        _tenant = tenant;
+        _logScope = new Dictionary<string, object> { [LogFields.TenantId] = _tenant.TenantId };
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -94,6 +99,8 @@ internal sealed partial class SessionManager : ISessionManager
         }
 
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Initialize");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
+        using var _ = _logger.BeginScope(_logScope);
 
         await _semaphore.WaitAsync(cancellationToken);
         var sw = Stopwatch.StartNew();
@@ -158,8 +165,10 @@ internal sealed partial class SessionManager : ISessionManager
             ScheduleProactiveRefresh();
 
             _state = SessionState.Ready;
-            _activeSessionCount.Add(1);
-            _initDuration.Record(sw.Elapsed.TotalMilliseconds);
+            _activeSessionCount.Add(1,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
+            _initDuration.Record(sw.Elapsed.TotalMilliseconds,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
             LogInitialized();
         }
         finally
@@ -172,6 +181,8 @@ internal sealed partial class SessionManager : ISessionManager
     public async Task ReauthenticateAsync(CancellationToken cancellationToken)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Reauthenticate");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
+        using var _ = _logger.BeginScope(_logScope);
 
         // Snapshot the reauth epoch before waiting on the semaphore. If
         // another caller completes a reauth while we wait, they will
@@ -270,8 +281,11 @@ internal sealed partial class SessionManager : ISessionManager
             await _notifier.NotifyAsync(cancellationToken);
 
             _state = SessionState.Ready;
-            _refreshCount.Add(1, new KeyValuePair<string, object?>(LogFields.Trigger, "reauth"));
-            _refreshDuration.Record(sw.Elapsed.TotalMilliseconds);
+            _refreshCount.Add(1,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+                new KeyValuePair<string, object?>(LogFields.Trigger, "reauth"));
+            _refreshDuration.Record(sw.Elapsed.TotalMilliseconds,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
 
             // Mark the reauth complete BEFORE releasing the semaphore so any
             // caller queued behind us short-circuits via the epoch check above.
@@ -296,13 +310,15 @@ internal sealed partial class SessionManager : ISessionManager
         _disposed = true;
 
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Shutdown");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
 
         var wasInitialized = _state != SessionState.Uninitialized;
         _state = SessionState.ShuttingDown;
 
         if (wasInitialized)
         {
-            _activeSessionCount.Add(-1);
+            _activeSessionCount.Add(-1,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
         }
 
         if (_tickleTimer != null)

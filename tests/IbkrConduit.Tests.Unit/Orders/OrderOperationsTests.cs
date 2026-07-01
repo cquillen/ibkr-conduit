@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Orders;
 using IbkrConduit.Session;
 using IbkrConduit.Tests.Unit.TestHelpers;
@@ -24,7 +25,7 @@ public class OrderOperationsTests
 
     public OrderOperationsTests()
     {
-        _sut = new OrderOperations(_fakeApi, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance);
+        _sut = new OrderOperations(_fakeApi, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance, new TenantContext("test"));
     }
 
     [Fact]
@@ -148,7 +149,7 @@ public class OrderOperationsTests
         var semaphore2 = new SemaphoreSlim(0, 1);
 
         var api = new BlockingOrderApi(callOrder, semaphore1, semaphore2);
-        var ops = new OrderOperations(api, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance);
+        var ops = new OrderOperations(api, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance, new TenantContext("test"));
 
         var order = new OrderRequest
         {
@@ -519,7 +520,7 @@ public class OrderOperationsTests
     public async Task PlaceOrderAsync_DifferentAccounts_RunInParallel()
     {
         var api = new ParallelVerifyingOrderApi();
-        var ops = new OrderOperations(api, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance);
+        var ops = new OrderOperations(api, new IbkrClientOptions(), NullLogger<OrderOperations>.Instance, new TenantContext("test"));
 
         var order = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "MKT" };
 

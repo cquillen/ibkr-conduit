@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -27,7 +28,7 @@ public class GlobalRateLimitingHandlerTests
             QueueLimit = 0,
         });
 
-        var handler = new GlobalRateLimitingHandler(limiter, NullLogger<GlobalRateLimitingHandler>.Instance)
+        var handler = new GlobalRateLimitingHandler(new NoOpSharedRateGovernor(), limiter, NullLogger<GlobalRateLimitingHandler>.Instance, new TenantContext("test"))
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };
@@ -51,7 +52,7 @@ public class GlobalRateLimitingHandlerTests
             QueueLimit = 0,
         });
 
-        var handler = new GlobalRateLimitingHandler(limiter, NullLogger<GlobalRateLimitingHandler>.Instance)
+        var handler = new GlobalRateLimitingHandler(new NoOpSharedRateGovernor(), limiter, NullLogger<GlobalRateLimitingHandler>.Instance, new TenantContext("test"))
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };
@@ -79,7 +80,7 @@ public class GlobalRateLimitingHandlerTests
             QueueLimit = 0,
         });
 
-        var handler = new GlobalRateLimitingHandler(limiter, NullLogger<GlobalRateLimitingHandler>.Instance)
+        var handler = new GlobalRateLimitingHandler(new NoOpSharedRateGovernor(), limiter, NullLogger<GlobalRateLimitingHandler>.Instance, new TenantContext("test"))
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };
@@ -114,7 +115,7 @@ public class GlobalRateLimitingHandlerTests
         });
 
         var logger = new CapturingLogger();
-        var handler = new GlobalRateLimitingHandler(limiter, logger)
+        var handler = new GlobalRateLimitingHandler(new NoOpSharedRateGovernor(), limiter, logger, new TenantContext("test"))
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };

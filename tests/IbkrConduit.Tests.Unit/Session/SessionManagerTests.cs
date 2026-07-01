@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.Health;
 using IbkrConduit.Session;
@@ -32,7 +33,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -54,7 +56,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -74,7 +77,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -98,7 +102,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -134,7 +139,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<HttpRequestException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -153,7 +159,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -172,7 +179,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -192,7 +200,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         // Initialize first
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -227,7 +236,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
         var firstTimer = deps.TickleTimerFactory.CreatedTimer!;
@@ -263,7 +273,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -301,7 +312,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -367,7 +379,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
         await manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
@@ -387,7 +400,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
         await manager.DisposeAsync();
@@ -407,7 +421,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
         var timer = deps.TickleTimerFactory.CreatedTimer!;
@@ -429,7 +444,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         // Should not throw even if never initialized
         await manager.DisposeAsync();
@@ -450,7 +466,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -470,7 +487,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         using var cts = new CancellationTokenSource();
         cts.Cancel();
@@ -491,7 +509,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
         await manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
@@ -512,7 +531,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -535,7 +555,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -558,7 +579,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -581,7 +603,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -604,7 +627,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -627,7 +651,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<IbkrTransientException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -648,7 +673,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -671,7 +697,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -694,7 +721,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -717,7 +745,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -738,7 +767,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         // Initialize successfully first
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -769,7 +799,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await Should.ThrowAsync<OperationCanceledException>(
             () => manager.EnsureInitializedAsync(cts.Token));
@@ -801,7 +832,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await Should.ThrowAsync<OperationCanceledException>(
             () => manager.EnsureInitializedAsync(cts.Token));
@@ -820,7 +852,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         // Initialize successfully first.
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -860,7 +893,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<IbkrTransientException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -890,7 +924,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         var ex = await Should.ThrowAsync<IbkrTransientException>(
             () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
@@ -912,7 +947,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         // Initialize successfully first.
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
@@ -941,7 +977,8 @@ public class SessionManagerTests
             deps.Options,
             deps.Notifier,
             deps.SessionHealthState,
-            NullLogger<SessionManager>.Instance);
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
@@ -967,6 +1004,7 @@ public class SessionManagerTests
             deps.Notifier,
             deps.SessionHealthState,
             NullLogger<SessionManager>.Instance,
+            new TenantContext("test"),
             fakeTime);
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);

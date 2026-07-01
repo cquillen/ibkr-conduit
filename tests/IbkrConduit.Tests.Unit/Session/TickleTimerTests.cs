@@ -2,6 +2,7 @@ using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging;
@@ -33,6 +34,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 1,
             failureIntervalSeconds: 1,
             fakeTime);
@@ -89,6 +91,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 1,
             failureIntervalSeconds: 1,
             fakeTime);
@@ -128,6 +131,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 1,
             failureIntervalSeconds: 1,
             fakeTime);
@@ -174,6 +178,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 1,
             failureIntervalSeconds: 1,
             fakeTime);
@@ -211,6 +216,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 1,
             failureIntervalSeconds: 1,
             fakeTime);
@@ -244,6 +250,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 1,
             failureIntervalSeconds: 1,
             fakeTime);
@@ -267,6 +274,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 1,
             failureIntervalSeconds: 1,
             fakeTime);
@@ -289,6 +297,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 1,
             failureIntervalSeconds: 1,
             fakeTime);
@@ -323,6 +332,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 1,
             failureIntervalSeconds: 1,
             fakeTime);
@@ -356,6 +366,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 1,
             failureIntervalSeconds: 1,
             fakeTime);
@@ -388,6 +399,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 60,
             failureIntervalSeconds: 5,
             fakeTime);
@@ -437,6 +449,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 60,
             failureIntervalSeconds: 5,
             fakeTime);
@@ -478,6 +491,7 @@ public class TickleTimerTests
             new SessionHealthState(),
             NullLogger<TickleTimer>.Instance,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 60,
             failureIntervalSeconds: 5,
             fakeTime);
@@ -555,6 +569,7 @@ public class TickleTimerTests
             healthState,
             logger,
             notifier,
+            new TenantContext("test"),
             healthyIntervalSeconds: 1,
             failureIntervalSeconds: 1,
             fakeTime);

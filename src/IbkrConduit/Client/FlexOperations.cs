@@ -47,6 +47,8 @@ internal sealed partial class FlexOperations : IFlexOperations
     private readonly FlexClient? _flexClient;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<FlexOperations> _logger;
+    private readonly TenantContext _tenant;
+    private readonly Dictionary<string, object> _logScope;
     private readonly TimeProvider _timeProvider;
 
     /// <summary>
@@ -56,16 +58,20 @@ internal sealed partial class FlexOperations : IFlexOperations
     /// <param name="options">Client options — used for <see cref="IbkrClientOptions.FlexPollTimeout"/>
     /// and <see cref="IbkrClientOptions.ThrowOnApiError"/>.</param>
     /// <param name="logger">Logger for query lifecycle events.</param>
+    /// <param name="tenant">Per-provider tenant identity used to tag telemetry.</param>
     /// <param name="timeProvider">Time provider for delay operations. Defaults to <see cref="TimeProvider.System"/> when null.</param>
     public FlexOperations(
         FlexClient? flexClient,
         IbkrClientOptions options,
         ILogger<FlexOperations> logger,
+        TenantContext tenant,
         TimeProvider? timeProvider = null)
     {
         _flexClient = flexClient;
         _options = options;
         _logger = logger;
+        _tenant = tenant;
+        _logScope = new Dictionary<string, object> { [LogFields.TenantId] = _tenant.TenantId };
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -127,8 +133,11 @@ internal sealed partial class FlexOperations : IFlexOperations
         string queryId, string? fromDate, string? toDate, CancellationToken cancellationToken)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Flex.ExecuteQuery");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.QueryId, queryId);
-        _queryCount.Add(1);
+        using var _ = _logger.BeginScope(_logScope);
+        _queryCount.Add(1,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
         var sw = Stopwatch.StartNew();
 
         const int maxSendAttempts = 3;
@@ -178,7 +187,9 @@ internal sealed partial class FlexOperations : IFlexOperations
                 ? $"Flex SendRequest did not succeed after {maxSendAttempts} attempts for query '{queryId}'. " +
                   $"Last response: code {lastSendError.ErrorCode} ({lastSendError.Message})."
                 : referenceCodeResult.Error!.Message;
-            _errorCount.Add(1, new KeyValuePair<string, object?>(LogFields.ErrorCode, lastSendError?.ErrorCode ?? 0));
+            _errorCount.Add(1,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+                new KeyValuePair<string, object?>(LogFields.ErrorCode, lastSendError?.ErrorCode ?? 0));
             return Result<XDocument>.Failure(new IbkrFlexError(
                 ErrorCode: lastSendError?.ErrorCode ?? 0,
                 CodeDescription: lastSendError?.CodeDescription,
@@ -200,12 +211,15 @@ internal sealed partial class FlexOperations : IFlexOperations
         }
 
         var docResult = await PollForStatementAsync(referenceCode, cancellationToken);
-        _queryDuration.Record(sw.Elapsed.TotalMilliseconds);
+        _queryDuration.Record(sw.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
 
         var pollStatus = docResult.IsSuccess ? "success"
             : docResult.Error is IbkrFlexError fe && fe.ErrorCode == 0 && fe.IsRetryable ? "timeout"
             : "error";
-        _pollAttempts.Record(_lastPollAttemptCount, new KeyValuePair<string, object?>("status", pollStatus));
+        _pollAttempts.Record(_lastPollAttemptCount,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+            new KeyValuePair<string, object?>("status", pollStatus));
 
         if (docResult.IsSuccess)
         {
@@ -261,7 +275,8 @@ internal sealed partial class FlexOperations : IFlexOperations
         while (totalWaited < maxWaitMs)
         {
             attempt++;
-            _pollCount.Add(1);
+            _pollCount.Add(1,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
 
             var fetchResult = await _flexClient!.GetStatementAsync(referenceCode, cancellationToken);
             if (!fetchResult.IsSuccess)
@@ -285,7 +300,9 @@ internal sealed partial class FlexOperations : IFlexOperations
             if (classification == FlexResponseClass.Permanent)
             {
                 _lastPollAttemptCount = attempt;
-                _errorCount.Add(1, new KeyValuePair<string, object?>(LogFields.ErrorCode, errorCode));
+                _errorCount.Add(1,
+                    new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+                    new KeyValuePair<string, object?>(LogFields.ErrorCode, errorCode));
                 LogPermanentError(attempt, errorCode, lastErrorMessage);
                 var info = FlexErrorCodes.TryLookup(errorCode);
                 return Result<XDocument>.Failure(new IbkrFlexError(

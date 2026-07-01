@@ -33,6 +33,8 @@ internal partial class OrderOperations : IOrderOperations
     private readonly IIbkrOrderApi _orderApi;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<OrderOperations> _logger;
+    private readonly TenantContext _tenant;
+    private readonly Dictionary<string, object> _logScope;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _accountLocks = new();
 
     /// <summary>
@@ -41,11 +43,14 @@ internal partial class OrderOperations : IOrderOperations
     /// <param name="orderApi">The Refit order API client.</param>
     /// <param name="options">Client options.</param>
     /// <param name="logger">The logger instance.</param>
-    public OrderOperations(IIbkrOrderApi orderApi, IbkrClientOptions options, ILogger<OrderOperations> logger)
+    /// <param name="tenant">Per-provider tenant identity used to tag telemetry.</param>
+    public OrderOperations(IIbkrOrderApi orderApi, IbkrClientOptions options, ILogger<OrderOperations> logger, TenantContext tenant)
     {
         _orderApi = orderApi;
         _options = options;
         _logger = logger;
+        _tenant = tenant;
+        _logScope = new Dictionary<string, object> { [LogFields.TenantId] = _tenant.TenantId };
     }
 
     /// <inheritdoc />
@@ -53,6 +58,8 @@ internal partial class OrderOperations : IOrderOperations
         string accountId, OrderRequest order, CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Place");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
+        using var _ = _logger.BeginScope(_logScope);
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag(LogFields.Conid, order.Conid);
         activity?.SetTag(LogFields.Side, order.Side);
@@ -74,8 +81,10 @@ internal partial class OrderOperations : IOrderOperations
 
             var classified = ClassifyResponse(apiResult.Value[0]);
 
-            _submissionDuration.Record(sw.Elapsed.TotalMilliseconds);
+            _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
             _submissionCount.Add(1,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
                 new KeyValuePair<string, object?>(LogFields.Side, order.Side),
                 new KeyValuePair<string, object?>(LogFields.OrderType, order.OrderType));
 
@@ -96,6 +105,7 @@ internal partial class OrderOperations : IOrderOperations
         ValidateOrderGroup(orders);
 
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.PlaceGroup");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag("ibkr.order_count", orders.Count);
 
@@ -117,10 +127,12 @@ internal partial class OrderOperations : IOrderOperations
             // order ids are obtained via GetLiveOrdersAsync, correlated on the parent cOID.
             var classified = ClassifyResponse(apiResult.Value[0]);
 
-            _submissionDuration.Record(sw.Elapsed.TotalMilliseconds);
+            _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
 
             // Count every leg; tag with the parent order's side/type (legs vary across the group).
             _submissionCount.Add(orders.Count,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
                 new KeyValuePair<string, object?>(LogFields.Side, orders[0].Side),
                 new KeyValuePair<string, object?>(LogFields.OrderType, orders[0].OrderType));
 
@@ -178,9 +190,11 @@ internal partial class OrderOperations : IOrderOperations
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Cancel");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag(LogFields.OrderId, orderId);
-        _cancelCount.Add(1);
+        _cancelCount.Add(1,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
         var response = await _orderApi.CancelOrderAsync(accountId, orderId, extOperator, manualIndicator, manualCancelTime?.ToUnixTimeSeconds(), cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -193,6 +207,7 @@ internal partial class OrderOperations : IOrderOperations
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetLiveOrders");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         var response = await _orderApi.GetLiveOrdersAsync(filters, force, cancellationToken);
         var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         var result = apiResult.Map(r => r.Orders ?? new List<LiveOrder>());
@@ -204,6 +219,7 @@ internal partial class OrderOperations : IOrderOperations
         int? days = null, CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetTrades");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         var response = await _orderApi.GetTradesAsync(days, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
@@ -215,6 +231,7 @@ internal partial class OrderOperations : IOrderOperations
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Modify");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag(LogFields.OrderId, orderId);
         activity?.SetTag(LogFields.Conid, order.Conid);
@@ -237,8 +254,10 @@ internal partial class OrderOperations : IOrderOperations
 
             var classified = ClassifyResponse(apiResult.Value[0]);
 
-            _submissionDuration.Record(sw.Elapsed.TotalMilliseconds);
+            _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
             _submissionCount.Add(1,
+                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
                 new KeyValuePair<string, object?>(LogFields.Side, order.Side),
                 new KeyValuePair<string, object?>(LogFields.OrderType, order.OrderType));
 
@@ -256,10 +275,12 @@ internal partial class OrderOperations : IOrderOperations
         string replyId, bool confirmed, CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Reply");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag("replyId", replyId);
         activity?.SetTag("confirmed", confirmed);
 
-        _questionCount.Add(1);
+        _questionCount.Add(1,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
         LogReplyAttempt(replyId, confirmed);
 
         var replyApiResponse = await _orderApi.ReplyAsync(
@@ -288,6 +309,7 @@ internal partial class OrderOperations : IOrderOperations
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.WhatIf");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.AccountId, accountId);
         activity?.SetTag(LogFields.Conid, order.Conid);
 
@@ -302,6 +324,7 @@ internal partial class OrderOperations : IOrderOperations
         string orderId, CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetStatus");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.OrderId, orderId);
         var response = await _orderApi.GetOrderStatusAsync(orderId, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
@@ -314,6 +337,7 @@ internal partial class OrderOperations : IOrderOperations
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.DismissNotification");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.OrderId, orderId.ToString(System.Globalization.CultureInfo.InvariantCulture));
         var request = new DismissNotificationRequest(orderId, reqId, text);
         var response = await _orderApi.DismissNotificationAsync(request, cancellationToken);

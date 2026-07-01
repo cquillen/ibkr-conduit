@@ -48,6 +48,13 @@ public class IbkrClientOptions
     public string? BaseUrl { get; set; }
 
     /// <summary>
+    /// Override the base URL for WebSocket connections.
+    /// Default is <c>wss://api.ibkr.com/v1/api/ws</c>. Set this to a mock
+    /// WebSocket server URL for integration testing.
+    /// </summary>
+    public string? WebSocketBaseUrl { get; set; }
+
+    /// <summary>
     /// Interval in seconds between tickle requests to keep the session alive.
     /// Default is 60. Reduce for integration testing.
     /// </summary>
@@ -113,4 +120,29 @@ public class IbkrClientOptions
     /// still takes a query ID parameter.
     /// </summary>
     public FlexQueryOptions FlexQueries { get; set; } = new();
+
+    /// <summary>
+    /// Creates a per-tenant copy: scalars are copied, the mutable
+    /// <see cref="SuppressMessageIds"/> list and <see cref="FlexQueries"/> are
+    /// deep-copied so a per-tenant override cannot mutate the shared baseline.
+    /// </summary>
+    internal IbkrClientOptions Clone() => new()
+    {
+        Credentials = Credentials,
+        Compete = Compete,
+        SuppressMessageIds = new List<string>(SuppressMessageIds),
+        PreflightCacheDuration = PreflightCacheDuration,
+        FlexToken = FlexToken,
+        BaseUrl = BaseUrl,
+        WebSocketBaseUrl = WebSocketBaseUrl,
+        TickleIntervalSeconds = TickleIntervalSeconds,
+        TickleFailureIntervalSeconds = TickleFailureIntervalSeconds,
+        WebSocketHeartbeatIntervalSeconds = WebSocketHeartbeatIntervalSeconds,
+        StreamingBufferSize = StreamingBufferSize,
+        ProactiveRefreshMargin = ProactiveRefreshMargin,
+        StrictResponseValidation = StrictResponseValidation,
+        ThrowOnApiError = ThrowOnApiError,
+        FlexPollTimeout = FlexPollTimeout,
+        FlexQueries = FlexQueries.Clone(),
+    };
 }

@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -37,7 +38,7 @@ public class EndpointRateLimitingHandlerTests : IDisposable
     [Fact]
     public async Task SendAsync_MatchedEndpoint_AcquiresToken()
     {
-        var handler = new EndpointRateLimitingHandler(_limiters, NullLogger<EndpointRateLimitingHandler>.Instance)
+        var handler = new EndpointRateLimitingHandler(_limiters, NullLogger<EndpointRateLimitingHandler>.Instance, new TenantContext("test"))
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };
@@ -51,7 +52,7 @@ public class EndpointRateLimitingHandlerTests : IDisposable
     [Fact]
     public async Task SendAsync_MatchedEndpoint_WhenQueueFull_ThrowsRateLimitRejectedException()
     {
-        var handler = new EndpointRateLimitingHandler(_limiters, NullLogger<EndpointRateLimitingHandler>.Instance)
+        var handler = new EndpointRateLimitingHandler(_limiters, NullLogger<EndpointRateLimitingHandler>.Instance, new TenantContext("test"))
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };
@@ -69,7 +70,7 @@ public class EndpointRateLimitingHandlerTests : IDisposable
     [Fact]
     public async Task SendAsync_UnmatchedEndpoint_PassesThroughWithoutLimiting()
     {
-        var handler = new EndpointRateLimitingHandler(_limiters, NullLogger<EndpointRateLimitingHandler>.Instance)
+        var handler = new EndpointRateLimitingHandler(_limiters, NullLogger<EndpointRateLimitingHandler>.Instance, new TenantContext("test"))
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };
@@ -89,7 +90,7 @@ public class EndpointRateLimitingHandlerTests : IDisposable
     [Fact]
     public async Task SendAsync_NullRequestUri_PassesThroughWithoutLimiting()
     {
-        var handler = new EndpointRateLimitingHandler(_limiters, NullLogger<EndpointRateLimitingHandler>.Instance)
+        var handler = new EndpointRateLimitingHandler(_limiters, NullLogger<EndpointRateLimitingHandler>.Instance, new TenantContext("test"))
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK),
         };

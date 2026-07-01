@@ -31,6 +31,7 @@ internal class OAuthSigningHandler : DelegatingHandler
     private readonly ISessionTokenProvider _tokenProvider;
     private readonly string _consumerKey;
     private readonly string _accessToken;
+    private readonly TenantContext _tenant;
     private readonly ISessionManager? _sessionManager;
 
     /// <summary>
@@ -40,11 +41,13 @@ internal class OAuthSigningHandler : DelegatingHandler
         ISessionTokenProvider tokenProvider,
         string consumerKey,
         string accessToken,
+        TenantContext tenant,
         ISessionManager? sessionManager = null)
     {
         _tokenProvider = tokenProvider;
         _consumerKey = consumerKey;
         _accessToken = accessToken;
+        _tenant = tenant;
         _sessionManager = sessionManager;
     }
 
@@ -52,7 +55,11 @@ internal class OAuthSigningHandler : DelegatingHandler
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        // No tenant log scope here: as the innermost handler, the outer
+        // GlobalRateLimitingHandler already pushed one that covers this call.
+        // The span and metric tags below still carry the tenant explicitly.
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.Request");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.Method, request.Method.Method);
         activity?.SetTag("url", request.RequestUri?.ToString());
 
@@ -83,7 +90,8 @@ internal class OAuthSigningHandler : DelegatingHandler
         }
 
         var endpoint = request.RequestUri?.AbsolutePath ?? "unknown";
-        _activeRequests.Add(1);
+        var tenantTag = new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId);
+        _activeRequests.Add(1, tenantTag);
         var sw = Stopwatch.StartNew();
         try
         {
@@ -95,6 +103,7 @@ internal class OAuthSigningHandler : DelegatingHandler
 
             var tags = new TagList
             {
+                { LogFields.TenantId, _tenant.TenantId },
                 { LogFields.Endpoint, endpoint },
                 { LogFields.Method, method },
                 { LogFields.StatusCode, statusCode },
@@ -106,7 +115,7 @@ internal class OAuthSigningHandler : DelegatingHandler
         }
         finally
         {
-            _activeRequests.Add(-1);
+            _activeRequests.Add(-1, tenantTag);
         }
     }
 }
