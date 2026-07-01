@@ -27,9 +27,24 @@ public static class TestCredentials
 
     /// <summary>
     /// Creates a complete set of synthetic credentials using freshly generated RSA keys
-    /// and a small DH prime suitable for testing.
+    /// and a small DH prime suitable for testing, using the default
+    /// <see cref="ConsumerKey"/> and <see cref="AccessToken"/>.
     /// </summary>
-    public static IbkrOAuthCredentials Create()
+    public static IbkrOAuthCredentials Create() => Create(ConsumerKey, AccessToken);
+
+    /// <summary>
+    /// Creates synthetic credentials with a caller-specified consumer key and access
+    /// token, so multiple distinct tenants can be exercised against one mock server
+    /// (each request is signed with its own <paramref name="consumerKey"/>). Keys and
+    /// the shared token secret are freshly generated per call — no real secrets.
+    /// </summary>
+    /// <param name="consumerKey">The OAuth consumer key to embed in signed requests.</param>
+    /// <param name="accessToken">The OAuth access token to embed in signed requests.</param>
+    /// <param name="tenantId">The tenant identifier stamped on the credentials.</param>
+    public static IbkrOAuthCredentials Create(
+        string consumerKey,
+        string accessToken,
+        string tenantId = "test-tenant")
     {
         // Generate RSA keys for signing and encryption
         var signatureKey = RSA.Create(2048);
@@ -59,9 +74,9 @@ public static class TestCredentials
             CultureInfo.InvariantCulture);
 
         return new IbkrOAuthCredentials(
-            TenantId: "test-tenant",
-            ConsumerKey: ConsumerKey,
-            AccessToken: AccessToken,
+            TenantId: tenantId,
+            ConsumerKey: consumerKey,
+            AccessToken: accessToken,
             EncryptedAccessTokenSecret: encryptedSecretB64,
             SignaturePrivateKey: signatureKey,
             EncryptionPrivateKey: encryptionKey,
