@@ -9,7 +9,14 @@
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
     <!-- CA1707: Identifiers should not contain underscores — test methods use Snake_Case by convention -->
     <!-- CS8632: Nullable annotation used outside #nullable context — global Nullable=enable is set but Roslyn still warns in some files -->
-    <NoWarn>$(NoWarn);CA1707;CS8632</NoWarn>
+    <!-- CS0436: Refit 12's source generator emits an internal `Refit.Implementation.Generated`
+         (a per-assembly ModuleInitializer) in a fixed namespace it does not let us rename. Because
+         IbkrConduit exposes internals to this test project (InternalsVisibleTo) and this project also
+         defines its own test Refit interfaces, IbkrConduit's copy and this project's copy collide.
+         The compiler correctly uses each assembly's own copy, so the duplication is benign. The
+         PreserveAttribute half of the clash is already resolved via RefitInternalNamespace in
+         Directory.Build.targets; only this fixed-namespace type remains. -->
+    <NoWarn>$(NoWarn);CA1707;CS8632;CS0436</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

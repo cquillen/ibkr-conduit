@@ -10,12 +10,20 @@ namespace IbkrConduit.Tests.Unit.TestHelpers;
 /// </summary>
 internal static class FakeApiResponse
 {
+    // Refit 12's ApiResponse<T> constructor requires the HttpResponseMessage to have an associated
+    // RequestMessage (real responses always do). Attach one so the fakes mirror production.
+    private static HttpResponseMessage WithRequest(this HttpResponseMessage response)
+    {
+        response.RequestMessage = new HttpRequestMessage(HttpMethod.Get, "https://api.ibkr.com/test");
+        return response;
+    }
+
     /// <summary>
     /// Creates a successful <see cref="IApiResponse{T}"/> wrapping the given content.
     /// </summary>
     public static IApiResponse<T> Success<T>(T content) =>
         new ApiResponse<T>(
-            new HttpResponseMessage(HttpStatusCode.OK),
+            new HttpResponseMessage(HttpStatusCode.OK).WithRequest(),
             content,
             new RefitSettings());
 
@@ -27,7 +35,7 @@ internal static class FakeApiResponse
             new HttpResponseMessage(statusCode)
             {
                 Content = body is not null ? new StringContent(body) : null,
-            },
+            }.WithRequest(),
             default,
             new RefitSettings());
 
