@@ -120,7 +120,9 @@ public class ResultFactoryTests
     {
         var httpResponse = new HttpResponseMessage(statusCode)
         {
-            Content = new StringContent(body)
+            Content = new StringContent(body),
+            // Refit 12's ApiResponse<T> constructor requires an associated request message.
+            RequestMessage = new HttpRequestMessage(HttpMethod.Get, "https://api.ibkr.com/test"),
         };
         httpResponse.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         if (retryAfterSeconds.HasValue)
@@ -149,7 +151,9 @@ public class ResultFactoryTests
     {
         var httpResponse = new HttpResponseMessage(statusCode)
         {
-            Content = new StringContent(body)
+            Content = new StringContent(body),
+            // Refit 12's ApiResponse<T> constructor requires an associated request message.
+            RequestMessage = new HttpRequestMessage(HttpMethod.Get, "https://api.ibkr.com/test"),
         };
         httpResponse.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         var content = statusCode == HttpStatusCode.OK ? body : null;

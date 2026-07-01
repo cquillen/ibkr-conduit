@@ -1,0 +1,35 @@
+<Project>
+
+  <!--
+    Refit 12 upgrade fixes. This file lives at the repo root and is imported by every project
+    (including the test projects, which use their own Directory.Build.props that does not chain
+    to the root one — Directory.Build.targets is discovered independently, so it applies to all).
+  -->
+
+  <PropertyGroup>
+    <!--
+      Refit's source generator emits internal helper types (PreserveAttribute, Generated, ...) into
+      every project that has Refit interfaces. Their namespace comes from $(RefitInternalNamespace),
+      which refit.props defaults to $(RootNamespace) — but that is still empty when refit.props is
+      imported, so the types land in the global namespace and collide across our InternalsVisibleTo
+      boundary (CS0436 in IbkrConduit.Tests.Unit). refit.props documents this exact case: "Can be
+      overridden by user in case of namespace clashes." Give each assembly a unique namespace.
+    -->
+    <RefitInternalNamespace>$(MSBuildProjectName)</RefitInternalNamespace>
+  </PropertyGroup>
+
+  <!--
+    Refit 12 replaced System.Reactive with ReactiveUI.Primitives, whose R3Bridge source generator
+    ALWAYS emits an internal PrimitivesR3BridgeGeneratedAttribute into every project. With
+    InternalsVisibleTo, IbkrConduit's copy leaks into downstream projects that generate their own,
+    causing CS0436 (fatal in IbkrConduit.HealthChecks under TreatWarningsAsErrors). We never use the
+    R3 bridge (all Refit methods return Task<IApiResponse<T>>, never IObservable<T>), so the only
+    thing this generator produces for us is the colliding marker. Remove it from the compile.
+  -->
+  <Target Name="RemoveR3BridgeGenerator" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <Analyzer Remove="@(Analyzer)" Condition="$([System.String]::Copy('%(Analyzer.FileName)').Contains('R3Bridge'))" />
+    </ItemGroup>
+  </Target>
+
+</Project>
