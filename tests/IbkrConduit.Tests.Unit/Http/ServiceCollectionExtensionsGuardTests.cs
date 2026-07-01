@@ -25,6 +25,16 @@ public class ServiceCollectionExtensionsGuardTests
         ex.Message.ShouldContain("IIbkrClientManager");
     }
 
+    [Fact]
+    public void AddIbkrClientManager_CalledTwice_Throws()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddIbkrClientManager();
+
+        Should.Throw<InvalidOperationException>(() => services.AddIbkrClientManager());
+    }
+
     private static IbkrOAuthCredentials CreateTestCredentials()
     {
         var sigKey = RSA.Create(2048);

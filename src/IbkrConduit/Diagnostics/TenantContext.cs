@@ -8,4 +8,4 @@ namespace IbkrConduit.Diagnostics;
 /// distinguishable. Seeded once per child provider with the explicit tenant id.
 /// </summary>
 [ExcludeFromCodeCoverage]
-public sealed record TenantContext(string TenantId);
+internal sealed record TenantContext(string TenantId);

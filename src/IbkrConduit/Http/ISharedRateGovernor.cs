@@ -10,7 +10,7 @@ namespace IbkrConduit.Http;
 /// it with an adaptive IP-level governor (penalty-box back-off, concurrency
 /// ceiling) without changing call sites. See the multi-tenant design spec, item B.
 /// </summary>
-public interface ISharedRateGovernor
+internal interface ISharedRateGovernor
 {
     /// <summary>Acquires permission to proceed with one outbound request.</summary>
     ValueTask AcquireAsync(CancellationToken cancellationToken);
@@ -18,7 +18,7 @@ public interface ISharedRateGovernor
 
 /// <summary>Pass-through governor: imposes no shared limit.</summary>
 [ExcludeFromCodeCoverage]
-public sealed class NoOpSharedRateGovernor : ISharedRateGovernor
+internal sealed class NoOpSharedRateGovernor : ISharedRateGovernor
 {
     /// <inheritdoc />
     public ValueTask AcquireAsync(CancellationToken cancellationToken) => ValueTask.CompletedTask;
