@@ -1,11 +1,15 @@
 using System.Globalization;
+using IbkrConduit.Auth;
+using IbkrConduit.Client;
+using IbkrConduit.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Examples.OrderMonitor;
 
 internal static class Program
 {
-    public static int Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
         if (args.Any(a => a is "-h" or "--help" or "/?"))
         {
@@ -13,15 +17,79 @@ internal static class Program
             return 0;
         }
 
-        if (!TryParseArgs(args, out _, out _, out _, out _, out _, out _, out var error))
+        if (!TryParseArgs(args, out var realtimeOnly, out var days, out var duration,
+                out var durationDisplay, out var logFilePath, out var logLevel, out var error))
         {
             Console.Error.WriteLine(error);
             return 2;
         }
 
-        // Full streaming wiring is added in a later task.
-        Console.WriteLine("OrderMonitor: arguments parsed. Streaming wiring not yet implemented.");
-        return 0;
+        const string credentialsPath = ".ibkr-credentials/ibkr-credentials.json";
+        if (!File.Exists(credentialsPath))
+        {
+            Console.Error.WriteLine(
+                $"Error: credentials file not found at {credentialsPath}. Run ibkr-conduit-setup first.");
+            return 1;
+        }
+
+        using var credentials = OAuthCredentialsFactory.FromFile(credentialsPath);
+
+        var services = new ServiceCollection();
+        var panelBuffer = new PanelLogBuffer();
+        services.AddLogging(b =>
+        {
+            b.SetMinimumLevel(logLevel);
+            b.AddProvider(panelBuffer);
+            if (!string.IsNullOrEmpty(logFilePath))
+            {
+                b.AddProvider(new FileLoggerProvider(logFilePath));
+            }
+        });
+        services.AddIbkrClient(opts => opts.Credentials = credentials);
+
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<IIbkrClient>();
+        var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
+        var logger = loggerFactory.CreateLogger("OrderMonitor");
+
+        using var cts = new CancellationTokenSource();
+        if (duration is { } d)
+        {
+            cts.CancelAfter(d);
+        }
+
+        Console.CancelKeyPress += (_, e) =>
+        {
+            e.Cancel = true;
+            cts.Cancel();
+        };
+
+        var mode = realtimeOnly ? "realtime-only" : $"including {days}d history";
+        var bannerSuffix = duration is null
+            ? "Press Ctrl+C to exit."
+            : $"Press Ctrl+C to exit (auto-exits in {durationDisplay}).";
+        Console.WriteLine($"Monitoring orders + executions ({mode}). {bannerSuffix}");
+
+        try
+        {
+            await OrderMonitorHost.RunAsync(client, realtimeOnly, days, logger, panelBuffer, cts.Token);
+            return 0;
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Cancelled.");
+            return 0;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Console.Error.WriteLine($"Error: {ex.Message}");
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error: {ex.GetType().Name}: {ex.Message}");
+            return 1;
+        }
     }
 
     private static void PrintHelp()

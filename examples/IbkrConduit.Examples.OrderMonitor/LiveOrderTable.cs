@@ -8,7 +8,8 @@ namespace IbkrConduit.Examples.OrderMonitor;
 /// Spectre.Console table state for the order-status (<c>sor</c>) stream. Orders are an
 /// update-in-place set keyed by <see cref="OrderUpdate.OrderId"/>: a new order inserts a
 /// row; subsequent updates for the same id merge into it (last-write-wins, except a
-/// non-null <c>OrderRef</c> is never overwritten with null). Rows render sorted by OrderId.
+/// non-null/non-empty <c>OrderRef</c> is never overwritten by a later null-or-empty
+/// value). Rows render sorted by OrderId.
 /// </summary>
 internal sealed class LiveOrderTable
 {

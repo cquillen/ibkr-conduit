@@ -70,4 +70,39 @@ public class ArgParsingTests
         Parse(new[] { "--bogus" }, out _, out var error).ShouldBeFalse();
         error.ShouldContain("--bogus");
     }
+
+    [Fact]
+    public void TryParseArgs_DaysMissingValue_ReturnsError()
+    {
+        Parse(new[] { "--days" }, out _, out var error).ShouldBeFalse();
+        error.ShouldContain("--days");
+    }
+
+    [Fact]
+    public void TryParseArgs_DurationMissingValue_ReturnsError()
+    {
+        Parse(new[] { "--duration" }, out _, out var error).ShouldBeFalse();
+        error.ShouldContain("--duration");
+    }
+
+    [Fact]
+    public void TryParseArgs_LogFileMissingValue_ReturnsError()
+    {
+        Parse(new[] { "--log-file" }, out _, out var error).ShouldBeFalse();
+        error.ShouldContain("--log-file");
+    }
+
+    [Fact]
+    public void TryParseArgs_LogLevelMissingValue_ReturnsError()
+    {
+        Parse(new[] { "--log-level" }, out _, out var error).ShouldBeFalse();
+        error.ShouldContain("--log-level");
+    }
+
+    [Fact]
+    public void TryParseArgs_DurationUnparsable_ReturnsError()
+    {
+        Parse(new[] { "--duration", "5x" }, out _, out var error).ShouldBeFalse();
+        error.ShouldContain("--duration");
+    }
 }
