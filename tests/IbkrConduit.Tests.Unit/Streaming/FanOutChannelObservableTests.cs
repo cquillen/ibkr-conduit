@@ -82,10 +82,32 @@ public class FanOutChannelObservableTests
         completed.Task.IsCompletedSuccessfully.ShouldBeTrue();
     }
 
-    private sealed class CollectingObserver<T>(Action<T> onNext, Action? onCompleted = null) : IObserver<T>
+    [Fact]
+    public async Task Subscribe_MapperThrows_CallsOnError()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var channel = Channel.CreateUnbounded<JsonElement>();
+        var observable = new FanOutChannelObservable<int>(
+            channel.Reader,
+            _ => throw new InvalidOperationException("boom"));
+
+        var error = new TaskCompletionSource<Exception>();
+        using var sub = observable.Subscribe(new CollectingObserver<int>(
+            _ => { },
+            onError: ex => error.TrySetResult(ex)));
+
+        await channel.Writer.WriteAsync(
+            JsonDocument.Parse("""{"args":[1]}""").RootElement, ct);
+
+        var captured = await error.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        captured.ShouldBeOfType<InvalidOperationException>();
+        captured.Message.ShouldBe("boom");
+    }
+
+    private sealed class CollectingObserver<T>(Action<T> onNext, Action? onCompleted = null, Action<Exception>? onError = null) : IObserver<T>
     {
         public void OnNext(T value) => onNext(value);
-        public void OnError(Exception error) { }
+        public void OnError(Exception error) => onError?.Invoke(error);
         public void OnCompleted() => onCompleted?.Invoke();
     }
 }
