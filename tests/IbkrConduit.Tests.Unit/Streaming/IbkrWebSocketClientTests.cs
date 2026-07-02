@@ -117,7 +117,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (reader, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+265598+{\"fields\":[\"31\"]}", "smd",
+            "smd+265598+{\"fields\":[\"31\"]}", "smd", "umd+265598+{}",
             TestContext.Current.CancellationToken);
 
         _adapter.EnqueueServerMessage("""{"topic":"smd+265598","31":"150.25"}""");
@@ -126,7 +126,7 @@ public class IbkrWebSocketClientTests
         var msg = await reader.ReadAsync(cts.Token);
 
         msg.GetProperty("topic").GetString().ShouldBe("smd+265598");
-        unsubscribe();
+        await unsubscribe(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (reader, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+123+{}", "smd",
+            "smd+123+{}", "smd", null,
             TestContext.Current.CancellationToken);
 
         // Send a message with an unknown topic -- should not crash
@@ -148,7 +148,7 @@ public class IbkrWebSocketClientTests
         var msg = await reader.ReadAsync(cts.Token);
 
         msg.GetProperty("topic").GetString().ShouldBe("smd+123");
-        unsubscribe();
+        await unsubscribe(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -159,11 +159,11 @@ public class IbkrWebSocketClientTests
 
         var subscribeMsg = "smd+265598+{\"fields\":[\"31\"]}";
         var (_, unsubscribe) = await client.SubscribeTopicAsync(
-            subscribeMsg, "smd",
+            subscribeMsg, "smd", "umd+265598+{}",
             TestContext.Current.CancellationToken);
 
         _adapter.SentMessages.ShouldContain(subscribeMsg);
-        unsubscribe();
+        await unsubscribe(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -173,11 +173,11 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (_, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+123+{}", "smd",
+            "smd+123+{}", "smd", null,
             TestContext.Current.CancellationToken);
 
         _adapter.SentMessages.ShouldContain("smd+123+{}");
-        unsubscribe();
+        await unsubscribe(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -189,9 +189,9 @@ public class IbkrWebSocketClientTests
 
         var sub1 = "smd+100+{}";
         var sub2 = "sor+{}";
-        var (_, unsub1) = await client.SubscribeTopicAsync(sub1, "smd",
+        var (_, unsub1) = await client.SubscribeTopicAsync(sub1, "smd", null,
             TestContext.Current.CancellationToken);
-        var (_, unsub2) = await client.SubscribeTopicAsync(sub2, "sor",
+        var (_, unsub2) = await client.SubscribeTopicAsync(sub2, "sor", "uor+{}",
             TestContext.Current.CancellationToken);
 
         while (_adapter.SentMessages.TryDequeue(out _))
@@ -216,8 +216,8 @@ public class IbkrWebSocketClientTests
         sent.ShouldContain(sub1);
         sent.ShouldContain(sub2);
 
-        unsub1();
-        unsub2();
+        await unsub1(TestContext.Current.CancellationToken);
+        await unsub2(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -304,7 +304,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (reader, _) = await client.SubscribeTopicAsync(
-            "smd+123+{}", "smd",
+            "smd+123+{}", "smd", null,
             TestContext.Current.CancellationToken);
 
         await client.DisposeAsync();
@@ -322,7 +322,7 @@ public class IbkrWebSocketClientTests
         await client.DisposeAsync();
 
         await Should.ThrowAsync<ObjectDisposedException>(
-            () => client.SubscribeTopicAsync("smd+123+{}", "smd", ct));
+            () => client.SubscribeTopicAsync("smd+123+{}", "smd", null, ct));
     }
 
     [Fact]
@@ -332,7 +332,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (reader, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+265598+{\"fields\":[\"31\"]}", "smd",
+            "smd+265598+{\"fields\":[\"31\"]}", "smd", null,
             TestContext.Current.CancellationToken);
 
         _adapter.EnqueueServerMessage("not json");
@@ -342,7 +342,7 @@ public class IbkrWebSocketClientTests
         var msg = await reader.ReadAsync(cts.Token);
 
         msg.GetProperty("topic").GetString().ShouldBe("smd+265598");
-        unsubscribe();
+        await unsubscribe(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -352,7 +352,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (reader, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+123+{}", "smd",
+            "smd+123+{}", "smd", null,
             TestContext.Current.CancellationToken);
 
         _adapter.EnqueueServerMessage("""{"topic":"tic"}""");
@@ -362,7 +362,7 @@ public class IbkrWebSocketClientTests
         var msg = await reader.ReadAsync(cts.Token);
 
         msg.GetProperty("topic").GetString().ShouldBe("smd+123");
-        unsubscribe();
+        await unsubscribe(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -494,7 +494,7 @@ public class IbkrWebSocketClientTests
         var ct = TestContext.Current.CancellationToken;
 
         var (reader, _) = await client.SubscribeTopicAsync(
-            "smd+265598+{}", "smd", ct);
+            "smd+265598+{}", "smd", null, ct);
 
         // Drain the startup signal: the pump started and called ReceiveAsync once already.
         await _adapter.WaitForReceiveAsync(ct);
@@ -535,7 +535,7 @@ public class IbkrWebSocketClientTests
         await using var client = CreateClient();
         await client.ConnectAsync(TestContext.Current.CancellationToken);
         await client.SubscribeTopicAsync(
-            "smd+265598+{}", "smd", TestContext.Current.CancellationToken);
+            "smd+265598+{}", "smd", null, TestContext.Current.CancellationToken);
 
         // Reset the adapter's send tracking by counting messages sent so far.
         var sentBeforeReconnect = _adapter.SentMessages.Count;
@@ -561,7 +561,7 @@ public class IbkrWebSocketClientTests
 
         // Do NOT call ConnectAsync first.
         await client.SubscribeTopicAsync(
-            "smd+265598+{}", "smd", TestContext.Current.CancellationToken);
+            "smd+265598+{}", "smd", null, TestContext.Current.CancellationToken);
 
         _adapter.ConnectCallCount.ShouldBe(0);
         _adapter.SentMessages.ShouldNotContain("smd+265598+{}");
@@ -573,7 +573,7 @@ public class IbkrWebSocketClientTests
         await using var client = CreateClient();
 
         await client.SubscribeTopicAsync(
-            "smd+265598+{}", "smd", TestContext.Current.CancellationToken);
+            "smd+265598+{}", "smd", null, TestContext.Current.CancellationToken);
         _adapter.SentMessages.ShouldNotContain("smd+265598+{}");
 
         await client.ConnectAsync(TestContext.Current.CancellationToken);
@@ -707,14 +707,14 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (_, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+265598+{\"fields\":[\"31\"]}", "smd",
+            "smd+265598+{\"fields\":[\"31\"]}", "smd", null,
             TestContext.Current.CancellationToken);
 
         logger.Messages.ShouldContain(m =>
             m.Level == LogLevel.Trace
             && m.Formatted.Contains("WebSocket send", StringComparison.Ordinal)
             && m.Formatted.Contains("smd+265598+{\"fields\":[\"31\"]}", StringComparison.Ordinal));
-        unsubscribe();
+        await unsubscribe(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -756,12 +756,12 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (_, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+265598+{\"fields\":[\"31\"]}", "smd",
+            "smd+265598+{\"fields\":[\"31\"]}", "smd", null,
             TestContext.Current.CancellationToken);
 
         logger.Messages.ShouldNotContain(m =>
             m.Formatted.Contains("WebSocket send", StringComparison.Ordinal));
-        unsubscribe();
+        await unsubscribe(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -914,11 +914,11 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(ct);
 
         var ops = new StreamingOperations(client);
-        var observable = await ops.TradeExecutionsAsync(cancellationToken: ct);
+        var subscription = await ops.TradeExecutionsAsync(cancellationToken: ct);
 
         var received = new List<TradeExecution>();
         var done = new TaskCompletionSource();
-        using var sub = observable.Subscribe(new EndToEndObserver(e =>
+        using var sub = subscription.Stream.Subscribe(new EndToEndObserver(e =>
         {
             received.Add(e);
             if (received.Count == 2)
@@ -939,6 +939,149 @@ public class IbkrWebSocketClientTests
         received[0].ExecutionId.ShouldBe("e1");
         received[0].Price.ShouldBe(150.25m);
         received[1].Symbol.ShouldBe("MSFT");
+    }
+
+    [Fact]
+    public async Task Unsubscribe_SendsCancelMessage_WhenLastSubscriberForKey()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (_, unsubscribe) = await client.SubscribeTopicAsync(
+            "smd+265598+{\"fields\":[\"31\"]}", "smd", "umd+265598+{}",
+            TestContext.Current.CancellationToken);
+
+        await unsubscribe(TestContext.Current.CancellationToken);
+
+        _adapter.SentMessages.ShouldContain("umd+265598+{}");
+    }
+
+    [Fact]
+    public async Task Unsubscribe_NullCancelMessage_SendsNoCancel()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (_, unsubscribe) = await client.SubscribeTopicAsync(
+            "smd+1+{}", "smd", cancelMessage: null,
+            TestContext.Current.CancellationToken);
+        while (_adapter.SentMessages.TryDequeue(out _)) { }
+
+        await unsubscribe(TestContext.Current.CancellationToken);
+
+        _adapter.SentMessages.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Unsubscribe_RefcountsByCancelMessage_OnlyCancelsWhenLastGone()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        // Two subscriptions for the SAME conid -> same cancel message.
+        var (_, unsub1) = await client.SubscribeTopicAsync(
+            "smd+7+{\"fields\":[\"31\"]}", "smd", "umd+7+{}", TestContext.Current.CancellationToken);
+        var (_, unsub2) = await client.SubscribeTopicAsync(
+            "smd+7+{\"fields\":[\"84\"]}", "smd", "umd+7+{}", TestContext.Current.CancellationToken);
+        while (_adapter.SentMessages.TryDequeue(out _)) { }
+
+        await unsub1(TestContext.Current.CancellationToken);
+        _adapter.SentMessages.ShouldNotContain("umd+7+{}"); // survivor still needs conid 7
+
+        await unsub2(TestContext.Current.CancellationToken);
+        _adapter.SentMessages.ShouldContain("umd+7+{}");     // now the last is gone
+    }
+
+    [Fact]
+    public async Task Unsubscribe_WhileDisconnected_SendsNoCancelAndIsNotReplayed()
+    {
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (_, unsubscribe) = await client.SubscribeTopicAsync(
+            "sor+{}", "sor", "uor+{}", TestContext.Current.CancellationToken);
+
+        // Close the socket, then unsubscribe -> no wire send possible.
+        _adapter.SignalClose();
+        await unsubscribe(TestContext.Current.CancellationToken);
+
+        client.ActiveSubscriptionCount.ShouldBe(0);
+        _adapter.SentMessages.ShouldNotContain("uor+{}");
+    }
+
+    [Fact]
+    public async Task Unsubscribe_DropsSubscriptionFromReplaySet()
+    {
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (_, unsubscribe) = await client.SubscribeTopicAsync(
+            "spl+{}", "spl", "upl+{}", TestContext.Current.CancellationToken);
+        await unsubscribe(TestContext.Current.CancellationToken);
+        while (_adapter.SentMessages.TryDequeue(out _)) { }
+
+        var ct = TestContext.Current.CancellationToken;
+        var reconnectTask = Task.Run(() => _notifier.TriggerRefreshAsync(ct), ct);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!reconnectTask.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+        await reconnectTask;
+
+        _adapter.SentMessages.ShouldNotContain("spl+{}"); // unsubscribed -> not replayed
+    }
+
+    [Fact]
+    public async Task Unsubscribe_DifferentCancelKeys_CancelIndependently()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (_, unsub7) = await client.SubscribeTopicAsync(
+            "smd+7+{\"fields\":[\"31\"]}", "smd", "umd+7+{}", TestContext.Current.CancellationToken);
+        var (_, unsub8) = await client.SubscribeTopicAsync(
+            "smd+8+{\"fields\":[\"31\"]}", "smd", "umd+8+{}", TestContext.Current.CancellationToken);
+        while (_adapter.SentMessages.TryDequeue(out _)) { }
+
+        await unsub7(TestContext.Current.CancellationToken);
+
+        _adapter.SentMessages.ShouldContain("umd+7+{}");
+        _adapter.SentMessages.ShouldNotContain("umd+8+{}");
+        client.ActiveSubscriptionCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Unsubscribe_SendFailure_DoesNotThrowAndRemovesSubscription()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var (_, unsubscribe) = await client.SubscribeTopicAsync(
+            "sor+{}", "sor", "uor+{}", TestContext.Current.CancellationToken);
+
+        _adapter.FailSendAfterCount = 0; // every subsequent send throws
+
+        await Should.NotThrowAsync(async () => await unsubscribe(TestContext.Current.CancellationToken));
+        client.ActiveSubscriptionCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task ActiveSubscriptionCount_ReflectsSubscribeAndUnsubscribe()
+    {
+        await using var client = CreateClient();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        client.ActiveSubscriptionCount.ShouldBe(0);
+        var (_, unsubscribe) = await client.SubscribeTopicAsync(
+            "spl+{}", "spl", "upl+{}", TestContext.Current.CancellationToken);
+        client.ActiveSubscriptionCount.ShouldBe(1);
+
+        await unsubscribe(TestContext.Current.CancellationToken);
+        client.ActiveSubscriptionCount.ShouldBe(0);
     }
 
     private sealed class EndToEndObserver(Action<TradeExecution> onNext) : IObserver<TradeExecution>

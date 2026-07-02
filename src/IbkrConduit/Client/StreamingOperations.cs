@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Threading;
 using IbkrConduit.Streaming;
 using IbkrConduit.Streaming.Mappers;
 
@@ -8,17 +7,12 @@ namespace IbkrConduit.Client;
 /// <summary>
 /// Implementation of <see cref="IStreamingOperations"/> that builds topic subscribe messages,
 /// delegates JSON-to-DTO transformations to the per-topic mappers in
-/// <c>IbkrConduit.Streaming.Mappers</c>, and returns <see cref="IObservable{T}"/> streams via
-/// <see cref="ChannelObservable{T}"/>.
+/// <c>IbkrConduit.Streaming.Mappers</c>, and returns <see cref="IIbkrSubscription{T}"/> handles that
+/// wrap a <see cref="ChannelObservable{T}"/> stream and the topic's unsubscribe delegate.
 /// </summary>
 internal sealed class StreamingOperations : IStreamingOperations
 {
     private readonly IIbkrWebSocketClient _webSocketClient;
-    private readonly Lazy<IObservable<SessionStatusEvent>> _sessionStatus;
-    private readonly Lazy<IObservable<BulletinEvent>> _bulletins;
-    private readonly Lazy<IObservable<NotificationEvent>> _tradingNotifications;
-    private readonly Lazy<IObservable<SystemEvent>> _systemEvents;
-    private readonly Lazy<IObservable<AccountStatusEvent>> _accountStatus;
 
     /// <summary>
     /// Creates a new <see cref="StreamingOperations"/>.
@@ -27,37 +21,27 @@ internal sealed class StreamingOperations : IStreamingOperations
     public StreamingOperations(IIbkrWebSocketClient webSocketClient)
     {
         _webSocketClient = webSocketClient;
-        _sessionStatus = new Lazy<IObservable<SessionStatusEvent>>(
-            () => CreateUnsolicitedObservable("sts", SessionStatusMapper.Map),
-            LazyThreadSafetyMode.ExecutionAndPublication);
-        _bulletins = new Lazy<IObservable<BulletinEvent>>(
-            () => CreateUnsolicitedObservable("blt", BulletinMapper.Map),
-            LazyThreadSafetyMode.ExecutionAndPublication);
-        _tradingNotifications = new Lazy<IObservable<NotificationEvent>>(
-            () => CreateUnsolicitedObservable("ntf", NotificationMapper.Map),
-            LazyThreadSafetyMode.ExecutionAndPublication);
-        _systemEvents = new Lazy<IObservable<SystemEvent>>(
-            () => CreateUnsolicitedObservable("system", SystemEventMapper.Map),
-            LazyThreadSafetyMode.ExecutionAndPublication);
-        _accountStatus = new Lazy<IObservable<AccountStatusEvent>>(
-            () => CreateUnsolicitedObservable("act", AccountStatusMapper.Map),
-            LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <inheritdoc />
-    public IObservable<SessionStatusEvent> SessionStatus => _sessionStatus.Value;
+    public IIbkrSubscription<SessionStatusEvent> SubscribeSessionStatus() =>
+        CreateUnsolicitedSubscription("sts", SessionStatusMapper.Map);
 
     /// <inheritdoc />
-    public IObservable<BulletinEvent> Bulletins => _bulletins.Value;
+    public IIbkrSubscription<BulletinEvent> SubscribeBulletins() =>
+        CreateUnsolicitedSubscription("blt", BulletinMapper.Map);
 
     /// <inheritdoc />
-    public IObservable<NotificationEvent> TradingNotifications => _tradingNotifications.Value;
+    public IIbkrSubscription<NotificationEvent> SubscribeTradingNotifications() =>
+        CreateUnsolicitedSubscription("ntf", NotificationMapper.Map);
 
     /// <inheritdoc />
-    public IObservable<SystemEvent> SystemEvents => _systemEvents.Value;
+    public IIbkrSubscription<SystemEvent> SubscribeSystemEvents() =>
+        CreateUnsolicitedSubscription("system", SystemEventMapper.Map);
 
     /// <inheritdoc />
-    public IObservable<AccountStatusEvent> AccountStatus => _accountStatus.Value;
+    public IIbkrSubscription<AccountStatusEvent> SubscribeAccountStatus() =>
+        CreateUnsolicitedSubscription("act", AccountStatusMapper.Map);
 
     /// <inheritdoc />
     public Task ConnectAsync(CancellationToken cancellationToken = default) =>
@@ -70,30 +54,32 @@ internal sealed class StreamingOperations : IStreamingOperations
     public DateTimeOffset? LastMessageReceivedAt => _webSocketClient.LastMessageReceivedAt;
 
     /// <inheritdoc />
-    public async Task<IObservable<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken cancellationToken = default)
+    public async Task<IIbkrSubscription<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken cancellationToken = default)
     {
         var fieldsJson = string.Join(",", fields.Select(f => $"\"{f}\""));
         var subscribeMessage = $"smd+{conid}+{{\"fields\":[{fieldsJson}]}}";
+        var cancelMessage = $"umd+{conid}+{{}}";
 
-        var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "smd", cancellationToken);
+        var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "smd", cancelMessage, cancellationToken);
 
-        return new ChannelObservable<MarketDataTick>(reader, MarketDataTickMapper.Map);
+        return new IbkrSubscription<MarketDataTick>(new ChannelObservable<MarketDataTick>(reader, MarketDataTickMapper.Map), unsubscribe);
     }
 
     /// <inheritdoc />
-    public async Task<IObservable<OrderUpdate>> OrderUpdatesAsync(int? days = null, CancellationToken cancellationToken = default)
+    public async Task<IIbkrSubscription<OrderUpdate>> OrderUpdatesAsync(int? days = null, CancellationToken cancellationToken = default)
     {
         var subscribeMessage = days.HasValue
             ? $"sor+{{\"days\":{days.Value}}}"
             : "sor+{}";
+        var cancelMessage = "uor+{}";
 
-        var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sor", cancellationToken);
+        var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sor", cancelMessage, cancellationToken);
 
-        return new ChannelObservable<OrderUpdate>(reader, OrderUpdateMapper.Map);
+        return new IbkrSubscription<OrderUpdate>(new ChannelObservable<OrderUpdate>(reader, OrderUpdateMapper.Map), unsubscribe);
     }
 
     /// <inheritdoc />
-    public async Task<IObservable<TradeExecution>> TradeExecutionsAsync(
+    public async Task<IIbkrSubscription<TradeExecution>> TradeExecutionsAsync(
         bool? realtimeUpdatesOnly = null,
         int? days = null,
         CancellationToken cancellationToken = default)
@@ -109,38 +95,66 @@ internal sealed class StreamingOperations : IStreamingOperations
         }
         var subscribeMessage = $"str+{{{string.Join(",", parts)}}}";
 
-        var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "str", cancellationToken);
+        var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "str", "utr", cancellationToken);
 
-        return new FanOutChannelObservable<TradeExecution>(reader, TradeExecutionMapper.MapMany);
+        return new IbkrSubscription<TradeExecution>(new FanOutChannelObservable<TradeExecution>(reader, TradeExecutionMapper.MapMany), unsubscribe);
     }
 
     /// <inheritdoc />
-    public async Task<IObservable<PnlUpdate>> ProfitAndLossAsync(CancellationToken cancellationToken = default)
+    public async Task<IIbkrSubscription<PnlUpdate>> ProfitAndLossAsync(CancellationToken cancellationToken = default)
     {
-        var (reader, _) = await _webSocketClient.SubscribeTopicAsync("spl+{}", "spl", cancellationToken);
+        var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync("spl+{}", "spl", "upl+{}", cancellationToken);
 
-        return new ChannelObservable<PnlUpdate>(reader, PnlUpdateMapper.Map);
+        return new IbkrSubscription<PnlUpdate>(new ChannelObservable<PnlUpdate>(reader, PnlUpdateMapper.Map), unsubscribe);
     }
 
     /// <inheritdoc />
-    public async Task<IObservable<AccountSummaryUpdate>> AccountSummaryAsync(CancellationToken cancellationToken = default)
+    public async Task<IIbkrSubscription<AccountSummaryUpdate>> AccountSummaryAsync(
+        string accountId,
+        string[]? keys = null,
+        string[]? fields = null,
+        CancellationToken cancellationToken = default)
     {
-        var (reader, _) = await _webSocketClient.SubscribeTopicAsync("ssd+{}", "ssd", cancellationToken);
+        var subscribeMessage = $"ssd+{accountId}+{BuildKeysFieldsArgs(keys, fields)}";
+        var cancelMessage = $"usd+{accountId}+{{}}";
 
-        return new ChannelObservable<AccountSummaryUpdate>(reader, AccountSummaryUpdateMapper.Map);
+        var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "ssd", cancelMessage, cancellationToken);
+
+        return new IbkrSubscription<AccountSummaryUpdate>(new ChannelObservable<AccountSummaryUpdate>(reader, AccountSummaryUpdateMapper.Map), unsubscribe);
     }
 
     /// <inheritdoc />
-    public async Task<IObservable<AccountLedgerUpdate>> AccountLedgerAsync(CancellationToken cancellationToken = default)
+    public async Task<IIbkrSubscription<AccountLedgerUpdate>> AccountLedgerAsync(
+        string accountId,
+        string[]? keys = null,
+        string[]? fields = null,
+        CancellationToken cancellationToken = default)
     {
-        var (reader, _) = await _webSocketClient.SubscribeTopicAsync("sld+{}", "sld", cancellationToken);
+        var subscribeMessage = $"sld+{accountId}+{BuildKeysFieldsArgs(keys, fields)}";
+        var cancelMessage = $"uld+{accountId}+{{}}";
 
-        return new ChannelObservable<AccountLedgerUpdate>(reader, AccountLedgerUpdateMapper.Map);
+        var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sld", cancelMessage, cancellationToken);
+
+        return new IbkrSubscription<AccountLedgerUpdate>(new ChannelObservable<AccountLedgerUpdate>(reader, AccountLedgerUpdateMapper.Map), unsubscribe);
     }
 
-    private ChannelObservable<T> CreateUnsolicitedObservable<T>(string topicPrefix, Func<JsonElement, T> mapper)
+    private static string BuildKeysFieldsArgs(string[]? keys, string[]? fields)
     {
-        var (reader, _) = _webSocketClient.RegisterUnsolicitedTopic(topicPrefix);
-        return new ChannelObservable<T>(reader, mapper);
+        var parts = new List<string>();
+        if (keys is { Length: > 0 })
+        {
+            parts.Add($"\"keys\":[{string.Join(",", keys.Select(k => $"\"{k}\""))}]");
+        }
+        if (fields is { Length: > 0 })
+        {
+            parts.Add($"\"fields\":[{string.Join(",", fields.Select(f => $"\"{f}\""))}]");
+        }
+        return $"{{{string.Join(",", parts)}}}";
+    }
+
+    private IbkrSubscription<T> CreateUnsolicitedSubscription<T>(string topicPrefix, Func<JsonElement, T> mapper)
+    {
+        var (reader, unsubscribe) = _webSocketClient.RegisterUnsolicitedTopic(topicPrefix);
+        return new IbkrSubscription<T>(new ChannelObservable<T>(reader, mapper), unsubscribe);
     }
 }

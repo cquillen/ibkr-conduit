@@ -854,15 +854,21 @@ This is separate from the REST `/tickle` endpoint. Both must be maintained indep
 
 ### 12.5 Key WebSocket Topics
 
-| Topic | Subscribe Message | Purpose |
-|---|---|---|
-| Order updates | `sor+{}` | Real-time order status changes |
-| Order history | `sor+{"days": N}` | Historical orders, N = 1-7 days |
-| Real-time only orders | `sor+{"realtimeUpdatesOnly": true}` | No prior history, new updates only |
-| Market data | `smd+{conid}+{"fields":["31","84","86"]}` | Real-time top-of-book |
-| P&L | `spl+{}` | Real-time P&L streaming |
-| Portfolio | `ssd+{}` | Portfolio summary streaming |
-| Trade executions | `str+{}` (opts: `realtimeUpdatesOnly`, `days`) | Real-time execution/fill records |
+| Topic | Subscribe Message | Unsubscribe Message | Purpose |
+|---|---|---|---|
+| Order updates | `sor+{}` | `uor+{}` | Real-time order status changes |
+| Order history | `sor+{"days": N}` | `uor+{}` | Historical orders, N = 1-7 days |
+| Real-time only orders | `sor+{"realtimeUpdatesOnly": true}` | `uor+{}` | No prior history, new updates only |
+| Market data | `smd+{conid}+{"fields":["31","84","86"]}` | `umd+{conid}+{}` | Real-time top-of-book |
+| P&L | `spl+{}` | `upl+{}` | Real-time P&L streaming |
+| Portfolio | `ssd+{accountId}+{}` | `usd+{accountId}+{}` | Portfolio summary streaming |
+| Trade executions | `str+{}` (opts: `realtimeUpdatesOnly`, `days`) | `utr` | Real-time execution/fill records |
+
+Account summary (`ssd`) and account ledger (`sld`) subscribes require the account id as a topic-target segment (e.g. `ssd+{accountId}+{…}`), and their cancels mirror it (`usd+{accountId}+{}` / `uld+{accountId}+{}`). Unlike the other cancels, the trade-executions cancel `utr` is sent bare — no trailing `+{}`.
+
+### 12.5.1 Subscription Handles and Unsubscribe
+
+Every streaming subscribe method returns an `IIbkrSubscription<T>` handle rather than a bare observable. The handle exposes `Stream` (the `IObservable<T>` of parsed updates) and implements `IAsyncDisposable`. Disposing the handle — or calling `UnsubscribeAsync()` explicitly — sends the topic's `u…` cancel wire message and completes `Stream`. IbkrConduit refcounts by cancel message: if two subscriptions resolve to the same cancel (for example, two market-data subscriptions for the same conid), the wire cancel is sent only when the last remaining subscription is disposed. Unsolicited topics (`sts`, `system`, `act`, `blt`, `ntf`) have no documented wire cancel, so their handles perform local teardown only and send nothing over the wire. See `docs/ibkr-websocket-api-reference.md` for the full topic and command reference.
 
 ### 12.6 Reconnection Handling
 

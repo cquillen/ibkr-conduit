@@ -30,6 +30,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private static readonly Counter<long> _messagesSent =
         IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.websocket.messages.sent");
 
+    private static readonly Counter<long> _unsubscribeCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.websocket.unsubscribe.count");
+
     private static readonly Counter<long> _reconnectCount =
         IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.websocket.reconnect.count");
 
@@ -48,7 +51,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly TimeProvider _timeProvider;
     private readonly string _resolvedWebSocketBaseUrl;
     private readonly ConcurrentDictionary<string, List<ChannelWriter<JsonElement>>> _subscribers = new();
-    private readonly List<string> _activeSubscriptions = [];
+    private readonly List<TopicSubscription> _subscriptions = [];
     private readonly SemaphoreSlim _connectLock = new(1, 1);
     private readonly object _subscriptionLock = new();
 
@@ -129,7 +132,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         {
             lock (_subscriptionLock)
             {
-                return _activeSubscriptions.Count;
+                return _subscriptions.Count;
             }
         }
     }
@@ -163,12 +166,18 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
     /// <summary>
     /// Subscribes to a WebSocket topic and returns a <see cref="ChannelReader{T}"/> for receiving messages,
-    /// plus an unsubscribe action.
+    /// plus an asynchronous unsubscribe delegate.
     /// </summary>
     /// <param name="subscribeMessage">The subscribe message to send on the WebSocket.</param>
     /// <param name="topicPrefix">The topic prefix for routing (e.g., "smd", "sor").</param>
+    /// <param name="cancelMessage">
+    /// The IBKR unsubscribe message to send when the last subscription for this cancel
+    /// message is torn down, or <see langword="null"/> for local-teardown-only topics.
+    /// Subscriptions sharing the same cancel message are refcounted; the cancel is only
+    /// sent once the final subscriber referencing it unsubscribes.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A tuple of the channel reader and an unsubscribe action.</returns>
+    /// <returns>A tuple of the channel reader and an asynchronous unsubscribe delegate.</returns>
     /// <remarks>
     /// If the WebSocket is not yet connected, the subscription is queued in memory
     /// and replayed automatically when <see cref="ConnectAsync"/> is called. No wire
@@ -176,9 +185,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// usable immediately; messages will start flowing once <see cref="ConnectAsync"/>
     /// completes.
     /// </remarks>
-    public async Task<(ChannelReader<JsonElement> Reader, Action Unsubscribe)> SubscribeTopicAsync(
+    public async Task<(ChannelReader<JsonElement> Reader, Func<CancellationToken, ValueTask> Unsubscribe)> SubscribeTopicAsync(
         string subscribeMessage,
         string topicPrefix,
+        string? cancelMessage,
         CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -194,30 +204,30 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                 SingleReader = true,
             });
 
+        var entry = new TopicSubscription(topicPrefix, subscribeMessage, cancelMessage, channel.Writer);
         var writers = _subscribers.GetOrAdd(topicPrefix, _ => []);
-        lock (writers)
-        {
-            writers.Add(channel.Writer);
-        }
-
         lock (_subscriptionLock)
         {
-            _activeSubscriptions.Add(subscribeMessage);
+            lock (writers)
+            {
+                writers.Add(channel.Writer);
+            }
+            _subscriptions.Add(entry);
         }
 
         // Only send the subscribe message immediately if the WebSocket is
-        // already open. Otherwise leave it in _activeSubscriptions and let
+        // already open. Otherwise leave it in the registry and let
         // ConnectCoreAsync's replay path send it after the WebSocket opens.
         if (_webSocket?.State == WebSocketState.Open)
         {
             await SendTextAsync(subscribeMessage, cancellationToken);
         }
 
-        return (channel.Reader, () => Unsubscribe(topicPrefix, channel.Writer, subscribeMessage));
+        return (channel.Reader, ct => UnsubscribeSolicitedAsync(entry, ct));
     }
 
     /// <inheritdoc />
-    public (ChannelReader<JsonElement> Reader, Action Unsubscribe) RegisterUnsolicitedTopic(string topicPrefix)
+    public (ChannelReader<JsonElement> Reader, Func<CancellationToken, ValueTask> Unsubscribe) RegisterUnsolicitedTopic(string topicPrefix)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -234,7 +244,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             writers.Add(channel.Writer);
         }
 
-        return (channel.Reader, () =>
+        return (channel.Reader, _ =>
         {
             if (_subscribers.TryGetValue(topicPrefix, out var existingWriters))
             {
@@ -244,6 +254,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                 }
             }
             channel.Writer.TryComplete();
+            return ValueTask.CompletedTask;
         }
         );
     }
@@ -561,7 +572,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         string[] subscriptions;
         lock (_subscriptionLock)
         {
-            subscriptions = [.. _activeSubscriptions];
+            subscriptions = _subscriptions.Select(s => s.SubscribeMessage).Distinct().ToArray();
         }
 
         foreach (var sub in subscriptions)
@@ -628,21 +639,48 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
     }
 
-    private void Unsubscribe(string topicPrefix, ChannelWriter<JsonElement> writer, string subscribeMessage)
+    private async ValueTask UnsubscribeSolicitedAsync(TopicSubscription entry, CancellationToken cancellationToken)
     {
-        if (_subscribers.TryGetValue(topicPrefix, out var writers))
+        using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Unsubscribe");
+        activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
+        activity?.SetTag(LogFields.Topic, entry.TopicPrefix);
+
+        string? cancelToSend = null;
+        lock (_subscriptionLock)
         {
-            lock (writers)
+            _subscriptions.Remove(entry);
+
+            if (_subscribers.TryGetValue(entry.TopicPrefix, out var writers))
             {
-                writers.Remove(writer);
+                lock (writers)
+                {
+                    writers.Remove(entry.Writer);
+                }
+            }
+            entry.Writer.TryComplete();
+
+            var stillReferenced = entry.CancelMessage is not null
+                && _subscriptions.Exists(s => s.CancelMessage == entry.CancelMessage);
+            if (entry.CancelMessage is not null && !stillReferenced && _webSocket?.State == WebSocketState.Open)
+            {
+                cancelToSend = entry.CancelMessage;
             }
         }
 
-        writer.TryComplete();
+        _unsubscribeCount.Add(1,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+            new KeyValuePair<string, object?>(LogFields.Topic, entry.TopicPrefix));
 
-        lock (_subscriptionLock)
+        if (cancelToSend is not null)
         {
-            _activeSubscriptions.Remove(subscribeMessage);
+            try
+            {
+                await SendTextAsync(cancelToSend, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                LogUnsubscribeSendError(ex);
+            }
         }
     }
 
@@ -687,4 +725,13 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Tickle watchdog reconnect attempt failed")]
     private partial void LogTickleWatchdogReconnectFailed(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WebSocket unsubscribe send failed")]
+    private partial void LogUnsubscribeSendError(Exception exception);
+
+    private sealed record TopicSubscription(
+        string TopicPrefix,
+        string SubscribeMessage,
+        string? CancelMessage,
+        ChannelWriter<JsonElement> Writer);
 }

@@ -410,17 +410,20 @@ public class IbkrClientTests
 
         public bool IsConnected => false;
         public DateTimeOffset? LastMessageReceivedAt => null;
-        public IObservable<SessionStatusEvent> SessionStatus => new EmptyObservable<SessionStatusEvent>();
-        public IObservable<BulletinEvent> Bulletins => new EmptyObservable<BulletinEvent>();
-        public IObservable<NotificationEvent> TradingNotifications => new EmptyObservable<NotificationEvent>();
-        public IObservable<SystemEvent> SystemEvents => new EmptyObservable<SystemEvent>();
-        public IObservable<AccountStatusEvent> AccountStatus => new EmptyObservable<AccountStatusEvent>();
-        public Task<IObservable<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<IObservable<OrderUpdate>> OrderUpdatesAsync(int? days = null, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<IObservable<TradeExecution>> TradeExecutionsAsync(bool? realtimeUpdatesOnly = null, int? days = null, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<IObservable<PnlUpdate>> ProfitAndLossAsync(CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<IObservable<AccountSummaryUpdate>> AccountSummaryAsync(CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<IObservable<AccountLedgerUpdate>> AccountLedgerAsync(CancellationToken ct = default) => throw new NotImplementedException();
+        public IIbkrSubscription<SessionStatusEvent> SubscribeSessionStatus() => EmptySubscription<SessionStatusEvent>();
+        public IIbkrSubscription<BulletinEvent> SubscribeBulletins() => EmptySubscription<BulletinEvent>();
+        public IIbkrSubscription<NotificationEvent> SubscribeTradingNotifications() => EmptySubscription<NotificationEvent>();
+        public IIbkrSubscription<SystemEvent> SubscribeSystemEvents() => EmptySubscription<SystemEvent>();
+        public IIbkrSubscription<AccountStatusEvent> SubscribeAccountStatus() => EmptySubscription<AccountStatusEvent>();
+        public Task<IIbkrSubscription<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<IIbkrSubscription<OrderUpdate>> OrderUpdatesAsync(int? days = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<IIbkrSubscription<TradeExecution>> TradeExecutionsAsync(bool? realtimeUpdatesOnly = null, int? days = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<IIbkrSubscription<PnlUpdate>> ProfitAndLossAsync(CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<IIbkrSubscription<AccountSummaryUpdate>> AccountSummaryAsync(string accountId, string[]? keys = null, string[]? fields = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<IIbkrSubscription<AccountLedgerUpdate>> AccountLedgerAsync(string accountId, string[]? keys = null, string[]? fields = null, CancellationToken ct = default) => throw new NotImplementedException();
+
+        private static IIbkrSubscription<T> EmptySubscription<T>() =>
+            new IbkrSubscription<T>(new EmptyObservable<T>(), _ => ValueTask.CompletedTask);
     }
 
     private sealed class EmptyObservable<T> : IObservable<T>

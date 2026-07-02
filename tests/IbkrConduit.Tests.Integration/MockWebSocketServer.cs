@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,8 +20,9 @@ namespace IbkrConduit.Tests.Integration;
 /// </summary>
 /// <remarks>
 /// Behavior: completes the WebSocket handshake so the client's <c>ConnectAsync</c>
-/// returns; accepts many concurrent connections; drains and ignores all inbound frames
-/// (e.g. the client's "tic" heartbeats) without echoing, so the client's message pump
+/// returns; accepts many concurrent connections; records every inbound text frame (e.g.
+/// the client's "tic" heartbeats or "smd"/"umd" subscribe/cancel messages) into
+/// <see cref="ReceivedTextMessages"/> without echoing, so the client's message pump
 /// blocks harmlessly instead of erroring into a reconnect loop; and responds to a
 /// client-initiated close so teardown is graceful. It never originates messages.
 /// </remarks>
@@ -29,6 +32,7 @@ internal sealed class MockWebSocketServer : IAsyncDisposable
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _acceptLoop;
     private readonly ConcurrentDictionary<Task, byte> _connections = new();
+    private readonly ConcurrentQueue<string> _receivedTextMessages = new();
     private int _connectionCount;
 
     private MockWebSocketServer(HttpListener listener, int port)
@@ -43,6 +47,14 @@ internal sealed class MockWebSocketServer : IAsyncDisposable
 
     /// <summary>Total number of WebSocket connections that completed the handshake.</summary>
     public int ConnectionCount => Volatile.Read(ref _connectionCount);
+
+    /// <summary>
+    /// Text frames received from connected clients, in receive order. Captures the
+    /// client's outbound wire traffic (e.g. "smd+..." subscribe or "umd+..." cancel
+    /// messages) so integration tests can assert on what was actually sent over the
+    /// wire without the server needing to originate any frames of its own.
+    /// </summary>
+    public IReadOnlyList<string> ReceivedTextMessages => _receivedTextMessages.ToArray();
 
     /// <summary>Starts the server on a free loopback port.</summary>
     public static MockWebSocketServer Start()
@@ -123,7 +135,12 @@ internal sealed class MockWebSocketServer : IAsyncDisposable
                     break;
                 }
 
-                // Drain and ignore inbound frames (heartbeats, subscriptions). Never echo.
+                if (result.MessageType == WebSocketMessageType.Text && result.Count > 0)
+                {
+                    _receivedTextMessages.Enqueue(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                }
+
+                // Drain inbound frames after recording them. Never echo.
             }
         }
         catch (OperationCanceledException)
