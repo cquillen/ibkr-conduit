@@ -32,6 +32,10 @@ internal static class Program
             return 1;
         }
 
+        // credentials must outlive provider: SessionTokenProvider holds a reference
+        // to the RSA keys inside credentials and calls into them on every token refresh.
+        // C# using disposes in reverse declaration order, so provider (declared below)
+        // disposes first — keep this ordering on any future refactor.
         using var credentials = OAuthCredentialsFactory.FromFile(credentialsPath);
 
         var services = new ServiceCollection();

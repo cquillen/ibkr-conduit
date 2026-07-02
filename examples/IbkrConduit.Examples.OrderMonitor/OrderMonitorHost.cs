@@ -101,6 +101,11 @@ internal static class OrderMonitorHost
         }
     }
 
+    /// <summary>
+    /// Adapts an <see cref="Action{T}"/> to the <see cref="IObserver{T}"/> interface.
+    /// Stream errors are logged at <see cref="LogLevel.Warning"/> using the supplied logger
+    /// and label. End-of-stream completions are a no-op.
+    /// </summary>
     private sealed class ActionObserver<T> : IObserver<T>
     {
         private readonly Action<T> _onNext;
@@ -121,6 +126,14 @@ internal static class OrderMonitorHost
         public void OnCompleted() { /* end-of-stream is normal; no-op */ }
     }
 
+    /// <summary>
+    /// Spectre.Console Live render loop. Refreshes the Orders table, the Executions table,
+    /// the status header, and the Logs panel every 250ms until <paramref name="ct"/> is
+    /// cancelled. The header reflects the real WebSocket connection state from
+    /// <see cref="IStreamingOperations.IsConnected"/> and the freshness of the last
+    /// received message from <see cref="IStreamingOperations.LastMessageReceivedAt"/>.
+    /// The Logs panel snapshots <paramref name="panelBuffer"/> on every tick.
+    /// </summary>
     private static async Task RenderLoopAsync(
         LiveOrderTable orderTable,
         LiveExecutionTable execTable,
@@ -163,6 +176,10 @@ internal static class OrderMonitorHost
             });
     }
 
+    /// <summary>
+    /// Builds the status header reflecting connection state, message freshness, and the
+    /// current order/execution counts from the two tables.
+    /// </summary>
     private static Markup BuildStatus(
         IStreamingOperations streaming, LiveOrderTable orders, LiveExecutionTable execs, DateTimeOffset now)
     {
@@ -178,6 +195,13 @@ internal static class OrderMonitorHost
         return new Markup($"{connection} {freshness}  [grey]{orders.Count} orders · {execs.TotalSeen} executions[/]");
     }
 
+    /// <summary>
+    /// Builds the Logs panel for the current tick. Always renders exactly 8 rows
+    /// (padded with blank rows when fewer entries exist) so the layout does not
+    /// shift when the first warning arrives. Each entry is a single line:
+    /// <c>HH:mm:ss [level] {message}</c>, truncated with an ellipsis if it
+    /// overflows the rendered width.
+    /// </summary>
     private static Panel BuildLogPanel(PanelLogBuffer buffer)
     {
         var entries = buffer.Snapshot();
