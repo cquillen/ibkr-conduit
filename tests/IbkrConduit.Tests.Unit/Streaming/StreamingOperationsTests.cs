@@ -531,6 +531,7 @@ public class StreamingOperationsTests
     {
         public string? LastSubscribeMessage { get; private set; }
         public string? LastTopicPrefix { get; private set; }
+        public string? LastCancelMessage { get; private set; }
         public Channel<JsonElement> Channel { get; } = System.Threading.Channels.Channel.CreateUnbounded<JsonElement>();
 
         public bool IsConnected { get; set; } = true;
@@ -545,24 +546,27 @@ public class StreamingOperationsTests
             return Task.CompletedTask;
         }
 
-        public Task<(ChannelReader<JsonElement> Reader, Action Unsubscribe)> SubscribeTopicAsync(
+        public Task<(ChannelReader<JsonElement> Reader, Func<CancellationToken, ValueTask> Unsubscribe)> SubscribeTopicAsync(
             string subscribeMessage,
             string topicPrefix,
+            string? cancelMessage,
             CancellationToken cancellationToken)
         {
             LastSubscribeMessage = subscribeMessage;
             LastTopicPrefix = topicPrefix;
-            return Task.FromResult<(ChannelReader<JsonElement>, Action)>((Channel.Reader, () => { }));
+            LastCancelMessage = cancelMessage;
+            return Task.FromResult<(ChannelReader<JsonElement>, Func<CancellationToken, ValueTask>)>(
+                (Channel.Reader, _ => ValueTask.CompletedTask));
         }
 
         public ConcurrentDictionary<string, Channel<JsonElement>> UnsolicitedChannels { get; } = new();
 
-        public (ChannelReader<JsonElement> Reader, Action Unsubscribe) RegisterUnsolicitedTopic(string topicPrefix)
+        public (ChannelReader<JsonElement> Reader, Func<CancellationToken, ValueTask> Unsubscribe) RegisterUnsolicitedTopic(string topicPrefix)
         {
             var channel = UnsolicitedChannels.GetOrAdd(
                 topicPrefix,
                 _ => System.Threading.Channels.Channel.CreateUnbounded<JsonElement>());
-            return (channel.Reader, () => { });
+            return (channel.Reader, _ => ValueTask.CompletedTask);
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

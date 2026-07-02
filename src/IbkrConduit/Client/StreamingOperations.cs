@@ -75,7 +75,7 @@ internal sealed class StreamingOperations : IStreamingOperations
         var fieldsJson = string.Join(",", fields.Select(f => $"\"{f}\""));
         var subscribeMessage = $"smd+{conid}+{{\"fields\":[{fieldsJson}]}}";
 
-        var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "smd", cancellationToken);
+        var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "smd", $"umd+{conid}+{{}}", cancellationToken);
 
         return new ChannelObservable<MarketDataTick>(reader, MarketDataTickMapper.Map);
     }
@@ -87,7 +87,7 @@ internal sealed class StreamingOperations : IStreamingOperations
             ? $"sor+{{\"days\":{days.Value}}}"
             : "sor+{}";
 
-        var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sor", cancellationToken);
+        var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sor", "uor+{}", cancellationToken);
 
         return new ChannelObservable<OrderUpdate>(reader, OrderUpdateMapper.Map);
     }
@@ -109,7 +109,7 @@ internal sealed class StreamingOperations : IStreamingOperations
         }
         var subscribeMessage = $"str+{{{string.Join(",", parts)}}}";
 
-        var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "str", cancellationToken);
+        var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "str", "utr", cancellationToken);
 
         return new FanOutChannelObservable<TradeExecution>(reader, TradeExecutionMapper.MapMany);
     }
@@ -117,7 +117,7 @@ internal sealed class StreamingOperations : IStreamingOperations
     /// <inheritdoc />
     public async Task<IObservable<PnlUpdate>> ProfitAndLossAsync(CancellationToken cancellationToken = default)
     {
-        var (reader, _) = await _webSocketClient.SubscribeTopicAsync("spl+{}", "spl", cancellationToken);
+        var (reader, _) = await _webSocketClient.SubscribeTopicAsync("spl+{}", "spl", "upl+{}", cancellationToken);
 
         return new ChannelObservable<PnlUpdate>(reader, PnlUpdateMapper.Map);
     }
@@ -125,7 +125,7 @@ internal sealed class StreamingOperations : IStreamingOperations
     /// <inheritdoc />
     public async Task<IObservable<AccountSummaryUpdate>> AccountSummaryAsync(CancellationToken cancellationToken = default)
     {
-        var (reader, _) = await _webSocketClient.SubscribeTopicAsync("ssd+{}", "ssd", cancellationToken);
+        var (reader, _) = await _webSocketClient.SubscribeTopicAsync("ssd+{}", "ssd", "usd+{}", cancellationToken);
 
         return new ChannelObservable<AccountSummaryUpdate>(reader, AccountSummaryUpdateMapper.Map);
     }
@@ -133,7 +133,7 @@ internal sealed class StreamingOperations : IStreamingOperations
     /// <inheritdoc />
     public async Task<IObservable<AccountLedgerUpdate>> AccountLedgerAsync(CancellationToken cancellationToken = default)
     {
-        var (reader, _) = await _webSocketClient.SubscribeTopicAsync("sld+{}", "sld", cancellationToken);
+        var (reader, _) = await _webSocketClient.SubscribeTopicAsync("sld+{}", "sld", "uld+{}", cancellationToken);
 
         return new ChannelObservable<AccountLedgerUpdate>(reader, AccountLedgerUpdateMapper.Map);
     }
