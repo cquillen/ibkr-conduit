@@ -10,9 +10,16 @@ public class LiveOrderTableTests
         string orderId, string status, decimal filled, string? orderRef = null) =>
         new()
         {
-            OrderId = orderId, Conid = 1, Symbol = "AAPL", Side = "BUY",
-            Size = 100, OrderType = "LMT", Price = 185m,
-            Status = status, FilledQuantity = filled, OrderRef = orderRef,
+            OrderId = orderId,
+            Conid = 1,
+            Symbol = "AAPL",
+            Side = "BUY",
+            Size = 100,
+            OrderType = "LMT",
+            Price = 185m,
+            Status = status,
+            FilledQuantity = filled,
+            OrderRef = orderRef,
         };
 
     [Fact]
