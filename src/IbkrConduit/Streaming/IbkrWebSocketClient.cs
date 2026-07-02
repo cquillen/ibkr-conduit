@@ -157,6 +157,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task ConnectAsync(CancellationToken cancellationToken)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         // Ensure the brokerage session (ssodh/init) is established before opening the
         // WebSocket, so iserver-dependent subscriptions (sor/str/smd/spl/ssd/sld) are not
         // rejected by IBKR with "Missing iserver bridge". Idempotent: a no-op once the

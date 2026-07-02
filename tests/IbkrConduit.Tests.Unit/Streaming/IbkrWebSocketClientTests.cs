@@ -72,6 +72,20 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
+    public async Task ConnectAsync_AfterDispose_ThrowsWithoutEstablishingSession()
+    {
+        var client = CreateClient();
+        await client.DisposeAsync();
+
+        await Should.ThrowAsync<ObjectDisposedException>(
+            async () => await client.ConnectAsync(TestContext.Current.CancellationToken));
+
+        // The dispose guard must short-circuit before any session work — a disposed
+        // client should not perform network I/O via EnsureInitializedAsync.
+        _sessionManager.EnsureInitializedCallCount.ShouldBe(0);
+    }
+
+    [Fact]
     public async Task ConnectAsync_WithCustomWebSocketBaseUrl_UsesConfiguredBaseForUri()
     {
         const string customBase = "wss://custom.test/v1/api/ws";
