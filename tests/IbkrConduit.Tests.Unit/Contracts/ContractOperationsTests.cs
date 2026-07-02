@@ -23,7 +23,7 @@ public class ContractOperationsTests
     {
         var expected = new List<ContractSearchResult>
         {
-            new(265598, "AAPL Inc.", "AAPL", "Apple Inc.", "AAPL", "265598", "STK", "NASDAQ", null),
+            new(265598, null, "APPLE INC - NASDAQ", "APPLE INC", "AAPL", "NASDAQ", null, null, null, null, null, null),
         };
         _api.SearchBySymbolAsync(Arg.Any<string>(), Arg.Any<SecurityType?>(), Arg.Any<bool?>(), Arg.Any<bool?>(), Arg.Any<bool?>(), Arg.Any<string?>(), Arg.Any<bool?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(FakeApiResponse.Success(expected));
 

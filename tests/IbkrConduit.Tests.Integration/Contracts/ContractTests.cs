@@ -35,7 +35,9 @@ public class ContractTests : IAsyncLifetime, IDisposable
         first.Conid.ShouldBe(756733);
         first.CompanyName.ShouldBe("SPDR S&P 500 ETF TRUST");
         first.Symbol.ShouldBe("SPY");
-        first.Description.ShouldBe("ARCA");
+        first.Description.ShouldBe("ARCA"); // description carries the exchange
+        first.Restricted.ShouldBeNull();
+        first.Opt.ShouldBe("APR26;MAY26;JUN26");
         first.Sections.ShouldNotBeNull();
         first.Sections!.Count.ShouldBe(4);
         first.Sections![0].SecurityType.ShouldBe("STK");

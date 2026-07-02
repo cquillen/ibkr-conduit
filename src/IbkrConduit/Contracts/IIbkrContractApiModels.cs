@@ -8,35 +8,41 @@ namespace IbkrConduit.Contracts;
 /// A contract search result from the /iserver/secdef/search endpoint.
 /// </summary>
 /// <param name="Conid">The IBKR contract identifier.</param>
-/// <param name="CompanyHeader">The company header text.</param>
-/// <param name="CompanyName">The company name.</param>
-/// <param name="Description">A description of the contract.</param>
-/// <param name="Symbol">The ticker symbol.</param>
-/// <param name="ExtendedConid">The extended contract identifier.</param>
-/// <param name="SecurityType">The security type (e.g., "STK", "OPT").</param>
-/// <param name="ListingExchange">The primary listing exchange.</param>
+/// <param name="BondId">Bond identifier; populated for bond contracts.</param>
+/// <param name="CompanyHeader">Company name and exchange, formatted "Company Name - Exchange".</param>
+/// <param name="CompanyName">Formal name of the company, if available.</param>
+/// <param name="Symbol">The underlying ticker symbol.</param>
+/// <param name="Description">The primary exchange of the contract (e.g., "ARCA", "NASDAQ").</param>
+/// <param name="Restricted">Whether the contract is restricted from trading; null when unspecified.</param>
+/// <param name="Fop">Semicolon-separated future-option expiry dates, if any.</param>
+/// <param name="Opt">Semicolon-separated option expiry dates, if any.</param>
+/// <param name="War">Semicolon-separated warrant expiry dates, if any.</param>
 /// <param name="Sections">Optional list of contract sections (e.g., for derivatives).</param>
+/// <param name="Issuers">Bond issuers for the contract, if applicable.</param>
 [ExcludeFromCodeCoverage]
 public record ContractSearchResult(
     [property: JsonPropertyName("conid")]
     [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     int Conid,
+    [property: JsonPropertyName("bondid")] long? BondId,
     [property: JsonPropertyName("companyHeader")] string CompanyHeader,
-    [property: JsonPropertyName("companyName")] string CompanyName,
-    [property: JsonPropertyName("description")] string Description,
+    [property: JsonPropertyName("companyName")] string? CompanyName,
     [property: JsonPropertyName("symbol")] string Symbol,
-    [property: JsonPropertyName("conidEx")] string ExtendedConid,
-    [property: JsonPropertyName("secType")] string SecurityType,
-    [property: JsonPropertyName("listingExchange")] string ListingExchange,
-    [property: JsonPropertyName("sections")] List<ContractSection>? Sections);
+    [property: JsonPropertyName("description")] string Description,
+    [property: JsonPropertyName("restricted")] bool? Restricted,
+    [property: JsonPropertyName("fop")] string? Fop,
+    [property: JsonPropertyName("opt")] string? Opt,
+    [property: JsonPropertyName("war")] string? War,
+    [property: JsonPropertyName("sections")] List<ContractSection>? Sections,
+    [property: JsonPropertyName("issuers")] List<ContractIssuer>? Issuers);
 
 /// <summary>
 /// A section within a contract search result, representing a derivative type or sub-instrument.
 /// </summary>
-/// <param name="SecurityType">The security type of this section.</param>
-/// <param name="Months">Available contract months, if applicable.</param>
+/// <param name="SecurityType">The security type of this section (e.g., "STK", "OPT", "BOND").</param>
+/// <param name="Months">Semicolon-separated list of available contract months, if applicable.</param>
 /// <param name="Symbol">The symbol for this section, if different from the parent.</param>
-/// <param name="Exchange">The exchange for this section.</param>
+/// <param name="Exchange">Semicolon-separated list of exchanges for this section.</param>
 /// <param name="Conid">The contract ID for this section, if applicable.</param>
 [ExcludeFromCodeCoverage]
 public record ContractSection(
@@ -47,6 +53,16 @@ public record ContractSection(
     [property: JsonPropertyName("conid")]
     [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     int? Conid);
+
+/// <summary>
+/// An issuer of a bond contract, returned within a contract search <see cref="ContractSection"/>.
+/// </summary>
+/// <param name="Id">The issuer identifier.</param>
+/// <param name="Name">The issuer name.</param>
+[ExcludeFromCodeCoverage]
+public record ContractIssuer(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("name")] string Name);
 
 /// <summary>
 /// Detailed contract information from the /iserver/contract/{conid}/info endpoint.

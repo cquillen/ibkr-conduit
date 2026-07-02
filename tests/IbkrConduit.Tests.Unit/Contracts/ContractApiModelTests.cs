@@ -42,6 +42,77 @@ public class ContractApiModelTests
     }
 
     [Fact]
+    public void ContractSearchResult_DeserializesRealSchema()
+    {
+        // Mirrors the real /iserver/secdef/search response: `description` is the exchange,
+        // `restricted` is a nullable bool, `opt`/`fop`/`war` are semicolon date strings, and
+        // `bondid` + section `issuers` appear for bonds. The response does NOT contain the
+        // old model's phantom `conidEx`/`secType`(top-level)/`listingExchange` fields.
+        var json = """
+            [
+              {
+                "conid": "756733",
+                "companyHeader": "SPDR S&P 500 ETF TRUST - ARCA",
+                "companyName": "SPDR S&P 500 ETF TRUST",
+                "symbol": "SPY",
+                "description": "ARCA",
+                "restricted": null,
+                "opt": "APR26;MAY26;JUN26",
+                "sections": [
+                  { "secType": "STK" },
+                  { "secType": "OPT", "months": "APR26;MAY26", "exchange": "SMART;CBOE" }
+                ]
+              },
+              {
+                "conid": "300",
+                "bondid": 9876543210,
+                "companyHeader": "US TREASURY - SMART",
+                "companyName": null,
+                "symbol": "912810",
+                "description": "SMART",
+                "restricted": false,
+                "war": "JAN27",
+                "fop": "MAR27",
+                "sections": [
+                  { "secType": "BOND" }
+                ],
+                "issuers": [ { "id": "e1234", "name": "UNITED STATES TREASURY" } ]
+              }
+            ]
+            """;
+
+        var results = JsonSerializer.Deserialize<List<ContractSearchResult>>(json, _options);
+
+        results.ShouldNotBeNull();
+        results!.Count.ShouldBe(2);
+
+        var etf = results[0];
+        etf.Conid.ShouldBe(756733);
+        etf.Symbol.ShouldBe("SPY");
+        etf.Description.ShouldBe("ARCA"); // description carries the exchange
+        etf.CompanyName.ShouldBe("SPDR S&P 500 ETF TRUST");
+        etf.Restricted.ShouldBeNull();
+        etf.Opt.ShouldBe("APR26;MAY26;JUN26");
+        etf.BondId.ShouldBeNull();
+        etf.Issuers.ShouldBeNull();
+        etf.Sections.ShouldNotBeNull();
+        etf.Sections!.Count.ShouldBe(2);
+
+        var bond = results[1];
+        bond.BondId.ShouldBe(9876543210L);
+        bond.CompanyName.ShouldBeNull();
+        bond.Restricted.ShouldBe(false);
+        bond.War.ShouldBe("JAN27");
+        bond.Fop.ShouldBe("MAR27");
+        bond.Sections!.ShouldHaveSingleItem();
+        bond.Sections![0].SecurityType.ShouldBe("BOND");
+        bond.Issuers.ShouldNotBeNull(); // issuers is a top-level field, not inside sections[]
+        bond.Issuers!.ShouldHaveSingleItem();
+        bond.Issuers![0].Id.ShouldBe("e1234");
+        bond.Issuers![0].Name.ShouldBe("UNITED STATES TREASURY");
+    }
+
+    [Fact]
     public void SecurityDefinitionInfo_CapturesUnknownProperties()
     {
         var json = """
