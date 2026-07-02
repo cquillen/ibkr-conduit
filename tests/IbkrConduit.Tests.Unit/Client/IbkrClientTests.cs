@@ -417,6 +417,7 @@ public class IbkrClientTests
         public IObservable<AccountStatusEvent> AccountStatus => new EmptyObservable<AccountStatusEvent>();
         public Task<IObservable<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IObservable<OrderUpdate>> OrderUpdatesAsync(int? days = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<IObservable<TradeExecution>> TradeExecutionsAsync(bool? realtimeUpdatesOnly = null, int? days = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IObservable<PnlUpdate>> ProfitAndLossAsync(CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IObservable<AccountSummaryUpdate>> AccountSummaryAsync(CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IObservable<AccountLedgerUpdate>> AccountLedgerAsync(CancellationToken ct = default) => throw new NotImplementedException();
