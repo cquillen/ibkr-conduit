@@ -269,13 +269,34 @@ public class StreamingOperationsTests
         using var s = sub.Stream.Subscribe(new TestObserver<OrderUpdate>(
             onNext: o => received.TrySetResult(o)));
 
-        var json = JsonDocument.Parse("""{"topic":"sor","orderId":"123","conid":265598,"symbol":"AAPL","side":"BUY","size":100,"orderType":"LMT","price":150.0,"status":"Filled","filledQuantity":100,"remainingQuantity":0}""").RootElement;
+        // Real sor frames wrap order(s) in an args array.
+        var json = JsonDocument.Parse("""{"topic":"sor","args":[{"orderId":"123","conid":265598,"symbol":"AAPL","side":"BUY","size":100,"orderType":"LMT","price":150.0,"status":"Filled","filledQuantity":100,"remainingQuantity":0}]}""").RootElement;
         await wsClient.Channel.Writer.WriteAsync(json, ct);
 
         var order = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
         order.OrderId.ShouldBe("123");
         order.Symbol.ShouldBe("AAPL");
         order.Status.ShouldBe("Filled");
+    }
+
+    [Fact]
+    public async Task OrderUpdatesAsync_NumericOrderId_CoercedToString()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var sub = await ops.OrderUpdatesAsync(cancellationToken: ct);
+        var received = new TaskCompletionSource<OrderUpdate>();
+        using var s = sub.Stream.Subscribe(new TestObserver<OrderUpdate>(
+            onNext: o => received.TrySetResult(o)));
+
+        var json = JsonDocument.Parse(
+            """{"topic":"sor","args":[{"acct":"DUO873728","conidex":"756733","conid":756733,"orderId":656804954,"isEventTrading":"0"}]}""").RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        var order = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        order.OrderId.ShouldBe("656804954");
+        order.Conid.ShouldBe(756733);
     }
 
     [Fact]
@@ -289,13 +310,59 @@ public class StreamingOperationsTests
         using var s = sub.Stream.Subscribe(new TestObserver<PnlUpdate>(
             onNext: p => received.TrySetResult(p)));
 
-        var json = JsonDocument.Parse("""{"topic":"spl","acctId":"DU123","dpl":100.50,"upl":200.25,"rpl":50.75,"nl":50000.0}""").RootElement;
+        // Real spl frames key args by "{account}.Core" — the account lives in the key.
+        var json = JsonDocument.Parse("""{"topic":"spl","args":{"DU123.Core":{"dpl":100.50,"upl":200.25,"rpl":50.75,"nl":50000.0}}}""").RootElement;
         await wsClient.Channel.Writer.WriteAsync(json, ct);
 
         var pnl = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
         pnl.AccountId.ShouldBe("DU123");
         pnl.DailyPnl.ShouldBe(100.50m);
         pnl.NetLiquidation.ShouldBe(50000.0m);
+    }
+
+    [Fact]
+    public async Task AccountSummaryAsync_MapperReadsResultArrayAndTopicAccountId()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var sub = await ops.AccountSummaryAsync("DUO873728", cancellationToken: ct);
+        var received = new TaskCompletionSource<AccountSummaryUpdate>();
+        using var s = sub.Stream.Subscribe(new TestObserver<AccountSummaryUpdate>(
+            onNext: u => received.TrySetResult(u)));
+
+        var json = JsonDocument.Parse(
+            """{"result":[{"key":"ExcessLiquidity-S","currency":"USD","monetaryValue":1005353.88,"severity":0,"timestamp":1783031080}],"topic":"ssd+DUO873728"}""").RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        var update = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        update.AccountId.ShouldBe("DUO873728");
+        update.Result.Count.ShouldBe(1);
+        update.Result[0].Key.ShouldBe("ExcessLiquidity-S");
+        update.Result[0].MonetaryValue.ShouldBe(1005353.88m);
+    }
+
+    [Fact]
+    public async Task AccountLedgerAsync_MapperReadsResultArrayAndTopicAccountId()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var sub = await ops.AccountLedgerAsync("DUO873728", cancellationToken: ct);
+        var received = new TaskCompletionSource<AccountLedgerUpdate>();
+        using var s = sub.Stream.Subscribe(new TestObserver<AccountLedgerUpdate>(
+            onNext: u => received.TrySetResult(u)));
+
+        var json = JsonDocument.Parse(
+            """{"result":[{"acctCode":"DUO873728","cashbalance":976920.88,"key":"LedgerListBASE","netLiquidationValue":1017353.16,"unrealizedPnl":4598.91,"secondKey":"BASE","settledCash":976920.88,"timestamp":1783031080}],"topic":"sld+DUO873728"}""").RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        var update = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        update.AccountId.ShouldBe("DUO873728");
+        update.Result.Count.ShouldBe(1);
+        update.Result[0].Key.ShouldBe("LedgerListBASE");
+        update.Result[0].CashBalance.ShouldBe(976920.88m);
+        update.Result[0].UnrealizedPnl.ShouldBe(4598.91m);
     }
 
     [Fact]

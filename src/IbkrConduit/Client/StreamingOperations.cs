@@ -75,7 +75,7 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sor", cancelMessage, cancellationToken);
 
-        return new IbkrSubscription<OrderUpdate>(new ChannelObservable<OrderUpdate>(reader, OrderUpdateMapper.Map), unsubscribe);
+        return new IbkrSubscription<OrderUpdate>(new FanOutChannelObservable<OrderUpdate>(reader, OrderUpdateMapper.MapMany), unsubscribe);
     }
 
     /// <inheritdoc />
@@ -105,7 +105,7 @@ internal sealed class StreamingOperations : IStreamingOperations
     {
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync("spl+{}", "spl", "upl+{}", cancellationToken);
 
-        return new IbkrSubscription<PnlUpdate>(new ChannelObservable<PnlUpdate>(reader, PnlUpdateMapper.Map), unsubscribe);
+        return new IbkrSubscription<PnlUpdate>(new FanOutChannelObservable<PnlUpdate>(reader, PnlUpdateMapper.MapMany), unsubscribe);
     }
 
     /// <inheritdoc />
