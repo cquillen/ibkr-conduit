@@ -68,6 +68,17 @@ public class StreamingOperationsTests
     }
 
     [Fact]
+    public async Task TradeExecutionsAsync_RealtimeOnlyFalse_BuildsCorrectTopicMessage()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await ops.TradeExecutionsAsync(realtimeUpdatesOnly: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        wsClient.LastSubscribeMessage.ShouldBe("str+{\"realtimeUpdatesOnly\":false}");
+        wsClient.LastTopicPrefix.ShouldBe("str");
+    }
+
+    [Fact]
     public async Task TradeExecutionsAsync_WithDays_BuildsCorrectTopicMessage()
     {
         var (ops, wsClient) = CreateOperations();
