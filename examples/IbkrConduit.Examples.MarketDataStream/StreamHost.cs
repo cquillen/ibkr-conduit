@@ -58,16 +58,18 @@ internal static class StreamHost
         var totalTicks = 0;
 
         var subscriptions = new List<IDisposable>(resolved.Count);
+        var handles = new List<IIbkrSubscription<MarketDataTick>>(resolved.Count);
         try
         {
             foreach (var entry in resolved)
             {
                 try
                 {
-                    var observable = await client.Streaming.MarketDataAsync(
+                    var subscription = await client.Streaming.MarketDataAsync(
                         entry.Conid, _fields, cancellationToken);
 
-                    subscriptions.Add(observable.Subscribe(new ActionObserver<MarketDataTick>(
+                    handles.Add(subscription);
+                    subscriptions.Add(subscription.Stream.Subscribe(new ActionObserver<MarketDataTick>(
                         tick =>
                         {
                             table.UpdateTick(tick);
@@ -103,6 +105,18 @@ internal static class StreamHost
                 try
                 {
                     sub.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    _logSubscriptionDisposeFailed(logger, ex.Message, ex);
+                }
+            }
+
+            foreach (var handle in handles)
+            {
+                try
+                {
+                    await handle.DisposeAsync();
                 }
                 catch (Exception ex)
                 {
