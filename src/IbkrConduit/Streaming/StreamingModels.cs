@@ -192,6 +192,7 @@ public record TradeExecution
 
     /// <summary>Execution price. IBKR sends this as a quoted string; parsed to decimal.</summary>
     [JsonPropertyName("price")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     public decimal Price { get; init; }
 
     /// <summary>Exchange the order executed at.</summary>
@@ -214,7 +215,7 @@ public record TradeExecution
     [JsonPropertyName("company_name")]
     public string? CompanyName { get; init; }
 
-    /// <summary>Underlying symbol of the contract.</summary>
+    /// <summary>Underlying asset symbol for derivative contracts.</summary>
     [JsonPropertyName("contract_description_1")]
     public string? ContractDescription1 { get; init; }
 

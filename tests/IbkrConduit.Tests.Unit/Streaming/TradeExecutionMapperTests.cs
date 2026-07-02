@@ -87,4 +87,12 @@ public class TradeExecutionMapperTests
 
         TradeExecutionMapper.MapMany(frame).ShouldBeEmpty();
     }
+
+    [Fact]
+    public void MapMany_EmptyArgsArray_ReturnsEmpty()
+    {
+        var frame = JsonDocument.Parse("""{"topic":"str","args":[]}""").RootElement;
+
+        TradeExecutionMapper.MapMany(frame).ShouldBeEmpty();
+    }
 }
