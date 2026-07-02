@@ -40,6 +40,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.websocket.heartbeat.count");
 
     private readonly IIbkrSessionApi _sessionApi;
+    private readonly ISessionManager _sessionManager;
     private readonly IbkrOAuthCredentials _credentials;
     private readonly ISessionLifecycleNotifier _notifier;
     private readonly ILogger<IbkrWebSocketClient> _logger;
@@ -74,6 +75,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// Creates a new <see cref="IbkrWebSocketClient"/>.
     /// </summary>
     /// <param name="sessionApi">Session API for tickle calls.</param>
+    /// <param name="sessionManager">Brokerage session manager. Its <see cref="ISessionManager.EnsureInitializedAsync"/> is invoked before the WebSocket opens so iserver-dependent topics are not rejected with "Missing iserver bridge".</param>
     /// <param name="credentials">OAuth credentials containing the access token.</param>
     /// <param name="notifier">Session lifecycle notifier for reconnect on re-auth.</param>
     /// <param name="logger">Logger instance.</param>
@@ -85,6 +87,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <param name="webSocketBaseUrl">Override for the WebSocket base URL. When null, defaults to <c>wss://api.ibkr.com/v1/api/ws</c>.</param>
     public IbkrWebSocketClient(
         IIbkrSessionApi sessionApi,
+        ISessionManager sessionManager,
         IbkrOAuthCredentials credentials,
         ISessionLifecycleNotifier notifier,
         ILogger<IbkrWebSocketClient> logger,
@@ -96,6 +99,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         string? webSocketBaseUrl = null)
     {
         _sessionApi = sessionApi;
+        _sessionManager = sessionManager;
         _credentials = credentials;
         _notifier = notifier;
         _logger = logger;
@@ -153,6 +157,18 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task ConnectAsync(CancellationToken cancellationToken)
     {
+        // Ensure the brokerage session (ssodh/init) is established before opening the
+        // WebSocket, so iserver-dependent subscriptions (sor/str/smd/spl/ssd/sld) are not
+        // rejected by IBKR with "Missing iserver bridge". Idempotent: a no-op once the
+        // session is already initialized.
+        //
+        // Deliberately done here rather than in ConnectCoreAsync: ConnectCoreAsync is also
+        // the internal reconnect path, which runs inside ReauthenticateAsync while it holds
+        // the session lock. Re-entering session initialization there would deadlock. On
+        // reconnect the session is already established (by tickle keepalive or the reauth
+        // itself), so no re-initialization is needed.
+        await _sessionManager.EnsureInitializedAsync(cancellationToken);
+
         await _connectLock.WaitAsync(cancellationToken);
         try
         {

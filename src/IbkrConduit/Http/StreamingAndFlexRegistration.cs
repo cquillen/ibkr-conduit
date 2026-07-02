@@ -31,6 +31,7 @@ internal static class StreamingAndFlexRegistration
         services.AddSingleton<IIbkrWebSocketClient>(sp =>
             new IbkrWebSocketClient(
                 sp.GetRequiredService<IIbkrSessionApi>(),
+                sp.GetRequiredService<ISessionManager>(),
                 credentials,
                 sp.GetRequiredService<ISessionLifecycleNotifier>(),
                 sp.GetRequiredService<ILogger<IbkrWebSocketClient>>(),

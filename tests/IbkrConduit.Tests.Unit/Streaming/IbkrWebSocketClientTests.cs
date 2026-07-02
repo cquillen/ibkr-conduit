@@ -22,6 +22,7 @@ public class IbkrWebSocketClientTests
 {
     private readonly FakeWebSocketAdapter _adapter = new();
     private readonly FakeSessionApi _sessionApi = new();
+    private readonly FakeSessionManager _sessionManager = new();
     private readonly FakeLifecycleNotifier _notifier = new();
     private readonly IbkrOAuthCredentials _credentials;
 
@@ -49,6 +50,25 @@ public class IbkrWebSocketClientTests
         _adapter.RequestHeaders.ShouldContainKey("Cookie");
         _adapter.RequestHeaders.ShouldContainKey("User-Agent");
         _adapter.RequestHeaders["User-Agent"].ShouldBe("ClientPortalGW/1");
+    }
+
+    [Fact]
+    public async Task ConnectAsync_EstablishesBrokerageSessionBeforeConnecting()
+    {
+        await using var client = CreateClient();
+
+        // Capture whether the WebSocket had already connected at the moment the brokerage
+        // session was ensured. The session MUST be established first (via ssodh/init);
+        // otherwise IBKR rejects iserver-dependent subscriptions (sor/str) with
+        // "Missing iserver bridge". Seed true so a never-called ensure fails the assertion.
+        var adapterConnectedWhenSessionEnsured = true;
+        _sessionManager.OnEnsureInitialized =
+            () => adapterConnectedWhenSessionEnsured = _adapter.ConnectedUri is not null;
+
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
+
+        _sessionManager.EnsureInitializedCallCount.ShouldBe(1);
+        adapterConnectedWhenSessionEnsured.ShouldBeFalse();
     }
 
     [Fact]
@@ -481,6 +501,7 @@ public class IbkrWebSocketClientTests
         // Use a small buffer so we can fill it without writing 256 messages.
         await using var client = new IbkrWebSocketClient(
             _sessionApi,
+            _sessionManager,
             _credentials,
             _notifier,
             NullLogger<IbkrWebSocketClient>.Instance,
@@ -1099,6 +1120,7 @@ public class IbkrWebSocketClientTests
         string? webSocketBaseUrl = null) =>
         new(
             _sessionApi,
+            _sessionManager,
             _credentials,
             _notifier,
             logger ?? NullLogger<IbkrWebSocketClient>.Instance,
