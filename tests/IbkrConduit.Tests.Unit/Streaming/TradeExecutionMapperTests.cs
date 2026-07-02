@@ -8,7 +8,7 @@ namespace IbkrConduit.Tests.Unit.Streaming;
 
 public class TradeExecutionMapperTests
 {
-    private const string TwoExecutionFrame = """
+    private const string _twoExecutionFrame = """
         {
           "topic":"str",
           "args":[
@@ -35,7 +35,7 @@ public class TradeExecutionMapperTests
     [Fact]
     public void MapMany_FrameWithTwoExecutions_ReturnsBothWithFieldsMapped()
     {
-        var frame = JsonDocument.Parse(TwoExecutionFrame).RootElement;
+        var frame = JsonDocument.Parse(_twoExecutionFrame).RootElement;
 
         var executions = TradeExecutionMapper.MapMany(frame).ToList();
 
