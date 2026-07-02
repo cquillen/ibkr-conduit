@@ -81,15 +81,22 @@ internal static class Program
             accountId = accounts[0].Id;
         }
 
-        // Resolve symbol -> conid (US stocks).
+        // Resolve symbol -> conid (US stocks). IBKR can return several STK contracts sharing the
+        // same symbol on different venues (a US listing plus foreign cross-listings), so prefer
+        // the US primary listing rather than trusting the response ordering.
         var matches = (await client.Contracts.SearchBySymbolAsync(
             parsed.Symbol, secType: SecurityType.Stock)).EnsureSuccess().Value;
-        var match = matches.FirstOrDefault(
-            c => string.Equals(c.Symbol, parsed.Symbol, StringComparison.OrdinalIgnoreCase));
+        var match = SelectStockContract(matches, parsed.Symbol);
         if (match is null)
         {
             Console.Error.WriteLine($"Error: could not resolve symbol '{parsed.Symbol}' to a stock contract.");
             return 1;
+        }
+
+        if (!IsUsPrimaryExchange(match.ListingExchange))
+        {
+            Console.Error.WriteLine(
+                $"Warning: no US primary listing found for '{parsed.Symbol}'; using exchange '{match.ListingExchange}' (conid {match.Conid}).");
         }
 
         var orderRef = string.IsNullOrEmpty(parsed.OrderRef) ? GenerateOrderRef() : parsed.OrderRef;
@@ -109,6 +116,9 @@ internal static class Program
             $"({parsed.OrderType}{(parsed.Price is { } p ? $" @ {p.ToString(CultureInfo.InvariantCulture)}" : string.Empty)}, " +
             $"{parsed.Tif}), order_ref={orderRef}");
 
+        var contractName = string.IsNullOrEmpty(match.CompanyName) ? match.Description : match.CompanyName;
+        Console.WriteLine($"Resolved: conid={match.Conid} {contractName} [{match.ListingExchange}]");
+
         if (parsed.WhatIf)
         {
             var whatIf = (await client.Orders.WhatIfOrderAsync(accountId, order)).EnsureSuccess().Value;
@@ -118,7 +128,10 @@ internal static class Program
             if (!string.IsNullOrEmpty(whatIf.Warning)) { Console.WriteLine($"  warning: {whatIf.Warning}"); }
             if (!string.IsNullOrEmpty(whatIf.Error)) { Console.WriteLine($"  error: {whatIf.Error}"); }
             Console.WriteLine("Not submitted (--what-if).");
-            return 0;
+
+            // Exit non-zero when IBKR reports a preview error so scripts gating on the
+            // exit code can distinguish a clean preview from a would-be rejection.
+            return string.IsNullOrEmpty(whatIf.Error) ? 0 : 1;
         }
 
         var result = (await client.Orders.PlaceOrderAsync(accountId, order)).EnsureSuccess().Value;
@@ -178,6 +191,42 @@ internal static class Program
         var now = DateTimeOffset.UtcNow;
         var suffix = Guid.NewGuid().ToString("N").Substring(0, 4);
         return $"submit-{now:HHmmss}-{suffix}";
+    }
+
+    /// <summary>
+    /// The US primary listing venues an unqualified symbol should resolve to. Compared
+    /// case-insensitively; anything else (foreign cross-listings like <c>MEXI</c>/<c>LSE</c>,
+    /// or an absent exchange) is not a US primary listing.
+    /// </summary>
+    private static readonly string[] _usPrimaryExchanges =
+    {
+        "NASDAQ", "NYSE", "ARCA", "AMEX", "BATS",
+    };
+
+    /// <summary>
+    /// Returns true when <paramref name="listingExchange"/> is a US primary listing venue
+    /// (NASDAQ, NYSE, ARCA, AMEX, BATS). Case-insensitive; false for null, empty, or any
+    /// non-US venue.
+    /// </summary>
+    internal static bool IsUsPrimaryExchange(string listingExchange) =>
+        !string.IsNullOrEmpty(listingExchange)
+        && _usPrimaryExchanges.Contains(listingExchange, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Chooses the stock contract to trade from an IBKR symbol-search result. Considers only
+    /// exact symbol matches (case-insensitive) and prefers the first US primary listing; if none
+    /// of the matches are US-listed, falls back to the first exact-symbol match. Returns null when
+    /// no result matches the symbol at all.
+    /// </summary>
+    internal static ContractSearchResult? SelectStockContract(
+        IReadOnlyList<ContractSearchResult> matches, string symbol)
+    {
+        var exact = matches
+            .Where(c => string.Equals(c.Symbol, symbol, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return exact.FirstOrDefault(c => IsUsPrimaryExchange(c.ListingExchange))
+            ?? exact.FirstOrDefault();
     }
 
     private static void PrintHelp()

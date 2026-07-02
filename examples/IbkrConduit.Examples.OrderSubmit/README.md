@@ -40,6 +40,7 @@ dotnet run --project examples/IbkrConduit.Examples.OrderSubmit --configuration R
 
 ## Exit codes
 
-- `0` — submitted, or `--what-if` preview printed.
-- `1` — runtime error, order rejected, or confirmation declined.
+- `0` — submitted, or `--what-if` preview printed with no IBKR error.
+- `1` — runtime error, order rejected, confirmation declined, or a `--what-if`
+  preview that IBKR reports would be rejected (non-empty preview error).
 - `2` — bad CLI arguments.

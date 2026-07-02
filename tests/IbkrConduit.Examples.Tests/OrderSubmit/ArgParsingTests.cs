@@ -79,6 +79,27 @@ public class ArgParsingTests
     }
 
     [Fact]
+    public void TryParseArgs_TifMissingValue_ReturnsError()
+    {
+        Program.TryParseArgs(new[] { "BUY", "1", "AAPL", "--tif" }, out _, out var error).ShouldBeFalse();
+        error.ShouldContain("--tif");
+    }
+
+    [Fact]
+    public void TryParseArgs_OrderRefMissingValue_ReturnsError()
+    {
+        Program.TryParseArgs(new[] { "BUY", "1", "AAPL", "--order-ref" }, out _, out var error).ShouldBeFalse();
+        error.ShouldContain("--order-ref");
+    }
+
+    [Fact]
+    public void TryParseArgs_AccountMissingValue_ReturnsError()
+    {
+        Program.TryParseArgs(new[] { "BUY", "1", "AAPL", "--account" }, out _, out var error).ShouldBeFalse();
+        error.ShouldContain("--account");
+    }
+
+    [Fact]
     public void TryParseArgs_BadTif_ReturnsError()
     {
         Program.TryParseArgs(new[] { "BUY", "1", "AAPL", "--tif", "FOO" }, out _, out var error).ShouldBeFalse();
