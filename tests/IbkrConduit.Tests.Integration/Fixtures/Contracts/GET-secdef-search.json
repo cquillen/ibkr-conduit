@@ -11,6 +11,7 @@
         "symbol": "SPY",
         "description": "ARCA",
         "restricted": null,
+        "opt": "APR26;MAY26;JUN26",
         "sections": [
           { "secType": "STK" },
           {
