@@ -46,6 +46,116 @@ public class StreamingOperationsTests
     }
 
     [Fact]
+    public async Task TradeExecutionsAsync_NoArgs_BuildsCorrectTopicMessage()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await ops.TradeExecutionsAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        wsClient.LastSubscribeMessage.ShouldBe("str+{}");
+        wsClient.LastTopicPrefix.ShouldBe("str");
+    }
+
+    [Fact]
+    public async Task TradeExecutionsAsync_RealtimeOnly_BuildsCorrectTopicMessage()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await ops.TradeExecutionsAsync(realtimeUpdatesOnly: true, cancellationToken: TestContext.Current.CancellationToken);
+
+        wsClient.LastSubscribeMessage.ShouldBe("str+{\"realtimeUpdatesOnly\":true}");
+        wsClient.LastTopicPrefix.ShouldBe("str");
+    }
+
+    [Fact]
+    public async Task TradeExecutionsAsync_RealtimeOnlyFalse_BuildsCorrectTopicMessage()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await ops.TradeExecutionsAsync(realtimeUpdatesOnly: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        wsClient.LastSubscribeMessage.ShouldBe("str+{\"realtimeUpdatesOnly\":false}");
+        wsClient.LastTopicPrefix.ShouldBe("str");
+    }
+
+    [Fact]
+    public async Task TradeExecutionsAsync_WithDays_BuildsCorrectTopicMessage()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await ops.TradeExecutionsAsync(days: 3, cancellationToken: TestContext.Current.CancellationToken);
+
+        wsClient.LastSubscribeMessage.ShouldBe("str+{\"days\":3}");
+        wsClient.LastTopicPrefix.ShouldBe("str");
+    }
+
+    [Fact]
+    public async Task TradeExecutionsAsync_RealtimeOnlyAndDays_BuildsCorrectTopicMessage()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await ops.TradeExecutionsAsync(realtimeUpdatesOnly: true, days: 3, cancellationToken: TestContext.Current.CancellationToken);
+
+        wsClient.LastSubscribeMessage.ShouldBe("str+{\"realtimeUpdatesOnly\":true,\"days\":3}");
+        wsClient.LastTopicPrefix.ShouldBe("str");
+    }
+
+    [Fact]
+    public async Task TradeExecutionsAsync_FrameWithMultipleExecutions_EmitsOnePerExecution()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = await ops.TradeExecutionsAsync(cancellationToken: ct);
+        var received = new System.Collections.Generic.List<TradeExecution>();
+        var done = new TaskCompletionSource();
+        using var sub = observable.Subscribe(new TestObserver<TradeExecution>(
+            onNext: e =>
+            {
+                received.Add(e);
+                if (received.Count == 2)
+                {
+                    done.TrySetResult();
+                }
+            }));
+
+        var json = JsonDocument.Parse("""
+            {"topic":"str","args":[
+              {"execution_id":"e1","symbol":"AAPL","price":"150.25","size":100,"conid":265598},
+              {"execution_id":"e2","symbol":"MSFT","price":"420.10","size":50,"conid":272093}
+            ]}
+            """).RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        await done.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        received.Count.ShouldBe(2);
+        received[0].ExecutionId.ShouldBe("e1");
+        received[0].Price.ShouldBe(150.25m);
+        received[1].Symbol.ShouldBe("MSFT");
+    }
+
+    [Fact]
+    public async Task TradeExecutionsAsync_FrameWithNoArgs_EmitsNothing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var observable = await ops.TradeExecutionsAsync(cancellationToken: ct);
+        var got = new TaskCompletionSource<TradeExecution>();
+        using var sub = observable.Subscribe(new TestObserver<TradeExecution>(
+            onNext: e => got.TrySetResult(e)));
+
+        // A no-args str frame, then a valid one — only the valid execution should arrive.
+        await wsClient.Channel.Writer.WriteAsync(
+            JsonDocument.Parse("""{"topic":"str"}""").RootElement, ct);
+        await wsClient.Channel.Writer.WriteAsync(
+            JsonDocument.Parse("""{"topic":"str","args":[{"execution_id":"only"}]}""").RootElement, ct);
+
+        var execution = await got.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        execution.ExecutionId.ShouldBe("only");
+    }
+
+    [Fact]
     public async Task ProfitAndLossAsync_BuildsCorrectTopicMessage()
     {
         var (ops, wsClient) = CreateOperations();

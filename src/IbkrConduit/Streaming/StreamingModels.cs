@@ -145,6 +145,115 @@ public record AccountLedgerUpdate
     public Dictionary<string, JsonElement>? Data { get; init; }
 }
 
+/// <summary>
+/// A real-time trade execution (fill) from the WebSocket <c>str</c> topic. One item
+/// is emitted per execution. On subscribe IBKR replays historical executions (up to
+/// the requested <c>days</c>) and repeats them after any reconnect, so consumers
+/// should dedupe on <see cref="ExecutionId"/>.
+/// </summary>
+[ExcludeFromCodeCoverage]
+public record TradeExecution
+{
+    /// <summary>Execution identifier of the specific trade. Natural dedupe key.</summary>
+    [JsonPropertyName("execution_id")]
+    public string ExecutionId { get; init; } = string.Empty;
+
+    /// <summary>Ticker symbol of the traded contract.</summary>
+    [JsonPropertyName("symbol")]
+    public string Symbol { get; init; } = string.Empty;
+
+    /// <summary>Whether the contract supports the tax optimizer (Client Portal only).</summary>
+    [JsonPropertyName("supports_tax_opt")]
+    public string? SupportsTaxOpt { get; init; }
+
+    /// <summary>Trade side (buy or sell).</summary>
+    [JsonPropertyName("side")]
+    public string Side { get; init; } = string.Empty;
+
+    /// <summary>Full order description, formatted "{SIDE} {SIZE} @ {PRICE} on {EXCHANGE}".</summary>
+    [JsonPropertyName("order_description")]
+    public string? OrderDescription { get; init; }
+
+    /// <summary>Trade date-time in UTC, formatted "YYYYMMDD-HH:mm:ss". Kept raw.</summary>
+    [JsonPropertyName("trade_time")]
+    public string? TradeTime { get; init; }
+
+    /// <summary>Trade date-time of the execution in epoch milliseconds.</summary>
+    [JsonPropertyName("trade_time_r")]
+    public long? TradeTimeR { get; init; }
+
+    /// <summary>Quantity of shares traded.</summary>
+    [JsonPropertyName("size")]
+    public decimal Size { get; init; }
+
+    /// <summary>Custom order identifier (cOID) supplied at order placement, if any.</summary>
+    [JsonPropertyName("order_ref")]
+    public string? OrderRef { get; init; }
+
+    /// <summary>Execution price. IBKR sends this as a quoted string; parsed to decimal.</summary>
+    [JsonPropertyName("price")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    public decimal Price { get; init; }
+
+    /// <summary>Exchange the order executed at.</summary>
+    [JsonPropertyName("exchange")]
+    public string? Exchange { get; init; }
+
+    /// <summary>Total amount traded after applying the contract multiplier.</summary>
+    [JsonPropertyName("net_amount")]
+    public decimal NetAmount { get; init; }
+
+    /// <summary>Account the order was traded on.</summary>
+    [JsonPropertyName("account")]
+    public string Account { get; init; } = string.Empty;
+
+    /// <summary>Account code the order was traded on.</summary>
+    [JsonPropertyName("accountCode")]
+    public string? AccountCode { get; init; }
+
+    /// <summary>Title of the company for the contract.</summary>
+    [JsonPropertyName("company_name")]
+    public string? CompanyName { get; init; }
+
+    /// <summary>Underlying asset symbol for derivative contracts.</summary>
+    [JsonPropertyName("contract_description_1")]
+    public string? ContractDescription1 { get; init; }
+
+    /// <summary>Full description of the derivative.</summary>
+    [JsonPropertyName("contract_description_2")]
+    public string? ContractDescription2 { get; init; }
+
+    /// <summary>Security type traded (e.g., STK, OPT, FUT).</summary>
+    [JsonPropertyName("sec_type")]
+    public string? SecType { get; init; }
+
+    /// <summary>Contract identifier for the traded contract.</summary>
+    [JsonPropertyName("conid")]
+    public int Conid { get; init; }
+
+#pragma warning disable CA1711 // ConidEx is the IBKR API field name — suffix is not a .NET type convention issue
+    /// <summary>The conidEx of the order if specified; otherwise the conid.</summary>
+    [JsonPropertyName("conidEx")]
+    public string? ConidEx { get; init; }
+#pragma warning restore CA1711
+
+    /// <summary>Whether the execution was a closing trade. "???" when the position was already open but not a closing order.</summary>
+    [JsonPropertyName("open_close")]
+    public string? OpenClose { get; init; }
+
+    /// <summary>Whether the trade resulted from a liquidation.</summary>
+    [JsonPropertyName("liquidation_trade")]
+    public string? LiquidationTrade { get; init; }
+
+    /// <summary>Whether the order can be used with EventTrader.</summary>
+    [JsonPropertyName("is_event_trading")]
+    public string? IsEventTrading { get; init; }
+
+    /// <summary>Additional data not mapped to known properties.</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
 /// <summary>Pushed when the brokerage authentication state changes (e.g., competing session, server-side timeout).</summary>
 [ExcludeFromCodeCoverage]
 public sealed record SessionStatusEvent

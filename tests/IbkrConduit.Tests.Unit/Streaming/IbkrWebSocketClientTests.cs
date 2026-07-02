@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
+using IbkrConduit.Client;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
@@ -903,6 +904,48 @@ public class IbkrWebSocketClientTests
         // (could be 1 or 2 depending on timing) — the smoke test is "no deadlock,
         // no exception, eventually a reconnect attempt happens".
         _adapter.ConnectCallCount.ShouldBeGreaterThan(connectsBefore);
+    }
+
+    [Fact]
+    public async Task TradeExecutions_EndToEnd_EmitsOnePerExecutionFromStrFrame()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var client = CreateClient();
+        await client.ConnectAsync(ct);
+
+        var ops = new StreamingOperations(client);
+        var observable = await ops.TradeExecutionsAsync(cancellationToken: ct);
+
+        var received = new List<TradeExecution>();
+        var done = new TaskCompletionSource();
+        using var sub = observable.Subscribe(new EndToEndObserver(e =>
+        {
+            received.Add(e);
+            if (received.Count == 2)
+            {
+                done.TrySetResult();
+            }
+        }));
+
+        _adapter.EnqueueServerMessage("""
+            {"topic":"str","args":[
+              {"execution_id":"e1","symbol":"AAPL","price":"150.25","size":100,"conid":265598},
+              {"execution_id":"e2","symbol":"MSFT","price":"420.10","size":50,"conid":272093}
+            ]}
+            """);
+
+        await done.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        received.Count.ShouldBe(2);
+        received[0].ExecutionId.ShouldBe("e1");
+        received[0].Price.ShouldBe(150.25m);
+        received[1].Symbol.ShouldBe("MSFT");
+    }
+
+    private sealed class EndToEndObserver(Action<TradeExecution> onNext) : IObserver<TradeExecution>
+    {
+        public void OnNext(TradeExecution value) => onNext(value);
+        public void OnError(Exception error) { }
+        public void OnCompleted() { }
     }
 
     private IbkrWebSocketClient CreateClient(

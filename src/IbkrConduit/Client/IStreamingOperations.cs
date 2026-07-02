@@ -71,6 +71,22 @@ public interface IStreamingOperations
     Task<IObservable<OrderUpdate>> OrderUpdatesAsync(int? days = null, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Subscribes to the real-time trade execution stream (IBKR <c>str</c> topic).
+    /// Emits one item per execution. On subscribe IBKR replays historical executions
+    /// (up to <paramref name="days"/>) unless <paramref name="realtimeUpdatesOnly"/> is
+    /// true; the same replay occurs after any reconnect, so consumers should dedupe on
+    /// <see cref="TradeExecution.ExecutionId"/>.
+    /// </summary>
+    /// <param name="realtimeUpdatesOnly">When true, suppress historical executions and stream new fills only. Omitted from the wire message when null (IBKR default: false).</param>
+    /// <param name="days">Days of historical executions to include on subscribe. Omitted from the wire message when null (IBKR default: 1).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task that resolves to an observable stream of trade executions.</returns>
+    Task<IObservable<TradeExecution>> TradeExecutionsAsync(
+        bool? realtimeUpdatesOnly = null,
+        int? days = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Subscribes to real-time profit and loss updates.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>

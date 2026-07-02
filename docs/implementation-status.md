@@ -113,6 +113,7 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 | 5.4 | ChannelObservable + IStreamingOperations | Done |
 | 5.5 | IIbkrClient facade + DI wiring | Done |
 | 5.6 | Tests + WebSocket E2E | Done |
+| 5.7 | Trade execution stream (`str` topic) + array fan-out observable | Done |
 
 ---
 

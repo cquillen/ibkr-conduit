@@ -93,6 +93,28 @@ internal sealed class StreamingOperations : IStreamingOperations
     }
 
     /// <inheritdoc />
+    public async Task<IObservable<TradeExecution>> TradeExecutionsAsync(
+        bool? realtimeUpdatesOnly = null,
+        int? days = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string>();
+        if (realtimeUpdatesOnly.HasValue)
+        {
+            parts.Add($"\"realtimeUpdatesOnly\":{(realtimeUpdatesOnly.Value ? "true" : "false")}");
+        }
+        if (days.HasValue)
+        {
+            parts.Add($"\"days\":{days.Value}");
+        }
+        var subscribeMessage = $"str+{{{string.Join(",", parts)}}}";
+
+        var (reader, _) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "str", cancellationToken);
+
+        return new FanOutChannelObservable<TradeExecution>(reader, TradeExecutionMapper.MapMany);
+    }
+
+    /// <inheritdoc />
     public async Task<IObservable<PnlUpdate>> ProfitAndLossAsync(CancellationToken cancellationToken = default)
     {
         var (reader, _) = await _webSocketClient.SubscribeTopicAsync("spl+{}", "spl", cancellationToken);
