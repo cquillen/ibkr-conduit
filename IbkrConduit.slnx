@@ -11,5 +11,7 @@
   </Folder>
   <Folder Name="/examples/">
     <Project Path="examples/IbkrConduit.Examples.MarketDataStream/IbkrConduit.Examples.MarketDataStream.csproj" />
+    <Project Path="examples/IbkrConduit.Examples.OrderMonitor/IbkrConduit.Examples.OrderMonitor.csproj" />
+    <Project Path="tests/IbkrConduit.Examples.Tests/IbkrConduit.Examples.Tests.csproj" />
   </Folder>
 </Solution>
