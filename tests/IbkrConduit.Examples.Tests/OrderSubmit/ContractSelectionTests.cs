@@ -6,17 +6,21 @@ namespace IbkrConduit.Examples.Tests.OrderSubmit;
 
 public class ContractSelectionTests
 {
-    private static ContractSearchResult Stock(int conid, string symbol, string listingExchange) =>
+    // The exchange for a symbol-search result is carried in Description (e.g. "ARCA", "MEXI").
+    private static ContractSearchResult Stock(int conid, string symbol, string exchange) =>
         new(
-            conid,
-            $"{symbol} - {listingExchange}",
-            $"{symbol} INC",
-            listingExchange,
-            symbol,
-            string.Empty,
-            "STK",
-            listingExchange,
-            null);
+            conid,                     // Conid
+            null,                      // BondId
+            $"{symbol} - {exchange}",  // CompanyHeader
+            $"{symbol} INC",           // CompanyName
+            symbol,                    // Symbol
+            exchange,                  // Description (carries the exchange)
+            null,                      // Restricted
+            null,                      // Fop
+            null,                      // Opt
+            null,                      // War
+            null,                      // Sections
+            null);                     // Issuers
 
     [Fact]
     public void SelectStockContract_PrefersUsListing_EvenWhenNotFirst()
@@ -31,7 +35,7 @@ public class ContractSelectionTests
 
         chosen.ShouldNotBeNull();
         chosen!.Conid.ShouldBe(2);
-        chosen.ListingExchange.ShouldBe("ARCA");
+        chosen.Description.ShouldBe("ARCA"); // Description carries the exchange
     }
 
     [Fact]
@@ -108,6 +112,6 @@ public class ContractSelectionTests
     [InlineData(null)]
     public void IsUsPrimaryExchange_NonUsOrEmpty_ReturnFalse(string? exchange)
     {
-        Program.IsUsPrimaryExchange(exchange!).ShouldBeFalse();
+        Program.IsUsPrimaryExchange(exchange).ShouldBeFalse();
     }
 }

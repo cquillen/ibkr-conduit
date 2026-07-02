@@ -93,10 +93,10 @@ internal static class Program
             return 1;
         }
 
-        if (!IsUsPrimaryExchange(match.ListingExchange))
+        if (!IsUsPrimaryExchange(match.Description))
         {
             Console.Error.WriteLine(
-                $"Warning: no US primary listing found for '{parsed.Symbol}'; using exchange '{match.ListingExchange}' (conid {match.Conid}).");
+                $"Warning: no US primary listing found for '{parsed.Symbol}'; using exchange '{match.Description}' (conid {match.Conid}).");
         }
 
         var orderRef = string.IsNullOrEmpty(parsed.OrderRef) ? GenerateOrderRef() : parsed.OrderRef;
@@ -117,7 +117,7 @@ internal static class Program
             $"{parsed.Tif}), order_ref={orderRef}");
 
         var contractName = string.IsNullOrEmpty(match.CompanyName) ? match.Description : match.CompanyName;
-        Console.WriteLine($"Resolved: conid={match.Conid} {contractName} [{match.ListingExchange}]");
+        Console.WriteLine($"Resolved: conid={match.Conid} {contractName} [{match.Description}]");
 
         if (parsed.WhatIf)
         {
@@ -204,19 +204,21 @@ internal static class Program
     };
 
     /// <summary>
-    /// Returns true when <paramref name="listingExchange"/> is a US primary listing venue
+    /// Returns true when <paramref name="exchange"/> is a US primary listing venue
     /// (NASDAQ, NYSE, ARCA, AMEX, BATS). Case-insensitive; false for null, empty, or any
-    /// non-US venue.
+    /// non-US venue. For a symbol-search result the exchange is carried in
+    /// <see cref="ContractSearchResult.Description"/> (e.g. "ARCA", "NASDAQ", "MEXI").
     /// </summary>
-    internal static bool IsUsPrimaryExchange(string listingExchange) =>
-        !string.IsNullOrEmpty(listingExchange)
-        && _usPrimaryExchanges.Contains(listingExchange, StringComparer.OrdinalIgnoreCase);
+    internal static bool IsUsPrimaryExchange(string? exchange) =>
+        !string.IsNullOrEmpty(exchange)
+        && _usPrimaryExchanges.Contains(exchange, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Chooses the stock contract to trade from an IBKR symbol-search result. Considers only
-    /// exact symbol matches (case-insensitive) and prefers the first US primary listing; if none
-    /// of the matches are US-listed, falls back to the first exact-symbol match. Returns null when
-    /// no result matches the symbol at all.
+    /// exact symbol matches (case-insensitive) and prefers the first US primary listing (by the
+    /// result's <see cref="ContractSearchResult.Description"/> exchange); if none of the matches
+    /// are US-listed, falls back to the first exact-symbol match. Returns null when no result
+    /// matches the symbol at all.
     /// </summary>
     internal static ContractSearchResult? SelectStockContract(
         IReadOnlyList<ContractSearchResult> matches, string symbol)
@@ -225,7 +227,7 @@ internal static class Program
             .Where(c => string.Equals(c.Symbol, symbol, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        return exact.FirstOrDefault(c => IsUsPrimaryExchange(c.ListingExchange))
+        return exact.FirstOrDefault(c => IsUsPrimaryExchange(c.Description))
             ?? exact.FirstOrDefault();
     }
 
