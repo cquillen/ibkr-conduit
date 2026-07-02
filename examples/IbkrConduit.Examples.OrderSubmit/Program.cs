@@ -1,4 +1,12 @@
 using System.Globalization;
+using IbkrConduit.Auth;
+using IbkrConduit.Client;
+using IbkrConduit.Contracts;
+using IbkrConduit.Http;
+using IbkrConduit.Orders;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using OneOf;
 
 namespace IbkrConduit.Examples.OrderSubmit;
 
@@ -10,7 +18,7 @@ internal sealed record ParsedOrder(
 
 internal static class Program
 {
-    public static int Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
         if (args.Any(a => a is "-h" or "--help" or "/?"))
         {
@@ -18,15 +26,158 @@ internal static class Program
             return 0;
         }
 
-        if (!TryParseArgs(args, out _, out var error))
+        if (!TryParseArgs(args, out var parsed, out var error))
         {
             Console.Error.WriteLine(error);
             return 2;
         }
 
-        // Submission wiring is added in a later task.
-        Console.WriteLine("OrderSubmit: arguments parsed. Submission wiring not yet implemented.");
+        const string credentialsPath = ".ibkr-credentials/ibkr-credentials.json";
+        if (!File.Exists(credentialsPath))
+        {
+            Console.Error.WriteLine(
+                $"Error: credentials file not found at {credentialsPath}. Run ibkr-conduit-setup first.");
+            return 1;
+        }
+
+        using var credentials = OAuthCredentialsFactory.FromFile(credentialsPath);
+
+        var services = new ServiceCollection();
+        services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
+        services.AddIbkrClient(opts => opts.Credentials = credentials);
+
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<IIbkrClient>();
+
+        try
+        {
+            return await SubmitAsync(client, parsed!);
+        }
+        catch (IbkrConduit.Errors.IbkrApiException ex)
+        {
+            Console.Error.WriteLine($"Error: {ex.Message}");
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error: {ex.GetType().Name}: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> SubmitAsync(IIbkrClient client, ParsedOrder parsed)
+    {
+        // Resolve account (explicit --account or first discovered).
+        var accountId = parsed.Account;
+        if (string.IsNullOrEmpty(accountId))
+        {
+            var accounts = (await client.Portfolio.GetAccountsAsync()).EnsureSuccess().Value;
+            if (accounts.Count == 0)
+            {
+                Console.Error.WriteLine("Error: no accounts found.");
+                return 1;
+            }
+
+            accountId = accounts[0].Id;
+        }
+
+        // Resolve symbol -> conid (US stocks).
+        var matches = (await client.Contracts.SearchBySymbolAsync(
+            parsed.Symbol, secType: SecurityType.Stock)).EnsureSuccess().Value;
+        var match = matches.FirstOrDefault(
+            c => string.Equals(c.Symbol, parsed.Symbol, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            Console.Error.WriteLine($"Error: could not resolve symbol '{parsed.Symbol}' to a stock contract.");
+            return 1;
+        }
+
+        var orderRef = string.IsNullOrEmpty(parsed.OrderRef) ? GenerateOrderRef() : parsed.OrderRef;
+
+        var order = new OrderRequest
+        {
+            Conid = match.Conid,
+            Side = parsed.Side,
+            Quantity = parsed.Quantity,
+            OrderType = parsed.OrderType,
+            Price = parsed.Price,
+            Tif = parsed.Tif,
+            CustomerOrderId = orderRef,
+        };
+
+        Console.WriteLine($"Account {accountId}: {parsed.Side} {parsed.Quantity} {parsed.Symbol} " +
+            $"({parsed.OrderType}{(parsed.Price is { } p ? $" @ {p.ToString(CultureInfo.InvariantCulture)}" : string.Empty)}, " +
+            $"{parsed.Tif}), order_ref={orderRef}");
+
+        if (parsed.WhatIf)
+        {
+            var whatIf = (await client.Orders.WhatIfOrderAsync(accountId, order)).EnsureSuccess().Value;
+            Console.WriteLine("What-if preview:");
+            Console.WriteLine($"  amount={whatIf.Amount?.Amount ?? "-"}, commission={whatIf.Amount?.Commission ?? "-"}, total={whatIf.Amount?.Total ?? "-"}");
+            Console.WriteLine($"  initial margin={whatIf.Initial?.After ?? "-"}, maintenance={whatIf.Maintenance?.After ?? "-"}");
+            if (!string.IsNullOrEmpty(whatIf.Warning)) { Console.WriteLine($"  warning: {whatIf.Warning}"); }
+            if (!string.IsNullOrEmpty(whatIf.Error)) { Console.WriteLine($"  error: {whatIf.Error}"); }
+            Console.WriteLine("Not submitted (--what-if).");
+            return 0;
+        }
+
+        var result = (await client.Orders.PlaceOrderAsync(accountId, order)).EnsureSuccess().Value;
+        var orderId = await ResolveConfirmationAsync(client, result, parsed.AutoConfirm);
+        if (orderId is null)
+        {
+            Console.WriteLine("Order was not submitted.");
+            return 1;
+        }
+
+        Console.WriteLine($"Submitted: orderId={orderId}, order_ref={orderRef}. Watch it in OrderMonitor.");
         return 0;
+    }
+
+    /// <summary>
+    /// Walks the IBKR confirmation chain. Auto-confirms when <paramref name="autoConfirm"/> is
+    /// true; otherwise prompts y/n per confirmation. Returns the order id on success, or null if
+    /// the user declined.
+    /// </summary>
+    private static async Task<string?> ResolveConfirmationAsync(
+        IIbkrClient client, OneOf<OrderSubmitted, OrderConfirmationRequired> result, bool autoConfirm)
+    {
+        while (true)
+        {
+            if (result.IsT0)
+            {
+                return result.AsT0.OrderId;
+            }
+
+            var confirmation = result.AsT1;
+            Console.WriteLine("IBKR requires confirmation:");
+            foreach (var message in confirmation.Messages)
+            {
+                Console.WriteLine($"  - {message}");
+            }
+
+            if (!autoConfirm && !PromptYesNo("Confirm order?"))
+            {
+                return null;
+            }
+
+            result = (await client.Orders.ReplyAsync(confirmation.ReplyId, true)).EnsureSuccess().Value;
+        }
+    }
+
+    private static bool PromptYesNo(string question)
+    {
+        Console.Write($"{question} [y/N] ");
+        var answer = Console.ReadLine();
+        return answer is not null && (answer.Trim().Equals("y", StringComparison.OrdinalIgnoreCase)
+            || answer.Trim().Equals("yes", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Generates a unique-enough cOID for correlation in the monitor.</summary>
+    private static string GenerateOrderRef()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var suffix = Guid.NewGuid().ToString("N").Substring(0, 4);
+        return $"submit-{now:HHmmss}-{suffix}";
     }
 
     private static void PrintHelp()
