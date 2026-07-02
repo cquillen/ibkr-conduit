@@ -31,8 +31,13 @@ public record MarketDataTick
 [ExcludeFromCodeCoverage]
 public record OrderUpdate
 {
-    /// <summary>Order identifier.</summary>
+    /// <summary>
+    /// Order identifier. IBKR sends this as a JSON number on some frames and a quoted
+    /// string on others; <see cref="FlexibleStringJsonConverter"/> normalizes either shape
+    /// to a string.
+    /// </summary>
     [JsonPropertyName("orderId")]
+    [JsonConverter(typeof(FlexibleStringJsonConverter))]
     public string OrderId { get; init; } = string.Empty;
 
     /// <summary>Contract identifier.</summary>
@@ -116,33 +121,88 @@ public record PnlUpdate
 }
 
 /// <summary>
-/// A real-time account summary update from the WebSocket ssd topic.
+/// A real-time account summary update from the WebSocket ssd topic. The frame carries no
+/// account field of its own; <see cref="AccountId"/> is parsed by the mapper from the
+/// frame's <c>topic</c> (e.g. <c>"ssd+DU1234567"</c>).
 /// </summary>
 [ExcludeFromCodeCoverage]
-public record AccountSummaryUpdate
+public sealed record AccountSummaryUpdate
 {
-    /// <summary>Account identifier.</summary>
-    [JsonPropertyName("acctId")]
+    /// <summary>Account identifier, parsed from the frame's <c>topic</c>.</summary>
     public string AccountId { get; init; } = string.Empty;
 
-    /// <summary>Key-value pairs of account summary fields.</summary>
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? Data { get; init; }
+    /// <summary>Account summary rows for the requested keys/fields.</summary>
+    public IReadOnlyList<AccountSummaryRow> Result { get; init; } = [];
 }
 
 /// <summary>
-/// A real-time account ledger update from the WebSocket sld topic.
+/// A single account summary value from the WebSocket ssd topic's <c>result</c> array.
+/// </summary>
+/// <param name="Key">Name of the account summary value (e.g. "ExcessLiquidity-S"). Always returned.</param>
+/// <param name="Currency">The currency of <paramref name="MonetaryValue"/> (e.g. "USD"), when the key pertains to pricing/balance.</param>
+/// <param name="MonetaryValue">A monetary value; returned when the key pertains to pricing/balance.</param>
+/// <param name="Severity">Internal-use severity code.</param>
+/// <param name="Timestamp">Epoch timestamp when the value was retrieved. Always returned.</param>
+[ExcludeFromCodeCoverage]
+public sealed record AccountSummaryRow(
+    [property: JsonPropertyName("key")] string Key,
+    [property: JsonPropertyName("currency")] string? Currency,
+    [property: JsonPropertyName("monetaryValue")] decimal? MonetaryValue,
+    [property: JsonPropertyName("severity")] int? Severity,
+    [property: JsonPropertyName("timestamp")] long? Timestamp);
+
+/// <summary>
+/// A real-time account ledger update from the WebSocket sld topic. The frame carries no
+/// account field of its own; <see cref="AccountId"/> is parsed by the mapper from the
+/// frame's <c>topic</c> (e.g. <c>"sld+DU1234567"</c>).
 /// </summary>
 [ExcludeFromCodeCoverage]
-public record AccountLedgerUpdate
+public sealed record AccountLedgerUpdate
 {
-    /// <summary>Account identifier.</summary>
-    [JsonPropertyName("acctId")]
+    /// <summary>Account identifier, parsed from the frame's <c>topic</c>.</summary>
     public string AccountId { get; init; } = string.Empty;
 
-    /// <summary>Currency-keyed ledger data.</summary>
+    /// <summary>Ledger rows, one per currency.</summary>
+    public IReadOnlyList<AccountLedgerRow> Result { get; init; } = [];
+}
+
+/// <summary>
+/// A single currency's ledger row from the WebSocket sld topic's <c>result</c> array. A new
+/// message is published every 10 seconds; a currency's entry is "blank" (only <see cref="Key"/>
+/// and <see cref="Timestamp"/> set) when nothing changed in the preceding interval.
+/// </summary>
+/// <param name="AccountCode">The account code the ledger entry belongs to.</param>
+/// <param name="Key">Ledger currency key (e.g. "LedgerListBASE", "LedgerListUSD"). Always returned.</param>
+/// <param name="SecondKey">Secondary currency key (e.g. "BASE").</param>
+/// <param name="CashBalance">Cash balance in the ledger's currency.</param>
+/// <param name="SettledCash">Settled cash balance.</param>
+/// <param name="NetLiquidationValue">Net liquidation value.</param>
+/// <param name="StockMarketValue">Market value of stock positions.</param>
+/// <param name="RealizedPnl">Realized profit and loss.</param>
+/// <param name="UnrealizedPnl">Unrealized profit and loss.</param>
+/// <param name="ExchangeRate">Exchange rate to the base currency.</param>
+/// <param name="Dividends">Accrued dividends.</param>
+/// <param name="Interest">Accrued interest.</param>
+/// <param name="Timestamp">Epoch timestamp when the row was retrieved. Always returned.</param>
+[ExcludeFromCodeCoverage]
+public sealed record AccountLedgerRow(
+    [property: JsonPropertyName("acctCode")] string? AccountCode,
+    [property: JsonPropertyName("key")] string Key,
+    [property: JsonPropertyName("secondKey")] string? SecondKey,
+    [property: JsonPropertyName("cashbalance")] decimal? CashBalance,
+    [property: JsonPropertyName("settledCash")] decimal? SettledCash,
+    [property: JsonPropertyName("netLiquidationValue")] decimal? NetLiquidationValue,
+    [property: JsonPropertyName("stockMarketValue")] decimal? StockMarketValue,
+    [property: JsonPropertyName("realizedPnl")] decimal? RealizedPnl,
+    [property: JsonPropertyName("unrealizedPnl")] decimal? UnrealizedPnl,
+    [property: JsonPropertyName("exchangeRate")] decimal? ExchangeRate,
+    [property: JsonPropertyName("dividends")] decimal? Dividends,
+    [property: JsonPropertyName("interest")] decimal? Interest,
+    [property: JsonPropertyName("timestamp")] long? Timestamp)
+{
+    /// <summary>Additional ledger fields not mapped to known properties (e.g. commodityMarketValue, funds, marketValue).</summary>
     [JsonExtensionData]
-    public Dictionary<string, JsonElement>? Data { get; init; }
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
 }
 
 /// <summary>

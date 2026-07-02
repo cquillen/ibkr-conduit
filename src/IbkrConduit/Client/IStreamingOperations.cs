@@ -68,7 +68,8 @@ public interface IStreamingOperations
     Task<IIbkrSubscription<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Subscribes to real-time order updates.
+    /// Subscribes to real-time order updates. A single WebSocket frame may carry several
+    /// order updates; each is emitted as a separate item.
     /// </summary>
     /// <param name="days">Optional number of days of order history to include.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -92,7 +93,8 @@ public interface IStreamingOperations
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Subscribes to real-time profit and loss updates.
+    /// Subscribes to real-time profit and loss updates. A single WebSocket frame may carry
+    /// P&amp;L for several accounts; each account is emitted as a separate item.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that resolves to a subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> emits P&amp;L updates.</returns>
