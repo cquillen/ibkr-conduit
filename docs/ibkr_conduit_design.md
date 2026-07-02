@@ -862,6 +862,7 @@ This is separate from the REST `/tickle` endpoint. Both must be maintained indep
 | Market data | `smd+{conid}+{"fields":["31","84","86"]}` | Real-time top-of-book |
 | P&L | `spl+{}` | Real-time P&L streaming |
 | Portfolio | `ssd+{}` | Portfolio summary streaming |
+| Trade executions | `str+{}` (opts: `realtimeUpdatesOnly`, `days`) | Real-time execution/fill records |
 
 ### 12.6 Reconnection Handling
 
