@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\examples\IbkrConduit.Examples.OrderMonitor\IbkrConduit.Examples.OrderMonitor.csproj" />
+    <ProjectReference Include="..\..\examples\IbkrConduit.Examples.OrderSubmit\IbkrConduit.Examples.OrderSubmit.csproj" />
+  </ItemGroup>
+
+</Project>
