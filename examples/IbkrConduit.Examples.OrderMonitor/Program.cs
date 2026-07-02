@@ -1,6 +1,167 @@
+using System.Globalization;
+using Microsoft.Extensions.Logging;
+
 namespace IbkrConduit.Examples.OrderMonitor;
 
 internal static class Program
 {
-    public static int Main(string[] args) => 0;
+    public static int Main(string[] args)
+    {
+        if (args.Any(a => a is "-h" or "--help" or "/?"))
+        {
+            PrintHelp();
+            return 0;
+        }
+
+        if (!TryParseArgs(args, out _, out _, out _, out _, out _, out _, out var error))
+        {
+            Console.Error.WriteLine(error);
+            return 2;
+        }
+
+        // Full streaming wiring is added in a later task.
+        Console.WriteLine("OrderMonitor: arguments parsed. Streaming wiring not yet implemented.");
+        return 0;
+    }
+
+    private static void PrintHelp()
+    {
+        Console.WriteLine("Usage: ibkr-conduit-order-monitor [--realtime-only] [--days <n>] [--duration <timespan>] [--log-file <path>] [--log-level <level>] [--help]");
+        Console.WriteLine();
+        Console.WriteLine("Streams the account's order-status and trade-execution streams and renders");
+        Console.WriteLine("them to a continuously-updating pair of Spectre.Console tables.");
+        Console.WriteLine();
+        Console.WriteLine("Options:");
+        Console.WriteLine("  --realtime-only        Suppress historical replay; show only post-launch activity.");
+        Console.WriteLine("  --days <n>             Days of history to replay on subscribe (default 1).");
+        Console.WriteLine("  --duration <timespan>  Auto-exit after this duration (60s, 5m, 1h, 00:01:30).");
+        Console.WriteLine("  --log-file <path>      Tee all log lines to a file in addition to the panel.");
+        Console.WriteLine("  --log-level <level>    Min level for the file provider (default Debug).");
+        Console.WriteLine("  -h, --help, /?         Show this help and exit.");
+        Console.WriteLine();
+        Console.WriteLine("Prerequisites:");
+        Console.WriteLine("  A populated .ibkr-credentials/ibkr-credentials.json in the current working directory.");
+    }
+
+    /// <summary>
+    /// Parses OrderMonitor's CLI. Returns false with an <paramref name="error"/> message on bad input.
+    /// <paramref name="durationDisplay"/> echoes the raw user-supplied duration string for the banner.
+    /// </summary>
+    internal static bool TryParseArgs(
+        string[] args,
+        out bool realtimeOnly,
+        out int days,
+        out TimeSpan? duration,
+        out string? durationDisplay,
+        out string? logFilePath,
+        out LogLevel logLevel,
+        out string error)
+    {
+        realtimeOnly = false;
+        days = 1;
+        duration = null;
+        durationDisplay = null;
+        logFilePath = null;
+        logLevel = LogLevel.Debug;
+        error = string.Empty;
+
+        for (var i = 0; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--realtime-only":
+                    realtimeOnly = true;
+                    continue;
+
+                case "--days":
+                    if (i + 1 >= args.Length)
+                    {
+                        error = "Error: --days requires a value (e.g. 1, 7).";
+                        return false;
+                    }
+
+                    if (!int.TryParse(args[i + 1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var d) || d < 0)
+                    {
+                        error = $"Error: --days must be a non-negative integer (got '{args[i + 1]}').";
+                        return false;
+                    }
+
+                    days = d;
+                    i++;
+                    continue;
+
+                case "--duration":
+                    if (i + 1 >= args.Length)
+                    {
+                        error = "Error: --duration requires a value (e.g. 60s, 5m, 00:01:30).";
+                        return false;
+                    }
+
+                    if (!TryParseDuration(args[i + 1], out var parsed))
+                    {
+                        error = "Error: --duration must be a TimeSpan (e.g. 60s, 5m, 00:01:30).";
+                        return false;
+                    }
+
+                    duration = parsed;
+                    durationDisplay = args[i + 1];
+                    i++;
+                    continue;
+
+                case "--log-file":
+                    if (i + 1 >= args.Length)
+                    {
+                        error = "Error: --log-file requires a path (e.g. ./debug.log).";
+                        return false;
+                    }
+
+                    logFilePath = args[i + 1];
+                    i++;
+                    continue;
+
+                case "--log-level":
+                    if (i + 1 >= args.Length)
+                    {
+                        error = "Error: --log-level requires a value (Trace, Debug, Information, Warning, Error, Critical, None).";
+                        return false;
+                    }
+
+                    if (!Enum.TryParse<LogLevel>(args[i + 1], ignoreCase: true, out var parsedLevel))
+                    {
+                        error = $"Error: --log-level must be one of Trace, Debug, Information, Warning, Error, Critical, None (got '{args[i + 1]}').";
+                        return false;
+                    }
+
+                    logLevel = parsedLevel;
+                    i++;
+                    continue;
+
+                default:
+                    error = $"Error: unknown argument '{args[i]}'. OrderMonitor takes no positional arguments.";
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryParseDuration(string value, out TimeSpan result)
+    {
+        result = TimeSpan.Zero;
+
+        if (value.Length >= 2)
+        {
+            var suffix = char.ToLowerInvariant(value[^1]);
+            var numberPart = value[..^1];
+            if (double.TryParse(numberPart, NumberStyles.Number, CultureInfo.InvariantCulture, out var n)
+                && double.IsFinite(n) && n >= 0)
+            {
+                if (suffix == 's') { result = TimeSpan.FromSeconds(n); return true; }
+                if (suffix == 'm') { result = TimeSpan.FromMinutes(n); return true; }
+                if (suffix == 'h') { result = TimeSpan.FromHours(n); return true; }
+            }
+        }
+
+        return TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out result);
+    }
 }
