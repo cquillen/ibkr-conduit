@@ -914,11 +914,11 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(ct);
 
         var ops = new StreamingOperations(client);
-        var observable = await ops.TradeExecutionsAsync(cancellationToken: ct);
+        var subscription = await ops.TradeExecutionsAsync(cancellationToken: ct);
 
         var received = new List<TradeExecution>();
         var done = new TaskCompletionSource();
-        using var sub = observable.Subscribe(new EndToEndObserver(e =>
+        using var sub = subscription.Stream.Subscribe(new EndToEndObserver(e =>
         {
             received.Add(e);
             if (received.Count == 2)

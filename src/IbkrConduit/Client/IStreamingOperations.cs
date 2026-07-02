@@ -36,22 +36,27 @@ public interface IStreamingOperations
     DateTimeOffset? LastMessageReceivedAt { get; }
 
     /// <summary>
-    /// Pushed when the brokerage authentication state changes. Subscribe before
+    /// Subscribes to brokerage authentication-state changes. Call this method before
     /// <see cref="ConnectAsync"/> to receive the initial-on-connect state.
     /// </summary>
-    IObservable<SessionStatusEvent> SessionStatus { get; }
+    /// <returns>A subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> pushes session-status events.</returns>
+    IIbkrSubscription<SessionStatusEvent> SubscribeSessionStatus();
 
-    /// <summary>Urgent bulletins about exchange issues, system problems, or trading information.</summary>
-    IObservable<BulletinEvent> Bulletins { get; }
+    /// <summary>Subscribes to urgent bulletins about exchange issues, system problems, or trading information.</summary>
+    /// <returns>A subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> pushes bulletin events.</returns>
+    IIbkrSubscription<BulletinEvent> SubscribeBulletins();
 
-    /// <summary>Brief messages regarding trading activity. Distinct from <see cref="IIbkrClient.Notifications"/> which is the FYI/alerts HTTP API.</summary>
-    IObservable<NotificationEvent> TradingNotifications { get; }
+    /// <summary>Subscribes to brief messages regarding trading activity. Distinct from <see cref="IIbkrClient.Notifications"/> which is the FYI/alerts HTTP API.</summary>
+    /// <returns>A subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> pushes trading-notification events.</returns>
+    IIbkrSubscription<NotificationEvent> SubscribeTradingNotifications();
 
-    /// <summary>System-level events: initial connection confirmation and periodic 10-second server heartbeats. Subscribe before <see cref="ConnectAsync"/> to receive the initial username confirmation.</summary>
-    IObservable<SystemEvent> SystemEvents { get; }
+    /// <summary>Subscribes to system-level events: initial connection confirmation and periodic 10-second server heartbeats. Call this method before <see cref="ConnectAsync"/> to receive the initial username confirmation.</summary>
+    /// <returns>A subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> pushes system events.</returns>
+    IIbkrSubscription<SystemEvent> SubscribeSystemEvents();
 
-    /// <summary>Account configuration updates: account list, capabilities, allowed asset types. Not financial data — see <see cref="PnlUpdate"/> / <see cref="AccountSummaryUpdate"/> / <see cref="AccountLedgerUpdate"/>. Subscribe before <see cref="ConnectAsync"/> to receive the initial account configuration.</summary>
-    IObservable<AccountStatusEvent> AccountStatus { get; }
+    /// <summary>Subscribes to account configuration updates: account list, capabilities, allowed asset types. Not financial data — see <see cref="PnlUpdate"/> / <see cref="AccountSummaryUpdate"/> / <see cref="AccountLedgerUpdate"/>. Call this method before <see cref="ConnectAsync"/> to receive the initial account configuration.</summary>
+    /// <returns>A subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> pushes account-status events.</returns>
+    IIbkrSubscription<AccountStatusEvent> SubscribeAccountStatus();
 
     /// <summary>
     /// Subscribes to real-time market data for the specified contract.
@@ -59,16 +64,16 @@ public interface IStreamingOperations
     /// <param name="conid">Contract identifier.</param>
     /// <param name="fields">Array of field IDs (use <see cref="MarketData.MarketDataFields"/> constants).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A task that resolves to an observable stream of market data ticks.</returns>
-    Task<IObservable<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken cancellationToken = default);
+    /// <returns>A task that resolves to a subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> emits market data ticks.</returns>
+    Task<IIbkrSubscription<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Subscribes to real-time order updates.
     /// </summary>
     /// <param name="days">Optional number of days of order history to include.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A task that resolves to an observable stream of order updates.</returns>
-    Task<IObservable<OrderUpdate>> OrderUpdatesAsync(int? days = null, CancellationToken cancellationToken = default);
+    /// <returns>A task that resolves to a subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> emits order updates.</returns>
+    Task<IIbkrSubscription<OrderUpdate>> OrderUpdatesAsync(int? days = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Subscribes to the real-time trade execution stream (IBKR <c>str</c> topic).
@@ -80,8 +85,8 @@ public interface IStreamingOperations
     /// <param name="realtimeUpdatesOnly">When true, suppress historical executions and stream new fills only. Omitted from the wire message when null (IBKR default: false).</param>
     /// <param name="days">Days of historical executions to include on subscribe. Omitted from the wire message when null (IBKR default: 1).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A task that resolves to an observable stream of trade executions.</returns>
-    Task<IObservable<TradeExecution>> TradeExecutionsAsync(
+    /// <returns>A task that resolves to a subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> emits trade executions.</returns>
+    Task<IIbkrSubscription<TradeExecution>> TradeExecutionsAsync(
         bool? realtimeUpdatesOnly = null,
         int? days = null,
         CancellationToken cancellationToken = default);
@@ -90,20 +95,34 @@ public interface IStreamingOperations
     /// Subscribes to real-time profit and loss updates.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A task that resolves to an observable stream of P&amp;L updates.</returns>
-    Task<IObservable<PnlUpdate>> ProfitAndLossAsync(CancellationToken cancellationToken = default);
+    /// <returns>A task that resolves to a subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> emits P&amp;L updates.</returns>
+    Task<IIbkrSubscription<PnlUpdate>> ProfitAndLossAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Subscribes to real-time account summary updates.
+    /// Subscribes to real-time account summary updates for the specified account.
     /// </summary>
+    /// <param name="accountId">The account whose summary data to stream (required).</param>
+    /// <param name="keys">Optional filter keys to limit the summary rows returned, e.g. "AccruedCash-S", "ExcessLiquidity-S".</param>
+    /// <param name="fields">Optional field filter to limit the columns returned, e.g. "currency", "monetaryValue".</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A task that resolves to an observable stream of account summary updates.</returns>
-    Task<IObservable<AccountSummaryUpdate>> AccountSummaryAsync(CancellationToken cancellationToken = default);
+    /// <returns>A task that resolves to a subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> emits account summary updates.</returns>
+    Task<IIbkrSubscription<AccountSummaryUpdate>> AccountSummaryAsync(
+        string accountId,
+        string[]? keys = null,
+        string[]? fields = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Subscribes to real-time account ledger updates.
+    /// Subscribes to real-time account ledger updates for the specified account.
     /// </summary>
+    /// <param name="accountId">The account whose ledger data to stream (required).</param>
+    /// <param name="keys">Optional filter keys to limit the ledger currencies returned, e.g. "LedgerListUSD", "LedgerListBASE".</param>
+    /// <param name="fields">Optional field filter to limit the columns returned, e.g. "cashBalance", "exchangeRate".</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A task that resolves to an observable stream of account ledger updates.</returns>
-    Task<IObservable<AccountLedgerUpdate>> AccountLedgerAsync(CancellationToken cancellationToken = default);
+    /// <returns>A task that resolves to a subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> emits account ledger updates.</returns>
+    Task<IIbkrSubscription<AccountLedgerUpdate>> AccountLedgerAsync(
+        string accountId,
+        string[]? keys = null,
+        string[]? fields = null,
+        CancellationToken cancellationToken = default);
 }

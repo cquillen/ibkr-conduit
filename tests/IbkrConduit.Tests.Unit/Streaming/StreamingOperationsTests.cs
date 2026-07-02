@@ -13,7 +13,7 @@ namespace IbkrConduit.Tests.Unit.Streaming;
 public class StreamingOperationsTests
 {
     [Fact]
-    public async Task MarketDataAsync_BuildsCorrectTopicMessage()
+    public async Task MarketDataAsync_BuildsCorrectTopicAndCancelMessage()
     {
         var (ops, wsClient) = CreateOperations();
 
@@ -21,10 +21,11 @@ public class StreamingOperationsTests
 
         wsClient.LastSubscribeMessage.ShouldBe("smd+265598+{\"fields\":[\"31\",\"84\",\"86\"]}");
         wsClient.LastTopicPrefix.ShouldBe("smd");
+        wsClient.LastCancelMessage.ShouldBe("umd+265598+{}");
     }
 
     [Fact]
-    public async Task OrderUpdatesAsync_WithoutDays_BuildsCorrectTopicMessage()
+    public async Task OrderUpdatesAsync_WithoutDays_BuildsCorrectTopicAndCancelMessage()
     {
         var (ops, wsClient) = CreateOperations();
 
@@ -32,10 +33,11 @@ public class StreamingOperationsTests
 
         wsClient.LastSubscribeMessage.ShouldBe("sor+{}");
         wsClient.LastTopicPrefix.ShouldBe("sor");
+        wsClient.LastCancelMessage.ShouldBe("uor+{}");
     }
 
     [Fact]
-    public async Task OrderUpdatesAsync_WithDays_BuildsCorrectTopicMessage()
+    public async Task OrderUpdatesAsync_WithDays_BuildsCorrectTopicAndCancelMessage()
     {
         var (ops, wsClient) = CreateOperations();
 
@@ -43,6 +45,7 @@ public class StreamingOperationsTests
 
         wsClient.LastSubscribeMessage.ShouldBe("sor+{\"days\":3}");
         wsClient.LastTopicPrefix.ShouldBe("sor");
+        wsClient.LastCancelMessage.ShouldBe("uor+{}");
     }
 
     [Fact]
@@ -54,6 +57,7 @@ public class StreamingOperationsTests
 
         wsClient.LastSubscribeMessage.ShouldBe("str+{}");
         wsClient.LastTopicPrefix.ShouldBe("str");
+        wsClient.LastCancelMessage.ShouldBe("utr");
     }
 
     [Fact]
@@ -65,6 +69,7 @@ public class StreamingOperationsTests
 
         wsClient.LastSubscribeMessage.ShouldBe("str+{\"realtimeUpdatesOnly\":true}");
         wsClient.LastTopicPrefix.ShouldBe("str");
+        wsClient.LastCancelMessage.ShouldBe("utr");
     }
 
     [Fact]
@@ -76,6 +81,7 @@ public class StreamingOperationsTests
 
         wsClient.LastSubscribeMessage.ShouldBe("str+{\"realtimeUpdatesOnly\":false}");
         wsClient.LastTopicPrefix.ShouldBe("str");
+        wsClient.LastCancelMessage.ShouldBe("utr");
     }
 
     [Fact]
@@ -87,6 +93,7 @@ public class StreamingOperationsTests
 
         wsClient.LastSubscribeMessage.ShouldBe("str+{\"days\":3}");
         wsClient.LastTopicPrefix.ShouldBe("str");
+        wsClient.LastCancelMessage.ShouldBe("utr");
     }
 
     [Fact]
@@ -98,6 +105,7 @@ public class StreamingOperationsTests
 
         wsClient.LastSubscribeMessage.ShouldBe("str+{\"realtimeUpdatesOnly\":true,\"days\":3}");
         wsClient.LastTopicPrefix.ShouldBe("str");
+        wsClient.LastCancelMessage.ShouldBe("utr");
     }
 
     [Fact]
@@ -106,10 +114,10 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = await ops.TradeExecutionsAsync(cancellationToken: ct);
+        var sub = await ops.TradeExecutionsAsync(cancellationToken: ct);
         var received = new System.Collections.Generic.List<TradeExecution>();
         var done = new TaskCompletionSource();
-        using var sub = observable.Subscribe(new TestObserver<TradeExecution>(
+        using var s = sub.Stream.Subscribe(new TestObserver<TradeExecution>(
             onNext: e =>
             {
                 received.Add(e);
@@ -140,9 +148,9 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = await ops.TradeExecutionsAsync(cancellationToken: ct);
+        var sub = await ops.TradeExecutionsAsync(cancellationToken: ct);
         var got = new TaskCompletionSource<TradeExecution>();
-        using var sub = observable.Subscribe(new TestObserver<TradeExecution>(
+        using var s = sub.Stream.Subscribe(new TestObserver<TradeExecution>(
             onNext: e => got.TrySetResult(e)));
 
         // A no-args str frame, then a valid one — only the valid execution should arrive.
@@ -156,7 +164,7 @@ public class StreamingOperationsTests
     }
 
     [Fact]
-    public async Task ProfitAndLossAsync_BuildsCorrectTopicMessage()
+    public async Task ProfitAndLossAsync_BuildsCorrectTopicAndCancelMessage()
     {
         var (ops, wsClient) = CreateOperations();
 
@@ -164,28 +172,69 @@ public class StreamingOperationsTests
 
         wsClient.LastSubscribeMessage.ShouldBe("spl+{}");
         wsClient.LastTopicPrefix.ShouldBe("spl");
+        wsClient.LastCancelMessage.ShouldBe("upl+{}");
     }
 
     [Fact]
-    public async Task AccountSummaryAsync_BuildsCorrectTopicMessage()
+    public async Task AccountSummaryAsync_BuildsCorrectTopicAndCancelMessage()
     {
         var (ops, wsClient) = CreateOperations();
 
-        await ops.AccountSummaryAsync(TestContext.Current.CancellationToken);
+        await ops.AccountSummaryAsync("DU1234567", cancellationToken: TestContext.Current.CancellationToken);
 
-        wsClient.LastSubscribeMessage.ShouldBe("ssd+{}");
+        wsClient.LastSubscribeMessage.ShouldBe("ssd+DU1234567+{}");
         wsClient.LastTopicPrefix.ShouldBe("ssd");
+        wsClient.LastCancelMessage.ShouldBe("usd+DU1234567+{}");
     }
 
     [Fact]
-    public async Task AccountLedgerAsync_BuildsCorrectTopicMessage()
+    public async Task AccountSummaryAsync_WithKeysAndFields_BuildsFilteredArgs()
     {
         var (ops, wsClient) = CreateOperations();
 
-        await ops.AccountLedgerAsync(TestContext.Current.CancellationToken);
+        await ops.AccountSummaryAsync("DU1234567",
+            keys: new[] { "AccruedCash-S", "ExcessLiquidity-S" },
+            fields: new[] { "currency", "monetaryValue" },
+            cancellationToken: TestContext.Current.CancellationToken);
 
-        wsClient.LastSubscribeMessage.ShouldBe("sld+{}");
+        wsClient.LastSubscribeMessage.ShouldBe(
+            "ssd+DU1234567+{\"keys\":[\"AccruedCash-S\",\"ExcessLiquidity-S\"],\"fields\":[\"currency\",\"monetaryValue\"]}");
+    }
+
+    [Fact]
+    public async Task AccountSummaryAsync_WithFieldsOnly_BuildsFilteredArgs()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await ops.AccountSummaryAsync("DU1234567",
+            fields: new[] { "currency", "monetaryValue" },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        wsClient.LastSubscribeMessage.ShouldBe("ssd+DU1234567+{\"fields\":[\"currency\",\"monetaryValue\"]}");
+    }
+
+    [Fact]
+    public async Task AccountLedgerAsync_BuildsCorrectTopicAndCancelMessage()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await ops.AccountLedgerAsync("DU1234567", cancellationToken: TestContext.Current.CancellationToken);
+
+        wsClient.LastSubscribeMessage.ShouldBe("sld+DU1234567+{}");
         wsClient.LastTopicPrefix.ShouldBe("sld");
+        wsClient.LastCancelMessage.ShouldBe("uld+DU1234567+{}");
+    }
+
+    [Fact]
+    public async Task AccountLedgerAsync_WithKeys_BuildsFilteredArgs()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await ops.AccountLedgerAsync("DU1234567",
+            keys: new[] { "LedgerListUSD" },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        wsClient.LastSubscribeMessage.ShouldBe("sld+DU1234567+{\"keys\":[\"LedgerListUSD\"]}");
     }
 
     [Fact]
@@ -194,9 +243,9 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = await ops.MarketDataAsync(265598, new[] { "31" }, ct);
+        var sub = await ops.MarketDataAsync(265598, new[] { "31" }, ct);
         var received = new TaskCompletionSource<MarketDataTick>();
-        using var sub = observable.Subscribe(new TestObserver<MarketDataTick>(
+        using var s = sub.Stream.Subscribe(new TestObserver<MarketDataTick>(
             onNext: t => received.TrySetResult(t)));
 
         var json = JsonDocument.Parse("""{"topic":"smd+265598","conid":265598,"_updated":1234567890,"31":"456.78"}""").RootElement;
@@ -215,9 +264,9 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = await ops.OrderUpdatesAsync(cancellationToken: ct);
+        var sub = await ops.OrderUpdatesAsync(cancellationToken: ct);
         var received = new TaskCompletionSource<OrderUpdate>();
-        using var sub = observable.Subscribe(new TestObserver<OrderUpdate>(
+        using var s = sub.Stream.Subscribe(new TestObserver<OrderUpdate>(
             onNext: o => received.TrySetResult(o)));
 
         var json = JsonDocument.Parse("""{"topic":"sor","orderId":"123","conid":265598,"symbol":"AAPL","side":"BUY","size":100,"orderType":"LMT","price":150.0,"status":"Filled","filledQuantity":100,"remainingQuantity":0}""").RootElement;
@@ -235,9 +284,9 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = await ops.ProfitAndLossAsync(ct);
+        var sub = await ops.ProfitAndLossAsync(ct);
         var received = new TaskCompletionSource<PnlUpdate>();
-        using var sub = observable.Subscribe(new TestObserver<PnlUpdate>(
+        using var s = sub.Stream.Subscribe(new TestObserver<PnlUpdate>(
             onNext: p => received.TrySetResult(p)));
 
         var json = JsonDocument.Parse("""{"topic":"spl","acctId":"DU123","dpl":100.50,"upl":200.25,"rpl":50.75,"nl":50000.0}""").RootElement;
@@ -289,9 +338,9 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = ((IStreamingOperations)ops).SessionStatus;
+        var sub = ((IStreamingOperations)ops).SubscribeSessionStatus();
         var received = new TaskCompletionSource<SessionStatusEvent>();
-        using var sub = observable.Subscribe(new TestObserver<SessionStatusEvent>(
+        using var s = sub.Stream.Subscribe(new TestObserver<SessionStatusEvent>(
             onNext: e => received.TrySetResult(e)));
 
         var json = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":true}}""").RootElement;
@@ -307,9 +356,9 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = ((IStreamingOperations)ops).SessionStatus;
+        var sub = ((IStreamingOperations)ops).SubscribeSessionStatus();
         var received = new TaskCompletionSource<SessionStatusEvent>();
-        using var sub = observable.Subscribe(new TestObserver<SessionStatusEvent>(
+        using var s = sub.Stream.Subscribe(new TestObserver<SessionStatusEvent>(
             onNext: e => received.TrySetResult(e)));
 
         var json = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":false}}""").RootElement;
@@ -325,9 +374,9 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = ((IStreamingOperations)ops).Bulletins;
+        var sub = ((IStreamingOperations)ops).SubscribeBulletins();
         var received = new TaskCompletionSource<BulletinEvent>();
-        using var sub = observable.Subscribe(new TestObserver<BulletinEvent>(
+        using var s = sub.Stream.Subscribe(new TestObserver<BulletinEvent>(
             onNext: e => received.TrySetResult(e)));
 
         var json = JsonDocument.Parse("""{"topic":"blt","args":{"id":"B-42","message":"Exchange XYZ delayed"}}""").RootElement;
@@ -344,9 +393,9 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = ((IStreamingOperations)ops).TradingNotifications;
+        var sub = ((IStreamingOperations)ops).SubscribeTradingNotifications();
         var received = new TaskCompletionSource<NotificationEvent>();
-        using var sub = observable.Subscribe(new TestObserver<NotificationEvent>(
+        using var s = sub.Stream.Subscribe(new TestObserver<NotificationEvent>(
             onNext: e => received.TrySetResult(e)));
 
         var json = JsonDocument.Parse("""
@@ -367,9 +416,9 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = ((IStreamingOperations)ops).TradingNotifications;
+        var sub = ((IStreamingOperations)ops).SubscribeTradingNotifications();
         var received = new TaskCompletionSource<NotificationEvent>();
-        using var sub = observable.Subscribe(new TestObserver<NotificationEvent>(
+        using var s = sub.Stream.Subscribe(new TestObserver<NotificationEvent>(
             onNext: e => received.TrySetResult(e)));
 
         var json = JsonDocument.Parse("""
@@ -387,9 +436,9 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = ((IStreamingOperations)ops).SystemEvents;
+        var sub = ((IStreamingOperations)ops).SubscribeSystemEvents();
         var received = new TaskCompletionSource<SystemEvent>();
-        using var sub = observable.Subscribe(new TestObserver<SystemEvent>(
+        using var s = sub.Stream.Subscribe(new TestObserver<SystemEvent>(
             onNext: e => received.TrySetResult(e)));
 
         var json = JsonDocument.Parse("""{"topic":"system","success":"alice","isFT":false,"isPaper":true}""").RootElement;
@@ -408,9 +457,9 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = ((IStreamingOperations)ops).AccountStatus;
+        var sub = ((IStreamingOperations)ops).SubscribeAccountStatus();
         var received = new TaskCompletionSource<AccountStatusEvent>();
-        using var sub = observable.Subscribe(new TestObserver<AccountStatusEvent>(
+        using var s = sub.Stream.Subscribe(new TestObserver<AccountStatusEvent>(
             onNext: e => received.TrySetResult(e)));
 
         var json = JsonDocument.Parse("""
@@ -505,9 +554,9 @@ public class StreamingOperationsTests
         var ct = TestContext.Current.CancellationToken;
         var (ops, wsClient) = CreateOperations();
 
-        var observable = ((IStreamingOperations)ops).SystemEvents;
+        var sub = ((IStreamingOperations)ops).SubscribeSystemEvents();
         var received = new TaskCompletionSource<SystemEvent>();
-        using var sub = observable.Subscribe(new TestObserver<SystemEvent>(
+        using var s = sub.Stream.Subscribe(new TestObserver<SystemEvent>(
             onNext: e => received.TrySetResult(e)));
 
         var json = JsonDocument.Parse("""{"topic":"system","hb":1730000000000}""").RootElement;
