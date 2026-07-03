@@ -17,7 +17,7 @@ internal static class AccountSummaryUpdateMapper
         {
             foreach (var element in result.EnumerateArray())
             {
-                var row = element.Deserialize<AccountSummaryRow>();
+                var row = element.Deserialize<AccountSummaryRow>(StreamingSerialization.Options);
                 if (row is not null)
                 {
                     rows.Add(row);

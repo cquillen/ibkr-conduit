@@ -18,7 +18,7 @@ internal static class TradeExecutionMapper
 
         foreach (var element in args.EnumerateArray())
         {
-            var execution = element.Deserialize<TradeExecution>();
+            var execution = element.Deserialize<TradeExecution>(StreamingSerialization.Options);
             if (execution is not null)
             {
                 yield return execution;

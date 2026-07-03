@@ -14,6 +14,35 @@ public class OrderUpdateMapperTests
         {"topic":"sor","args":[{"acct":"DUO873728","conidex":"756733","conid":756733,"orderId":656804954,"isEventTrading":"0"}]}
         """;
 
+    // Real sor frame captured live for a market order: "price" arrives as an empty string
+    // (no limit price on a market order), and the symbol/size live under "ticker"/"totalSize"
+    // rather than "symbol"/"size". Before the empty-tolerant converters, deserializing
+    // "price":"" threw a JsonException that killed the whole sor subscription.
+    private const string _realMarketOrderFrame = """
+        {"topic":"sor","args":[{"acct":"DUO873728","conid":320227571,"orderId":196655192,"orderDesc":"Buy 1 QQQ Market, Day","ticker":"QQQ","secType":"STK","remainingQuantity":1.0,"filledQuantity":0.0,"totalSize":1.0,"companyName":"INVESCO QQQ TRUST SERIES 1","status":"Inactive","orderType":"Market","order_ref":"submit-143824-5264","price":"","side":"BUY"}]}
+        """;
+
+    [Fact]
+    public void MapMany_RealMarketOrderFrameWithEmptyPrice_YieldsOrderWithNullPriceAndCorrectFields()
+    {
+        var frame = JsonDocument.Parse(_realMarketOrderFrame).RootElement;
+
+        var orders = OrderUpdateMapper.MapMany(frame).ToList();
+
+        orders.Count.ShouldBe(1);
+        var order = orders[0];
+        order.Price.ShouldBeNull();
+        order.Symbol.ShouldBe("QQQ");
+        order.Size.ShouldBe(1m);
+        order.Side.ShouldBe("BUY");
+        order.Status.ShouldBe("Inactive");
+        order.OrderRef.ShouldBe("submit-143824-5264");
+        order.FilledQuantity.ShouldBe(0m);
+        order.RemainingQuantity.ShouldBe(1m);
+        order.OrderId.ShouldBe("196655192");
+        order.Conid.ShouldBe(320227571);
+    }
+
     [Fact]
     public void MapMany_RealOrderFrame_YieldsOneOrderWithNumericOrderIdCoercedToString()
     {

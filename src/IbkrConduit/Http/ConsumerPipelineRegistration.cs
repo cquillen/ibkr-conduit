@@ -15,6 +15,7 @@ using IbkrConduit.Health;
 using IbkrConduit.MarketData;
 using IbkrConduit.Orders;
 using IbkrConduit.Portfolio;
+using IbkrConduit.Serialization;
 using IbkrConduit.Session;
 using IbkrConduit.Watchlists;
 using Microsoft.Extensions.DependencyInjection;
@@ -81,7 +82,7 @@ internal static class ConsumerPipelineRegistration
         RefitEndpointMap endpointMap,
         string baseUrl) where TApi : class
     {
-        services.AddRefitClient<TApi>()
+        services.AddRefitClient<TApi>(IbkrRefitSettings.Create())
             .ConfigureHttpClient(c => c.BaseAddress = new Uri(baseUrl))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             {

@@ -44,16 +44,16 @@ public record OrderUpdate
     [JsonPropertyName("conid")]
     public int Conid { get; init; }
 
-    /// <summary>Ticker symbol.</summary>
-    [JsonPropertyName("symbol")]
+    /// <summary>Ticker symbol. IBKR sends this under the <c>ticker</c> key on <c>sor</c> frames.</summary>
+    [JsonPropertyName("ticker")]
     public string Symbol { get; init; } = string.Empty;
 
     /// <summary>Order side (BUY/SELL).</summary>
     [JsonPropertyName("side")]
     public string Side { get; init; } = string.Empty;
 
-    /// <summary>Order size.</summary>
-    [JsonPropertyName("size")]
+    /// <summary>Order size. IBKR sends this under the <c>totalSize</c> key on <c>sor</c> frames.</summary>
+    [JsonPropertyName("totalSize")]
     public decimal Size { get; init; }
 
     /// <summary>Order type (e.g., MKT, LMT).</summary>
@@ -99,21 +99,21 @@ public record PnlUpdate
     [JsonPropertyName("acctId")]
     public string AccountId { get; init; } = string.Empty;
 
-    /// <summary>Daily profit and loss.</summary>
+    /// <summary>Daily profit and loss. Null when IBKR omits it or sends an empty value.</summary>
     [JsonPropertyName("dpl")]
-    public decimal DailyPnl { get; init; }
+    public decimal? DailyPnl { get; init; }
 
-    /// <summary>Unrealized profit and loss.</summary>
+    /// <summary>Unrealized profit and loss. Null when IBKR omits it or sends an empty value.</summary>
     [JsonPropertyName("upl")]
-    public decimal UnrealizedPnl { get; init; }
+    public decimal? UnrealizedPnl { get; init; }
 
-    /// <summary>Realized profit and loss.</summary>
+    /// <summary>Realized profit and loss. Null when IBKR omits it or sends an empty value.</summary>
     [JsonPropertyName("rpl")]
-    public decimal RealizedPnl { get; init; }
+    public decimal? RealizedPnl { get; init; }
 
-    /// <summary>Net liquidation value.</summary>
+    /// <summary>Net liquidation value. Null when IBKR omits it or sends an empty value.</summary>
     [JsonPropertyName("nl")]
-    public decimal NetLiquidation { get; init; }
+    public decimal? NetLiquidation { get; init; }
 
     /// <summary>Additional data not mapped to known properties.</summary>
     [JsonExtensionData]
@@ -250,18 +250,18 @@ public record TradeExecution
     [JsonPropertyName("order_ref")]
     public string? OrderRef { get; init; }
 
-    /// <summary>Execution price. IBKR sends this as a quoted string; parsed to decimal.</summary>
+    /// <summary>Execution price. IBKR sends this as a quoted string; parsed to decimal. Null when IBKR omits it or sends an empty value.</summary>
     [JsonPropertyName("price")]
     [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
-    public decimal Price { get; init; }
+    public decimal? Price { get; init; }
 
     /// <summary>Exchange the order executed at.</summary>
     [JsonPropertyName("exchange")]
     public string? Exchange { get; init; }
 
-    /// <summary>Total amount traded after applying the contract multiplier.</summary>
+    /// <summary>Total amount traded after applying the contract multiplier. Null when IBKR omits it or sends an empty value.</summary>
     [JsonPropertyName("net_amount")]
-    public decimal NetAmount { get; init; }
+    public decimal? NetAmount { get; init; }
 
     /// <summary>Account the order was traded on.</summary>
     [JsonPropertyName("account")]

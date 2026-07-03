@@ -27,7 +27,21 @@ public class PnlUpdateMapperTests
         pnl.DailyPnl.ShouldBe(-58.28m);
         pnl.NetLiquidation.ShouldBe(1020000.0m);
         pnl.UnrealizedPnl.ShouldBe(4600.0m);
-        pnl.RealizedPnl.ShouldBe(0m); // rpl absent from this frame -> default
+        pnl.RealizedPnl.ShouldBeNull(); // rpl absent from this frame -> null (nullable amount field)
+    }
+
+    [Fact]
+    public void MapMany_EmptyStringAmounts_YieldNullNotZero()
+    {
+        var frame = JsonDocument.Parse(
+            """{"topic":"spl","args":{"DU123.Core":{"dpl":"","upl":"","rpl":"","nl":""}}}""").RootElement;
+
+        var pnl = PnlUpdateMapper.MapMany(frame).Single();
+
+        pnl.DailyPnl.ShouldBeNull();
+        pnl.UnrealizedPnl.ShouldBeNull();
+        pnl.RealizedPnl.ShouldBeNull();
+        pnl.NetLiquidation.ShouldBeNull();
     }
 
     [Fact]

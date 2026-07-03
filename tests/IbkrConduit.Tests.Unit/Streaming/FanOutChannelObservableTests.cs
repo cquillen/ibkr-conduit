@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using IbkrConduit.Streaming;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Streaming;
@@ -20,7 +21,7 @@ public class FanOutChannelObservableTests
     {
         var ct = TestContext.Current.CancellationToken;
         var channel = Channel.CreateUnbounded<JsonElement>();
-        var observable = new FanOutChannelObservable<int>(channel.Reader, MapArgs);
+        var observable = new FanOutChannelObservable<int>(channel.Reader, MapArgs, NullLogger.Instance);
 
         var received = new List<int>();
         var done = new TaskCompletionSource();
@@ -45,7 +46,7 @@ public class FanOutChannelObservableTests
     {
         var ct = TestContext.Current.CancellationToken;
         var channel = Channel.CreateUnbounded<JsonElement>();
-        var observable = new FanOutChannelObservable<int>(channel.Reader, MapArgs);
+        var observable = new FanOutChannelObservable<int>(channel.Reader, MapArgs, NullLogger.Instance);
 
         var received = new List<int>();
         var got = new TaskCompletionSource<int>();
@@ -70,7 +71,7 @@ public class FanOutChannelObservableTests
     {
         var ct = TestContext.Current.CancellationToken;
         var channel = Channel.CreateUnbounded<JsonElement>();
-        var observable = new FanOutChannelObservable<int>(channel.Reader, MapArgs);
+        var observable = new FanOutChannelObservable<int>(channel.Reader, MapArgs, NullLogger.Instance);
 
         var completed = new TaskCompletionSource();
         using var sub = observable.Subscribe(
@@ -83,25 +84,54 @@ public class FanOutChannelObservableTests
     }
 
     [Fact]
-    public async Task Subscribe_MapperThrows_CallsOnError()
+    public async Task Subscribe_MapperThrows_DoesNotCallOnErrorAndStreamStaysAlive()
     {
         var ct = TestContext.Current.CancellationToken;
         var channel = Channel.CreateUnbounded<JsonElement>();
         var observable = new FanOutChannelObservable<int>(
             channel.Reader,
-            _ => throw new InvalidOperationException("boom"));
+            _ => throw new InvalidOperationException("boom"),
+            NullLogger.Instance);
 
-        var error = new TaskCompletionSource<Exception>();
+        var errorCalled = false;
+        var completed = new TaskCompletionSource();
         using var sub = observable.Subscribe(new CollectingObserver<int>(
             _ => { },
-            onError: ex => error.TrySetResult(ex)));
+            onCompleted: () => completed.TrySetResult(),
+            onError: _ => errorCalled = true));
 
         await channel.Writer.WriteAsync(
             JsonDocument.Parse("""{"args":[1]}""").RootElement, ct);
 
-        var captured = await error.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
-        captured.ShouldBeOfType<InvalidOperationException>();
-        captured.Message.ShouldBe("boom");
+        // Give the pump a moment to process (and drop) the bad frame.
+        await Task.Delay(200, ct);
+        errorCalled.ShouldBeFalse();
+
+        // The pump loop must still be running (not torn down by OnError): completing the
+        // channel now should still flow through to OnCompleted.
+        channel.Writer.Complete();
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        completed.Task.IsCompletedSuccessfully.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Subscribe_MapperThrowsOnOneFrame_SubsequentGoodFrameIsDelivered()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var channel = Channel.CreateUnbounded<JsonElement>();
+        var observable = new FanOutChannelObservable<int>(
+            channel.Reader,
+            frame => frame.TryGetProperty("bad", out _) ? throw new InvalidOperationException("boom") : MapArgs(frame),
+            NullLogger.Instance);
+
+        var got = new TaskCompletionSource<int>();
+        using var sub = observable.Subscribe(new CollectingObserver<int>(v => got.TrySetResult(v)));
+
+        await channel.Writer.WriteAsync(JsonDocument.Parse("""{"bad":true}""").RootElement, ct);
+        await channel.Writer.WriteAsync(JsonDocument.Parse("""{"args":[42]}""").RootElement, ct);
+
+        var value = await got.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        value.ShouldBe(42);
     }
 
     private sealed class CollectingObserver<T>(Action<T> onNext, Action? onCompleted = null, Action<Exception>? onError = null) : IObserver<T>
