@@ -61,6 +61,18 @@ public class TradeExecutionMapperTests
     }
 
     [Fact]
+    public void MapMany_EmptyStringPriceAndNetAmount_YieldNullNotZero()
+    {
+        var frame = JsonDocument.Parse(
+            """{"topic":"str","args":[{"execution_id":"x","price":"","net_amount":""}]}""").RootElement;
+
+        var execution = TradeExecutionMapper.MapMany(frame).Single();
+
+        execution.Price.ShouldBeNull();
+        execution.NetAmount.ShouldBeNull();
+    }
+
+    [Fact]
     public void MapMany_UnknownField_LandsInAdditionalData()
     {
         var frame = JsonDocument.Parse(

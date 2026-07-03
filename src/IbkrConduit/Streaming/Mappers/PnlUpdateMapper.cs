@@ -23,7 +23,7 @@ internal static class PnlUpdateMapper
 
         foreach (var property in args.EnumerateObject())
         {
-            var pnl = property.Value.Deserialize<PnlUpdate>();
+            var pnl = property.Value.Deserialize<PnlUpdate>(StreamingSerialization.Options);
             if (pnl is not null)
             {
                 yield return pnl with { AccountId = ParseAccountId(property.Name) };

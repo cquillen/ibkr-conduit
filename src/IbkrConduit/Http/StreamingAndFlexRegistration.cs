@@ -43,7 +43,8 @@ internal static class StreamingAndFlexRegistration
                 clientOptions.WebSocketBaseUrl));
         services.AddSingleton<IStreamingOperations>(sp =>
             new StreamingOperations(
-                sp.GetRequiredService<IIbkrWebSocketClient>()));
+                sp.GetRequiredService<IIbkrWebSocketClient>(),
+                sp.GetRequiredService<ILoggerFactory>()));
 
         // Flex Web Service (plain HTTP via IHttpClientFactory, no signing pipeline)
         if (!string.IsNullOrEmpty(clientOptions.FlexToken))

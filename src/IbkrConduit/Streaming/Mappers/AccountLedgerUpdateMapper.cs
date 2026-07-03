@@ -17,7 +17,7 @@ internal static class AccountLedgerUpdateMapper
         {
             foreach (var element in result.EnumerateArray())
             {
-                var row = element.Deserialize<AccountLedgerRow>();
+                var row = element.Deserialize<AccountLedgerRow>(StreamingSerialization.Options);
                 if (row is not null)
                 {
                     rows.Add(row);

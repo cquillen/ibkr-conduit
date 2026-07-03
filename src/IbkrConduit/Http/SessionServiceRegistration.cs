@@ -6,6 +6,7 @@ using System.Threading.RateLimiting;
 using IbkrConduit.Auth;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Health;
+using IbkrConduit.Serialization;
 using IbkrConduit.Session;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -67,7 +68,7 @@ internal static class SessionServiceRegistration
 
         // Internal session API client:
         //   GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
-        services.AddRefitClient<IIbkrSessionApi>()
+        services.AddRefitClient<IIbkrSessionApi>(IbkrRefitSettings.Create())
             .ConfigureHttpClient(c => c.BaseAddress = new Uri(baseUrl))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             {

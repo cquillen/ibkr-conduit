@@ -18,7 +18,7 @@ internal static class OrderUpdateMapper
 
         foreach (var element in args.EnumerateArray())
         {
-            var order = element.Deserialize<OrderUpdate>();
+            var order = element.Deserialize<OrderUpdate>(StreamingSerialization.Options);
             if (order is not null)
             {
                 yield return order;

@@ -6,6 +6,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
 using IbkrConduit.Streaming;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Streaming;
@@ -269,8 +270,9 @@ public class StreamingOperationsTests
         using var s = sub.Stream.Subscribe(new TestObserver<OrderUpdate>(
             onNext: o => received.TrySetResult(o)));
 
-        // Real sor frames wrap order(s) in an args array.
-        var json = JsonDocument.Parse("""{"topic":"sor","args":[{"orderId":"123","conid":265598,"symbol":"AAPL","side":"BUY","size":100,"orderType":"LMT","price":150.0,"status":"Filled","filledQuantity":100,"remainingQuantity":0}]}""").RootElement;
+        // Real sor frames wrap order(s) in an args array and use "ticker"/"totalSize" for the
+        // symbol/size fields.
+        var json = JsonDocument.Parse("""{"topic":"sor","args":[{"orderId":"123","conid":265598,"ticker":"AAPL","side":"BUY","totalSize":100,"orderType":"LMT","price":150.0,"status":"Filled","filledQuantity":100,"remainingQuantity":0}]}""").RootElement;
         await wsClient.Channel.Writer.WriteAsync(json, ct);
 
         var order = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
@@ -639,7 +641,7 @@ public class StreamingOperationsTests
     private static (StreamingOperations Operations, FakeWebSocketClient Client) CreateOperations()
     {
         var wsClient = new FakeWebSocketClient();
-        var ops = new StreamingOperations(wsClient);
+        var ops = new StreamingOperations(wsClient, NullLoggerFactory.Instance);
         return (ops, wsClient);
     }
 

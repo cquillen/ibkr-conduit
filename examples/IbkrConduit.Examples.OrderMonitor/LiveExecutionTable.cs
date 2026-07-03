@@ -86,7 +86,7 @@ internal sealed class LiveExecutionTable
                 Markup.Escape(e.Symbol),
                 Markup.Escape(e.Side),
                 Markup.Escape(e.Size.ToString(CultureInfo.InvariantCulture)),
-                Markup.Escape(e.Price.ToString(CultureInfo.InvariantCulture)),
+                Markup.Escape(e.Price?.ToString(CultureInfo.InvariantCulture) ?? "-"),
                 Markup.Escape(e.Exchange ?? "-"),
                 Markup.Escape(e.OrderRef ?? "-"));
         }
