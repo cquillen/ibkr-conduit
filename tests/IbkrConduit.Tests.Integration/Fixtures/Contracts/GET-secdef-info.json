@@ -1,0 +1,19 @@
+{
+  "Request": { "Path": "/v1/api/iserver/secdef/info", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "conid": 265598,
+        "symbol": "SPY",
+        "secType": "OPT",
+        "exchange": "SMART",
+        "listingExchange": "CBOE",
+        "right": "C",
+        "strike": 15.0,
+        "maturityDate": "20270115"
+      }
+    ]
+  }
+}
