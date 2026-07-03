@@ -18,7 +18,7 @@ globs: "tests/**"
   using var creds = OAuthCredentialsFactory.FromEnvironment();
   var services = new ServiceCollection();
   services.AddLogging();
-  services.AddIbkrClient(creds);
+  services.AddIbkrClient(opts => opts.Credentials = creds);
   await using var provider = services.BuildServiceProvider();
   var client = provider.GetRequiredService<IIbkrClient>();
   ```

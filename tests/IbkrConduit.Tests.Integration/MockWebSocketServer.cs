@@ -24,7 +24,8 @@ namespace IbkrConduit.Tests.Integration;
 /// the client's "tic" heartbeats or "smd"/"umd" subscribe/cancel messages) into
 /// <see cref="ReceivedTextMessages"/> without echoing, so the client's message pump
 /// blocks harmlessly instead of erroring into a reconnect loop; and responds to a
-/// client-initiated close so teardown is graceful. It never originates messages.
+/// client-initiated close so teardown is graceful. It can also originate frames on demand
+/// via <see cref="BroadcastTextAsync"/> so tests can drive the client's inbound pipeline.
 /// </remarks>
 internal sealed class MockWebSocketServer : IAsyncDisposable
 {
@@ -33,6 +34,9 @@ internal sealed class MockWebSocketServer : IAsyncDisposable
     private readonly Task _acceptLoop;
     private readonly ConcurrentDictionary<Task, byte> _connections = new();
     private readonly ConcurrentQueue<string> _receivedTextMessages = new();
+    // Live client sockets and a per-socket send lock: WebSocket permits a concurrent
+    // send + receive, but not overlapping sends, so BroadcastTextAsync serializes per socket.
+    private readonly ConcurrentDictionary<WebSocket, SemaphoreSlim> _liveSockets = new();
     private int _connectionCount;
 
     private MockWebSocketServer(HttpListener listener, int port)
@@ -123,6 +127,9 @@ internal sealed class MockWebSocketServer : IAsyncDisposable
 
         Interlocked.Increment(ref _connectionCount);
         var ws = wsContext.WebSocket;
+        // SemaphoreSlim needs no disposal here (its wait handle is never materialized), and
+        // skipping it avoids racing BroadcastTextAsync's WaitAsync against connection teardown.
+        _liveSockets.TryAdd(ws, new SemaphoreSlim(1, 1));
         var buffer = new byte[4096];
         try
         {
@@ -153,7 +160,43 @@ internal sealed class MockWebSocketServer : IAsyncDisposable
         }
         finally
         {
+            _liveSockets.TryRemove(ws, out _);
             ws.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Sends a text frame to every currently-connected client. Use this to originate frames —
+    /// e.g. an <c>smd</c> market-data tick or an <c>sor</c> order update — so a test can assert
+    /// the client surfaces them through the DI-composed streaming pipeline. A socket that has
+    /// gone away mid-broadcast is skipped rather than faulting the call.
+    /// </summary>
+    public async Task BroadcastTextAsync(string message, CancellationToken cancellationToken = default)
+    {
+        var bytes = Encoding.UTF8.GetBytes(message);
+        foreach (var (ws, sendLock) in _liveSockets)
+        {
+            if (ws.State != WebSocketState.Open)
+            {
+                continue;
+            }
+
+            await sendLock.WaitAsync(cancellationToken);
+            try
+            {
+                if (ws.State == WebSocketState.Open)
+                {
+                    await ws.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
+                }
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Socket vanished between the state check and the send — skip it.
+            }
+            finally
+            {
+                sendLock.Release();
+            }
         }
     }
 
