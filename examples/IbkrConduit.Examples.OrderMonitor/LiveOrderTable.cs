@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Text.Json;
+using IbkrConduit.Orders;
 using IbkrConduit.Streaming;
 using Spectre.Console;
 
@@ -6,10 +8,14 @@ namespace IbkrConduit.Examples.OrderMonitor;
 
 /// <summary>
 /// Spectre.Console table state for the order-status (<c>sor</c>) stream. Orders are an
-/// update-in-place set keyed by <see cref="OrderUpdate.OrderId"/>: a new order inserts a
-/// row; subsequent updates for the same id merge into it (last-write-wins, except a
-/// non-null/non-empty <c>OrderRef</c> is never overwritten by a later null-or-empty
-/// value). Rows render sorted by OrderId.
+/// update-in-place set keyed by the IBKR order id: a new order inserts a row; subsequent
+/// updates for the same id merge into it. Rows are populated two ways — <see cref="Seed"/>
+/// loads existing orders from the REST snapshot on startup (the <c>sor</c> stream's initial
+/// frames are id-only), and <see cref="Upsert"/> applies live <c>sor</c> updates. Because
+/// <c>sor</c> deltas are sparse — a later frame carries only the id plus whatever changed —
+/// the merge only overwrites a field when the incoming value carries real data (non-empty
+/// string, non-zero quantity, non-null price), so a sparse frame never blanks a column an
+/// earlier frame (or the seed) populated. Rows render sorted by OrderId.
 /// </summary>
 internal sealed class LiveOrderTable
 {
@@ -54,13 +60,46 @@ internal sealed class LiveOrderTable
                 _rows[update.OrderId] = row;
             }
 
-            row.Symbol = update.Symbol;
-            row.Side = update.Side;
-            row.Qty = update.Size;
-            row.Type = update.OrderType;
-            row.Price = update.Price;
-            row.Status = update.Status;
-            row.Filled = update.FilledQuantity;
+            // sor status deltas are sparse: a later frame carries only the id plus whatever
+            // changed, so every other field arrives at its default (empty string / 0 / null).
+            // Merge rather than last-write-wins so a sparse delta never blanks a column an
+            // earlier, fuller frame populated — only overwrite when the incoming value carries
+            // real data.
+            if (!string.IsNullOrEmpty(update.Symbol))
+            {
+                row.Symbol = update.Symbol;
+            }
+
+            if (!string.IsNullOrEmpty(update.Side))
+            {
+                row.Side = update.Side;
+            }
+
+            if (update.Size != 0)
+            {
+                row.Qty = update.Size;
+            }
+
+            if (!string.IsNullOrEmpty(update.OrderType))
+            {
+                row.Type = update.OrderType;
+            }
+
+            if (update.Price is not null)
+            {
+                row.Price = update.Price;
+            }
+
+            if (!string.IsNullOrEmpty(update.Status))
+            {
+                row.Status = update.Status;
+            }
+
+            if (update.FilledQuantity != 0)
+            {
+                row.Filled = update.FilledQuantity;
+            }
+
             if (!string.IsNullOrEmpty(update.OrderRef))
             {
                 row.OrderRef = update.OrderRef;
@@ -68,6 +107,61 @@ internal sealed class LiveOrderTable
 
             row.LastUpdateAt = TimeProvider.System.GetUtcNow();
         }
+    }
+
+    /// <summary>
+    /// Seeds a row from a REST <see cref="LiveOrder"/> snapshot
+    /// (<c>GetLiveOrdersAsync</c>). The <c>sor</c> stream's initial frames are id-only, so
+    /// existing orders would otherwise render blank until they next change; seeding from
+    /// REST populates them up front, and later sparse <c>sor</c> frames merge in via
+    /// <see cref="Upsert"/> without blanking these columns. Keyed by the IBKR order id, so
+    /// the seeded row and its subsequent <c>sor</c> updates share one row.
+    /// </summary>
+    public void Seed(LiveOrder order)
+    {
+        lock (_gate)
+        {
+            var id = order.OrderId.ToString(CultureInfo.InvariantCulture);
+            if (!_rows.TryGetValue(id, out var row))
+            {
+                row = new RowState { OrderId = id };
+                _rows[id] = row;
+            }
+
+            // The REST snapshot is the authoritative full picture of the order.
+            row.Symbol = order.Ticker ?? string.Empty;
+            row.Side = order.Side;
+            row.Qty = order.TotalSize;
+            row.Type = order.OrderType ?? string.Empty;
+            row.Price = ExtractLimitPrice(order);
+            row.Status = order.Status;
+            row.Filled = order.FilledQuantity;
+            if (!string.IsNullOrEmpty(order.OrderRef))
+            {
+                row.OrderRef = order.OrderRef;
+            }
+
+            row.LastUpdateAt = TimeProvider.System.GetUtcNow();
+        }
+    }
+
+    /// <summary>
+    /// The working limit price. IBKR returns it under the unmapped <c>price</c> key
+    /// (empty string for market orders), so it lives in <see cref="LiveOrder.AdditionalData"/>.
+    /// Returns null for market orders or when the value is absent/blank.
+    /// </summary>
+    private static decimal? ExtractLimitPrice(LiveOrder order)
+    {
+        if (order.AdditionalData is { } extra
+            && extra.TryGetValue("price", out var priceElement)
+            && priceElement.ValueKind == JsonValueKind.String
+            && decimal.TryParse(
+                priceElement.GetString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var price))
+        {
+            return price;
+        }
+
+        return null;
     }
 
     /// <summary>Point-in-time snapshot of tracked orders, sorted by OrderId.</summary>

@@ -1,4 +1,6 @@
+using System.Text.Json;
 using IbkrConduit.Examples.OrderMonitor;
+using IbkrConduit.Orders;
 using IbkrConduit.Streaming;
 using Shouldly;
 
@@ -6,6 +8,38 @@ namespace IbkrConduit.Examples.Tests.OrderMonitor;
 
 public class LiveOrderTableTests
 {
+    // Builds a REST LiveOrder like GetLiveOrdersAsync returns. IBKR carries the working
+    // limit price under the unmapped "price" key (empty string for market orders), so the
+    // caller supplies it via <paramref name="rawPrice"/> to land in AdditionalData.
+    private static LiveOrder MakeLiveOrder(
+        int orderId, string ticker, string side, decimal totalSize, string orderType,
+        string? rawPrice, string status, decimal filled = 0, string? orderRef = null) =>
+        new(
+            Account: "DUO",
+            Conid: 1,
+            ConidEx: "1",
+            OrderId: orderId,
+            Ticker: ticker,
+            SecType: "STK",
+            ListingExchange: "NASDAQ",
+            Side: side,
+            Status: status,
+            OrderCcpStatus: null,
+            OrderType: orderType,
+            FilledQuantity: filled,
+            RemainingQuantity: totalSize - filled,
+            TotalSize: totalSize,
+            CompanyName: null,
+            AvgPrice: null,
+            TimeInForce: "DAY",
+            OrderDescription: $"{side} {totalSize} {ticker} {orderType}")
+        {
+            OrderRef = orderRef,
+            AdditionalData = rawPrice is null
+                ? null
+                : new Dictionary<string, JsonElement> { ["price"] = JsonSerializer.SerializeToElement(rawPrice) },
+        };
+
     private static OrderUpdate Update(
         string orderId, string status, decimal filled, string? orderRef = null) =>
         new()
@@ -21,6 +55,11 @@ public class LiveOrderTableTests
             FilledQuantity = filled,
             OrderRef = orderRef,
         };
+
+    // A sparse sor status delta: IBKR sends only the id plus whatever changed, so every
+    // other field deserializes to its default (empty string / 0 / null).
+    private static OrderUpdate SparseUpdate(string orderId, string status, decimal filled = 0) =>
+        new() { OrderId = orderId, Status = status, FilledQuantity = filled };
 
     [Fact]
     public void Upsert_FirstUpdate_InsertsRow()
@@ -72,5 +111,112 @@ public class LiveOrderTableTests
         snapshot.Count.ShouldBe(2);
         snapshot[0].OrderId.ShouldBe("o1"); // sorted by OrderId
         snapshot[1].OrderId.ShouldBe("o2");
+    }
+
+    [Fact]
+    public void Upsert_SparseStatusDelta_RetainsPopulatedColumns()
+    {
+        var table = new LiveOrderTable();
+
+        table.Upsert(Update("o1", "Submitted", 0)); // full frame populates all columns
+        table.Upsert(SparseUpdate("o1", "PreSubmitted")); // status-only delta must not blank them
+
+        var row = table.Snapshot()[0];
+        row.Status.ShouldBe("PreSubmitted"); // the one changed field applies
+        row.Symbol.ShouldBe("AAPL");
+        row.Side.ShouldBe("BUY");
+        row.Qty.ShouldBe(100);
+        row.Type.ShouldBe("LMT");
+        row.Price.ShouldBe(185m);
+    }
+
+    [Fact]
+    public void Upsert_SparseDelta_RetainsFilledWhenIncomingIsZero()
+    {
+        var table = new LiveOrderTable();
+
+        table.Upsert(Update("o1", "Filled", 100)); // 100 shares filled
+        table.Upsert(SparseUpdate("o1", "Filled", filled: 0)); // delta omits fill count
+
+        table.Snapshot()[0].Filled.ShouldBe(100); // fill count is not reset to 0
+    }
+
+    [Fact]
+    public void Upsert_Delta_StillAppliesRealFieldChanges()
+    {
+        var table = new LiveOrderTable();
+
+        table.Upsert(Update("o1", "Submitted", 0)); // Price 185, Filled 0
+        table.Upsert(new OrderUpdate
+        {
+            OrderId = "o1",
+            Status = "Filled",
+            FilledQuantity = 100,
+            Price = 186m, // e.g. re-priced on modify
+        });
+
+        var row = table.Snapshot()[0];
+        row.Status.ShouldBe("Filled");
+        row.Filled.ShouldBe(100);
+        row.Price.ShouldBe(186m); // real non-default values still overwrite
+    }
+
+    [Fact]
+    public void Seed_LimitOrder_PopulatesAllColumns()
+    {
+        var table = new LiveOrderTable();
+
+        table.Seed(MakeLiveOrder(
+            888626139, "QQQ", "BUY", 1, "Limit", rawPrice: "400.00",
+            status: "PreSubmitted", filled: 0, orderRef: "colpersist-1700"));
+
+        var row = table.Snapshot()[0];
+        row.OrderId.ShouldBe("888626139");
+        row.Symbol.ShouldBe("QQQ");
+        row.Side.ShouldBe("BUY");
+        row.Qty.ShouldBe(1);
+        row.Type.ShouldBe("Limit");
+        row.Price.ShouldBe(400.00m); // parsed from the unmapped "price" key
+        row.Status.ShouldBe("PreSubmitted");
+        row.Filled.ShouldBe(0);
+        row.OrderRef.ShouldBe("colpersist-1700");
+    }
+
+    [Fact]
+    public void Seed_MarketOrder_LeavesPriceNull()
+    {
+        var table = new LiveOrderTable();
+
+        // IBKR sends price="" for market orders.
+        table.Seed(MakeLiveOrder(
+            201804948, "QQQ", "BUY", 1, "Market", rawPrice: "", status: "PreSubmitted"));
+
+        var row = table.Snapshot()[0];
+        row.Type.ShouldBe("Market");
+        row.Price.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Seed_ThenSparseSorDelta_RetainsSeededColumns()
+    {
+        var table = new LiveOrderTable();
+
+        // REST seed populates the row in full...
+        table.Seed(MakeLiveOrder(
+            888626139, "QQQ", "BUY", 1, "Limit", rawPrice: "400.00",
+            status: "PreSubmitted", orderRef: "colpersist-1700"));
+        // ...then the sor snapshot's id-only frame arrives (no ticker/side/size/price/ref).
+        table.Upsert(SparseUpdate("888626139", status: string.Empty));
+
+        var snapshot = table.Snapshot();
+        snapshot.Count.ShouldBe(1); // same row, matched by IBKR orderId
+        var row = snapshot[0];
+        row.Symbol.ShouldBe("QQQ");
+        row.Side.ShouldBe("BUY");
+        row.Qty.ShouldBe(1);
+        row.Type.ShouldBe("Limit");
+        row.Price.ShouldBe(400.00m);
+        row.Status.ShouldBe("PreSubmitted");
+        row.OrderRef.ShouldBe("colpersist-1700"); // custom id survives the sparse frame
     }
 }
