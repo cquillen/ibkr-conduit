@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
 using IbkrConduit.Orders;
 using IbkrConduit.Streaming;
 using Spectre.Console;
@@ -133,7 +132,7 @@ internal sealed class LiveOrderTable
             row.Side = order.Side;
             row.Qty = order.TotalSize;
             row.Type = order.OrderType ?? string.Empty;
-            row.Price = ExtractLimitPrice(order);
+            row.Price = order.Price; // null for market orders
             row.Status = order.Status;
             row.Filled = order.FilledQuantity;
             if (!string.IsNullOrEmpty(order.OrderRef))
@@ -143,25 +142,6 @@ internal sealed class LiveOrderTable
 
             row.LastUpdateAt = TimeProvider.System.GetUtcNow();
         }
-    }
-
-    /// <summary>
-    /// The working limit price. IBKR returns it under the unmapped <c>price</c> key
-    /// (empty string for market orders), so it lives in <see cref="LiveOrder.AdditionalData"/>.
-    /// Returns null for market orders or when the value is absent/blank.
-    /// </summary>
-    private static decimal? ExtractLimitPrice(LiveOrder order)
-    {
-        if (order.AdditionalData is { } extra
-            && extra.TryGetValue("price", out var priceElement)
-            && priceElement.ValueKind == JsonValueKind.String
-            && decimal.TryParse(
-                priceElement.GetString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var price))
-        {
-            return price;
-        }
-
-        return null;
     }
 
     /// <summary>Point-in-time snapshot of tracked orders, sorted by OrderId.</summary>

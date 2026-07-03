@@ -222,6 +222,7 @@ public class OrderTests : IAsyncLifetime, IDisposable
         order.TotalSize.ShouldBe(1.0m);
         order.CompanyName.ShouldBe("SS SPDR S&P 500 ETF TRUST-US");
         order.AvgPrice.ShouldBe("647.09");
+        order.Price.ShouldBeNull(); // market order: IBKR sends price="" -> null
         order.TimeInForce.ShouldBe("CLOSE");
         order.OrderDescription.ShouldBe("Bought 1 SPY Market, Day");
 
