@@ -136,6 +136,70 @@ public class ContractTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task GetSecurityDefinitionInfo_ReturnsAllFields()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/secdef/info",
+            FixtureLoader.LoadBody("Contracts", "GET-secdef-info"));
+
+        var result = (await _harness.Client.Contracts.GetSecurityDefinitionInfoAsync(
+            "265598", SecurityType.Option, new ExpiryMonth(2027, 1),
+            exchange: "SMART", strike: 15.0m, right: OptionRight.Call,
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(1);
+        var info = result[0];
+        info.Conid.ShouldBe(265598);
+        info.Symbol.ShouldBe("SPY");
+        info.SecurityType.ShouldBe("OPT");
+        info.Exchange.ShouldBe("SMART");
+        info.ListingExchange.ShouldBe("CBOE");
+        info.Right.ShouldBe("C");
+        // IBKR returns strike as a JSON number (e.g. 15.0), not a string — regression guard for PR #181.
+        info.Strike.ShouldBe(15.0m);
+        info.MaturityDate.ShouldBe("20270115");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetSecurityDefinitionInfo_401Recovery_ReauthenticatesAndRetries()
+    {
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/secdef/info")
+                .UsingGet())
+            .InScenario("secdef-info-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/secdef/info")
+                .UsingGet())
+            .InScenario("secdef-info-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Contracts", "GET-secdef-info")));
+
+        var result = (await _harness.Client.Contracts.GetSecurityDefinitionInfoAsync(
+            "265598", SecurityType.Option, new ExpiryMonth(2027, 1),
+            strike: 15.0m, right: OptionRight.Call,
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        result.ShouldNotBeEmpty();
+        result[0].Strike.ShouldBe(15.0m);
+        _harness.VerifyReauthenticationOccurred();
+    }
+
+    [Fact]
     public async Task GetOptionStrikes_ReturnsCallsAndPuts()
     {
         _harness.StubAuthenticatedGet(
