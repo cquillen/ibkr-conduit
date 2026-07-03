@@ -141,6 +141,7 @@ public record OrderWireModel(
 /// <param name="OrderStatus">The order status, present on successful placement.</param>
 /// <param name="LocalOrderId">The customer order ID (<c>cOID</c>) echoed back on the parent of a bracket/OCA group.</param>
 /// <param name="OcaGroupId">The OCA group identifier assigned by IBKR for a one-cancels-all group.</param>
+/// <param name="EncryptMessage">IBKR returns "1" to indicate the acknowledgement message was encrypted. Informational only.</param>
 [ExcludeFromCodeCoverage]
 public record OrderSubmissionResponse(
     [property: JsonPropertyName("id")] string? Id,
@@ -150,7 +151,8 @@ public record OrderSubmissionResponse(
     [property: JsonPropertyName("order_id")] string? OrderId,
     [property: JsonPropertyName("order_status")] string? OrderStatus,
     [property: JsonPropertyName("local_order_id")] string? LocalOrderId = null,
-    [property: JsonPropertyName("oca_group_id")] string? OcaGroupId = null);
+    [property: JsonPropertyName("oca_group_id")] string? OcaGroupId = null,
+    [property: JsonPropertyName("encrypt_message")] string? EncryptMessage = null);
 
 /// <summary>
 /// Reply confirmation body sent to IBKR to confirm or reject an order question.
@@ -164,9 +166,14 @@ public record ReplyRequest(
 /// Live orders response wrapper from the IBKR API.
 /// </summary>
 /// <param name="Orders">The list of live orders, if any.</param>
+/// <param name="Snapshot">
+/// IBKR's priming indicator for <c>/iserver/account/orders</c>: the first call returns
+/// <c>false</c> and must be repeated to obtain the full set. Null when absent.
+/// </param>
 [ExcludeFromCodeCoverage]
 public record OrdersResponse(
-    [property: JsonPropertyName("orders")] List<LiveOrder>? Orders);
+    [property: JsonPropertyName("orders")] List<LiveOrder>? Orders,
+    [property: JsonPropertyName("snapshot")] bool? Snapshot = null);
 
 #pragma warning disable CA1711 // ConidEx is the IBKR API field name — suffix is not a .NET type convention issue
 /// <summary>
