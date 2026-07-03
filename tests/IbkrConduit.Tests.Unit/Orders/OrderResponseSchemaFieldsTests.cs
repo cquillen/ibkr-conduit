@@ -69,4 +69,26 @@ public class OrderResponseSchemaFieldsTests
         result.ShouldNotBeNull();
         result!.EncryptMessage.ShouldBeNull();
     }
+
+    [Fact]
+    public async Task LiveOrder_DeserializesLimitPrice_FromString()
+    {
+        // IBKR returns the working limit price as a quoted string.
+        var result = await DeserializeAsync<LiveOrder>(
+            """{"orderId":888626139,"ticker":"QQQ","side":"BUY","status":"PreSubmitted","orderType":"Limit","price":"400.00"}""");
+
+        result.ShouldNotBeNull();
+        result!.Price.ShouldBe(400.00m);
+    }
+
+    [Fact]
+    public async Task LiveOrder_MarketOrderEmptyPrice_MapsToNull()
+    {
+        // Market orders carry price="" — must map to null, not throw.
+        var result = await DeserializeAsync<LiveOrder>(
+            """{"orderId":201804948,"ticker":"QQQ","side":"BUY","status":"PreSubmitted","orderType":"Market","price":""}""");
+
+        result.ShouldNotBeNull();
+        result!.Price.ShouldBeNull();
+    }
 }

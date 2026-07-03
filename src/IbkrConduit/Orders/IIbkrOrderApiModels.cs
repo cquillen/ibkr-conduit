@@ -197,6 +197,7 @@ public record OrdersResponse(
 /// <param name="AvgPrice">The average fill price as a string.</param>
 /// <param name="TimeInForce">The time in force.</param>
 /// <param name="OrderDescription">The order description.</param>
+/// <param name="Price">The working limit price; null for market orders (IBKR sends an empty string).</param>
 [ExcludeFromCodeCoverage]
 public record LiveOrder(
     [property: JsonPropertyName("account")] string? Account,
@@ -226,7 +227,11 @@ public record LiveOrder(
     [property: JsonPropertyName("companyName")] string? CompanyName,
     [property: JsonPropertyName("avgPrice")] string? AvgPrice,
     [property: JsonPropertyName("timeInForce")] string? TimeInForce,
-    [property: JsonPropertyName("orderDesc")] string? OrderDescription)
+    [property: JsonPropertyName("orderDesc")] string? OrderDescription,
+    // No [JsonNumberHandling(AllowReadingFromString)] here: market orders send price="",
+    // which the shared empty-tolerant number converters map to null (AllowReadingFromString
+    // would throw on the empty string).
+    [property: JsonPropertyName("price")] decimal? Price = null)
 {
     /// <summary>
     /// User-defined order reference echoing the <c>cOID</c> supplied at placement

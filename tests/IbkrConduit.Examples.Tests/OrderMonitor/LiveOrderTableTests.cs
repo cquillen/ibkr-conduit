@@ -1,4 +1,3 @@
-using System.Text.Json;
 using IbkrConduit.Examples.OrderMonitor;
 using IbkrConduit.Orders;
 using IbkrConduit.Streaming;
@@ -8,12 +7,11 @@ namespace IbkrConduit.Examples.Tests.OrderMonitor;
 
 public class LiveOrderTableTests
 {
-    // Builds a REST LiveOrder like GetLiveOrdersAsync returns. IBKR carries the working
-    // limit price under the unmapped "price" key (empty string for market orders), so the
-    // caller supplies it via <paramref name="rawPrice"/> to land in AdditionalData.
+    // Builds a REST LiveOrder like GetLiveOrdersAsync returns. Price is the working limit
+    // price (null for market orders).
     private static LiveOrder MakeLiveOrder(
         int orderId, string ticker, string side, decimal totalSize, string orderType,
-        string? rawPrice, string status, decimal filled = 0, string? orderRef = null) =>
+        decimal? price, string status, decimal filled = 0, string? orderRef = null) =>
         new(
             Account: "DUO",
             Conid: 1,
@@ -32,12 +30,10 @@ public class LiveOrderTableTests
             CompanyName: null,
             AvgPrice: null,
             TimeInForce: "DAY",
-            OrderDescription: $"{side} {totalSize} {ticker} {orderType}")
+            OrderDescription: $"{side} {totalSize} {ticker} {orderType}",
+            Price: price)
         {
             OrderRef = orderRef,
-            AdditionalData = rawPrice is null
-                ? null
-                : new Dictionary<string, JsonElement> { ["price"] = JsonSerializer.SerializeToElement(rawPrice) },
         };
 
     private static OrderUpdate Update(
@@ -167,7 +163,7 @@ public class LiveOrderTableTests
         var table = new LiveOrderTable();
 
         table.Seed(MakeLiveOrder(
-            888626139, "QQQ", "BUY", 1, "Limit", rawPrice: "400.00",
+            888626139, "QQQ", "BUY", 1, "Limit", price: 400.00m,
             status: "PreSubmitted", filled: 0, orderRef: "colpersist-1700"));
 
         var row = table.Snapshot()[0];
@@ -187,9 +183,9 @@ public class LiveOrderTableTests
     {
         var table = new LiveOrderTable();
 
-        // IBKR sends price="" for market orders.
+        // Market orders have no limit price (IBKR's price="" deserializes to null).
         table.Seed(MakeLiveOrder(
-            201804948, "QQQ", "BUY", 1, "Market", rawPrice: "", status: "PreSubmitted"));
+            201804948, "QQQ", "BUY", 1, "Market", price: null, status: "PreSubmitted"));
 
         var row = table.Snapshot()[0];
         row.Type.ShouldBe("Market");
@@ -203,7 +199,7 @@ public class LiveOrderTableTests
 
         // REST seed populates the row in full...
         table.Seed(MakeLiveOrder(
-            888626139, "QQQ", "BUY", 1, "Limit", rawPrice: "400.00",
+            888626139, "QQQ", "BUY", 1, "Limit", price: 400.00m,
             status: "PreSubmitted", orderRef: "colpersist-1700"));
         // ...then the sor snapshot's id-only frame arrives (no ticker/side/size/price/ref).
         table.Upsert(SparseUpdate("888626139", status: string.Empty));
