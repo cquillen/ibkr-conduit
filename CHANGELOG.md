@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.6.0...IbkrConduit-v0.7.0) (2026-07-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **streaming,http:** some streaming DTO shapes changed. OrderUpdate now reads the sor frame's "ticker"/"totalSize" keys (was "symbol"/"size"). Six financial *amount* fields became nullable so an omitted/empty value maps to null instead of 0: TradeExecution.Price, TradeExecution.NetAmount, and PnlUpdate.DailyPnl / UnrealizedPnl / RealizedPnl / NetLiquidation are now decimal?. Quantity/size fields (TradeExecution.Size, OrderUpdate.Size/FilledQuantity/RemainingQuantity) are unchanged.
+* **streaming:** unwrap args/result envelope for sor, spl, ssd, sld frames ([#217](https://github.com/cquillen/ibkr-conduit/issues/217))
+* **contracts:** correct ContractSearchResult to the real secdef/search schema ([#215](https://github.com/cquillen/ibkr-conduit/issues/215))
+* **streaming:** IStreamingOperations subscribe methods now return Task<IIbkrSubscription<T>> instead of Task<IObservable<T>> (use sub.Stream); AccountSummaryAsync/AccountLedgerAsync require accountId as the first argument and accept optional keys/fields; the five unsolicited IObservable<T> properties (SessionStatus, Bulletins, TradingNotifications, SystemEvents, AccountStatus) are now Subscribe...() methods returning handles.
+
+### Features
+
+* **examples:** fully populate OrderMonitor orders (REST seed + sparse-sor merge) ([#219](https://github.com/cquillen/ibkr-conduit/issues/219)) ([3d4ee8c](https://github.com/cquillen/ibkr-conduit/commit/3d4ee8c38273896ababd29c177c1096ea3215e80))
+* **examples:** OrderMonitor + OrderSubmit example pair for order/execution streaming ([#216](https://github.com/cquillen/ibkr-conduit/issues/216)) ([b354f1f](https://github.com/cquillen/ibkr-conduit/commit/b354f1ff8d37bd299d4213a37f692e08f457c9bd))
+* **streaming:** WebSocket trade execution stream (str topic) ([#211](https://github.com/cquillen/ibkr-conduit/issues/211)) ([ea8cc5c](https://github.com/cquillen/ibkr-conduit/commit/ea8cc5cdf5df43c6b9be9e1ca3848a382362ec08))
+* **streaming:** WebSocket unsubscribe (u… topics) + subscription handles ([#213](https://github.com/cquillen/ibkr-conduit/issues/213)) ([1a5ad3e](https://github.com/cquillen/ibkr-conduit/commit/1a5ad3efe202285dccd65eddff20c089d129c0c3))
+
+
+### Bug Fixes
+
+* **contracts:** correct ContractSearchResult to the real secdef/search schema ([#215](https://github.com/cquillen/ibkr-conduit/issues/215)) ([87a409d](https://github.com/cquillen/ibkr-conduit/commit/87a409d576484f9b8b8593470980853e3f67bdae))
+* **streaming,http:** tolerate empty-string numbers globally, harden streaming, and correct sor field shapes ([#218](https://github.com/cquillen/ibkr-conduit/issues/218)) ([889eba9](https://github.com/cquillen/ibkr-conduit/commit/889eba9d7788bcbacd83ac05da823f22b15ae3b7))
+* **streaming:** establish brokerage session before opening the WebSocket ([#214](https://github.com/cquillen/ibkr-conduit/issues/214)) ([706633c](https://github.com/cquillen/ibkr-conduit/commit/706633cab199b13539a81f2a92a51a68f716ddeb))
+* **streaming:** unwrap args/result envelope for sor, spl, ssd, sld frames ([#217](https://github.com/cquillen/ibkr-conduit/issues/217)) ([ce3a3ea](https://github.com/cquillen/ibkr-conduit/commit/ce3a3eafd53eebf03e1e38e3466d972897e8fc5b))
+
 ## [0.6.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.5.2...IbkrConduit-v0.6.0) (2026-07-01)
 
 
