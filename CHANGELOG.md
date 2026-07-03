@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.1](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.7.0...IbkrConduit-v0.7.1) (2026-07-03)
+
+
+### Features
+
+* **orders:** add first-class Price to LiveOrder; OrderMonitor reads it ([#222](https://github.com/cquillen/ibkr-conduit/issues/222)) ([af992c3](https://github.com/cquillen/ibkr-conduit/commit/af992c36c4db46d269fa09da454fc7e57e008cf4))
+
+
+### Bug Fixes
+
+* **orders:** map snapshot and encrypt_message response fields ([#220](https://github.com/cquillen/ibkr-conduit/issues/220)) ([818f4d1](https://github.com/cquillen/ibkr-conduit/commit/818f4d13e67da0bbaa3ac3b157e969492b0d553b))
+
 ## [0.7.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.6.0...IbkrConduit-v0.7.0) (2026-07-03)
 
 
