@@ -30,6 +30,18 @@ internal static class OrderMonitorHost
             new EventId(3, nameof(RunAsync)),
             "Subscription disposal threw on shutdown: {Message}");
 
+    private static readonly Action<ILogger, int, Exception?> _logSeeded =
+        LoggerMessage.Define<int>(
+            LogLevel.Information,
+            new EventId(4, nameof(RunAsync)),
+            "Seeded {Count} existing order(s) from the REST snapshot.");
+
+    private static readonly Action<ILogger, string, Exception?> _logSeedFailed =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(5, nameof(RunAsync)),
+            "Order snapshot seed failed: {Message}. Existing orders will populate as they next update.");
+
     /// <summary>
     /// Subscribes to both streams, connects, renders until cancelled, and disposes.
     /// </summary>
@@ -48,6 +60,15 @@ internal static class OrderMonitorHost
         var handles = new List<IAsyncDisposable>(2);
         try
         {
+            // The sor stream's initial frames are id-only, so existing orders would render
+            // blank until they next change. Seed them from the REST snapshot first (this also
+            // primes the brokerage session). Skipped for realtime-only, which shows only
+            // post-launch activity.
+            if (!realtimeOnly)
+            {
+                await SeedOrdersAsync(client, orderTable, logger, cancellationToken);
+            }
+
             // Orders: pass days for history unless realtime-only was requested.
             try
             {
@@ -98,6 +119,38 @@ internal static class OrderMonitorHost
                 try { await handle.DisposeAsync(); }
                 catch (Exception ex) { _logDisposeFailed(logger, ex.Message, ex); }
             }
+        }
+    }
+
+    /// <summary>
+    /// Seeds the Orders table from the REST order snapshot. IBKR's
+    /// <c>/iserver/account/orders</c> primes on the first call and returns the full set on
+    /// the next, so it is called twice. Failures are logged and swallowed — seeding is a
+    /// best-effort convenience and the live streams still run without it.
+    /// </summary>
+    private static async Task SeedOrdersAsync(
+        IIbkrClient client, LiveOrderTable orderTable, ILogger logger, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await client.Orders.GetLiveOrdersAsync(cancellationToken: cancellationToken);
+            var result = await client.Orders.GetLiveOrdersAsync(cancellationToken: cancellationToken);
+            if (!result.IsSuccess)
+            {
+                _logSeedFailed(logger, result.Error.Message ?? "unknown error", null);
+                return;
+            }
+
+            foreach (var order in result.Value)
+            {
+                orderTable.Seed(order);
+            }
+
+            _logSeeded(logger, result.Value.Count, null);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logSeedFailed(logger, ex.Message, ex);
         }
     }
 
