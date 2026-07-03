@@ -7,9 +7,11 @@ namespace IbkrConduit.Examples.OrderMonitor;
 /// <summary>
 /// Spectre.Console table state for the order-status (<c>sor</c>) stream. Orders are an
 /// update-in-place set keyed by <see cref="OrderUpdate.OrderId"/>: a new order inserts a
-/// row; subsequent updates for the same id merge into it (last-write-wins, except a
-/// non-null/non-empty <c>OrderRef</c> is never overwritten by a later null-or-empty
-/// value). Rows render sorted by OrderId.
+/// row; subsequent updates for the same id merge into it. Because <c>sor</c> deltas are
+/// sparse — a later frame carries only the id plus whatever changed — the merge only
+/// overwrites a field when the incoming value carries real data (non-empty string,
+/// non-zero quantity, non-null price), so a sparse status delta never blanks a column an
+/// earlier, fuller frame populated. Rows render sorted by OrderId.
 /// </summary>
 internal sealed class LiveOrderTable
 {
@@ -54,13 +56,46 @@ internal sealed class LiveOrderTable
                 _rows[update.OrderId] = row;
             }
 
-            row.Symbol = update.Symbol;
-            row.Side = update.Side;
-            row.Qty = update.Size;
-            row.Type = update.OrderType;
-            row.Price = update.Price;
-            row.Status = update.Status;
-            row.Filled = update.FilledQuantity;
+            // sor status deltas are sparse: a later frame carries only the id plus whatever
+            // changed, so every other field arrives at its default (empty string / 0 / null).
+            // Merge rather than last-write-wins so a sparse delta never blanks a column an
+            // earlier, fuller frame populated — only overwrite when the incoming value carries
+            // real data.
+            if (!string.IsNullOrEmpty(update.Symbol))
+            {
+                row.Symbol = update.Symbol;
+            }
+
+            if (!string.IsNullOrEmpty(update.Side))
+            {
+                row.Side = update.Side;
+            }
+
+            if (update.Size != 0)
+            {
+                row.Qty = update.Size;
+            }
+
+            if (!string.IsNullOrEmpty(update.OrderType))
+            {
+                row.Type = update.OrderType;
+            }
+
+            if (update.Price is not null)
+            {
+                row.Price = update.Price;
+            }
+
+            if (!string.IsNullOrEmpty(update.Status))
+            {
+                row.Status = update.Status;
+            }
+
+            if (update.FilledQuantity != 0)
+            {
+                row.Filled = update.FilledQuantity;
+            }
+
             if (!string.IsNullOrEmpty(update.OrderRef))
             {
                 row.OrderRef = update.OrderRef;
