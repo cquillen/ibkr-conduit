@@ -37,6 +37,14 @@ Task status is mirrored in [implementation-status.md](implementation-status.md) 
 **Tier 1 lanes** (parallel branches; serialize within a lane):
 Lane A: MBH-01 · Lane B: MBH-02 → MBH-03 · Lane C: MBH-04 ∥ MBH-06 → MBH-07 · Lane D: MBH-05 ∥ MBH-08.
 
+## Cross-cutting open questions
+
+Recorded 2026-07-04 (post-design review); per-task questions live in each task's **Open questions** line and are resolved in that task's implementation plan.
+
+- **0.9.0 migration notes are a Tier 1 exit criterion.** The release must ship consumer-facing notes covering the new ambiguous error type (MBH-04), the nullable money/status fields (MBH-02/03), and the live-orders return record (MBH-05) — RTOS updates its IBV-05 mapping against these *before* re-pinning.
+- **MBH-07 needs RTOS input before its plan is written** (compete policy + success-path competing signal — see its Open questions). It is the one Tier 1 task whose design decision belongs to the consumer as much as the conduit.
+- **AMB-2's empirical question stays open by design:** whether IBKR can process an order POST and then 401 is unpinned in either direction; RTOS's IBV-P first-call/behavior census measures it live. MBH-04's replay gate makes both answers non-catastrophic, so the stream does not block on it.
+
 ## Tier 1 — pre-soak (closes with the 0.9.0 cut)
 
 ### MBH-01 — No silent str/fill loss
@@ -44,6 +52,7 @@ Lane A: MBH-01 · Lane B: MBH-02 → MBH-03 · Lane C: MBH-04 ∥ MBH-06 → MBH
 - **Findings:** FIL-1 (critical), FIL-2 (high), GAP2-4 (medium)
 - **Scope:** Per-subscriber channels move to the `Channel.CreateBounded(options, itemDropped)` overload emitting a Warning log and a new `ibkr.conduit.websocket.messages.dropped` counter (tenant + topic tags). `TradeExecutionMapper.MapMany` gains per-element try/catch so one malformed execution no longer discards the frame's tail. Dropped-frame logging records the wire topic (not the DTO type name) and increments a counter. `IbkrClientOptions.StreamingBufferSize` default raises 256 → 2048 (`SessionModelsTests` default pin updates with it).
 - **Out of scope:** configurable `FullMode` (`Wait` for money topics) — future backpressure design.
+- **Open questions:** the drop *counter* counts every eviction, but the Warning *log* must not flood under a stalled consumer (thousands of drops/sec) — decide the throttle shape in the plan (e.g. first drop per topic per connection, or rate-limited).
 - **Files:** `src/IbkrConduit/Streaming/IbkrWebSocketClient.cs`, `Streaming/Mappers/TradeExecutionMapper.cs`, `Streaming/FanOutChannelObservable.cs`, `Streaming/ChannelObservable.cs`, `Streaming/StreamingObservableLog.cs`, `Session/IbkrClientOptions.cs`
 - **Red tests:** findings doc entries FIL-1, FIL-2, GAP2-4 (suggested regression tests per entry)
 
@@ -51,6 +60,7 @@ Lane A: MBH-01 · Lane B: MBH-02 → MBH-03 · Lane C: MBH-04 ∥ MBH-06 → MBH
 
 - **Findings:** WIR-1 (critical), WIR-3 (medium), FIL-6 (low)
 - **Scope:** One rule across streaming and REST money DTOs: **absent ≠ default — nullable types; null means "not present in this payload."** `OrderUpdate` quantities/status/side/conid go nullable; `TradeExecution.Size` and the remaining non-nullable `Trade`/`TradeExecution` money fields likewise; empty-string→0 coercion on non-nullables disappears with the nullability. XML docs state the null semantics. The null-shape decision is recorded in this task's plan before coding.
+- **Open questions:** (a) does *present-but-empty* (`""`) map to null (same as absent) or stay distinguishable from absence? (b) `Conid` going nullable may break consumers' dictionary keying — nullable, or a documented non-null invariant instead?
 - **Files:** `src/IbkrConduit/Streaming/StreamingModels.cs`, `Orders/IIbkrOrderApiModels.cs`, `Serialization/*`
 - **Red tests:** findings doc entries WIR-1, WIR-3, FIL-6
 
@@ -58,6 +68,7 @@ Lane A: MBH-01 · Lane B: MBH-02 → MBH-03 · Lane C: MBH-04 ∥ MBH-06 → MBH
 
 - **Findings:** GAP2-1, GAP2-2, GAP2-3, GAP3-3 (mediums gating the `IsPaper` real-money interlock and session-death detection)
 - **Scope:** `sts`/`act` mappers stop fabricating: `ValueKind` guards replace raw `GetBoolean()`; a frame missing `authenticated` maps to `Authenticated = null`, never synthesized `false`; `IsPaper` becomes nullable; `SessionStatusEvent` surfaces the sts fields currently dropped (competing, fail reason).
+- **Open questions:** (a) a frame with missing/unparseable `authenticated`: *deliver* it with `Authenticated = null` (leaning this way — the consumer sees the frame happened) or suppress into the malformed path? Delivering changes what "no event" means. (b) Which additional sts fields to surface — source the list from `docs/ibkr-websocket-api-reference.md`.
 - **Files:** `src/IbkrConduit/Streaming/Mappers/SessionStatusMapper.cs`, `Streaming/Mappers/AccountStatusMapper.cs`, `Streaming/StreamingModels.cs`
 - **Depends on:** MBH-02 (shared `StreamingModels.cs`)
 - **Red tests:** findings doc entries GAP2-1, GAP2-2, GAP2-3, GAP3-3
@@ -66,6 +77,7 @@ Lane A: MBH-01 · Lane B: MBH-02 → MBH-03 · Lane C: MBH-04 ∥ MBH-06 → MBH
 
 - **Findings:** AMB-2 (high, PLAUSIBLE), AMB-3 (medium), AMB-4 (low)
 - **Scope:** The trichotomy task. The 401 buffer-and-replay gets a method/endpoint gate: order-mutating POSTs (`/iserver/account/*/orders`, order modify, `/iserver/reply/*`) are not silently replayed; the call surfaces a **distinct ambiguous error shape** — design pin: a new `IbkrAmbiguousError` in the `Result` taxonomy carrying replay/phase context, exact shape recorded in this task's plan with the RTOS IBV-05 mapping (→ InDoubt). `ReplyAsync` routes 2xx through `ResultFactory.FromResponse`; the two unrecognized-200-shape throws become classified refusals carrying body context.
+- **Open questions:** (a) error shape: new `IbkrAmbiguousError` type vs. a flag on an existing error; which context fields (phase: 401-after-send vs. never-answered; `ReplayAttempted`; original status/body). (b) Gate boundaries: does DELETE-cancel stay replayable (idempotent-ish)? Is `/iserver/reply` order-mutating for gating purposes (it mutates, but a lost reply has different repair semantics)? (c) Coordination: RTOS's IBV-05 table must map the new shape → InDoubt *before* it re-pins 0.9.0.
 - **Files:** `src/IbkrConduit/Session/TokenRefreshHandler.cs`, `Client/OrderOperations.cs`, `Errors/Result.cs`, `Errors/ResultFactory.cs`
 - **Red tests:** findings doc entries AMB-2, AMB-3, AMB-4
 
@@ -73,6 +85,7 @@ Lane A: MBH-01 · Lane B: MBH-02 → MBH-03 · Lane C: MBH-04 ∥ MBH-06 → MBH
 
 - **Findings:** GAP1-1 (high), GAP1-2 (high), GAP1-3 (medium)
 - **Scope:** Per the "conduit owns IBKR quirks" charter: `GetLiveOrdersAsync` auto-re-polls until `snapshot:true` (bounded retries, loud failure) **and** returns a richer record exposing `IsSnapshot` (shape recorded in this task's plan); after any filtered call the documented `force=true` cache-clear is issued automatically (or lazily at `sor` subscribe); the misleading unprimed-shape empty-orders fixture is replaced.
+- **Open questions:** (a) the record shape (`Result<LiveOrdersResult>` — name and members). (b) The re-poll bound: attempts/delay, and whether it's an `IbkrClientOptions` knob or a constant. (c) What "fails loud" is when priming never succeeds — dedicated error vs. timeout shape. (d) Eager `force=true` immediately after a filtered call vs. lazy at `sor` subscribe.
 - **Files:** `src/IbkrConduit/Client/OrderOperations.cs`, `Client/IOrderOperations.cs`, `Orders/IIbkrOrderApiModels.cs`, `tests/IbkrConduit.Tests.Integration` fixtures
 - **Red tests:** findings doc entries GAP1-1, GAP1-2, GAP1-3
 
@@ -80,6 +93,7 @@ Lane A: MBH-01 · Lane B: MBH-02 → MBH-03 · Lane C: MBH-04 ∥ MBH-06 → MBH
 
 - **Findings:** SES-2 (high), SES-3 (high), SES-5 (medium), SES-6 (medium)
 - **Scope:** Tickle 401s become a reauth trigger rather than generic transport noise; the cached LST is expiry-checked before use; proactive refresh retries instead of dying one-shot; failed init/reauth resets `_state` and stops leaking tickle timers.
+- **Open questions:** (a) retry/backoff parameters for the proactive-refresh retry. (b) Does the LST expiry check reuse `ProactiveRefreshMargin` or get its own margin? (c) Tickle-401 reauth must route through the epoch-deduped `ReauthenticateAsync` path (no parallel reauth mechanism) — confirm in the plan.
 - **Files:** `src/IbkrConduit/Session/TickleTimer.cs`, `Session/SessionManager.cs`, `Auth/SessionTokenProvider.cs`
 - **Red tests:** findings doc entries SES-2, SES-3, SES-5, SES-6
 
@@ -87,6 +101,7 @@ Lane A: MBH-01 · Lane B: MBH-02 → MBH-03 · Lane C: MBH-04 ∥ MBH-06 → MBH
 
 - **Findings:** SES-1 (high), GAP3-1 (high), GAP3-2 (medium)
 - **Scope:** `SsodhInitResponse` is captured instead of discarded; competing evidence flows into `IbkrSessionError.IsCompeting` (the currently-dead branch RTOS maps to SessionLost); health state stops force-clearing `competing:false` after every reauth.
+- **Open questions — needs RTOS input before the plan (defines their SessionLost trigger):** plumbing `IsCompeting` is necessary but *insufficient* — the GAP3-1 skeptic showed a competing steal makes reauth **succeed** (steal-back with `Compete=true` default), so the `IbkrSessionError` path never fires in exactly the steal scenario. Decide: (a) default compete policy — unconditional steal-back vs. a `CompetePolicy` option (steal-back / stand-down / bounded steal-back with backoff); two processes on the same credentials currently ping-pong indefinitely. (b) The success-path signal — how competing evidence reaches the consumer when reauth succeeds: likely a `SessionLifecycleNotifier` competing event, since neither the error taxonomy nor health polling reliably catches the sub-tickle-interval window.
 - **Files:** `src/IbkrConduit/Session/SessionManager.cs`, `Session/TokenRefreshHandler.cs`, `Health/SessionHealthState.cs`
 - **Depends on:** MBH-04 and MBH-06 (shared `TokenRefreshHandler.cs` / `SessionManager.cs`)
 - **Red tests:** findings doc entries SES-1, GAP3-1, GAP3-2
@@ -105,6 +120,7 @@ Lane A: MBH-01 · Lane B: MBH-02 → MBH-03 · Lane C: MBH-04 ∥ MBH-06 → MBH
 - **Findings:** MGR-1 (high), MGR-2 (medium), MGR-3 (medium)
 - **Scope:** `RemoveAsync` honors its `CancellationToken` with bounded teardown; `AddAsync` disposes credentials on every throw path (the ownership contract RTOS's provisioning saga relies on); `_disposed` races with concurrent `AddAsync` closed.
 - **Escalation flag:** if the soak's deliberate session-competition recovery test is blocked by unbounded `RemoveAsync`, pull this task into the pre-soak window.
+- **Open questions:** (a) bounded-teardown semantics — what happens to in-flight requests when `RemoveAsync` is cancelled? (b) Does a cancelled `RemoveAsync` still attempt best-effort logout (ties to the Milestone 8 deferred "best-effort logout on eager-init failure" item)?
 - **Files:** `src/IbkrConduit/Client/IbkrClientManager.cs`, `Client/TenantBuilder.cs`, `Client/ManagedTenant.cs`
 - **Red tests:** findings doc entries MGR-1, MGR-2, MGR-3
 
@@ -112,6 +128,7 @@ Lane A: MBH-01 · Lane B: MBH-02 → MBH-03 · Lane C: MBH-04 ∥ MBH-06 → MBH
 
 - **Findings:** FIL-3 (medium), FIL-4 (medium), FIL-5 (medium)
 - **Scope:** Consumer `OnNext` exceptions distinguished from malformed wire frames; reconnects emit an observable gap signal so consumers know to reconcile via REST; multi-`Subscribe` on a single-reader channel either works or throws loudly.
+- **Open questions:** (a) the gap-signal surface — event/callback on the subscription vs. a marker item in the stream. (b) FIL-5's fix may not be additive: throw-on-second-`Subscribe` is a behavior change and per-subscriber channels change the surface — if it can't be done additively, it moves to Tier 1 per the stream rules.
 - **Files:** `src/IbkrConduit/Streaming/FanOutChannelObservable.cs`, `Streaming/ChannelObservable.cs`, `Streaming/IbkrWebSocketClient.cs`
 - **Red tests:** findings doc entries FIL-3, FIL-4, FIL-5
 
