@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.7.1...IbkrConduit-v0.8.0) (2026-07-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **orders:** map all trade fields on Trade + TradeExecution DTOs ([#227](https://github.com/cquillen/ibkr-conduit/issues/227))
+
+### Features
+
+* **orders:** map all trade fields on Trade + TradeExecution DTOs ([#227](https://github.com/cquillen/ibkr-conduit/issues/227)) ([9cde315](https://github.com/cquillen/ibkr-conduit/commit/9cde315988db8c67052985d20618f922d07ba8c2))
+
 ## [0.7.1](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.7.0...IbkrConduit-v0.7.1) (2026-07-03)
 
 
