@@ -369,6 +369,52 @@ public class OrderTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task GetTrades_ReturnsAllFields()
+    {
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/trades",
+            FixtureLoader.LoadBody("Orders", "GET-trades"));
+
+        var result = (await _harness.Client.Orders.GetTradesAsync(
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(1);
+        var trade = result[0];
+        trade.ExecutionId.ShouldBe("00018fae.67890abc.01.01");
+        trade.Symbol.ShouldBe("SPY");
+        trade.Side.ShouldBe("BOT");
+        trade.Size.ShouldBe(1.0m);
+        trade.Price.ShouldBe(647.09m);
+        trade.OrderRef.ShouldBe("Order123");
+        trade.Submitter.ShouldBe("U1234567");
+        // Newly-mapped fields
+        trade.Commission.ShouldBe(1.01m);        // "1.01" (string) -> decimal
+        trade.NetAmount.ShouldBe(647.09m);
+        trade.TradeTime.ShouldBe("20260702-17:45:50");
+        trade.TradeTimeR.ShouldBe(1783014350000);
+        trade.Exchange.ShouldBe("ARCA");
+        trade.Account.ShouldBe("U1234567");
+        trade.AccountCode.ShouldBe("U1234567");
+        trade.CompanyName.ShouldBe("SPDR S&P 500 ETF TRUST");
+        trade.ContractDescription1.ShouldBe("SPY");
+        trade.SecType.ShouldBe("STK");
+        trade.ListingExchange.ShouldBe("ARCA");
+        trade.ConidEx.ShouldBe("756733");
+        trade.ClearingId.ShouldBe("IB");
+        trade.ClearingName.ShouldBe("IB");
+        trade.SupportsTaxOpt.ShouldBe(true);     // "1" -> true
+        trade.LiquidationTrade.ShouldBe(false);  // "0" -> false
+        trade.IsEventTrading.ShouldBe(false);    // "0" -> false
+        // Fields IBKR returns but the documented schema omits (found via live verification).
+        trade.OrderId.ShouldBe("656804954");     // JSON number -> string
+        trade.Position.ShouldBe(48m);            // "48" -> decimal
+        trade.AccountAllocationName.ShouldBe("U1234567");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
     public async Task GetTrades_401Recovery_ReauthenticatesAndRetries()
     {
         _harness.Server.Given(
