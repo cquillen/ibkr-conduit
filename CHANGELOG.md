@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 
 ### ⚠ BREAKING CHANGES
 
-* **orders:** map all trade fields on Trade + TradeExecution DTOs ([#227](https://github.com/cquillen/ibkr-conduit/issues/227))
+* **orders:** `TradeExecution.SupportsTaxOpt`, `TradeExecution.LiquidationTrade`, and `TradeExecution.IsEventTrading` changed from `string?` to `bool?` — IBKR's `"0"`/`"1"` flags now parse to booleans. Part of mapping the full trade wire shape on the `Trade` (REST) and `TradeExecution` (str) DTOs ([#227](https://github.com/cquillen/ibkr-conduit/issues/227))
 
 ### Features
 
