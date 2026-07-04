@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using IbkrConduit.Serialization;
 
 namespace IbkrConduit.Orders;
 
@@ -247,16 +248,16 @@ public record LiveOrder(
 }
 
 /// <summary>
-/// A completed trade from the IBKR API.
+/// A completed trade from the IBKR API (<c>/iserver/account/trades</c>).
 /// </summary>
 /// <param name="ExecutionId">The execution identifier.</param>
 /// <param name="Conid">The contract identifier.</param>
 /// <param name="Symbol">The ticker symbol.</param>
-/// <param name="Side">The trade side.</param>
-/// <param name="Size">The trade size.</param>
+/// <param name="Side">The trade side (Buy or Sell).</param>
+/// <param name="Size">The trade size (quantity).</param>
 /// <param name="Price">The execution price.</param>
-/// <param name="OrderRef">The order reference.</param>
-/// <param name="Submitter">The trade submitter.</param>
+/// <param name="OrderRef">The user-defined order reference (cOID).</param>
+/// <param name="Submitter">The username that submitted the order.</param>
 [ExcludeFromCodeCoverage]
 public record Trade(
     [property: JsonPropertyName("execution_id")] string ExecutionId,
@@ -266,7 +267,105 @@ public record Trade(
     [property: JsonPropertyName("size")] decimal Size,
     [property: JsonPropertyName("price")] decimal Price,
     [property: JsonPropertyName("order_ref")] string OrderRef,
-    [property: JsonPropertyName("submitter")] string Submitter);
+    [property: JsonPropertyName("submitter")] string Submitter)
+{
+    /// <summary>Whether tax optimizer is supported for the order. IBKR sends "1"/"0"; parsed to bool.</summary>
+    [JsonPropertyName("supports_tax_opt")]
+    [JsonConverter(typeof(FlexibleBoolJsonConverter))]
+    public bool? SupportsTaxOpt { get; init; }
+
+    /// <summary>Full order description (side, size, symbol, order type, price, TIF).</summary>
+    [JsonPropertyName("order_description")]
+    public string? OrderDescription { get; init; }
+
+    /// <summary>Trade time in UTC, formatted "YYYYMMDD-HH:mm:ss". Kept raw.</summary>
+    [JsonPropertyName("trade_time")]
+    public string? TradeTime { get; init; }
+
+    /// <summary>Trade time in epoch milliseconds.</summary>
+    [JsonPropertyName("trade_time_r")]
+    public long? TradeTimeR { get; init; }
+
+    /// <summary>The exchange the order was executed on.</summary>
+    [JsonPropertyName("exchange")]
+    public string? Exchange { get; init; }
+
+    /// <summary>Commission cost for the trade. IBKR sends a quoted value; parsed to decimal. Null when omitted or empty.</summary>
+    [JsonPropertyName("commission")]
+    public decimal? Commission { get; init; }
+
+    /// <summary>Total net cost of the order. Null when omitted or empty.</summary>
+    [JsonPropertyName("net_amount")]
+    public decimal? NetAmount { get; init; }
+
+    /// <summary>The account identifier.</summary>
+    [JsonPropertyName("account")]
+    public string? Account { get; init; }
+
+    /// <summary>The account code.</summary>
+    [JsonPropertyName("accountCode")]
+    public string? AccountCode { get; init; }
+
+    /// <summary>The long name of the contract's company.</summary>
+    [JsonPropertyName("company_name")]
+    public string? CompanyName { get; init; }
+
+    /// <summary>The local symbol of the order/contract.</summary>
+    [JsonPropertyName("contract_description_1")]
+    public string? ContractDescription1 { get; init; }
+
+    /// <summary>The security type of the contract (e.g., STK, OPT).</summary>
+    [JsonPropertyName("sec_type")]
+    public string? SecType { get; init; }
+
+    /// <summary>The primary listing exchange of the contract (distinct from the execution exchange).</summary>
+    [JsonPropertyName("listing_exchange")]
+    public string? ListingExchange { get; init; }
+
+    // CA1711 (the "Ex" suffix on ConidEx) is already disabled file-wide above; no local pragma needed.
+    /// <summary>The contract identifier of the order (extended form).</summary>
+    [JsonPropertyName("conidEx")]
+    public string? ConidEx { get; init; }
+
+    /// <summary>The clearing firm identifier (e.g., "IB").</summary>
+    [JsonPropertyName("clearing_id")]
+    public string? ClearingId { get; init; }
+
+    /// <summary>The clearing firm name.</summary>
+    [JsonPropertyName("clearing_name")]
+    public string? ClearingName { get; init; }
+
+    /// <summary>Whether the order was part of an account liquidation. IBKR sends "1"/"0"; parsed to bool.</summary>
+    [JsonPropertyName("liquidation_trade")]
+    [JsonConverter(typeof(FlexibleBoolJsonConverter))]
+    public bool? LiquidationTrade { get; init; }
+
+    /// <summary>Whether the order was part of event trading. IBKR sends "1"/"0"; parsed to bool.</summary>
+    [JsonPropertyName("is_event_trading")]
+    [JsonConverter(typeof(FlexibleBoolJsonConverter))]
+    public bool? IsEventTrading { get; init; }
+
+    /// <summary>
+    /// The IBKR order id this trade belongs to. Returned by the endpoint though absent from the
+    /// documented schema; IBKR sends it as a JSON number, normalized to a string via
+    /// <see cref="FlexibleStringJsonConverter"/> so it correlates with the order streams.
+    /// </summary>
+    [JsonPropertyName("order_id")]
+    [JsonConverter(typeof(FlexibleStringJsonConverter))]
+    public string? OrderId { get; init; }
+
+    /// <summary>Resulting total position size in the contract after this trade. Null when omitted or empty.</summary>
+    [JsonPropertyName("position")]
+    public decimal? Position { get; init; }
+
+    /// <summary>Allocation account name for the trade.</summary>
+    [JsonPropertyName("account_allocation_name")]
+    public string? AccountAllocationName { get; init; }
+
+    /// <summary>Additional data not mapped to known properties.</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
 
 /// <summary>
 /// What-if (commission/margin preview) response from the IBKR API.

@@ -73,6 +73,51 @@ public class TradeExecutionMapperTests
     }
 
     [Fact]
+    public void MapMany_MapsNewlyAddedFields_FullyCoversRealFrame()
+    {
+        // A real str frame (the commission-added follow-up), captured live 2026-07-02.
+        var frame = JsonDocument.Parse(
+            """
+            {"topic":"str","args":[{
+              "execution_id":"00025b49.6a4ffd74.01.01","symbol":"SPY","side":"B",
+              "supports_tax_opt":"1","size":1.0,"price":"740.90","order_ref":"submit-174550-7a5e",
+              "exchange":"NASDAQ","commission":"1.0","net_amount":740.9,
+              "account":"DUO873728","accountCode":"DUO873728",
+              "account_allocation_name":"DUO873728","listing_exchange":"ARCA",
+              "conid":756733,"position":"48","clearing_id":"IB","clearing_name":"IB",
+              "liquidation_trade":"0","is_event_trading":"0","order_id":345375760
+            }]}
+            """).RootElement;
+
+        var e = TradeExecutionMapper.MapMany(frame).Single();
+
+        e.OrderId.ShouldBe("345375760");   // numeric on the wire -> string (correlates with OrderUpdate.OrderId)
+        e.Commission.ShouldBe(1.0m);       // quoted string -> decimal
+        e.Position.ShouldBe(48m);          // quoted string -> decimal
+        e.ListingExchange.ShouldBe("ARCA");
+        e.AccountAllocationName.ShouldBe("DUO873728");
+        e.ClearingId.ShouldBe("IB");
+        e.ClearingName.ShouldBe("IB");
+        e.SupportsTaxOpt.ShouldBe(true);   // "1" -> true
+        e.LiquidationTrade.ShouldBe(false); // "0" -> false
+        e.IsEventTrading.ShouldBe(false);  // "0" -> false
+        // Every field on this real frame is now first-class — nothing spills into AdditionalData.
+        e.AdditionalData.ShouldBeNull();
+    }
+
+    [Fact]
+    public void MapMany_EmptyCommissionAndPosition_YieldNullNotZero()
+    {
+        var frame = JsonDocument.Parse(
+            """{"topic":"str","args":[{"execution_id":"x","commission":"","position":""}]}""").RootElement;
+
+        var execution = TradeExecutionMapper.MapMany(frame).Single();
+
+        execution.Commission.ShouldBeNull();
+        execution.Position.ShouldBeNull();
+    }
+
+    [Fact]
     public void MapMany_UnknownField_LandsInAdditionalData()
     {
         var frame = JsonDocument.Parse(

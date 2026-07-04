@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using IbkrConduit.Streaming;
+using IbkrConduit.Serialization;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Streaming;

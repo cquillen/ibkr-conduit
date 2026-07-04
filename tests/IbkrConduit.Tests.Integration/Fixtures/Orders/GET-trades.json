@@ -6,13 +6,34 @@
     "Body": [
       {
         "execution_id": "00018fae.67890abc.01.01",
-        "conid": 756733,
         "symbol": "SPY",
+        "supports_tax_opt": "1",
         "side": "BOT",
+        "order_description": "Bot 1 SPY @ 647.09 on ARCA",
+        "trade_time": "20260702-17:45:50",
+        "trade_time_r": 1783014350000,
         "size": 1.0,
-        "price": 647.09,
+        "price": "647.09",
         "order_ref": "Order123",
-        "submitter": "U1234567"
+        "submitter": "U1234567",
+        "exchange": "ARCA",
+        "commission": "1.01",
+        "net_amount": 647.09,
+        "account": "U1234567",
+        "accountCode": "U1234567",
+        "company_name": "SPDR S&P 500 ETF TRUST",
+        "contract_description_1": "SPY",
+        "sec_type": "STK",
+        "listing_exchange": "ARCA",
+        "conid": 756733,
+        "conidEx": "756733",
+        "clearing_id": "IB",
+        "clearing_name": "IB",
+        "liquidation_trade": "0",
+        "is_event_trading": "0",
+        "order_id": 656804954,
+        "position": "48",
+        "account_allocation_name": "U1234567"
       }
     ]
   }

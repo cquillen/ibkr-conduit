@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using IbkrConduit.Serialization;
 
 namespace IbkrConduit.Streaming;
 
@@ -222,9 +223,10 @@ public record TradeExecution
     [JsonPropertyName("symbol")]
     public string Symbol { get; init; } = string.Empty;
 
-    /// <summary>Whether the contract supports the tax optimizer (Client Portal only).</summary>
+    /// <summary>Whether the contract supports the tax optimizer (Client Portal only). IBKR sends "1"/"0"; parsed to bool.</summary>
     [JsonPropertyName("supports_tax_opt")]
-    public string? SupportsTaxOpt { get; init; }
+    [JsonConverter(typeof(FlexibleBoolJsonConverter))]
+    public bool? SupportsTaxOpt { get; init; }
 
     /// <summary>Trade side (buy or sell).</summary>
     [JsonPropertyName("side")]
@@ -301,13 +303,48 @@ public record TradeExecution
     [JsonPropertyName("open_close")]
     public string? OpenClose { get; init; }
 
-    /// <summary>Whether the trade resulted from a liquidation.</summary>
+    /// <summary>Whether the trade resulted from a liquidation. IBKR sends "1"/"0"; parsed to bool.</summary>
     [JsonPropertyName("liquidation_trade")]
-    public string? LiquidationTrade { get; init; }
+    [JsonConverter(typeof(FlexibleBoolJsonConverter))]
+    public bool? LiquidationTrade { get; init; }
 
-    /// <summary>Whether the order can be used with EventTrader.</summary>
+    /// <summary>Whether the order can be used with EventTrader. IBKR sends "1"/"0"; parsed to bool.</summary>
     [JsonPropertyName("is_event_trading")]
-    public string? IsEventTrading { get; init; }
+    [JsonConverter(typeof(FlexibleBoolJsonConverter))]
+    public bool? IsEventTrading { get; init; }
+
+    /// <summary>
+    /// The IBKR order id this execution belongs to. IBKR sends it as a JSON number on
+    /// <c>str</c> frames; <see cref="FlexibleStringJsonConverter"/> normalizes it to a string
+    /// so it correlates with <see cref="OrderUpdate.OrderId"/>. Null when IBKR omits it.
+    /// </summary>
+    [JsonPropertyName("order_id")]
+    [JsonConverter(typeof(FlexibleStringJsonConverter))]
+    public string? OrderId { get; init; }
+
+    /// <summary>Commission cost for the trade. IBKR sends a quoted value; parsed to decimal. Present only once IBKR has computed it (a later frame for the same execution), null otherwise.</summary>
+    [JsonPropertyName("commission")]
+    public decimal? Commission { get; init; }
+
+    /// <summary>Resulting total position size in the contract after this execution. Null when IBKR omits it or sends an empty value.</summary>
+    [JsonPropertyName("position")]
+    public decimal? Position { get; init; }
+
+    /// <summary>Primary listing exchange of the contract (distinct from <see cref="Exchange"/>, the execution venue).</summary>
+    [JsonPropertyName("listing_exchange")]
+    public string? ListingExchange { get; init; }
+
+    /// <summary>Allocation account name for the execution.</summary>
+    [JsonPropertyName("account_allocation_name")]
+    public string? AccountAllocationName { get; init; }
+
+    /// <summary>Clearing firm identifier (e.g., "IB").</summary>
+    [JsonPropertyName("clearing_id")]
+    public string? ClearingId { get; init; }
+
+    /// <summary>Clearing firm name.</summary>
+    [JsonPropertyName("clearing_name")]
+    public string? ClearingName { get; init; }
 
     /// <summary>Additional data not mapped to known properties.</summary>
     [JsonExtensionData]
