@@ -191,3 +191,26 @@ Each task follows TDD (Red-Green-Refactor) and the superpowers workflow (brainst
 | 8.9 | Integration tests (WireMock + mock WS): eager add, two-tenant isolation, remove/logout, 401 recovery, telemetry attribution | Done |
 
 **Deferred follow-ups:** two-account real E2E (needs a second paper account); adaptive shared IP rate governor (replaces the no-op); option validation on the manager path; best-effort logout on eager-init failure.
+
+---
+
+## Milestone 9 — Money-Boundary Hardening (RTOS Consumer Review)
+
+**Goal:** Close the money-boundary defects found by the [2026-07-04 RTOS venue-consumer review](findings/2026-07-04-rtos-venue-consumer-review.md) before/alongside the RTOS live-paper soak. Backlog with per-task detail: [money-boundary-hardening-backlog.md](money-boundary-hardening-backlog.md); design: [money-boundary-hardening-backlog-design](superpowers/specs/2026-07-04-money-boundary-hardening-backlog-design.md). Tier 1 (9.1–9.8) completion cuts **0.9.0** (all breaking changes); Tiers 2–3 are additive.
+
+| # | Task | Findings | Status |
+|---|---|---|---|
+| 9.1 | MBH-01 No silent str/fill loss (+ buffer default 256→2048) | FIL-1, FIL-2, GAP2-4 | Not Started |
+| 9.2 | MBH-02 Presence-preserving money DTOs (breaking) | WIR-1, WIR-3, FIL-6 | Not Started |
+| 9.3 | MBH-03 Truthful session/account status events (breaking) | GAP2-1, GAP2-2, GAP2-3, GAP3-3 | Not Started |
+| 9.4 | MBH-04 Order-POST replay gate & classified refusals | AMB-2, AMB-3, AMB-4 | Not Started |
+| 9.5 | MBH-05 Live-orders priming surface (breaking) | GAP1-1, GAP1-2, GAP1-3 | Not Started |
+| 9.6 | MBH-06 Session wedge family | SES-2, SES-3, SES-5, SES-6 | Not Started |
+| 9.7 | MBH-07 Competing-session truth | SES-1, GAP3-1, GAP3-2 | Not Started |
+| 9.8 | MBH-08 Health evidence wiring | SES-4 | Not Started |
+| 9.9 | MBH-09 Manager lifecycle integrity | MGR-1, MGR-2, MGR-3 | Not Started |
+| 9.10 | MBH-10 Streaming consumer robustness | FIL-3, FIL-4, FIL-5 | Not Started |
+| 9.11 | MBH-11 Response-schema & wire hardening | WIR-4, WIR-5 | Not Started |
+| 9.12 | MBH-12 Metrics & disposal hygiene (verify-first) | MGR-4, FIL-7, MGR-5 | Not Started |
+| 9.13 | MBH-13 Manager options validation (verify-first) | MGR-6 | Not Started |
+| 9.14 | MBH-14 Order-type docs & futures compliance (verify-first) | WIR-6 | Not Started |
