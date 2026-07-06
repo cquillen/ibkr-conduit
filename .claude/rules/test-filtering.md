@@ -27,6 +27,11 @@ dotnet test --project <path> --filter-not-method "*401Recovery*"
 dotnet test --project <path> --filter-class "*WatchlistTests*" "*SessionTests*"
 ```
 
+### Genuine-run flags (verified 2026-07-06)
+
+- A run that discovers **zero** tests fails loudly by default: exit code 8, summary `Zero tests ran` (so a non-matching filter cannot false-green).
+- `--minimum-expected-tests <N>` enforces a count floor: an under-count fails with exit code 9 and prints the real count (`tests ran X, minimum expected N`). Use it to prove a scoped filter actually executed the tests you expect.
+
 ### Important constraints
 
 - Cannot combine simple filters of different kinds (e.g., `--filter-class` AND `--filter-method` together)
