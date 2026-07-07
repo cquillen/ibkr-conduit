@@ -11,7 +11,7 @@ IbkrConduit is a **contract-first wrapper library** over an external API. Its "d
 | **Living design doc** | `docs/ibkr_conduit_design.md` | Canonical. The durable model of the library's contract; cites ADRs; updated *before* the spec that implements a change to it. |
 | **ADRs** | `docs/adr/` (index: `docs/adr/README.md`) | Cross-cutting decisions + roads not taken. Adopted going forward, lean — no historical backfill. See the `writing-adrs` skill. |
 | **Specs** | `docs/superpowers/specs/` | Point-in-time design for one story/milestone. Specs *implement* a recorded contract; they never author one. |
-| **External ground truth** | `docs/ibkr-web-api-spec.md` + `recordings/` (captured via `tools/ApiCapture/`) + attended live probes | Upstream IBKR behavior. **Never decided, only verified** — an ADR may record our *interpretation or response* to upstream behavior, never override what the wire actually does. |
+| **External ground truth** | live IBKR docs via the `scout-ibkr-docs` skill (registry: `docs/ibkr-doc-sources.md`; dated snapshots: `docs/ibkr-doc-evidence/`) + `recordings/` (captured via `tools/ApiCapture/`) + attended live probes | Upstream IBKR behavior. **Never decided, only verified** — an ADR may record our *interpretation or response* to upstream behavior, never override what the wire actually does. Doc claims (live or snapshotted) are the *claim* tier; only `recordings/` and probes verify. The old local mirrors (`docs/ibkr-web-api-spec.md` etc.) are deprecated snapshots — never cite as authority. |
 
 ## The contract grammar
 

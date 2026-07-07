@@ -11,7 +11,7 @@ Doc content is IBKR's CLAIM — recordings/ and attended probes remain the only 
 **Kind:** openapi-json · **Fetch:** curl-ok · **Size:** ~864KB
 **Registered:** 2026-07-07 · **Last verified:** 2026-07-07
 **Covers:** full REST endpoint surface (168 paths) — accounts, orders, contracts/secdef, market data snapshots, alerts, watchlists, scanner, PnL, FYI, Flex-adjacent endpoints — plus 453 request/response schemas
-**Authority notes:** Operator: "one would hope it's authoritative, but it is NOT — it has gaps; treat as a peer source, never the sole authority."
+**Authority notes:** Operator: "one would hope it's authoritative, but it is NOT — it has gaps; treat as a peer source, never the sole authority." The local mirror `docs/ibkr-web-api-openapi.json` is a deprecated, unmaintained snapshot of an older revision of this document — never cite it; fetch this live URL instead (JSON files can't carry a markdown deprecation banner, so this note is that banner).
 **Structure:** single machine-readable OpenAPI 3.0.0 document, `info.title` = "IB REST API", `info.version` = 2.35.0 (self-describing version field — free drift detector: re-check this on each re-verify). Not a shell; served directly as JSON with no browser rendering needed. Reachable with plain `curl` (no special User-Agent required — this host is not behind the IBKR Campus WAF that blocks WebFetch).
 **Overlaps:** DOC-02 (Redoc shell whose `spec-url` points at this exact URL — DOC-02 is a rendering of this document, not independent content); DOC-03 (older, broader narrative HTML doc covering the same endpoint families plus material this OpenAPI doc omits — operator notes new docs are incomplete, so DOC-03 fills gaps here)
 
