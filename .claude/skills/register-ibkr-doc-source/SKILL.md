@@ -27,7 +27,7 @@ Adds one live documentation endpoint to `docs/ibkr-doc-sources.md` — the regis
 ## Conventions
 
 - **IDs:** `DOC-NN`, zero-padded, next free number. Never re-use or re-order existing ids.
-- **Overlaps are bidirectional:** when a new source overlaps an existing entry, update the existing entry's `Overlaps` line in the same commit. A commit may touch the new entry plus overlap-backfills — still registry file only.
+- **Overlaps are bidirectional:** when a new source overlaps an existing entry, update the existing entry's `Overlaps` line in the same commit. A commit may touch the new entry plus overlap-backfills — still registry file only. Never reference a source that isn't registered yet — that backfill belongs in the future source's own commit.
 - **The browser User-Agent is for the Campus WAF** (`interactivebrokers.com/campus/...`, `ibkrcampus.com`). Other hosts (e.g. `api.ibkr.com`) may work with plain fetches — record whatever the probe actually proved, per source.
 
 ## Entry format (exact — scout-ibkr-docs parses these fields)
