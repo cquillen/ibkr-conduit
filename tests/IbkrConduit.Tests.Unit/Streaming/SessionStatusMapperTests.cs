@@ -89,4 +89,65 @@ public class SessionStatusMapperTests
 
         SessionStatusMapper.Map(frame).FailReason.ShouldBeNull();
     }
+
+    [Fact]
+    public void Map_StringEncodedAuthenticatedFalse_MapsToFalse()
+    {
+        // GAP2-1: IBKR type-drifts boolean-ish flags to strings (FlexibleBoolJsonConverter exists
+        // for exactly this). A string-encoded session-death frame must still surface Authenticated
+        // == false, not be dropped or fabricated into null.
+        var frame = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":"false"}}""").RootElement;
+
+        SessionStatusMapper.Map(frame).Authenticated.ShouldBe(false);
+    }
+
+    [Fact]
+    public void Map_StringEncodedAuthenticatedTrue_MapsToTrue()
+    {
+        var frame = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":"true"}}""").RootElement;
+
+        SessionStatusMapper.Map(frame).Authenticated.ShouldBe(true);
+    }
+
+    [Fact]
+    public void Map_ZeroStringAuthenticated_MapsToFalse()
+    {
+        var frame = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":"0"}}""").RootElement;
+
+        SessionStatusMapper.Map(frame).Authenticated.ShouldBe(false);
+    }
+
+    [Fact]
+    public void Map_OneStringAuthenticated_MapsToTrue()
+    {
+        var frame = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":"1"}}""").RootElement;
+
+        SessionStatusMapper.Map(frame).Authenticated.ShouldBe(true);
+    }
+
+    [Fact]
+    public void Map_NumericZeroAuthenticated_MapsToFalse()
+    {
+        var frame = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":0}}""").RootElement;
+
+        SessionStatusMapper.Map(frame).Authenticated.ShouldBe(false);
+    }
+
+    [Fact]
+    public void Map_NumericOneAuthenticated_MapsToTrue()
+    {
+        var frame = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":1}}""").RootElement;
+
+        SessionStatusMapper.Map(frame).Authenticated.ShouldBe(true);
+    }
+
+    [Fact]
+    public void Map_UnrecognizedAuthenticatedValue_MapsToNullNotThrow()
+    {
+        // A genuinely unparseable value must not throw (which would drop the whole sts frame,
+        // re-opening GAP2-1); absence-of-verdict maps to null per ADR-0001.
+        var frame = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":"maybe"}}""").RootElement;
+
+        SessionStatusMapper.Map(frame).Authenticated.ShouldBeNull();
+    }
 }
