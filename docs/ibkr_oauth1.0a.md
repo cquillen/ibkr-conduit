@@ -1,5 +1,7 @@
 # IBKR OAuth 1.0a Protocol Documentation
 
+> ⚠️ **DEPRECATED SNAPSHOT (as of 2026-07-07).** This local mirror is no longer maintained and bit-rots against IBKR's live documentation. The doc authority is live scouting via the `scout-ibkr-docs` skill (source registry: `docs/ibkr-doc-sources.md`; dated evidence: `docs/ibkr-doc-evidence/`). Do not cite this file as authority in specs, ADRs, or grooming.
+
 > Reverse-engineered from the [ibind](https://github.com/Voyz/ibind) Python reference implementation.
 > This document describes Interactive Brokers' non-standard OAuth 1.0a protocol as actually implemented, intended to inform a custom C# / .NET 10 implementation.
 

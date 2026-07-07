@@ -1,5 +1,7 @@
 # IBKR Client Portal Web API — WebSocket Reference
 
+> ⚠️ **DEPRECATED SNAPSHOT (as of 2026-07-07).** This local mirror is no longer maintained and bit-rots against IBKR's live documentation. The doc authority is live scouting via the `scout-ibkr-docs` skill (source registry: `docs/ibkr-doc-sources.md`; dated evidence: `docs/ibkr-doc-evidence/`). Do not cite this file as authority in specs, ADRs, or grooming.
+
 > **Provenance:** Transcribed from Interactive Brokers' Client Portal Web API v1
 > documentation (IBKR Campus, WebSockets section) on 2026-07-02. This is a
 > convenience copy for offline reference; IBKR's published docs are authoritative.

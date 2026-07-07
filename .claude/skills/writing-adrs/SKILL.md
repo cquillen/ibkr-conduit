@@ -30,7 +30,7 @@ They live in `docs/adr/NNNN-short-kebab-title.md`, indexed in `docs/adr/README.m
 | **Design doc** (`docs/ibkr_conduit_design.md`) | the durable *model of the library's contract* — surface, guarantees, upstream behavior (it cites ADRs; see `.claude/rules/contract-design.md`) |
 | **Spec** (`docs/superpowers/specs/`) | point-in-time design for one *story / milestone* being built now |
 | **Rule** (`.claude/rules/`) | a cross-instance *process / coding convention* |
-| **Nothing to decide** (`docs/ibkr-web-api-spec.md` + `recordings/`) | *upstream IBKR behavior* — ground truth is verified, never decided; an ADR may record our interpretation or response to it, never override it |
+| **Nothing to decide** (live docs via `scout-ibkr-docs` / `docs/ibkr-doc-evidence/` + `recordings/`) | *upstream IBKR behavior* — ground truth is verified, never decided; an ADR may record our interpretation or response to it, never override it |
 
 If the decision only affects one story's implementation, it belongs in that story's spec, not an ADR.
 
