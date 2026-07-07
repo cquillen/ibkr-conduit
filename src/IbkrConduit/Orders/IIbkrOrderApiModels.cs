@@ -20,13 +20,22 @@ public record OrderRequest
     /// <summary>Order quantity.</summary>
     public decimal Quantity { get; init; }
 
-    /// <summary>Order type: "MKT", "LMT", "STP", "STP_LMT", "MOC", "LOC", "TRAIL".</summary>
+    /// <summary>
+    /// Order type. One of: "LMT", "MKT", "STP", "STOP_LIMIT", "MIDPRICE", "TRAIL", "TRAILLMT".
+    /// A STOP_LIMIT order requires both <see cref="Price"/> and <see cref="AuxPrice"/>.
+    /// </summary>
     public string OrderType { get; init; } = string.Empty;
 
-    /// <summary>Limit price. Required for LMT, STP_LMT, LOC.</summary>
+    /// <summary>
+    /// Limit price (the stop price for STP/TRAIL; the option price cap for MIDPRICE).
+    /// Required for LMT or STOP_LIMIT.
+    /// </summary>
     public decimal? Price { get; init; }
 
-    /// <summary>Aux/stop price. Required for STP, STP_LMT, TRAIL.</summary>
+    /// <summary>
+    /// Stop price for STOP_LIMIT and TRAILLMT orders. A STOP_LIMIT order requires both
+    /// <see cref="Price"/> and <see cref="AuxPrice"/>.
+    /// </summary>
     public decimal? AuxPrice { get; init; }
 
     /// <summary>Time in force: "DAY", "GTC", "IOC".</summary>
@@ -94,7 +103,7 @@ public record OrdersPayload(
 /// <param name="Conid">The IBKR contract identifier.</param>
 /// <param name="Side">The order side: "BUY" or "SELL".</param>
 /// <param name="Quantity">The order quantity.</param>
-/// <param name="OrderType">The order type (e.g., "MKT", "LMT").</param>
+/// <param name="OrderType">The order type. One of: "LMT", "MKT", "STP", "STOP_LIMIT", "MIDPRICE", "TRAIL", "TRAILLMT". A STOP_LIMIT order requires both Price and AuxPrice.</param>
 /// <param name="Price">The limit price, if applicable.</param>
 /// <param name="AuxPrice">The auxiliary/stop price, if applicable.</param>
 /// <param name="Tif">Time in force (e.g., "DAY", "GTC").</param>
@@ -191,6 +200,25 @@ public record ReplyRequest(
 public record OrdersResponse(
     [property: JsonPropertyName("orders")] List<LiveOrder>? Orders,
     [property: JsonPropertyName("snapshot")] bool? Snapshot = null);
+
+/// <summary>
+/// The public result of <see cref="Client.IOrderOperations.GetLiveOrdersAsync"/>: the live orders
+/// together with IBKR's priming indicator (design doc §10.6, findings GAP1-1/GAP1-2).
+/// </summary>
+/// <param name="Orders">
+/// The live orders returned by this call. Empty means "this response carried no orders" — which is
+/// only an authoritative "no live orders" fact when <paramref name="IsSnapshot"/> is <c>true</c>.
+/// </param>
+/// <param name="IsSnapshot">
+/// IBKR's <c>snapshot</c> flag for <c>/iserver/account/orders</c>. <c>true</c> means the order cache
+/// is primed and the set is authoritative. <c>false</c> means the cache is NOT yet primed — an empty
+/// <paramref name="Orders"/> is an unprimed artifact, NOT evidence that no orders exist. A consumer
+/// that must know whether orders exist (e.g. before an absence-driven repair) must treat
+/// <c>IsSnapshot == false</c> as "unknown — call again", never as "no orders". Absent on the wire
+/// maps to <c>false</c> (unprimed) — never a fabricated <c>true</c>.
+/// </param>
+[ExcludeFromCodeCoverage]
+public sealed record LiveOrdersSnapshot(IReadOnlyList<LiveOrder> Orders, bool IsSnapshot);
 
 #pragma warning disable CA1711 // ConidEx is the IBKR API field name — suffix is not a .NET type convention issue
 /// <summary>

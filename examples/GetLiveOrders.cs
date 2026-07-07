@@ -20,9 +20,12 @@ services.AddIbkrClient(opts => opts.Credentials = credentials);
 await using var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<IIbkrClient>();
 
-// Retrieve live orders (cancelled, filled, submitted)
-var orders = (await client.Orders.GetLiveOrdersAsync()).EnsureSuccess().Value;
-orders = (await client.Orders.GetLiveOrdersAsync()).EnsureSuccess().Value;
+// Retrieve live orders (cancelled, filled, submitted). The endpoint primes on the first call,
+// so read again and use the primed snapshot — IsSnapshot==false means "not yet primed", not
+// "no orders" (design doc §10.6).
+(await client.Orders.GetLiveOrdersAsync()).EnsureSuccess();
+var snapshot = (await client.Orders.GetLiveOrdersAsync()).EnsureSuccess().Value;
+var orders = snapshot.Orders;
 
 if (orders.Count == 0)
 {

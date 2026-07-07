@@ -24,9 +24,17 @@ internal static class IbkrRefitSettings
     /// </summary>
     public static readonly JsonSerializerOptions Options = BuildOptions();
 
-    /// <summary>Creates a fresh <see cref="RefitSettings"/> wrapping the shared <see cref="Options"/>.</summary>
+    /// <summary>
+    /// Creates a fresh <see cref="RefitSettings"/> wrapping the shared <see cref="Options"/> and the
+    /// <see cref="IbkrUrlParameterFormatter"/> (lowercase-bool query values, matching IBKR's documented
+    /// wire format — e.g. the live-orders <c>force=true</c> cache-clear, §10.6).
+    /// </summary>
     public static RefitSettings Create() =>
-        new() { ContentSerializer = new SystemTextJsonContentSerializer(Options) };
+        new()
+        {
+            ContentSerializer = new SystemTextJsonContentSerializer(Options),
+            UrlParameterFormatter = new IbkrUrlParameterFormatter(),
+        };
 
     private static JsonSerializerOptions BuildOptions()
     {

@@ -125,8 +125,9 @@ internal static class OrderMonitorHost
     /// <summary>
     /// Seeds the Orders table from the REST order snapshot. IBKR's
     /// <c>/iserver/account/orders</c> primes on the first call and returns the full set on
-    /// the next, so it is called twice. Failures are logged and swallowed — seeding is a
-    /// best-effort convenience and the live streams still run without it.
+    /// the next, so it is called twice and the seed only trusts a primed snapshot
+    /// (<c>IsSnapshot == true</c>, design doc §10.6). Failures are logged and swallowed — seeding
+    /// is a best-effort convenience and the live streams still run without it.
     /// </summary>
     private static async Task SeedOrdersAsync(
         IIbkrClient client, LiveOrderTable orderTable, ILogger logger, CancellationToken cancellationToken)
@@ -141,12 +142,20 @@ internal static class OrderMonitorHost
                 return;
             }
 
-            foreach (var order in result.Value)
+            if (!result.Value.IsSnapshot)
+            {
+                // Unprimed read — an empty list here is not authoritative; skip rather than seed a
+                // false "no orders" state. The live sor stream will still populate the table.
+                _logSeedFailed(logger, "live-orders read was not primed (IsSnapshot=false)", null);
+                return;
+            }
+
+            foreach (var order in result.Value.Orders)
             {
                 orderTable.Seed(order);
             }
 
-            _logSeeded(logger, result.Value.Count, null);
+            _logSeeded(logger, result.Value.Orders.Count, null);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
