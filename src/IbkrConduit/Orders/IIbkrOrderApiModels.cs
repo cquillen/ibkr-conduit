@@ -21,7 +21,9 @@ public record OrderRequest
     public decimal Quantity { get; init; }
 
     /// <summary>
-    /// Order type. One of: "LMT", "MKT", "STP", "STOP_LIMIT", "MIDPRICE", "TRAIL", "TRAILLMT".
+    /// Order type. Documented core values: "LMT", "MKT", "STP", "STOP_LIMIT", "MIDPRICE", "TRAIL",
+    /// "TRAILLMT". Also accepted in live probes (1 sample each): "LOC", "MOC", "MIT", "LIT", "REL" —
+    /// not a closed set; IBKR documents no admissible enum for this field.
     /// A STOP_LIMIT order requires both <see cref="Price"/> and <see cref="AuxPrice"/>.
     /// </summary>
     public string OrderType { get; init; } = string.Empty;
@@ -103,7 +105,7 @@ public record OrdersPayload(
 /// <param name="Conid">The IBKR contract identifier.</param>
 /// <param name="Side">The order side: "BUY" or "SELL".</param>
 /// <param name="Quantity">The order quantity.</param>
-/// <param name="OrderType">The order type. One of: "LMT", "MKT", "STP", "STOP_LIMIT", "MIDPRICE", "TRAIL", "TRAILLMT". A STOP_LIMIT order requires both Price and AuxPrice.</param>
+/// <param name="OrderType">The order type. Documented core values: "LMT", "MKT", "STP", "STOP_LIMIT", "MIDPRICE", "TRAIL", "TRAILLMT". Also accepted in live probes (1 sample each): "LOC", "MOC", "MIT", "LIT", "REL" — not a closed set; IBKR documents no admissible enum for this field. A STOP_LIMIT order requires both Price and AuxPrice.</param>
 /// <param name="Price">The limit price, if applicable.</param>
 /// <param name="AuxPrice">The auxiliary/stop price, if applicable.</param>
 /// <param name="Tif">Time in force (e.g., "DAY", "GTC").</param>
@@ -497,7 +499,10 @@ public record WhatIfMargin(
 /// <param name="IsEventTrading">Whether this is event trading.</param>
 /// <param name="OrderDescription">The order description.</param>
 /// <param name="Status">The order status.</param>
-/// <param name="OrderType">The order type.</param>
+/// <param name="OrderType">
+/// The order type. Observed submission-to-read-side name mapping (1-sample live probe, 2026-07-07):
+/// "LOC"→"LIMITONCLOSE", "MOC"→"MARKETONCLOSE", "REL"→"RELATIVE"; "MIT" and "LIT" unchanged.
+/// </param>
 /// <param name="Size">The order size.</param>
 /// <param name="FillPrice">The fill price.</param>
 /// <param name="FilledQuantity">The filled quantity.</param>
