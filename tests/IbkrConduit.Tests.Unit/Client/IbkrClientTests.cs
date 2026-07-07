@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using IbkrConduit.Accounts;
@@ -105,6 +107,49 @@ public class IbkrClientTests
         var client = CreateClient(sessionManager: sessionManager);
         await client.DisposeAsync();
         sessionManager.Disposed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_DisposesWebSocketClient()
+    {
+        // PVR-21 / §5.4: the facade now owns the full-client teardown and disposes the WebSocket
+        // client, which the pre-PVR-21 facade left untouched (finding PRB-4.3).
+        var webSocket = new FakeWebSocketClient();
+        var client = CreateClient(webSocketClient: webSocket);
+
+        await client.DisposeAsync();
+
+        webSocket.DisposeCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_DisposesWebSocketBeforeSessionManager()
+    {
+        // §5.4 ManagedTenant order: WebSocket disconnect/dispose first, then session teardown.
+        var order = new List<string>();
+        var webSocket = new FakeWebSocketClient(order);
+        var sessionManager = new FakeSessionManager(order);
+        var client = CreateClient(webSocketClient: webSocket, sessionManager: sessionManager);
+
+        await client.DisposeAsync();
+
+        order.ShouldBe(new[] { "websocket", "session" });
+    }
+
+    [Fact]
+    public async Task DisposeAsync_CalledTwice_TearsDownEachComponentExactlyOnce()
+    {
+        // The atomic guard makes the teardown run exactly once even when invoked twice
+        // (e.g. `await using client` plus the provider disposing the same singleton).
+        var webSocket = new FakeWebSocketClient();
+        var sessionManager = new FakeSessionManager();
+        var client = CreateClient(webSocketClient: webSocket, sessionManager: sessionManager);
+
+        await client.DisposeAsync();
+        await client.DisposeAsync();
+
+        webSocket.DisposeCount.ShouldBe(1);
+        sessionManager.DisposeCount.ShouldBe(1);
     }
 
     [Fact]
@@ -315,6 +360,7 @@ public class IbkrClientTests
         IEventContractOperations? eventContracts = null,
         IHealthStatusCollector? healthCollector = null,
         ISessionManager? sessionManager = null,
+        IIbkrWebSocketClient? webSocketClient = null,
         IbkrClientOptions? options = null) =>
         new(
             portfolio ?? new FakePortfolioOperations(),
@@ -330,6 +376,7 @@ public class IbkrClientTests
             eventContracts ?? new FakeEventContractOperations(),
             healthCollector ?? new FakeHealthStatusCollector(),
             sessionManager ?? new FakeSessionManager(),
+            webSocketClient ?? new FakeWebSocketClient(),
             options ?? new IbkrClientOptions(),
             NullLogger<IbkrClient>.Instance);
 
@@ -540,10 +587,53 @@ public class IbkrClientTests
 
     private class FakeSessionManager : ISessionManager
     {
+        private readonly List<string>? _teardownOrder;
+
+        public FakeSessionManager(List<string>? teardownOrder = null) => _teardownOrder = teardownOrder;
+
         public bool Disposed { get; private set; }
+        public int DisposeCount { get; private set; }
         public int EnsureInitializedCallCount { get; private set; }
         public Task EnsureInitializedAsync(CancellationToken cancellationToken) { EnsureInitializedCallCount++; return Task.CompletedTask; }
         public Task ReauthenticateAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-        public ValueTask DisposeAsync() { Disposed = true; return ValueTask.CompletedTask; }
+
+        public ValueTask DisposeAsync()
+        {
+            Disposed = true;
+            DisposeCount++;
+            _teardownOrder?.Add("session");
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class FakeWebSocketClient : IIbkrWebSocketClient
+    {
+        private readonly List<string>? _teardownOrder;
+
+        public FakeWebSocketClient(List<string>? teardownOrder = null) => _teardownOrder = teardownOrder;
+
+        public int DisposeCount { get; private set; }
+        public bool IsConnected => false;
+        public int ActiveSubscriptionCount => 0;
+        public DateTimeOffset? LastMessageReceivedAt => null;
+
+        public Task ConnectAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<(ChannelReader<JsonElement> Reader, Func<CancellationToken, ValueTask> Unsubscribe)> SubscribeTopicAsync(
+            string subscribeMessage, string topicPrefix, string? cancelMessage, CancellationToken cancellationToken) =>
+            throw new NotImplementedException();
+
+        public (ChannelReader<JsonElement> Reader, Func<CancellationToken, ValueTask> Unsubscribe) RegisterUnsolicitedTopic(string topicPrefix) =>
+            throw new NotImplementedException();
+
+        public (ChannelReader<ConnectionEvent> Reader, Func<CancellationToken, ValueTask> Unsubscribe) RegisterConnectionEvents() =>
+            throw new NotImplementedException();
+
+        public ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            _teardownOrder?.Add("websocket");
+            return ValueTask.CompletedTask;
+        }
     }
 }

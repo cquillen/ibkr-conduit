@@ -2,6 +2,7 @@ using IbkrConduit.Errors;
 using IbkrConduit.Flex;
 using IbkrConduit.Health;
 using IbkrConduit.Session;
+using IbkrConduit.Streaming;
 using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Client;
@@ -14,8 +15,17 @@ internal partial class IbkrClient : IIbkrClient
 {
     private readonly IHealthStatusCollector _healthCollector;
     private readonly ISessionManager _sessionManager;
+    private readonly IIbkrWebSocketClient _webSocketClient;
     private readonly IbkrClientOptions _options;
     private readonly ILogger<IbkrClient> _logger;
+
+    /// <summary>
+    /// Atomic teardown guard (0 = live, 1 = disposed). Ensures the full-client teardown in
+    /// <see cref="DisposeAsync"/> runs exactly once even when invoked twice — e.g. by
+    /// <c>await using client</c> plus the owning provider's disposal of this container-owned
+    /// singleton (design doc §5.4, PVR-21).
+    /// </summary>
+    private int _disposed;
 
     /// <summary>
     /// Creates a new <see cref="IbkrClient"/> instance.
@@ -33,6 +43,7 @@ internal partial class IbkrClient : IIbkrClient
     /// <param name="eventContracts">Event contract (ForecastEx) operations.</param>
     /// <param name="healthCollector">Health status collector for aggregated health checks.</param>
     /// <param name="sessionManager">The session manager for lifecycle management.</param>
+    /// <param name="webSocketClient">The WebSocket client the facade disconnects and disposes as the first step of its full-client teardown (design doc §5.4).</param>
     /// <param name="options">Client configuration options.</param>
     /// <param name="logger">Logger instance.</param>
     public IbkrClient(
@@ -49,6 +60,7 @@ internal partial class IbkrClient : IIbkrClient
         IEventContractOperations eventContracts,
         IHealthStatusCollector healthCollector,
         ISessionManager sessionManager,
+        IIbkrWebSocketClient webSocketClient,
         IbkrClientOptions options,
         ILogger<IbkrClient> logger)
     {
@@ -65,6 +77,7 @@ internal partial class IbkrClient : IIbkrClient
         EventContracts = eventContracts;
         _healthCollector = healthCollector;
         _sessionManager = sessionManager;
+        _webSocketClient = webSocketClient;
         _options = options;
         _logger = logger;
     }
@@ -129,9 +142,34 @@ internal partial class IbkrClient : IIbkrClient
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Performs the full-client teardown in the <c>ManagedTenant</c> order (design doc §5.4, PVR-21):
+    /// the WebSocket client is disconnected and disposed first, then the session is torn down —
+    /// <c>SessionManager.DisposeAsync</c> issues the best-effort logout (unless suppressed for
+    /// the manager path) and releases the session's resources. An atomic guard makes the teardown
+    /// idempotent, so <c>await using client</c> plus the owning provider's disposal of these
+    /// container-owned singletons runs it exactly once — no double-run logout or gauge decrement.
+    /// Each disposed component's own <c>DisposeAsync</c> is independently idempotent, so a redundant
+    /// provider disposal after this call is a safe no-op.
+    /// </remarks>
     public async ValueTask DisposeAsync()
     {
+        // Atomic guard: claim the teardown exactly once. A second invocation (provider disposal
+        // after `await using`, or a concurrent dispose) observes the flag already set and returns.
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        // 1. WebSocket disconnect/dispose first — stops the socket, heartbeat, and message pump
+        //    before the session it rides on is torn down.
+        await _webSocketClient.DisposeAsync();
+
+        // 2. Session teardown — the best-effort logout (frees the server-side session slot) followed
+        //    by session disposal, both carried out by SessionManager.DisposeAsync, which decrements
+        //    the active-session gauge exactly once via its own guard.
         await _sessionManager.DisposeAsync();
+
         GC.SuppressFinalize(this);
     }
 
