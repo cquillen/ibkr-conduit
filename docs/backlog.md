@@ -91,7 +91,7 @@ Pattern-following fixes, decided: `TradeExecutionMapper.MapMany` isolates failur
 **TDD notes:** red tests = FIL-2/GAP2-1 suggested regression tests (multi-execution frame with one bad element; `"authenticated": "false"` frame).
 
 #### VCR-04 — 📦 Order-outcome classification & 401 replay gate
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #242 · **Stream:** VCR · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-04-order-outcome-replay-gate.md
 Implements ADR-0003: order-mutating POSTs excluded from automatic 401 replay, surfacing a new `IbkrAmbiguousOrderError`; reply 2xx routes through `ResultFactory.FromResponse`; array-wrapped/empty 200 shapes classify as refusals with raw body; `FlexibleStringJsonConverter` on `OrderSubmissionResponse.OrderId`/`Id`; 2xx-unparseable surfaces as a classified error (findings AMB-2 high, AMB-3, AMB-4, WIR-4). AMB-2's empirical question is tolerated by design. **Breaking-behavioral — `feat!:`.**
