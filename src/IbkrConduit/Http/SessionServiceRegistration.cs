@@ -50,7 +50,8 @@ internal static class SessionServiceRegistration
         services.AddSingleton<ISessionTokenProvider>(sp =>
             new SessionTokenProvider(
                 credentials,
-                sp.GetRequiredService<ILiveSessionTokenClient>()));
+                sp.GetRequiredService<ILiveSessionTokenClient>(),
+                TimeProvider.System));
 
         // Client options
         services.AddSingleton(clientOptions);

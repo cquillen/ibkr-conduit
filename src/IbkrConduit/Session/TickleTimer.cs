@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Diagnostics;
@@ -24,6 +25,14 @@ internal sealed partial class TickleTimer : ITickleTimer
     private static readonly Counter<long> _tickleFailureCount =
         IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.session.tickle.failure.count");
 
+    /// <summary>
+    /// Number of consecutive transport-level tickle failures after which the session is
+    /// marked unauthenticated in health state. Transport failures are not, on their own,
+    /// session-dead signals (reauth needs the same network), but health must not report a
+    /// session live on stale evidence forever (SES-2).
+    /// </summary>
+    private const int _maxConsecutiveTransportFailuresBeforeUnhealthy = 3;
+
     private readonly IIbkrSessionApi _sessionApi;
     private readonly Func<CancellationToken, Task> _onFailure;
     private readonly SessionHealthState _sessionHealthState;
@@ -44,6 +53,13 @@ internal sealed partial class TickleTimer : ITickleTimer
     /// reason to fast-poll before observing a failure.
     /// </summary>
     private bool _lastTickleSucceeded = true;
+
+    /// <summary>
+    /// Count of consecutive transport-level tickle failures. Reset to zero whenever a
+    /// tickle receives any HTTP response (transport is working). Drives the
+    /// <see cref="_maxConsecutiveTransportFailuresBeforeUnhealthy"/> health guard.
+    /// </summary>
+    private int _consecutiveTransportFailures;
 
     /// <summary>
     /// Creates a new tickle timer.
@@ -135,6 +151,9 @@ internal sealed partial class TickleTimer : ITickleTimer
     [LoggerMessage(Level = LogLevel.Warning, Message = "Tickle failed with exception")]
     private partial void LogTickleFailed(Exception exception);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Tickle returned HTTP 401 — session no longer authenticated; triggering re-authentication")]
+    private partial void LogTickleUnauthorized();
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Tickle-succeeded notification threw")]
     private partial void LogTickleNotificationFailed(Exception exception);
 
@@ -167,6 +186,10 @@ internal sealed partial class TickleTimer : ITickleTimer
                 activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
 
                 var response = await _sessionApi.TickleAsync(cancellationToken);
+
+                // A response was received — transport is working; clear the transport-failure run.
+                _consecutiveTransportFailures = 0;
+
                 var authStatus = response.Iserver?.AuthStatus;
                 var isAuthenticated = authStatus?.Authenticated ?? false;
                 activity?.SetTag("authenticated", isAuthenticated);
@@ -207,27 +230,50 @@ internal sealed partial class TickleTimer : ITickleTimer
             }
             catch (Exception ex)
             {
-                // Refit 11 wraps a cancelled in-flight tickle SendAsync in ApiRequestException; unwrap so
+                // Refit wraps a cancelled in-flight tickle SendAsync in ApiRequestException; unwrap so
                 // shutdown cancellation propagates as OperationCanceledException (handled by StopAsync) rather
-                // than being logged as a tickle failure. Genuine transport errors fall through to the log below.
+                // than being logged as a tickle failure. Genuine failures fall through to the branches below.
                 if (ex is ApiRequestException are)
                 {
                     are.RethrowIfWrappedCancellation(cancellationToken);
                 }
 
-                // Transport-level failures (5xx, network errors, timeouts) are NOT
-                // session-dead signals — IBKR signals session-dead via HTTP 401 or
-                // a response body authenticated=false. Reauth requires the same
-                // network, so firing _onFailure here would just stampede a doomed
-                // handshake. The !isAuthenticated branch above is the only path
-                // that triggers reauth from the tickle loop.
                 _tickleCount.Add(1,
                     new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
                     new KeyValuePair<string, object?>("success", false));
                 _tickleFailureCount.Add(1,
                     new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
                 _lastTickleSucceeded = false;
-                LogTickleFailed(ex);
+
+                if (ex is ApiException { StatusCode: HttpStatusCode.Unauthorized })
+                {
+                    // SES-2: an HTTP 401 tickle is a session-dead signal — the server rejected
+                    // the LST signature (distinct from the ApiRequestException that wraps transport
+                    // faults). Reflect the server's verdict in health (authenticated=false, leaving
+                    // any competing evidence intact per ADR-0004's "fed from server responses, never
+                    // literals") and trigger re-authentication. ReauthenticateAsync acquires a fresh
+                    // LST via RefreshAsync, so the dead LST is not needed.
+                    _consecutiveTransportFailures = 0;
+                    _sessionHealthState.SetFailed("Tickle returned HTTP 401 — session no longer authenticated");
+                    LogTickleUnauthorized();
+                    await _onFailure(cancellationToken);
+                }
+                else
+                {
+                    // Transport-level failures (5xx, network errors, timeouts) are NOT, on their
+                    // own, session-dead signals — reauth requires the same network, so firing
+                    // _onFailure here would just stampede a doomed handshake. But health must not
+                    // report a session live on stale evidence forever: after a sustained run of
+                    // consecutive transport failures, mark the session unauthenticated so passive
+                    // health tells the truth (SES-2).
+                    LogTickleFailed(ex);
+                    _consecutiveTransportFailures++;
+                    if (_consecutiveTransportFailures >= _maxConsecutiveTransportFailuresBeforeUnhealthy)
+                    {
+                        _sessionHealthState.SetFailed(
+                            $"Tickle failed {_consecutiveTransportFailures} consecutive times — session liveness unverified");
+                    }
+                }
             }
         }
     }

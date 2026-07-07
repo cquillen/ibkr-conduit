@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +16,17 @@ namespace IbkrConduit.Tests.Unit.Session;
 
 public class TickleTimerTests
 {
+    /// <summary>
+    /// Builds a Refit <see cref="ApiException"/> for the given status code, exactly as Refit
+    /// surfaces a non-success HTTP response from a raw <c>Task&lt;T&gt;</c> interface method.
+    /// </summary>
+    private static async Task<ApiException> CreateTickleApiException(HttpStatusCode statusCode)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.ibkr.com/v1/api/tickle");
+        using var response = new HttpResponseMessage(statusCode);
+        return await ApiException.Create(request, HttpMethod.Post, response, new RefitSettings());
+    }
+
     [Fact]
     public async Task StartAsync_CallsTickleOnInterval()
     {
@@ -200,6 +212,118 @@ public class TickleTimerTests
             "Test setup: pump should have driven at least 12 throwing tickles.");
         failureCount.ShouldBe(0,
             "A burst of transport-level failures must not fire reauth callbacks (issue #168).");
+    }
+
+    [Fact]
+    public async Task RunAsync_TickleReturns401_TriggersReauthAndMarksSessionUnauthenticated()
+    {
+        // SES-2: an HTTP 401 tickle is a session-dead signal (the server rejected the
+        // LST signature), NOT a transport failure. Refit surfaces it as an ApiException
+        // with StatusCode==401 (distinct from the ApiRequestException that wraps transport
+        // faults). The tickle loop must (a) invoke the failure callback to re-authenticate
+        // and (b) reflect the server's verdict in health (authenticated=false).
+        var apiException = await CreateTickleApiException(HttpStatusCode.Unauthorized);
+        var sessionApi = new FakeSessionApi { TickleException = apiException };
+        var fakeTime = new FakeTimeProvider();
+        var failureTcs = new TaskCompletionSource();
+        Func<CancellationToken, Task> onFailure = _ =>
+        {
+            failureTcs.TrySetResult();
+            return Task.CompletedTask;
+        };
+
+        // Seed health as a live session so the 401's flip to unauthenticated is observable.
+        var healthState = new SessionHealthState();
+        healthState.Update(authenticated: true, connected: true, competing: false, established: true);
+
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+        var timer = new TickleTimer(
+            sessionApi,
+            onFailure,
+            healthState,
+            NullLogger<TickleTimer>.Instance,
+            notifier,
+            new TenantContext("test"),
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
+            fakeTime);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await timer.StartAsync(cts.Token);
+
+        // Advance until the 401 tickle has fired and the failure callback ran.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!failureTcs.Task.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+
+        await failureTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
+        await timer.StopAsync();
+
+        failureTcs.Task.IsCompletedSuccessfully.ShouldBeTrue(
+            "A 401 tickle must invoke the reauth failure callback.");
+        healthState.Authenticated.ShouldBeFalse(
+            "A 401 tickle must mark the session unauthenticated in health state.");
+    }
+
+    [Fact]
+    public async Task RunAsync_ConsecutiveTransportFailures_MarksHealthUnauthenticatedWithoutReauth()
+    {
+        // SES-2 (transport arm): transport-level failures are not, on their own,
+        // session-dead signals — they must NOT fire reauth. But health cannot report a
+        // session live on stale evidence forever: after a run of consecutive transport
+        // failures the session is marked unauthenticated so passive health tells the truth.
+        var sessionApi = new FakeSessionApi { ShouldThrow = true };
+        var fakeTime = new FakeTimeProvider();
+        var failureCount = 0;
+        Func<CancellationToken, Task> onFailure = _ =>
+        {
+            Interlocked.Increment(ref failureCount);
+            return Task.CompletedTask;
+        };
+
+        // Seed health as a live session so the flip to unauthenticated is observable.
+        var healthState = new SessionHealthState();
+        healthState.Update(authenticated: true, connected: true, competing: false, established: true);
+
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+        var timer = new TickleTimer(
+            sessionApi,
+            onFailure,
+            healthState,
+            NullLogger<TickleTimer>.Instance,
+            notifier,
+            new TenantContext("test"),
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
+            fakeTime);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await timer.StartAsync(cts.Token);
+
+        // Drive a sustained run of transport failures.
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (sessionApi.TickleCallCount < 5 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+
+        // Poll for the health flip (the SetFailed write happens on the tickle-loop thread).
+        deadline = DateTime.UtcNow.AddSeconds(2);
+        while (healthState.Authenticated && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        await timer.StopAsync();
+
+        healthState.Authenticated.ShouldBeFalse(
+            "Sustained consecutive transport failures must eventually mark the session unauthenticated.");
+        failureCount.ShouldBe(0,
+            "Transport-level tickle failures must never fire the reauth callback.");
     }
 
     [Fact]
@@ -632,11 +756,23 @@ public class TickleTimerTests
         /// </summary>
         public Action? TickleHook { get; set; }
 
+        /// <summary>
+        /// If set, <see cref="TickleAsync"/> throws this exception. Lets a test simulate a
+        /// specific Refit failure (e.g. a 401 <see cref="ApiException"/>) instead of the generic
+        /// transport <see cref="HttpRequestException"/> produced by <see cref="ShouldThrow"/>.
+        /// </summary>
+        public Exception? TickleException { get; set; }
+
         public Task<TickleResponse> TickleAsync(CancellationToken cancellationToken = default)
         {
             Interlocked.Increment(ref _tickleCallCount);
 
             TickleHook?.Invoke();
+
+            if (TickleException != null)
+            {
+                throw TickleException;
+            }
 
             if (ShouldThrow)
             {
