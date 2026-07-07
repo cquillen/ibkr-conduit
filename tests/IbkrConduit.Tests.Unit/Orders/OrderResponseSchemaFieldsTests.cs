@@ -71,6 +71,45 @@ public class OrderResponseSchemaFieldsTests
     }
 
     [Fact]
+    public async Task OrderSubmissionResponse_NumericOrderId_ParsesAsString()
+    {
+        // WIR-4: IBKR can unquote order_id (as it does on trades REST / sor / str). A numeric order_id
+        // must deserialize to a string, not fail typed deserialization (which would surface a
+        // transmitted order as a refusal-shaped failure).
+        var result = await DeserializeAsync<OrderSubmissionResponse>(
+            """{"order_id":987654321,"order_status":"Submitted"}""");
+
+        result.ShouldNotBeNull();
+        result!.OrderId.ShouldBe("987654321");
+        result.OrderStatus.ShouldBe("Submitted");
+    }
+
+    [Fact]
+    public async Task OrderSubmissionResponse_NumericId_ParsesAsString()
+    {
+        // WIR-4: the question/reply id is equally exposed to numeric drift.
+        var result = await DeserializeAsync<OrderSubmissionResponse>(
+            """{"id":602801486,"message":["Confirm?"]}""");
+
+        result.ShouldNotBeNull();
+        result!.Id.ShouldBe("602801486");
+    }
+
+    [Fact]
+    public async Task OrderSubmissionResponse_ErrorElement_Deserializes()
+    {
+        // AMB-4: an array element carrying only {"error":"…"} deserializes with the reject text
+        // surfaced on Error (no order id, no question).
+        var result = await DeserializeAsync<OrderSubmissionResponse>(
+            """{"error":"We cannot accept an order at the limit price you selected."}""");
+
+        result.ShouldNotBeNull();
+        result!.Error.ShouldBe("We cannot accept an order at the limit price you selected.");
+        result.OrderId.ShouldBeNull();
+        result.Id.ShouldBeNull();
+    }
+
+    [Fact]
     public async Task LiveOrder_DeserializesLimitPrice_FromString()
     {
         // IBKR returns the working limit price as a quoted string.
