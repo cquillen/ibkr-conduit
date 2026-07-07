@@ -201,6 +201,25 @@ public record OrdersResponse(
     [property: JsonPropertyName("orders")] List<LiveOrder>? Orders,
     [property: JsonPropertyName("snapshot")] bool? Snapshot = null);
 
+/// <summary>
+/// The public result of <see cref="Client.IOrderOperations.GetLiveOrdersAsync"/>: the live orders
+/// together with IBKR's priming indicator (design doc §10.6, findings GAP1-1/GAP1-2).
+/// </summary>
+/// <param name="Orders">
+/// The live orders returned by this call. Empty means "this response carried no orders" — which is
+/// only an authoritative "no live orders" fact when <paramref name="IsSnapshot"/> is <c>true</c>.
+/// </param>
+/// <param name="IsSnapshot">
+/// IBKR's <c>snapshot</c> flag for <c>/iserver/account/orders</c>. <c>true</c> means the order cache
+/// is primed and the set is authoritative. <c>false</c> means the cache is NOT yet primed — an empty
+/// <paramref name="Orders"/> is an unprimed artifact, NOT evidence that no orders exist. A consumer
+/// that must know whether orders exist (e.g. before an absence-driven repair) must treat
+/// <c>IsSnapshot == false</c> as "unknown — call again", never as "no orders". Absent on the wire
+/// maps to <c>false</c> (unprimed) — never a fabricated <c>true</c>.
+/// </param>
+[ExcludeFromCodeCoverage]
+public sealed record LiveOrdersSnapshot(IReadOnlyList<LiveOrder> Orders, bool IsSnapshot);
+
 #pragma warning disable CA1711 // ConidEx is the IBKR API field name — suffix is not a .NET type convention issue
 /// <summary>
 /// A live order in the current session.

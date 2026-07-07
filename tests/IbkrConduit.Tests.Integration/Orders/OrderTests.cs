@@ -211,10 +211,12 @@ public class OrderTests : IAsyncLifetime, IDisposable
             "/v1/api/iserver/account/orders",
             FixtureLoader.LoadBody("Orders", "GET-live-orders"));
 
-        var result = (await _harness.Client.Orders.GetLiveOrdersAsync(
+        var snapshot = (await _harness.Client.Orders.GetLiveOrdersAsync(
             cancellationToken: TestContext.Current.CancellationToken)).Value;
 
-        result.ShouldNotBeNull();
+        snapshot.ShouldNotBeNull();
+        snapshot.IsSnapshot.ShouldBeTrue("the fixture is a primed read (snapshot:true)");
+        var result = snapshot.Orders;
         result.Count.ShouldBe(1);
 
         var order = result[0];
@@ -242,19 +244,139 @@ public class OrderTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task GetLiveOrders_EmptyOrders_ReturnsEmptyList()
+    public async Task GetLiveOrders_Unprimed_SurfacesIsSnapshotFalse()
+    {
+        // GAP1-1/GAP1-3: the {"orders":[],"snapshot":false} shape is IBKR's UNPRIMED response — an
+        // empty list here is NOT authoritative "no orders". The fixture is named accordingly so it no
+        // longer masquerades as the canonical no-orders case; IsSnapshot==false is the ground truth.
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/orders",
+            FixtureLoader.LoadBody("Orders", "GET-live-orders-unprimed-empty"));
+
+        var snapshot = (await _harness.Client.Orders.GetLiveOrdersAsync(
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        snapshot.ShouldNotBeNull();
+        snapshot.IsSnapshot.ShouldBeFalse("snapshot:false means the cache is unprimed, not that no orders exist");
+        snapshot.Orders.ShouldBeEmpty();
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetLiveOrders_PrimedEmpty_IsSnapshotTrueAndEmpty()
+    {
+        // GAP1-1: the distinguishing case — an empty list that IS authoritative because the read is
+        // primed (snapshot:true). Only here may a consumer treat empty as "no live orders".
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/orders",
+            FixtureLoader.LoadBody("Orders", "GET-live-orders-primed-empty"));
+
+        var snapshot = (await _harness.Client.Orders.GetLiveOrdersAsync(
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        snapshot.IsSnapshot.ShouldBeTrue("snapshot:true means the empty set is an authoritative no-orders fact");
+        snapshot.Orders.ShouldBeEmpty();
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetLiveOrders_UnprimedThenPrimed_SurfacesEachSnapshotFaithfully()
+    {
+        // GAP1-1/GAP1-3: pin the recorded two-call priming sequence — call one is unprimed (empty,
+        // IsSnapshot=false), call two is primed (orders present, IsSnapshot=true).
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/iserver/account/orders").UsingGet())
+            .InScenario("live-orders-priming")
+            .WillSetStateTo("primed")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "GET-live-orders-unprimed-empty")));
+
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/iserver/account/orders").UsingGet())
+            .InScenario("live-orders-priming")
+            .WhenStateIs("primed")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "GET-live-orders")));
+
+        var unprimed = (await _harness.Client.Orders.GetLiveOrdersAsync(
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
+        unprimed.IsSnapshot.ShouldBeFalse();
+        unprimed.Orders.ShouldBeEmpty();
+
+        var primed = (await _harness.Client.Orders.GetLiveOrdersAsync(
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
+        primed.IsSnapshot.ShouldBeTrue();
+        primed.Orders.Count.ShouldBe(1);
+        primed.Orders[0].Ticker.ShouldBe("SPY");
+    }
+
+    [Fact]
+    public async Task GetLiveOrders_Filtered_IssuesExactlyOneForceFollowUp()
+    {
+        // GAP1-2 / §10.6: after a *filtered* call the library issues exactly one force=true follow-up
+        // (no filters) through the same pipeline, so a later sor subscription still gets order details.
+        // The filtered call returns the fake-empty unprimed shape; force=true returns the blank array.
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/iserver/account/orders")
+                .WithParam("filters", "cancelled").UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "GET-live-orders-unprimed-empty")));
+
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/iserver/account/orders")
+                .WithParam("force", "true").UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "GET-live-orders-force-cleared")));
+
+        var snapshot = (await _harness.Client.Orders.GetLiveOrdersAsync(
+            new[] { OrderStatusFilter.Cancelled },
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        // The consumer's filtered result stands — the follow-up never alters it.
+        snapshot.IsSnapshot.ShouldBeFalse();
+        snapshot.Orders.ShouldBeEmpty();
+
+        // Exactly one force=true follow-up was issued (lowercase, per the documented wire format).
+        _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/account/orders")
+                .WithParam("force", "true").UsingGet())
+            .Count.ShouldBe(1, "a filtered call must trigger exactly one force=true follow-up");
+
+        // And exactly one filtered call reached the server (the follow-up carries no filters).
+        _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/account/orders")
+                .WithParam("filters", "cancelled").UsingGet())
+            .Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetLiveOrders_Unfiltered_IssuesNoForceFollowUp()
     {
         _harness.StubAuthenticatedGet(
             "/v1/api/iserver/account/orders",
-            FixtureLoader.LoadBody("Orders", "GET-live-orders-empty"));
+            FixtureLoader.LoadBody("Orders", "GET-live-orders"));
 
-        var result = (await _harness.Client.Orders.GetLiveOrdersAsync(
-            cancellationToken: TestContext.Current.CancellationToken)).Value;
+        await _harness.Client.Orders.GetLiveOrdersAsync(
+            cancellationToken: TestContext.Current.CancellationToken);
 
-        result.ShouldNotBeNull();
-        result.ShouldBeEmpty();
-
-        _harness.VerifyHandshakeOccurred();
+        _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/account/orders")
+                .WithParam("force", "true").UsingGet())
+            .Count.ShouldBe(0, "an unfiltered call must not trigger a force follow-up");
     }
 
     [Fact]
@@ -284,7 +406,7 @@ public class OrderTests : IAsyncLifetime, IDisposable
                     .WithBody(FixtureLoader.LoadBody("Orders", "GET-live-orders")));
 
         var result = (await _harness.Client.Orders.GetLiveOrdersAsync(
-            cancellationToken: TestContext.Current.CancellationToken)).Value;
+            cancellationToken: TestContext.Current.CancellationToken)).Value.Orders;
 
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
@@ -937,7 +1059,7 @@ public class OrderTests : IAsyncLifetime, IDisposable
             FixtureLoader.LoadBody("Orders", "GET-live-orders-with-ref"));
 
         var orders = (await _harness.Client.Orders.GetLiveOrdersAsync(
-            cancellationToken: TestContext.Current.CancellationToken)).Value;
+            cancellationToken: TestContext.Current.CancellationToken)).Value.Orders;
 
         orders.ShouldHaveSingleItem().OrderRef.ShouldBe("Parent");
 

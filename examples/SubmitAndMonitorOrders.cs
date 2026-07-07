@@ -93,7 +93,7 @@ if (qqqOrderId is not null)
 
 // Step 7: Show all live orders
 Console.WriteLine("\nAll live orders:");
-var liveOrders = (await client.Orders.GetLiveOrdersAsync()).EnsureSuccess().Value;
+var liveOrders = (await client.Orders.GetLiveOrdersAsync()).EnsureSuccess().Value.Orders;
 if (liveOrders.Count == 0)
 {
     Console.WriteLine("  (none)");

@@ -206,17 +206,54 @@ internal partial class OrderOperations : IOrderOperations
     }
 
     /// <inheritdoc />
-    public async Task<Result<List<LiveOrder>>> GetLiveOrdersAsync(
+    public async Task<Result<LiveOrdersSnapshot>> GetLiveOrdersAsync(
         OrderStatusFilter[]? filters = null,
         bool? force = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetLiveOrders");
         activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
+        var filtered = filters is { Length: > 0 };
+        activity?.SetTag("ibkr.filtered", filtered);
         var response = await _orderApi.GetLiveOrdersAsync(filters, force, cancellationToken);
         var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
-        var result = apiResult.Map(r => r.Orders ?? new List<LiveOrder>());
+
+        // GAP1-1 / §10.6: carry IBKR's `snapshot` flag through instead of discarding it. IsSnapshot ==
+        // false means the cache is unprimed — an empty Orders is NOT an authoritative "no orders".
+        var result = apiResult.Map(r =>
+            new LiveOrdersSnapshot(r.Orders ?? new List<LiveOrder>(), r.Snapshot ?? false));
+
+        // GAP1-2 / §10.6: a *filtered* live-orders call suppresses `sor` order-detail frames until a
+        // force=true follow-up clears IBKR's cached filter behavior. The library owns the quirk: issue
+        // that follow-up here (unless the caller already forced), so a later OrderUpdatesAsync still
+        // delivers order details. The follow-up's result is discarded and its failures are logged — the
+        // consumer's filtered result is authoritative and unaffected. Skipped when force==true because
+        // the caller's own call already clears the cache.
+        if (filtered && force != true)
+        {
+            await IssueForceClearFollowUpAsync(cancellationToken);
+        }
+
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+    }
+
+    /// <summary>
+    /// Issues the §10.6 <c>force=true</c> follow-up that clears IBKR's cached filter behavior after a
+    /// filtered live-orders call, so a subsequent <c>sor</c> subscription still receives order details.
+    /// Best-effort: IBKR returns a blank array by design, so the response is discarded; a transport
+    /// failure is logged, never surfaced to the caller (cancellation propagates).
+    /// </summary>
+    private async Task IssueForceClearFollowUpAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            LogForceClearFollowUp();
+            _ = await _orderApi.GetLiveOrdersAsync(null, true, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogForceClearFollowUpFailed(ex);
+        }
     }
 
     /// <inheritdoc />
@@ -480,4 +517,10 @@ internal partial class OrderOperations : IOrderOperations
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "IBKR reply raw content: {Content}")]
     private partial void LogReplyRawContent(string content);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Issuing force=true live-orders follow-up to clear IBKR's cached filter behavior (§10.6) after a filtered call")]
+    private partial void LogForceClearFollowUp();
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The force=true live-orders follow-up (§10.6) failed; IBKR's filter cache may not be cleared and sor order-detail frames may be suppressed until the next unfiltered/forced call")]
+    private partial void LogForceClearFollowUpFailed(Exception exception);
 }

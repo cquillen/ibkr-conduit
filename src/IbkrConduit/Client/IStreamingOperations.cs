@@ -81,9 +81,15 @@ public interface IStreamingOperations
     Task<IIbkrSubscription<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Subscribes to real-time order updates. A single WebSocket frame may carry several
-    /// order updates; each is emitted as a separate item.
+    /// Subscribes to real-time order updates over the <c>sor</c> topic. A single WebSocket frame may
+    /// carry several order updates; each is emitted as a separate item.
     /// </summary>
+    /// <remarks>
+    /// <b>Filtered live-orders interaction (§10.6):</b> IBKR suppresses <c>sor</c> order-detail frames
+    /// after a <em>filtered</em> <see cref="IOrderOperations.GetLiveOrdersAsync"/> call until a
+    /// <c>force=true</c> follow-up clears the cached behavior. This library issues that follow-up
+    /// automatically after any filtered call, so subscribing here still delivers order details.
+    /// </remarks>
     /// <param name="days">Optional number of days of order history to include.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that resolves to a subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> emits order updates.</returns>
