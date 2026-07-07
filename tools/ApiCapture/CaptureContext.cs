@@ -70,7 +70,8 @@ public sealed class CaptureContext : IAsyncDisposable
             InnerHandler = new OAuthSigningHandler(
                 tokenProvider,
                 _credentials.ConsumerKey,
-                _credentials.AccessToken)
+                _credentials.AccessToken,
+                new IbkrConduit.Diagnostics.TenantContext("api-capture"))
             {
                 InnerHandler = new HttpClientHandler(),
             },

@@ -13,4 +13,7 @@ Cross-cutting decisions for IbkrConduit — each ADR records **one** decision, t
 
 | ADR | Title | Status | Date |
 |---|---|---|---|
-| *(none yet — the index starts empty by design)* | | | |
+| [0001](0001-nullable-as-presence-wire-fidelity.md) | Nullable-as-presence on wire-optional DTO fields | Accepted | 2026-07-07 |
+| [0002](0002-streaming-delivery-guarantee.md) | Streaming delivery guarantee: observable DropOldest, single-observer streams | Accepted | 2026-07-07 |
+| [0003](0003-order-post-replay-gate.md) | No automatic 401 replay for order-mutating POSTs; ambiguous-outcome error | Accepted | 2026-07-07 |
+| [0004](0004-competing-session-truth-and-health-evidence.md) | Truthful competing-session signaling and health evidence | Accepted | 2026-07-07 |
