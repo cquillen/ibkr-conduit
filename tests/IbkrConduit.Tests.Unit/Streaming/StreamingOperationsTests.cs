@@ -416,7 +416,7 @@ public class StreamingOperationsTests
         await wsClient.UnsolicitedChannels["sts"].Writer.WriteAsync(json, ct);
 
         var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
-        evt.Authenticated.ShouldBeTrue();
+        evt.Authenticated.ShouldBe(true);
     }
 
     [Fact]
@@ -434,7 +434,7 @@ public class StreamingOperationsTests
         await wsClient.UnsolicitedChannels["sts"].Writer.WriteAsync(json, ct);
 
         var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
-        evt.Authenticated.ShouldBeFalse();
+        evt.Authenticated.ShouldBe(false);
     }
 
     [Fact]
@@ -613,8 +613,8 @@ public class StreamingOperationsTests
         evt.ServerInfo!.ServerName.ShouldBe("server-east-1");
         evt.ServerInfo.ServerVersion.ShouldBe("10.42.0");
         evt.SessionId.ShouldBe("SESS-XYZ");
-        evt.IsFT.ShouldBeTrue();
-        evt.IsPaper.ShouldBeTrue();
+        evt.IsFT.ShouldBe(true);
+        evt.IsPaper.ShouldBe(true);
     }
 
     [Fact]

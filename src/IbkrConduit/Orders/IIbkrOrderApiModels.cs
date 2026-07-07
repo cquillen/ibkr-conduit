@@ -191,9 +191,9 @@ public record OrdersResponse(
 /// <param name="Status">The order status.</param>
 /// <param name="OrderCcpStatus">The CCP order status.</param>
 /// <param name="OrderType">The order type.</param>
-/// <param name="FilledQuantity">The filled quantity.</param>
-/// <param name="RemainingQuantity">The remaining quantity.</param>
-/// <param name="TotalSize">The total order size.</param>
+/// <param name="FilledQuantity">The filled quantity. Null when IBKR omits it or sends an empty value — never a fabricated 0.</param>
+/// <param name="RemainingQuantity">The remaining quantity. Null when IBKR omits it or sends an empty value — never a fabricated 0.</param>
+/// <param name="TotalSize">The total order size. Null when IBKR omits it or sends an empty value — never a fabricated 0.</param>
 /// <param name="CompanyName">The company name.</param>
 /// <param name="AvgPrice">The average fill price as a string.</param>
 /// <param name="TimeInForce">The time in force.</param>
@@ -216,15 +216,12 @@ public record LiveOrder(
     [property: JsonPropertyName("status")] string Status,
     [property: JsonPropertyName("order_ccp_status")] string? OrderCcpStatus,
     [property: JsonPropertyName("orderType")] string? OrderType,
-    [property: JsonPropertyName("filledQuantity")]
-    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
-    decimal FilledQuantity,
-    [property: JsonPropertyName("remainingQuantity")]
-    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
-    decimal RemainingQuantity,
-    [property: JsonPropertyName("totalSize")]
-    [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
-    decimal TotalSize,
+    // No [JsonNumberHandling(AllowReadingFromString)] on the quantity fields: they are nullable and
+    // wire-optional, and IBKR can send an empty string; the shared empty-tolerant number converters
+    // map ""/omitted -> null (AllowReadingFromString would instead throw on the empty string).
+    [property: JsonPropertyName("filledQuantity")] decimal? FilledQuantity,
+    [property: JsonPropertyName("remainingQuantity")] decimal? RemainingQuantity,
+    [property: JsonPropertyName("totalSize")] decimal? TotalSize,
     [property: JsonPropertyName("companyName")] string? CompanyName,
     [property: JsonPropertyName("avgPrice")] string? AvgPrice,
     [property: JsonPropertyName("timeInForce")] string? TimeInForce,
@@ -254,20 +251,20 @@ public record LiveOrder(
 /// <param name="Conid">The contract identifier.</param>
 /// <param name="Symbol">The ticker symbol.</param>
 /// <param name="Side">The trade side (Buy or Sell).</param>
-/// <param name="Size">The trade size (quantity).</param>
-/// <param name="Price">The execution price.</param>
-/// <param name="OrderRef">The user-defined order reference (cOID).</param>
-/// <param name="Submitter">The username that submitted the order.</param>
+/// <param name="Size">The trade size (quantity). Null when IBKR omits it or sends an empty value — never a fabricated 0.</param>
+/// <param name="Price">The execution price. Null when IBKR omits it or sends an empty value — never a fabricated 0.</param>
+/// <param name="OrderRef">The user-defined order reference (cOID). Null when absent — e.g. a manual/TWS trade placed without a cOID.</param>
+/// <param name="Submitter">The username that submitted the order. Null when IBKR omits it.</param>
 [ExcludeFromCodeCoverage]
 public record Trade(
     [property: JsonPropertyName("execution_id")] string ExecutionId,
     [property: JsonPropertyName("conid")] int Conid,
     [property: JsonPropertyName("symbol")] string Symbol,
     [property: JsonPropertyName("side")] string Side,
-    [property: JsonPropertyName("size")] decimal Size,
-    [property: JsonPropertyName("price")] decimal Price,
-    [property: JsonPropertyName("order_ref")] string OrderRef,
-    [property: JsonPropertyName("submitter")] string Submitter)
+    [property: JsonPropertyName("size")] decimal? Size,
+    [property: JsonPropertyName("price")] decimal? Price,
+    [property: JsonPropertyName("order_ref")] string? OrderRef,
+    [property: JsonPropertyName("submitter")] string? Submitter)
 {
     /// <summary>Whether tax optimizer is supported for the order. IBKR sends "1"/"0"; parsed to bool.</summary>
     [JsonPropertyName("supports_tax_opt")]

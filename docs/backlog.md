@@ -67,7 +67,7 @@ Stories have a stable ID (`<PREFIX>-NN`), a **Status** line, a **Stream**, **dep
 </details>
 
 #### VCR-01 — 📦 Presence-preserving wire DTOs (streaming + REST)
-**Status:** Not started · **Stream:** VCR · **Depends on:** none · **Blocks:** VCR-07
+**Status:** ✅ Done — #238 · **Stream:** VCR · **Depends on:** none · **Blocks:** VCR-07
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-01-presence-preserving-dtos.md
 Nullable-as-presence retrofit per ADR-0001 across `OrderUpdate`, `TradeExecution`, REST `Trade`/`LiveOrder`, `SessionStatusEvent.Authenticated`, `AccountStatusEvent.IsPaper`/`IsFT` — `null` means "absent from this frame/row"; no fabricated verdicts (findings WIR-1 critical, WIR-3, FIL-6, GAP2-2, GAP2-3). **Breaking — `feat!:`.**

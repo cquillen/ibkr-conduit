@@ -450,6 +450,28 @@ public class OrderTests : IAsyncLifetime, IDisposable
         _harness.VerifyReauthenticationOccurred();
     }
 
+    [Fact]
+    public async Task GetTrades_TradeWithEmptyOrOmittedMoneyFields_SurfaceNullNotZero()
+    {
+        // WIR-3: IBKR sends "size":"" and omits price/order_ref/submitter on a manual/TWS trade
+        // (mirrors the live "price":"" capture). Money and reference fields must surface as null
+        // (absent), never a fabricated 0m / "" that a consumer would book as real fill economics.
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/trades",
+            FixtureLoader.LoadBody("Orders", "GET-trades-sparse-money"));
+
+        var result = (await _harness.Client.Orders.GetTradesAsync(
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        var trade = result.ShouldHaveSingleItem();
+        trade.Size.ShouldBeNull();
+        trade.Price.ShouldBeNull();
+        trade.OrderRef.ShouldBeNull();
+        trade.Submitter.ShouldBeNull();
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
     // --- Cancel Order ---
 
     [Fact]
