@@ -147,7 +147,7 @@ Decided scope (internal safety net, no public surface): `ResponseSchemaValidatio
 **TDD notes:** red tests = WIR-5's suggested regression tests (element[1] drift fixture; extension-data extra-field fixture; sparse money frame).
 
 #### VCR-11 — Order-type documentation vs captured wire enum
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #246 · **Stream:** VCR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 CONFIRMED against the captured spec (`docs/ibkr-web-api-spec.md:4507`): the wire enum is `LMT, MKT, STP, STOP_LIMIT, MIDPRICE, TRAIL, TRAILLMT`; the XML docs on `OrderRequest.OrderType` (`IIbkrOrderApiModels.cs:23`) wrongly list `STP_LMT, MOC, LOC`. Decided scope: correct the XML docs to the pinned enum, including STOP_LIMIT's dual `price`+`auxPrice` requirement (WIR-6). ExtOperator is out of scope → VCR-12. **`fix:`** (shipped XML docs are consumer-facing).
