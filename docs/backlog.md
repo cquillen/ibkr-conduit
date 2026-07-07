@@ -131,7 +131,7 @@ Cancellable bounded teardown for `RemoveAsync` via internal linked-CTS bound (op
 **TDD notes:** red tests = MGR-1/2/3/6 suggested regression tests; tracking-disposable credential fakes; deterministic race interleaving via a test gate.
 
 #### VCR-09 — Metrics registration & disposal hygiene
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #249 · **Stream:** VCR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 All three findings CONFIRMED (MGR-4 by the review; FIL-7, MGR-5 by the 2026-07-07 verification: the WS gauge closure pins disposed clients alive via the static Meter; the 9 instance-registered REST limiters are never disposed by MSDI and the 2 Flex limiters live only in handler closures). Decided scope (per the findings' fix directions + `architecture.md` no-static-state): the rate-limiter queue-depth gauge registers once per tenant against the limiter singleton with a tenant tag; the WS `connection_state` gauge gains a tenant tag and its registration is disposed (or callback disposal-gated) with the client; limiters register via factory lambdas so the container owns disposal, with the Flex pair wrapped in a container-owned disposable holder.
