@@ -93,7 +93,17 @@ public class DiagnosticsTests
         {
             ShouldListenTo = source => source.Name == "IbkrConduit",
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-            ActivityStopped = activity => capturedActivity = activity,
+            // Filter by operation name so a concurrently-running test emitting another
+            // IbkrConduit span (e.g. "IbkrConduit.Http.Request") cannot clobber the capture —
+            // the ActivitySource is process-global and tests run in parallel. Mirrors the
+            // hermetic pattern already used by ActivitySource_SpanWithTags_ShouldCaptureAllTags.
+            ActivityStopped = activity =>
+            {
+                if (activity.OperationName == "IbkrConduit.Test.Span")
+                {
+                    capturedActivity = activity;
+                }
+            },
         };
         ActivitySource.AddActivityListener(listener);
 
