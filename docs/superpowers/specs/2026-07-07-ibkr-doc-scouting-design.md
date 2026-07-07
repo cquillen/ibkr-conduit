@@ -23,6 +23,7 @@
 - **Sparse responses are real.** WebSocket responses are *confirmed* sparse: a documented, valid field can be absent from a live frame. REST sparseness is *unconfirmed in either direction*. Evidence and probes must never treat "documented" as "always present" or "absent from a sample" as "doesn't exist."
 - **Probe tooling latitude.** The probe agent may build custom code/tooling when the existing example apps / `tools/ApiCapture` don't fit the scenario (guardrails below).
 - **Concurrency cap.** Max 2–3 concurrent subagents (operator's standing rule). Doc scouts fan out under the cap; probes are strictly serial.
+- **Model tiers.** The designed agents pin their model in frontmatter and are limited to Opus and/or Sonnet as appropriate — never Fable: `ibkr-doc-scout` → **Sonnet** (high-volume page reading and quote extraction; dispatched in fan-out, so cost scales with source count); `ibkr-live-probe` → **Opus** (builds custom probe harnesses, exercises safety gates against a live account — judgment-heavy, always serial so the higher tier doesn't multiply).
 
 ## Architecture
 
@@ -99,6 +100,7 @@ The doc-reading executor. Isolated context so large pages never pollute the main
   - field-presence statements use the claim taxonomy;
   - staleness flags when the live page disagrees with the registry entry's characterization.
 - **Read-only:** the scout returns text; the skill layer writes evidence files and registry updates.
+- **Model:** Sonnet (pinned in frontmatter).
 
 ## Component 3 — Agent: `ibkr-live-probe` (`.claude/agents/ibkr-live-probe.md`)
 
@@ -116,6 +118,7 @@ The wire-observing executor. A sibling of the doc scout with a different contrac
   - probe code is scratch by default (untracked scratch dir); promoted into `tools/ApiCapture` in its own commit only if it proves reusable;
   - credential hygiene: creds loaded from `.ibkr-credentials/`, never echoed into output; captures sanitized before saving.
 - **Output:** raw sanitized captures into `recordings/` (the existing wire-evidence home); returns distilled observations + capture paths.
+- **Model:** Opus (pinned in frontmatter).
 
 ## Component 4 — Skill: `register-ibkr-doc-source` (attended)
 
