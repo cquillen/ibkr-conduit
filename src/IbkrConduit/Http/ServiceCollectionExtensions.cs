@@ -154,13 +154,15 @@ public static class ServiceCollectionExtensions
     private sealed class IbkrClientRegistrationMarker;
 
     /// <summary>
-    /// Validates all <see cref="IbkrClientOptions"/> fields at registration time
-    /// to fail fast on misconfiguration.
+    /// Validates all <see cref="IbkrClientOptions"/> fields to fail fast on
+    /// misconfiguration. Called at registration time by <see cref="AddIbkrClient"/> and,
+    /// for the manager path, by <c>IbkrClientManager.AddAsync</c> on the effective
+    /// (cloned + per-tenant-overridden) options before any network build.
     /// </summary>
     // CA2208: paramName values intentionally use "IbkrClientOptions.Property" paths
     // so consumers see which option is invalid, not the method parameter name "options".
 #pragma warning disable CA2208
-    private static void ValidateOptions(IbkrClientOptions options)
+    internal static void ValidateOptions(IbkrClientOptions options)
     {
         ArgumentNullException.ThrowIfNull(options.Credentials, "IbkrClientOptions.Credentials");
 

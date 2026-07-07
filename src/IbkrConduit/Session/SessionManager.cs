@@ -389,7 +389,10 @@ internal sealed partial class SessionManager : ISessionManager
 
         CancelProactiveRefresh();
 
-        if (wasInitialized)
+        // The manager path issues its own single bounded logout in ManagedTenant.DisposeAsync,
+        // so it suppresses this one to avoid a duplicate (VCR-08 / MGR-1). The single-account
+        // path leaves the flag false and still logs out here on dispose.
+        if (wasInitialized && !_options.SkipLogoutOnDispose)
         {
             try
             {
