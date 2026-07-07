@@ -26,8 +26,46 @@ internal static class AccountStatusMapper
             SelectedAccount = args.TryGetProperty("selectedAccount", out var sa) ? sa.GetString() ?? string.Empty : string.Empty,
             ServerInfo = args.TryGetProperty("serverInfo", out var si) ? MapServerInfo(si) : null,
             SessionId = args.TryGetProperty("sessionId", out var sid) ? sid.GetString() ?? string.Empty : string.Empty,
-            IsFT = args.TryGetProperty("isFT", out var ft) && ft.ValueKind == JsonValueKind.True,
-            IsPaper = args.TryGetProperty("isPaper", out var ip) && ip.ValueKind == JsonValueKind.True,
+            IsFT = ReadTolerantBool(args, "isFT"),
+            IsPaper = ReadTolerantBool(args, "isPaper"),
+        };
+    }
+
+    /// <summary>
+    /// Reads a presence-preserving boolean (GAP2-3): a real IBKR verdict — JSON <c>true</c>/<c>false</c>,
+    /// a bare number, or a string-encoded <c>"1"</c>/<c>"0"</c>/<c>"true"</c>/<c>"false"</c> — maps to the
+    /// value, while an absent, null, empty, or unrecognized flag maps to <c>null</c> ("IBKR said nothing"),
+    /// never a fabricated <c>false</c>.
+    /// </summary>
+    private static bool? ReadTolerantBool(JsonElement parent, string name)
+    {
+        if (!parent.TryGetProperty(name, out var prop))
+        {
+            return null;
+        }
+
+        return prop.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Number => prop.TryGetInt64(out var n) ? n != 0 : null,
+            JsonValueKind.String => ParseBoolString(prop.GetString()),
+            _ => null,
+        };
+    }
+
+    private static bool? ParseBoolString(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        return raw.Trim().ToLowerInvariant() switch
+        {
+            "1" or "true" => true,
+            "0" or "false" => false,
+            _ => null,
         };
     }
 

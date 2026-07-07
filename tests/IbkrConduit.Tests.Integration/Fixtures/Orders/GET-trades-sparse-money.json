@@ -1,0 +1,18 @@
+{
+  "Request": { "Path": "/v1/api/iserver/account/trades", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "execution_id": "00018fae.sparse.01.01",
+        "symbol": "SPY",
+        "side": "BOT",
+        "size": "",
+        "conid": 756733,
+        "account": "U1234567",
+        "accountCode": "U1234567"
+      }
+    ]
+  }
+}

@@ -44,6 +44,37 @@ public class OrderUpdateMapperTests
     }
 
     [Fact]
+    public void MapMany_SparseFrame_OmittedFieldsAreNull()
+    {
+        // WIR-1 (critical): a sparse sor delta omits fields wholesale. Every wire-optional field
+        // the frame does not carry must deserialize to null — never a fabricated 0m / "" — so a
+        // consumer's sparse-delta merge can tell "absent from this frame" from a genuine zero /
+        // empty and never regresses a partially-filled order to unfilled.
+        var frame = JsonDocument.Parse(_realOrderFrame).RootElement;
+
+        var order = OrderUpdateMapper.MapMany(frame).Single();
+
+        order.OrderId.ShouldBe("656804954"); // the dedupe key is present on every frame
+        order.Conid.ShouldBe(756733);        // present on this frame
+        order.Size.ShouldBeNull();
+        order.FilledQuantity.ShouldBeNull();
+        order.RemainingQuantity.ShouldBeNull();
+        order.Status.ShouldBeNull();
+        order.Side.ShouldBeNull();
+        order.Symbol.ShouldBeNull();
+        order.OrderType.ShouldBeNull();
+    }
+
+    [Fact]
+    public void MapMany_FrameOmittingConid_ConidIsNull()
+    {
+        // conid is wire-optional on a sor delta; its absence must be null, not a fabricated 0.
+        var frame = JsonDocument.Parse("""{"topic":"sor","args":[{"orderId":42}]}""").RootElement;
+
+        OrderUpdateMapper.MapMany(frame).Single().Conid.ShouldBeNull();
+    }
+
+    [Fact]
     public void MapMany_RealOrderFrame_YieldsOneOrderWithNumericOrderIdCoercedToString()
     {
         var frame = JsonDocument.Parse(_realOrderFrame).RootElement;

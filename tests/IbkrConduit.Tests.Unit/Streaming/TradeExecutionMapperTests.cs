@@ -118,6 +118,26 @@ public class TradeExecutionMapperTests
     }
 
     [Fact]
+    public void MapMany_EmptyStringSize_PreservesAbsenceAsNull()
+    {
+        // FIL-6 / WIR-3: a fill whose size IBKR sends as "" must surface as null, never a
+        // fabricated 0m that reads as a real (impossible) zero-quantity fill.
+        var frame = JsonDocument.Parse(
+            """{"topic":"str","args":[{"execution_id":"x","size":""}]}""").RootElement;
+
+        TradeExecutionMapper.MapMany(frame).Single().Size.ShouldBeNull();
+    }
+
+    [Fact]
+    public void MapMany_OmittedSize_PreservesAbsenceAsNull()
+    {
+        var frame = JsonDocument.Parse(
+            """{"topic":"str","args":[{"execution_id":"x"}]}""").RootElement;
+
+        TradeExecutionMapper.MapMany(frame).Single().Size.ShouldBeNull();
+    }
+
+    [Fact]
     public void MapMany_UnknownField_LandsInAdditionalData()
     {
         var frame = JsonDocument.Parse(

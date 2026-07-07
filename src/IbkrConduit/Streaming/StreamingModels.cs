@@ -27,7 +27,10 @@ public record MarketDataTick
 }
 
 /// <summary>
-/// A real-time order update from the WebSocket sor topic.
+/// A real-time order update from the WebSocket sor topic. <c>sor</c> frames are sparse deltas —
+/// a later frame carries only <see cref="OrderId"/> plus whatever changed — so every wire-optional
+/// field is nullable and <c>null</c> means "not present in this frame", never a fabricated
+/// <c>0</c>/empty. A consumer merging deltas must overwrite only on non-null fields.
 /// </summary>
 [ExcludeFromCodeCoverage]
 public record OrderUpdate
@@ -41,41 +44,41 @@ public record OrderUpdate
     [JsonConverter(typeof(FlexibleStringJsonConverter))]
     public string OrderId { get; init; } = string.Empty;
 
-    /// <summary>Contract identifier.</summary>
+    /// <summary>Contract identifier. Null when this <c>sor</c> frame omits it (delta frames are sparse).</summary>
     [JsonPropertyName("conid")]
-    public int Conid { get; init; }
+    public int? Conid { get; init; }
 
-    /// <summary>Ticker symbol. IBKR sends this under the <c>ticker</c> key on <c>sor</c> frames.</summary>
+    /// <summary>Ticker symbol. IBKR sends this under the <c>ticker</c> key on <c>sor</c> frames. Null when absent from this frame.</summary>
     [JsonPropertyName("ticker")]
-    public string Symbol { get; init; } = string.Empty;
+    public string? Symbol { get; init; }
 
-    /// <summary>Order side (BUY/SELL).</summary>
+    /// <summary>Order side (BUY/SELL). Null when absent from this frame.</summary>
     [JsonPropertyName("side")]
-    public string Side { get; init; } = string.Empty;
+    public string? Side { get; init; }
 
-    /// <summary>Order size. IBKR sends this under the <c>totalSize</c> key on <c>sor</c> frames.</summary>
+    /// <summary>Order size. IBKR sends this under the <c>totalSize</c> key on <c>sor</c> frames. Null when absent from this frame — never a fabricated 0.</summary>
     [JsonPropertyName("totalSize")]
-    public decimal Size { get; init; }
+    public decimal? Size { get; init; }
 
-    /// <summary>Order type (e.g., MKT, LMT).</summary>
+    /// <summary>Order type (e.g., MKT, LMT). Null when absent from this frame.</summary>
     [JsonPropertyName("orderType")]
-    public string OrderType { get; init; } = string.Empty;
+    public string? OrderType { get; init; }
 
-    /// <summary>Limit price, if applicable.</summary>
+    /// <summary>Limit price, if applicable. Null when absent from this frame (e.g. a market order, or a delta that omits it).</summary>
     [JsonPropertyName("price")]
     public decimal? Price { get; init; }
 
-    /// <summary>Order status.</summary>
+    /// <summary>Order status. Null when absent from this frame — never a fabricated empty string.</summary>
     [JsonPropertyName("status")]
-    public string Status { get; init; } = string.Empty;
+    public string? Status { get; init; }
 
-    /// <summary>Filled quantity.</summary>
+    /// <summary>Filled quantity. Null when absent from this frame — never a fabricated 0, so a sparse-delta merge can tell "not in this frame" from a genuine zero fill.</summary>
     [JsonPropertyName("filledQuantity")]
-    public decimal FilledQuantity { get; init; }
+    public decimal? FilledQuantity { get; init; }
 
-    /// <summary>Remaining quantity.</summary>
+    /// <summary>Remaining quantity. Null when absent from this frame — never a fabricated 0, so a sparse-delta merge never regresses a partially-filled order to unfilled.</summary>
     [JsonPropertyName("remainingQuantity")]
-    public decimal RemainingQuantity { get; init; }
+    public decimal? RemainingQuantity { get; init; }
 
     /// <summary>
     /// User-defined order reference echoing the <c>cOID</c> supplied at placement
@@ -244,9 +247,9 @@ public record TradeExecution
     [JsonPropertyName("trade_time_r")]
     public long? TradeTimeR { get; init; }
 
-    /// <summary>Quantity of shares traded.</summary>
+    /// <summary>Quantity of shares traded. Null when IBKR omits it or sends an empty value — never a fabricated 0.</summary>
     [JsonPropertyName("size")]
-    public decimal Size { get; init; }
+    public decimal? Size { get; init; }
 
     /// <summary>Custom order identifier (cOID) supplied at order placement, if any.</summary>
     [JsonPropertyName("order_ref")]
@@ -355,8 +358,13 @@ public record TradeExecution
 [ExcludeFromCodeCoverage]
 public sealed record SessionStatusEvent
 {
-    /// <summary>True if the brokerage session is currently authenticated.</summary>
-    public bool Authenticated { get; init; }
+    /// <summary>
+    /// True if the brokerage session is currently authenticated, false if it is not, and
+    /// <c>null</c> when the <c>sts</c> frame carried no authentication verdict at all — an absent
+    /// verdict is never fabricated into <c>false</c>, so a consumer never reads "IBKR said nothing"
+    /// as "IBKR said the session is dead".
+    /// </summary>
+    public bool? Authenticated { get; init; }
 }
 
 /// <summary>Urgent message about exchange issues, system problems, or trading information.</summary>
@@ -444,11 +452,20 @@ public sealed record AccountStatusEvent
     /// <summary>The brokerage session identifier.</summary>
     public string SessionId { get; init; } = string.Empty;
 
-    /// <summary>True if the account supports fractional trading.</summary>
-    public bool IsFT { get; init; }
+    /// <summary>
+    /// True if the account supports fractional trading, false if not, and <c>null</c> when the
+    /// <c>act</c> frame omitted the flag — absence is never fabricated into <c>false</c>. Matches
+    /// <see cref="SystemEvent.IsFT"/>'s presence semantics.
+    /// </summary>
+    public bool? IsFT { get; init; }
 
-    /// <summary>True if the active account is a paper-trading account.</summary>
-    public bool IsPaper { get; init; }
+    /// <summary>
+    /// True if the active account is a paper-trading account, false if not, and <c>null</c> when
+    /// the <c>act</c> frame omitted the flag — absence is never fabricated into <c>false</c>, so a
+    /// consumer's real-money interlock never reads "IBKR said nothing" as "IBKR said live account".
+    /// Matches <see cref="SystemEvent.IsPaper"/>'s presence semantics.
+    /// </summary>
+    public bool? IsPaper { get; init; }
 }
 
 /// <summary>Per-account capability flags.</summary>
