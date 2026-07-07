@@ -100,6 +100,7 @@ public class OrderOperationsModifyTests
             AuxPrice = 144.00m,
             Tif = "GTC",
             ManualIndicator = false,
+            ExtOperator = "person1234",
         };
 
         await _sut.ModifyOrderAsync("DU1234567", "99999", order, TestContext.Current.CancellationToken);
@@ -117,6 +118,7 @@ public class OrderOperationsModifyTests
         wire.AuxPrice.ShouldBe(144.00m);
         wire.Tif.ShouldBe("GTC");
         wire.ManualIndicator.ShouldBe(false);
+        wire.ExtOperator.ShouldBe("person1234");
         _fakeApi.LastModifyOrderId.ShouldBe("99999");
     }
 

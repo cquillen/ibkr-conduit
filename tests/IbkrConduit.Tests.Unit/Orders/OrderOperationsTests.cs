@@ -122,6 +122,7 @@ public class OrderOperationsTests
             AuxPrice = 149.00m,
             Tif = "GTC",
             ManualIndicator = false,
+            ExtOperator = "person1234",
         };
 
         await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
@@ -139,6 +140,34 @@ public class OrderOperationsTests
         wire.AuxPrice.ShouldBe(149.00m);
         wire.Tif.ShouldBe("GTC");
         wire.ManualIndicator.ShouldBe(false);
+        wire.ExtOperator.ShouldBe("person1234");
+    }
+
+    [Fact]
+    public async Task PlaceOrderAsync_ExtOperatorSetAlone_PassesThroughWithoutValidation()
+    {
+        _fakeApi.PlaceOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(null, null, null, null, "111", "PreSubmitted"),
+        ]);
+
+        // ExtOperator is a pure pass-through: setting it requires no companion field (no
+        // ManualIndicator) and must trigger no TRAIL-style fail-fast validation.
+        var order = new OrderRequest
+        {
+            Conid = 265598,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "MKT",
+            ExtOperator = "person1234",
+        };
+
+        var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        var wire = _fakeApi.LastPlaceOrderPayload!.Orders[0];
+        wire.ExtOperator.ShouldBe("person1234");
+        wire.ManualIndicator.ShouldBeNull();
     }
 
     [Fact]

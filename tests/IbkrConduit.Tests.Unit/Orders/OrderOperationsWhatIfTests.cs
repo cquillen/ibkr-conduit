@@ -68,6 +68,7 @@ public class OrderOperationsWhatIfTests
             OrderType = "MKT",
             Tif = "DAY",
             ManualIndicator = false,
+            ExtOperator = "person1234",
         };
 
         await _sut.WhatIfOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
@@ -82,6 +83,7 @@ public class OrderOperationsWhatIfTests
         wire.Quantity.ShouldBe(50m);
         wire.OrderType.ShouldBe("MKT");
         wire.ManualIndicator.ShouldBe(false);
+        wire.ExtOperator.ShouldBe("person1234");
     }
 
     private class FakeOrderApi : IIbkrOrderApi

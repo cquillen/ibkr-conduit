@@ -50,6 +50,15 @@ public record OrderRequest
     public bool? ManualIndicator { get; init; }
 
     /// <summary>
+    /// External operator identifying the submitting user in charge of the API operation. IBKR
+    /// documents this field as required "when trading Futures and Futures Options contracts to remain
+    /// in compliance with CME Group Rule 536-B" (companion to <see cref="ManualIndicator"/>). Optional
+    /// pass-through: omitted from the wire when null and never validated client-side — the library
+    /// forwards whatever the consumer supplies (enforcement is documented-not-verified).
+    /// </summary>
+    public string? ExtOperator { get; init; }
+
+    /// <summary>
     /// Customer Order ID (IBKR <c>cOID</c>). An arbitrary string identifying the order; must be
     /// unique within a rolling 24-hour span. Set on a parent order to link children that reference
     /// it via <see cref="ParentId"/>. Do not set on child orders. Echoed back as <c>order_ref</c>
@@ -140,6 +149,14 @@ public record OrderWireModel(
     [JsonPropertyName("outsideRTH")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? OutsideRth { get; init; }
+
+    /// <summary>
+    /// External operator for futures/futures-options CME Group Rule 536-B compliance
+    /// (<c>extOperator</c>); omitted when null. Pure pass-through — not validated client-side.
+    /// </summary>
+    [JsonPropertyName("extOperator")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ExtOperator { get; init; }
 }
 
 /// <summary>
