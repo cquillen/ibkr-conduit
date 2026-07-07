@@ -62,6 +62,29 @@ public class OrderPlacementFieldsTests
     }
 
     [Fact]
+    public void OrderWireModel_WithExtOperator_SerializesExtOperator()
+    {
+        var wire = new OrderWireModel(265598, "BUY", 50m, "MKT", null, null, "GTC", null)
+        {
+            ExtOperator = "person1234",
+        };
+
+        var json = JsonSerializer.Serialize(wire);
+
+        json.ShouldContain("\"extOperator\":\"person1234\"");
+    }
+
+    [Fact]
+    public void OrderWireModel_WithoutExtOperator_OmitsIt()
+    {
+        var wire = new OrderWireModel(265598, "BUY", 50m, "MKT", null, null, "GTC", null);
+
+        var json = JsonSerializer.Serialize(wire);
+
+        json.ShouldNotContain("extOperator");
+    }
+
+    [Fact]
     public void OrderWireModel_WithoutBracketFields_OmitsThem()
     {
         var wire = new OrderWireModel(265598, "BUY", 50m, "MKT", null, null, "GTC", null);
@@ -72,6 +95,7 @@ public class OrderPlacementFieldsTests
         json.ShouldNotContain("parentId");
         json.ShouldNotContain("isSingleGroup");
         json.ShouldNotContain("outsideRTH");
+        json.ShouldNotContain("extOperator");
     }
 
     [Fact]

@@ -510,6 +510,7 @@ internal partial class OrderOperations : IOrderOperations
             ParentId = order.ParentId,
             IsSingleGroup = order.IsSingleGroup,
             OutsideRth = order.OutsideRth,
+            ExtOperator = order.ExtOperator,
         };
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Replying to IBKR order question {ReplyId} with confirmed={Confirmed}")]
