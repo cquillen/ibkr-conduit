@@ -107,7 +107,7 @@ Implements design doc §10.6: `GetLiveOrdersAsync` returns `LiveOrdersSnapshot(O
 **TDD notes:** red tests = GAP1-1/2/3 suggested regression tests; sanitized fixtures derived from the recorded shapes.
 
 #### VCR-06 — Session lifecycle state-machine hardening
-**Status:** Not started · **Stream:** VCR · **Depends on:** none · **Blocks:** VCR-07
+**Status:** ✅ Done — #240 · **Stream:** VCR · **Depends on:** none · **Blocks:** VCR-07
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-06-session-lifecycle-hardening.md
 Repairs within the recorded §7 lifecycle contract: tickle 401 triggers re-auth (and truthful health) instead of log-and-rot; LST expiry is checked and failed init/reauth resets state (no permanent wedge); proactive refresh retries with backoff and fires immediately when already due; re-init stops the old tickle timer (no leaked loops) (findings SES-2 high, SES-3 high, SES-5, SES-6). Health-state writes follow ADR-0004. **`fix:`.**
