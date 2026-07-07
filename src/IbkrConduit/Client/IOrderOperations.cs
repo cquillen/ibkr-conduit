@@ -49,16 +49,34 @@ public interface IOrderOperations
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Retrieves live orders for the current session.
+    /// Retrieves live orders for the current session, together with IBKR's priming indicator.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The result's <see cref="LiveOrdersSnapshot.IsSnapshot"/> flag distinguishes an authoritative
+    /// order set from an unprimed one: IBKR's <c>/iserver/account/orders</c> endpoint returns
+    /// <c>snapshot:false</c> (often with an empty list) on a cold read even when orders exist, and
+    /// primes on a follow-up call. When <see cref="LiveOrdersSnapshot.IsSnapshot"/> is <c>false</c>,
+    /// an empty <see cref="LiveOrdersSnapshot.Orders"/> is an unprimed artifact — NOT proof that no
+    /// orders exist. Call again (or key any absence decision on <c>IsSnapshot == true</c>). See
+    /// design doc §10.6 (findings GAP1-1/GAP1-2).
+    /// </para>
+    /// </remarks>
     /// <param name="filters">Optional array of order status filters. Only orders matching the
     /// specified statuses are returned. Include <see cref="OrderStatusFilter.SortByTime"/> to
-    /// sort results chronologically.</param>
+    /// sort results chronologically.
+    /// <para>
+    /// <b>Quirk handled for you (§10.6):</b> IBKR suppresses order-detail frames on the WebSocket
+    /// <c>sor</c> topic after a <em>filtered</em> live-orders call until a <c>force=true</c> follow-up
+    /// clears the cached behavior. This library issues that <c>force=true</c> follow-up itself after
+    /// any filtered call, so a later <see cref="IStreamingOperations.OrderUpdatesAsync"/> subscription
+    /// still receives order details. Consumers need not send the follow-up.
+    /// </para></param>
     /// <param name="force">When <c>true</c>, clears IBKR's order cache and fetches fresh data
     /// from the backend. The response will be an empty array — call again without <c>force</c>
     /// to get the refreshed orders (two-call priming pattern).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Result<List<LiveOrder>>> GetLiveOrdersAsync(
+    Task<Result<LiveOrdersSnapshot>> GetLiveOrdersAsync(
         OrderStatusFilter[]? filters = null,
         bool? force = null,
         CancellationToken cancellationToken = default);

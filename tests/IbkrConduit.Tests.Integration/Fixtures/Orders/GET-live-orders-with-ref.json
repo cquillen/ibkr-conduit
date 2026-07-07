@@ -28,7 +28,7 @@
           "side": "BUY"
         }
       ],
-      "snapshot": false
+      "snapshot": true
     }
   }
 }

@@ -298,22 +298,97 @@ public class OrderOperationsTests
         _fakeApi.LiveOrdersResponse = new OrdersResponse(
         [
             new LiveOrder("DU1234567", 265598, "265598", 111, "AAPL", "STK", "NASDAQ", "BUY", "PreSubmitted", "PreSubmitted", "LMT", 0, 100, 100, "APPLE INC", null, "DAY", null),
-        ]);
+        ], Snapshot: true);
 
         var result = await _sut.GetLiveOrdersAsync(cancellationToken: TestContext.Current.CancellationToken);
 
-        result.Value.Count.ShouldBe(1);
-        result.Value[0].OrderId.ShouldBe(111);
+        result.Value.Orders.Count.ShouldBe(1);
+        result.Value.Orders[0].OrderId.ShouldBe(111);
     }
 
     [Fact]
     public async Task GetLiveOrdersAsync_NullOrders_ReturnsEmptyList()
     {
-        _fakeApi.LiveOrdersResponse = new OrdersResponse(null);
+        _fakeApi.LiveOrdersResponse = new OrdersResponse(null, Snapshot: true);
 
         var result = await _sut.GetLiveOrdersAsync(cancellationToken: TestContext.Current.CancellationToken);
 
-        result.Value.ShouldBeEmpty();
+        result.Value.Orders.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetLiveOrdersAsync_UnprimedResponse_SurfacesIsSnapshotFalse()
+    {
+        // GAP1-1: snapshot:false must surface — an empty Orders here is unprimed, NOT "no orders".
+        _fakeApi.LiveOrdersResponse = new OrdersResponse([], Snapshot: false);
+
+        var result = await _sut.GetLiveOrdersAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        result.Value.IsSnapshot.ShouldBeFalse();
+        result.Value.Orders.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetLiveOrdersAsync_PrimedResponse_SurfacesIsSnapshotTrue()
+    {
+        _fakeApi.LiveOrdersResponse = new OrdersResponse(
+        [
+            new LiveOrder("DU1234567", 265598, "265598", 111, "AAPL", "STK", "NASDAQ", "BUY", "PreSubmitted", "PreSubmitted", "LMT", 0, 100, 100, "APPLE INC", null, "DAY", null),
+        ], Snapshot: true);
+
+        var result = await _sut.GetLiveOrdersAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        result.Value.IsSnapshot.ShouldBeTrue();
+        result.Value.Orders.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetLiveOrdersAsync_SnapshotFlagAbsent_MapsToIsSnapshotFalse()
+    {
+        // GAP1-1: an absent `snapshot` flag maps to false (unprimed) — never a fabricated true.
+        _fakeApi.LiveOrdersResponse = new OrdersResponse([], Snapshot: null);
+
+        var result = await _sut.GetLiveOrdersAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        result.Value.IsSnapshot.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task GetLiveOrdersAsync_WithFilters_IssuesExactlyOneForceFollowUp()
+    {
+        // GAP1-2 / §10.6: a filtered call is followed by exactly one force=true follow-up (no filters).
+        _fakeApi.LiveOrdersResponse = new OrdersResponse([], Snapshot: false);
+
+        await _sut.GetLiveOrdersAsync([OrderStatusFilter.Cancelled], cancellationToken: TestContext.Current.CancellationToken);
+
+        _fakeApi.LiveOrdersCalls.Count.ShouldBe(2);
+        _fakeApi.LiveOrdersCalls[0].Filters.ShouldBe(new[] { OrderStatusFilter.Cancelled });
+        _fakeApi.LiveOrdersCalls[0].Force.ShouldBeNull();
+        _fakeApi.LiveOrdersCalls[1].Filters.ShouldBeNull();
+        _fakeApi.LiveOrdersCalls[1].Force.ShouldBe(true);
+    }
+
+    [Fact]
+    public async Task GetLiveOrdersAsync_Unfiltered_IssuesNoFollowUp()
+    {
+        _fakeApi.LiveOrdersResponse = new OrdersResponse([], Snapshot: true);
+
+        await _sut.GetLiveOrdersAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        _fakeApi.LiveOrdersCalls.Count.ShouldBe(1);
+        _fakeApi.LiveOrdersCalls[0].Force.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task GetLiveOrdersAsync_FilteredAndAlreadyForced_IssuesNoFollowUp()
+    {
+        // The caller's own force=true already clears the cache — no additional follow-up.
+        _fakeApi.LiveOrdersResponse = new OrdersResponse([], Snapshot: false);
+
+        await _sut.GetLiveOrdersAsync([OrderStatusFilter.Cancelled], force: true, cancellationToken: TestContext.Current.CancellationToken);
+
+        _fakeApi.LiveOrdersCalls.Count.ShouldBe(1);
+        _fakeApi.LiveOrdersCalls[0].Force.ShouldBe(true);
     }
 
     [Fact]
@@ -337,6 +412,7 @@ public class OrderOperationsTests
         public Queue<List<OrderSubmissionResponse>> ReplyResponses { get; } = new();
         public CancelOrderResponse? CancelResponse { get; set; }
         public OrdersResponse LiveOrdersResponse { get; set; } = new(null);
+        public List<(OrderStatusFilter[]? Filters, bool? Force)> LiveOrdersCalls { get; } = new();
         public List<Trade>? TradesResponse { get; set; }
         public WhatIfResponse? WhatIfResponse { get; set; }
         public OrderStatus? OrderStatusResponse { get; set; }
@@ -380,8 +456,11 @@ public class OrderOperationsTests
         public Task<IApiResponse<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, string? extOperator = null, bool? manualIndicator = null, long? manualCancelTime = null, CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(CancelResponse!));
 
-        public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(OrderStatusFilter[]? filters = null, bool? force = null, CancellationToken cancellationToken = default) =>
-            Task.FromResult(FakeApiResponse.Success(LiveOrdersResponse));
+        public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(OrderStatusFilter[]? filters = null, bool? force = null, CancellationToken cancellationToken = default)
+        {
+            LiveOrdersCalls.Add((filters, force));
+            return Task.FromResult(FakeApiResponse.Success(LiveOrdersResponse));
+        }
 
         public Task<IApiResponse<List<Trade>>> GetTradesAsync(int? days = null, CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(TradesResponse!));
