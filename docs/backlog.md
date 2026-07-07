@@ -381,7 +381,7 @@ Finding PRB-4.2 (medium, CONFIRMED): `CollectActiveSessionHealthAsync` returns t
 **Done when:** an active probe observing competing/failed session state updates `SessionHealthState` with the same durability as tickle evidence.
 
 #### PVR-21 — 📦 Facade disposal ownership
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #258 · **Stream:** PVR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Finding PRB-4.3 (low, CONFIRMED): in the plain `AddIbkrClient` path, `IbkrClient.DisposeAsync` disposes only the container-owned `SessionManager` — `await using client` plus provider disposal double-runs the teardown, and the WebSocket client is untouched by the facade. Implements design doc §5.4 (D5, operator-decided): facade `DisposeAsync` performs the full-client teardown in `ManagedTenant` order, idempotent via atomic guard. **Breaking-behavioral — `feat!:`** (operator-decided stricter partition: dispose now tears down the WS client and session where it was session-only).
