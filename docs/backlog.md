@@ -155,7 +155,7 @@ CONFIRMED against the captured spec (`docs/ibkr-web-api-spec.md:4507`): the wire
 **TDD notes:** doc-only — no new tests; existing suites stay green.
 
 #### VCR-12 — 📦 ExtOperator futures-compliance field
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #253 · **Stream:** VCR · **Depends on:** none
 **Risk:** high
 **Spec:** trivial-skip
 Split from VCR-11 (operator decision 2026-07-07); **groomed loop-ready 2026-07-07** during the PVR re-groom session — the WIR-6 claim behind it is now verified at the claim tier (`docs/ibkr-doc-evidence/2026-07-07-extoperator-field.md`): `extOperator` is a documented order-body string on place/modify/whatif (DOC-01 schema + DOC-03), documented as required "when trading Futures and Futures Options contracts to remain in compliance with CME Group Rule 536-B" (DOC-03, which hangs the identical sentence on the already-shipped `manualIndicator`). The library's gap is exactly the body field: `ManualIndicator` and the cancel-side `extOperator`/`manualIndicator` query params are shipped; `OrderRequest`/`OrderWireModel` lack `ExtOperator`. Decided scope (operator, 2026-07-07 — design doc §9.7): add `ExtOperator` (`string?`) as a **pure pass-through** per the PVR-05 pattern — `[JsonPropertyName("extOperator")]`, omitted from the wire when null, **no client-side gating** (enforcement is documented-not-verified; pass-through is safe under both answers), XML docs stating the CME 536-B condition. **Additive — `feat:`.**
