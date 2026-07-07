@@ -22,7 +22,13 @@ Adds one live documentation endpoint to `docs/ibkr-doc-sources.md` — the regis
 3. **Map coverage** into a short topic list a source-selection step can match against (endpoint families, WS topics, auth, Flex, error codes, …).
 4. **Check overlaps:** which existing registry entries cover the same topics? Record the relationship and any known authority lean (e.g. "narrative is older but more complete than the OpenAPI"). The operator's description often carries the authority call — quote it.
 5. **Append the entry** (create the registry file from the template below if missing). Fill EVERY field — a blank `Fetch` or `Structure` recreates the rediscovery cost the registry exists to kill.
-6. **Commit:** `docs: register IBKR doc source <id>` (registry file only).
+6. **Commit:** `docs: register IBKR doc source <id>` (registry file only). Registering several sources in one session? One source per commit, in order — never batch entries into one commit.
+
+## Conventions
+
+- **IDs:** `DOC-NN`, zero-padded, next free number. Never re-use or re-order existing ids.
+- **Overlaps are bidirectional:** when a new source overlaps an existing entry, update the existing entry's `Overlaps` line in the same commit. A commit may touch the new entry plus overlap-backfills — still registry file only.
+- **The browser User-Agent is for the Campus WAF** (`interactivebrokers.com/campus/...`, `ibkrcampus.com`). Other hosts (e.g. `api.ibkr.com`) may work with plain fetches — record whatever the probe actually proved, per source.
 
 ## Entry format (exact — scout-ibkr-docs parses these fields)
 
