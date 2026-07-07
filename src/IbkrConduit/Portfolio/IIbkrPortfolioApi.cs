@@ -119,10 +119,12 @@ internal interface IIbkrPortfolioApi
     Task<IApiResponse<List<SubAccount>>> GetSubAccountsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Retrieves sub-accounts (paginated) for FA/IBroker users.
+    /// Retrieves sub-accounts (paginated) for FA/IBroker users. The response is normalized from
+    /// IBKR's two documented shapes (object wrapper or bare array) into a single
+    /// <see cref="SubAccountsPage"/>.
     /// </summary>
     [Get("/v1/api/portfolio/subaccounts2")]
-    Task<IApiResponse<List<SubAccount>>> GetSubAccountsPagedAsync(
+    Task<IApiResponse<SubAccountsPage>> GetSubAccountsPagedAsync(
         [Query] int page = 0, CancellationToken cancellationToken = default);
 
     /// <summary>

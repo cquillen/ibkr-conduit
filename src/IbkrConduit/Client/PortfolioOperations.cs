@@ -255,7 +255,7 @@ internal partial class PortfolioOperations : IPortfolioOperations
     }
 
     /// <inheritdoc />
-    public async Task<Result<List<SubAccount>>> GetSubAccountsPagedAsync(int page = 0,
+    public async Task<Result<SubAccountsPage>> GetSubAccountsPagedAsync(int page = 0,
         CancellationToken cancellationToken = default)
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Portfolio.GetSubAccountsPaged");

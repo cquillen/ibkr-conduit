@@ -1,0 +1,40 @@
+{
+  "Request": { "Path": "/v1/api/portfolio/subaccounts2", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "metadata": {
+        "total": 37,
+        "pageSize": 20,
+        "pageNum": 0
+      },
+      "subaccounts": [
+        {
+          "id": "U1234567",
+          "accountId": "U1234567",
+          "accountVan": "U1234567",
+          "accountTitle": "Test User",
+          "displayName": "Test User",
+          "accountAlias": null,
+          "accountStatus": 1769922000000,
+          "currency": "USD",
+          "type": "DEMO",
+          "tradingType": "STKNOPT",
+          "businessType": "INDEPENDENT",
+          "ibEntity": "IBLLC-US",
+          "faclient": false,
+          "clearingStatus": "O",
+          "parent": {
+            "mmc": [],
+            "accountId": "",
+            "isMParent": false,
+            "isMChild": false,
+            "isMultiplex": false
+          },
+          "desc": "U1234567"
+        }
+      ]
+    }
+  }
+}

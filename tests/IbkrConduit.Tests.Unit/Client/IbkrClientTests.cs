@@ -350,7 +350,7 @@ public class IbkrClientTests
         public Task<Result<List<ComboPosition>>> GetComboPositionsAsync(string accountId, bool? nocache = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<List<Position>>> GetRealTimePositionsAsync(string accountId, string? model = null, string? sort = null, IbkrConduit.Portfolio.SortDirection? direction = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<List<SubAccount>>> GetSubAccountsAsync(CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<Result<List<SubAccount>>> GetSubAccountsPagedAsync(int page = 0, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<SubAccountsPage>> GetSubAccountsPagedAsync(int page = 0, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<AllPeriodsPerformance>> GetAllPeriodsPerformanceAsync(List<string> accountIds, string? param = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<PartitionedPnl>> GetPartitionedPnlAsync(CancellationToken ct = default) => throw new NotImplementedException();
     }

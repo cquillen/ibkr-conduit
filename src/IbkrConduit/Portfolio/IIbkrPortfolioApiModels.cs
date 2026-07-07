@@ -510,6 +510,44 @@ public record SubAccount(
 }
 
 /// <summary>
+/// Page metadata for a <see cref="SubAccountsPage"/> — present only when the
+/// <c>/portfolio/subaccounts2</c> endpoint returns the object-wrapper shape (FA/tiered structures).
+/// Absent (the enclosing <see cref="SubAccountsPage.Metadata"/> is <see langword="null"/>) for the
+/// bare-array shape returned by paper/non-FA accounts.
+/// </summary>
+/// <param name="Total">The total number of accounts reported for the page.</param>
+/// <param name="PageSize">The number of items contained in the returned page.</param>
+/// <param name="PageNum">The active page number.</param>
+[ExcludeFromCodeCoverage]
+public record SubAccountsPageMetadata(
+    [property: JsonPropertyName("total")] int? Total,
+    [property: JsonPropertyName("pageSize")] int? PageSize,
+    [property: JsonPropertyName("pageNum")] int? PageNum)
+{
+    /// <summary>
+    /// Additional undocumented fields from the API response.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
+
+/// <summary>
+/// A page of sub-accounts from the <c>/portfolio/subaccounts2</c> endpoint. IBKR's live docs are
+/// self-inconsistent about this endpoint's shape, so the library normalizes both documented forms
+/// into this one DTO (see <see cref="IbkrConduit.Serialization.SubAccountsPageJsonConverter"/>):
+/// the object-wrapper shape <c>{metadata, subaccounts}</c> populates <see cref="Metadata"/>, while
+/// the bare-array shape leaves <see cref="Metadata"/> <see langword="null"/>. Consumers must treat a
+/// null <see cref="Metadata"/> as "no page metadata was present in this response".
+/// </summary>
+/// <param name="Metadata">Page metadata, or <see langword="null"/> for the bare-array shape.</param>
+/// <param name="Subaccounts">The sub-accounts contained in this page (never <see langword="null"/>).</param>
+[ExcludeFromCodeCoverage]
+[JsonConverter(typeof(IbkrConduit.Serialization.SubAccountsPageJsonConverter))]
+public record SubAccountsPage(
+    SubAccountsPageMetadata? Metadata,
+    IReadOnlyList<SubAccount> Subaccounts);
+
+/// <summary>
 /// Represents all-period performance data from the /pa/allperiods endpoint.
 /// </summary>
 /// <param name="CurrencyType">The currency type (e.g., "base").</param>

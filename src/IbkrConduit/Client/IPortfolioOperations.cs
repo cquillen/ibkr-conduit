@@ -140,11 +140,14 @@ public interface IPortfolioOperations
     Task<Result<List<SubAccount>>> GetSubAccountsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Retrieves sub-accounts (paginated) for FA/IBroker users.
+    /// Retrieves sub-accounts (paginated) for FA/IBroker users. The response is normalized from
+    /// IBKR's two documented shapes (object wrapper or bare array) into a single
+    /// <see cref="SubAccountsPage"/>; <see cref="SubAccountsPage.Metadata"/> is <see langword="null"/>
+    /// when the endpoint returned a bare array.
     /// </summary>
     /// <param name="page">The page number (default 0).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Result<List<SubAccount>>> GetSubAccountsPagedAsync(int page = 0,
+    Task<Result<SubAccountsPage>> GetSubAccountsPagedAsync(int page = 0,
         CancellationToken cancellationToken = default);
 
     /// <summary>

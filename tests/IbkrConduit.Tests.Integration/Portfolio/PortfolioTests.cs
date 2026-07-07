@@ -721,17 +721,46 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task GetSubAccountsPaged_ReturnsAllFields()
+    public async Task GetSubAccountsPaged_BareArrayShape_ReturnsPageWithNullMetadata()
     {
+        // The sanitized live-capture fixture is a bare array (paper/non-FA account).
         _harness.StubAuthenticatedGet(
             "/v1/api/portfolio/subaccounts2",
             FixtureLoader.LoadBody("Portfolio", "GET-subaccounts2"));
 
-        var subAccounts = (await _harness.Client.Portfolio.GetSubAccountsPagedAsync(
+        var page = (await _harness.Client.Portfolio.GetSubAccountsPagedAsync(
             0, TestContext.Current.CancellationToken)).Value;
 
-        subAccounts.ShouldNotBeEmpty();
-        var sub = subAccounts[0];
+        page.Metadata.ShouldBeNull();
+        page.Subaccounts.ShouldNotBeEmpty();
+        var sub = page.Subaccounts[0];
+        sub.Id.ShouldBe("U1234567");
+        sub.AccountId.ShouldBe("U1234567");
+        sub.AccountTitle.ShouldBe("Test User");
+        sub.AccountType.ShouldBe("DEMO");
+        sub.Description.ShouldBe("U1234567");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetSubAccountsPaged_WrapperShape_ReturnsPageWithMetadata()
+    {
+        // The doc-claimed shape: an object wrapper { metadata, subaccounts } (FA/tiered structure).
+        _harness.StubAuthenticatedGet(
+            "/v1/api/portfolio/subaccounts2",
+            FixtureLoader.LoadBody("Portfolio", "GET-subaccounts2-wrapper"));
+
+        var page = (await _harness.Client.Portfolio.GetSubAccountsPagedAsync(
+            0, TestContext.Current.CancellationToken)).Value;
+
+        page.Metadata.ShouldNotBeNull();
+        page.Metadata!.Total.ShouldBe(37);
+        page.Metadata.PageSize.ShouldBe(20);
+        page.Metadata.PageNum.ShouldBe(0);
+
+        page.Subaccounts.ShouldNotBeEmpty();
+        var sub = page.Subaccounts[0];
         sub.Id.ShouldBe("U1234567");
         sub.AccountId.ShouldBe("U1234567");
         sub.AccountTitle.ShouldBe("Test User");
@@ -767,11 +796,11 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
                     .WithHeader("Content-Type", "application/json")
                     .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-subaccounts2")));
 
-        var subAccounts = (await _harness.Client.Portfolio.GetSubAccountsPagedAsync(
+        var page = (await _harness.Client.Portfolio.GetSubAccountsPagedAsync(
             0, TestContext.Current.CancellationToken)).Value;
 
-        subAccounts.ShouldNotBeEmpty();
-        subAccounts[0].Id.ShouldBe("U1234567");
+        page.Subaccounts.ShouldNotBeEmpty();
+        page.Subaccounts[0].Id.ShouldBe("U1234567");
         _harness.VerifyReauthenticationOccurred();
     }
 
