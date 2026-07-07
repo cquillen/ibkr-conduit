@@ -14,6 +14,7 @@ internal class SessionTokenProvider : ISessionTokenProvider, IDisposable
 {
     private readonly IbkrOAuthCredentials _credentials;
     private readonly ILiveSessionTokenClient _lstClient;
+    private readonly TimeProvider _timeProvider;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private LiveSessionToken? _cached;
     private long _version;
@@ -21,10 +22,17 @@ internal class SessionTokenProvider : ISessionTokenProvider, IDisposable
     /// <summary>
     /// Creates a new provider that will acquire the LST on first use.
     /// </summary>
-    public SessionTokenProvider(IbkrOAuthCredentials credentials, ILiveSessionTokenClient lstClient)
+    /// <param name="credentials">OAuth credentials for LST acquisition.</param>
+    /// <param name="lstClient">Client that performs the LST handshake.</param>
+    /// <param name="timeProvider">Time provider used to detect an expired cached token; defaults to <see cref="TimeProvider.System"/>.</param>
+    public SessionTokenProvider(
+        IbkrOAuthCredentials credentials,
+        ILiveSessionTokenClient lstClient,
+        TimeProvider? timeProvider = null)
     {
         _credentials = credentials;
         _lstClient = lstClient;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -44,16 +52,19 @@ internal class SessionTokenProvider : ISessionTokenProvider, IDisposable
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.GetToken");
 
-        if (_cached != null)
+        // Treat an expired cached token as a miss: replaying an expired LST would sign
+        // ssodh/init calls that the server rejects with 401, wedging the tenant (SES-3).
+        var cached = _cached;
+        if (cached != null && !IsExpired(cached))
         {
             activity?.SetTag(LogFields.Cached, true);
-            return _cached;
+            return cached;
         }
 
         await _semaphore.WaitAsync(cancellationToken);
         try
         {
-            if (_cached != null)
+            if (_cached != null && !IsExpired(_cached))
             {
                 activity?.SetTag(LogFields.Cached, true);
                 return _cached;
@@ -68,6 +79,8 @@ internal class SessionTokenProvider : ISessionTokenProvider, IDisposable
             _semaphore.Release();
         }
     }
+
+    private bool IsExpired(LiveSessionToken token) => token.Expiry <= _timeProvider.GetUtcNow();
 
     /// <inheritdoc />
     public async Task<LiveSessionToken> RefreshAsync(CancellationToken cancellationToken)
