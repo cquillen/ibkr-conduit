@@ -743,5 +743,21 @@ public static class EndpointTable
 
         new("Bulk", "GetLiveOrders_Bulk", HttpMethod.Get,
             "/v1/api/iserver/account/orders", 200),
+
+        // ---------------------------------------------------------------
+        // Priming — pin the /iserver/account/orders filters + force=true
+        // behavior (captured-spec warning at docs/ibkr-web-api-spec.md:4150:
+        // filtered calls suppress sor frames until a force=true follow-up).
+        // Read-only; leaves the account in a force-cleared (clean) state.
+        // ---------------------------------------------------------------
+
+        new("Priming", "GetLiveOrders_Filtered", HttpMethod.Get,
+            "/v1/api/iserver/account/orders?filters=cancelled", 200),
+
+        new("Priming", "GetLiveOrders_ForceClear", HttpMethod.Get,
+            "/v1/api/iserver/account/orders?force=true", 200),
+
+        new("Priming", "GetLiveOrders_AfterForce", HttpMethod.Get,
+            "/v1/api/iserver/account/orders", 200),
     ];
 }
