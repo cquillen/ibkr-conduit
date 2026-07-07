@@ -83,7 +83,7 @@ Implements ADR-0002: observable evictions (itemDropped → Warning + `ibkr.condu
 **TDD notes:** mock-WS harness (`BroadcastTextAsync`) drives overflow/mapper/observer/reconnect scenarios; metrics via `MeterListener`.
 
 #### VCR-03 — Streaming mapper robustness
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #247 · **Stream:** VCR · **Depends on:** none
 **Risk:** high
 **Spec:** trivial-skip
 Pattern-following fixes, decided: `TradeExecutionMapper.MapMany` isolates failures per `args` element (materialize before yield; log-and-skip only the bad element, keeping the observable-level catch as last resort) so one malformed execution no longer discards the frame's tail (FIL-2 — the `str` snapshot frame carries up to a day's fills); `SessionStatusMapper` parses `authenticated` with tolerant boolean logic mirroring `FlexibleBoolJsonConverter` instead of raw `GetBoolean()` (GAP2-1). Lane note: build after VCR-02 (shared files).
@@ -139,7 +139,7 @@ All three findings CONFIRMED (MGR-4 by the review; FIL-7, MGR-5 by the 2026-07-0
 **TDD notes:** red tests = MGR-4/FIL-7/MGR-5 suggested regression tests; gauge identity/tag assertions via `MeterListener`; limiter disposal via a disposal-tracking wrapper.
 
 #### VCR-10 — Response-schema validation net hardening
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #248 · **Stream:** VCR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Decided scope (internal safety net, no public surface): `ResponseSchemaValidationHandler` validates **every** element of collection bodies (endpoint payloads are bounded — e.g. live-orders caps at 1000); extra-field detection runs even when the DTO has `[JsonExtensionData]` (diff and report via the populated `AdditionalData`); str/sor mappers gain a required-money-field census signal (log + counter per VCR-02's drop taxonomy) when a required streaming money field is absent (finding WIR-5).

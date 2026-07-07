@@ -112,7 +112,13 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sor", cancelMessage, cancellationToken);
 
-        return new IbkrSubscription<OrderUpdate>(new FanOutChannelObservable<OrderUpdate>(reader, OrderUpdateMapper.MapMany, CreateTopicLogger("sor"), _metrics, "sor"), unsubscribe);
+        // A status-bearing sor frame that omits a required money field raises the WIR-5 census signal
+        // through the same reporter the drop taxonomy uses (separate counter — the order is delivered).
+        var sorLogger = CreateTopicLogger("sor");
+        var mapOrders = (JsonElement frame) =>
+            OrderUpdateMapper.MapMany(frame, field => RecordMissingMoneyField(sorLogger, "sor", field));
+
+        return new IbkrSubscription<OrderUpdate>(new FanOutChannelObservable<OrderUpdate>(reader, mapOrders, sorLogger, _metrics, "sor"), unsubscribe);
     }
 
     /// <inheritdoc />
@@ -134,7 +140,17 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "str", "utr", cancellationToken);
 
-        return new IbkrSubscription<TradeExecution>(new FanOutChannelObservable<TradeExecution>(reader, TradeExecutionMapper.MapMany, CreateTopicLogger("str"), _metrics, "str"), unsubscribe);
+        // Per-element mapper isolation (FIL-2): a single malformed execution is skipped and
+        // counted+logged through the same drop taxonomy the observable uses for whole-frame drops,
+        // so the frame's remaining fills are still delivered rather than discarded as one bad frame.
+        var strLogger = CreateTopicLogger("str");
+        var mapExecutions = (JsonElement frame) =>
+            TradeExecutionMapper.MapMany(
+                frame,
+                ex => RecordMapperDrop(strLogger, "str", ex),
+                field => RecordMissingMoneyField(strLogger, "str", field));
+
+        return new IbkrSubscription<TradeExecution>(new FanOutChannelObservable<TradeExecution>(reader, mapExecutions, strLogger, _metrics, "str"), unsubscribe);
     }
 
     /// <inheritdoc />
@@ -198,4 +214,31 @@ internal sealed class StreamingOperations : IStreamingOperations
     /// <summary>Creates a logger scoped to a topic, used to trace dropped-frame warnings back to their subscription.</summary>
     private ILogger CreateTopicLogger(string topicPrefix) =>
         _loggerFactory.CreateLogger($"IbkrConduit.Streaming.{topicPrefix}");
+
+    /// <summary>
+    /// Records a per-element mapper drop through the same VCR-02 drop taxonomy the observables use
+    /// for whole-frame drops: increments <c>ibkr.conduit.streaming.frames.dropped</c> with
+    /// <see cref="StreamingMetrics.MapperCause"/> and logs it against the wire topic. Wired into
+    /// <see cref="TradeExecutionMapper.MapMany"/>'s per-element isolation (FIL-2) so a single
+    /// malformed execution is counted and logged, never silently swallowed, while the frame's
+    /// remaining fills are still delivered.
+    /// </summary>
+    private void RecordMapperDrop(ILogger logger, string topic, Exception exception)
+    {
+        _metrics.RecordDrop(topic, StreamingMetrics.MapperCause);
+        logger.LogDroppedFrame(topic, exception.Message, exception);
+    }
+
+    /// <summary>
+    /// Records the WIR-5 required-money-field census signal: a delivered <paramref name="topic"/>
+    /// frame omitted a required money field. Increments the dedicated
+    /// <c>ibkr.conduit.streaming.money_field.absent</c> counter (kept out of the VCR-02 drop
+    /// taxonomy — the frame is delivered, not dropped) and logs it against the wire topic so an IBKR
+    /// wire-shape drift on a money field is observable rather than silent.
+    /// </summary>
+    private void RecordMissingMoneyField(ILogger logger, string topic, string field)
+    {
+        _metrics.RecordMissingMoneyField(topic, field);
+        logger.LogMissingMoneyField(topic, field);
+    }
 }

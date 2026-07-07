@@ -8,8 +8,28 @@ namespace IbkrConduit.Streaming.Mappers;
 /// </summary>
 internal static class TradeExecutionMapper
 {
-    /// <summary>Yields one <see cref="TradeExecution"/> per element of the frame's <c>args</c> array. Missing or non-array <c>args</c> yields nothing.</summary>
-    public static IEnumerable<TradeExecution> MapMany(JsonElement frame)
+    /// <summary>
+    /// Yields one <see cref="TradeExecution"/> per element of the frame's <c>args</c> array. Missing
+    /// or non-array <c>args</c> yields nothing.
+    /// </summary>
+    /// <param name="frame">The raw <c>str</c> frame whose <c>args</c> array carries the executions.</param>
+    /// <param name="onElementDropped">
+    /// Invoked once for each <c>args</c> element that fails to deserialize. Failures are isolated
+    /// per element (FIL-2) so one malformed execution never discards the frame's tail — a <c>str</c>
+    /// snapshot frame carries up to a whole day's fills. The caller reports the drop through the
+    /// streaming drop taxonomy (count with <c>cause=mapper</c>, log against the wire topic); when
+    /// <see langword="null"/> the bad element is skipped silently.
+    /// </param>
+    /// <param name="onRequiredMoneyFieldAbsent">
+    /// Invoked once per absent required money field (<c>size</c>, <c>price</c>) on each successfully
+    /// mapped execution — the WIR-5 census signal. The execution is still delivered (the field is
+    /// <c>null</c> per ADR-0001); a dropped element is never censused. When <see langword="null"/> the
+    /// census is skipped.
+    /// </param>
+    public static IEnumerable<TradeExecution> MapMany(
+        JsonElement frame,
+        Action<Exception>? onElementDropped = null,
+        Action<string>? onRequiredMoneyFieldAbsent = null)
     {
         if (!frame.TryGetProperty("args", out var args) || args.ValueKind != JsonValueKind.Array)
         {
@@ -18,9 +38,25 @@ internal static class TradeExecutionMapper
 
         foreach (var element in args.EnumerateArray())
         {
-            var execution = element.Deserialize<TradeExecution>(StreamingSerialization.Options);
+            // Deserialize each element inside its own guard and materialize the result before
+            // yielding, so a malformed element is skipped in isolation (log-and-skip via
+            // onElementDropped) instead of throwing mid-enumeration and discarding every later
+            // execution in the frame (FIL-2). The observable-level catch stays the last resort.
+            TradeExecution? execution;
+            try
+            {
+                execution = element.Deserialize<TradeExecution>(StreamingSerialization.Options);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                onElementDropped?.Invoke(ex);
+                continue;
+            }
+
             if (execution is not null)
             {
+                MoneyFieldCensus.ReportAbsent(
+                    element, MoneyFieldCensus.TradeExecutionFields, onRequiredMoneyFieldAbsent);
                 yield return execution;
             }
         }
