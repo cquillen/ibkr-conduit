@@ -44,6 +44,25 @@ public record OrderRequest
     public string Tif { get; init; } = "DAY";
 
     /// <summary>
+    /// Trailing offset for a trailing order (IBKR <c>trailingAmt</c>), interpreted per
+    /// <see cref="TrailingType"/>: an absolute price amount when <c>"amt"</c>, a percentage when
+    /// <c>"%"</c>. Required — together with <see cref="TrailingType"/> — when <see cref="OrderType"/>
+    /// is "TRAIL" or "TRAILLMT"; a placement or modification of such an order that omits either field
+    /// fails fast with an <see cref="ArgumentException"/> before any wire activity. Omitted from the
+    /// wire when null.
+    /// </summary>
+    public decimal? TrailingAmt { get; init; }
+
+    /// <summary>
+    /// Trailing type for a trailing order (IBKR <c>trailingType</c>). Valid values: <c>"amt"</c>
+    /// (an absolute price offset) or <c>"%"</c> (a percentage offset). Required — together with
+    /// <see cref="TrailingAmt"/> — when <see cref="OrderType"/> is "TRAIL" or "TRAILLMT"; a placement
+    /// or modification of such an order that omits either field fails fast with an
+    /// <see cref="ArgumentException"/> before any wire activity. Omitted from the wire when null.
+    /// </summary>
+    public string? TrailingType { get; init; }
+
+    /// <summary>
     /// Required for US Futures orders submitted by automated systems.
     /// Set to false for programmatic orders. CME Group Rule 536-B compliance.
     /// </summary>
@@ -157,6 +176,16 @@ public record OrderWireModel(
     [JsonPropertyName("extOperator")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ExtOperator { get; init; }
+
+    /// <summary>Trailing offset for TRAIL/TRAILLMT orders (<c>trailingAmt</c>); omitted when null.</summary>
+    [JsonPropertyName("trailingAmt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? TrailingAmt { get; init; }
+
+    /// <summary>Trailing type for TRAIL/TRAILLMT orders (<c>trailingType</c>: "amt" or "%"); omitted when null.</summary>
+    [JsonPropertyName("trailingType")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TrailingType { get; init; }
 }
 
 /// <summary>

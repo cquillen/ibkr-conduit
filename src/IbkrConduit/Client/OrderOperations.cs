@@ -58,6 +58,9 @@ internal partial class OrderOperations : IOrderOperations
     public async Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> PlaceOrderAsync(
         string accountId, OrderRequest order, CancellationToken cancellationToken = default)
     {
+        // Fail fast on caller error before opening a span/lock or touching the wire (§9.7).
+        ValidateOrder(order);
+
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Place");
         activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         using var _ = _logger.BeginScope(_logScope);
@@ -106,6 +109,10 @@ internal partial class OrderOperations : IOrderOperations
     {
         // Validate the group shape up front — fail fast on caller error before opening a span/lock.
         ValidateOrderGroup(orders);
+        foreach (var order in orders)
+        {
+            ValidateOrder(order);
+        }
 
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.PlaceGroup");
         activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
@@ -187,6 +194,36 @@ internal partial class OrderOperations : IOrderOperations
             "IBKR rejects unrelated orders in bulk — call PlaceOrderAsync once per unrelated order.",
             nameof(orders));
     }
+
+    /// <summary>
+    /// Fail-fast validation of a single order before any wire activity (design doc §9.7). IBKR
+    /// requires both <c>trailingAmt</c> and <c>trailingType</c> for TRAIL and TRAILLMT orders ("You
+    /// must specify both trailingType and trailingAmt for TRAIL and TRAILLMT order", DOC-03), so a
+    /// trailing order missing either is rejected here — before the rate limiter or HTTP is touched —
+    /// rather than deferring an unparameterized trailing order to an ambiguous wire refusal.
+    /// </summary>
+    /// <param name="order">The order to validate.</param>
+    private static void ValidateOrder(OrderRequest order)
+    {
+        ArgumentNullException.ThrowIfNull(order);
+
+        if (RequiresTrailingParameters(order.OrderType) &&
+            (order.TrailingAmt is null || string.IsNullOrEmpty(order.TrailingType)))
+        {
+            throw new ArgumentException(
+                $"A {order.OrderType} order requires both TrailingAmt and TrailingType (IBKR: " +
+                "\"You must specify both trailingType and trailingAmt for TRAIL and TRAILLMT order\").",
+                nameof(order));
+        }
+    }
+
+    /// <summary>
+    /// Whether the order type is a trailing type (TRAIL/TRAILLMT) that requires trailing parameters.
+    /// Case-insensitive so a case variant of the wire code cannot bypass the trailing fail-fast.
+    /// </summary>
+    private static bool RequiresTrailingParameters(string orderType) =>
+        orderType.Equals("TRAIL", StringComparison.OrdinalIgnoreCase) ||
+        orderType.Equals("TRAILLMT", StringComparison.OrdinalIgnoreCase);
 
     /// <inheritdoc />
     public async Task<Result<CancelOrderResponse>> CancelOrderAsync(
@@ -272,6 +309,9 @@ internal partial class OrderOperations : IOrderOperations
         string accountId, string orderId, OrderRequest order,
         CancellationToken cancellationToken = default)
     {
+        // Fail fast on caller error before opening a span/lock or touching the wire (§9.7).
+        ValidateOrder(order);
+
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.Modify");
         activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
         activity?.SetTag(LogFields.AccountId, accountId);
@@ -511,6 +551,8 @@ internal partial class OrderOperations : IOrderOperations
             IsSingleGroup = order.IsSingleGroup,
             OutsideRth = order.OutsideRth,
             ExtOperator = order.ExtOperator,
+            TrailingAmt = order.TrailingAmt,
+            TrailingType = order.TrailingType,
         };
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Replying to IBKR order question {ReplyId} with confirmed={Confirmed}")]

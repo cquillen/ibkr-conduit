@@ -202,6 +202,70 @@ public class OrderTests : IAsyncLifetime, IDisposable
         _harness.VerifyReauthenticationOccurred();
     }
 
+    [Fact]
+    public async Task PlaceOrder_TrailOrderWithParams_SubmitsAndSendsTrailingFields()
+    {
+        // Done-when: a fully-parameterized trailing order places through the facade and the trailing
+        // fields reach the wire. Fixture derived from the 2026-07-07 probe (order_id 261920143).
+        _harness.StubAuthenticatedPost(
+            "/v1/api/iserver/account/*/orders",
+            FixtureLoader.LoadBody("Orders", "POST-place-trail-order-submitted"));
+
+        var order = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "SELL",
+            Quantity = 1,
+            OrderType = "TRAIL",
+            Tif = "GTC",
+            TrailingAmt = 50m,
+            TrailingType = "amt",
+        };
+
+        var result = (await _harness.Client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken)).Value;
+
+        result.IsT0.ShouldBeTrue("Expected OrderSubmitted for a fully-parameterized TRAIL order");
+        result.AsT0.OrderId.ShouldBe("261920143");
+        result.AsT0.OrderStatus.ShouldBe("PreSubmitted");
+
+        var entries = _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/account/*/orders").UsingPost());
+        var body = entries.ShouldHaveSingleItem().RequestMessage.Body;
+        body.ShouldNotBeNull();
+        body.ShouldContain("\"trailingAmt\":50");
+        body.ShouldContain("\"trailingType\":\"amt\"");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task PlaceOrder_TrailOrderMissingParams_ThrowsBeforeAnyWireActivity()
+    {
+        // Done-when: a TRAIL request WITHOUT the parameters fails fast before any wire activity —
+        // zero POSTs reach the orders endpoint.
+        _harness.StubAuthenticatedPost(
+            "/v1/api/iserver/account/*/orders",
+            FixtureLoader.LoadBody("Orders", "POST-place-trail-order-submitted"));
+
+        var order = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "SELL",
+            Quantity = 1,
+            OrderType = "TRAIL",
+            Tif = "GTC",
+        };
+
+        await Should.ThrowAsync<ArgumentException>(
+            () => _harness.Client.Orders.PlaceOrderAsync(
+                "U1234567", order, TestContext.Current.CancellationToken));
+
+        _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/account/*/orders").UsingPost())
+            .Count.ShouldBe(0, "a TRAIL order missing its trailing params must fail before any wire activity");
+    }
+
     // --- Live Orders ---
 
     [Fact]
