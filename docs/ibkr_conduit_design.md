@@ -395,6 +395,17 @@ public interface IIbkrMarketDataApi
 
 ---
 
+### 6.5 Wire Fidelity and Field-Presence Semantics
+
+**[ADR-0001](adr/0001-nullable-as-presence-wire-fidelity.md).** IBKR's wire shapes are sparse and inconsistently typed: `sor` frames omit fields wholesale, REST rows send money fields as empty strings (live capture: `"price": ""` on a filled order, `recordings/priming/`), and status frames may omit boolean verdicts. The contract:
+
+- **A wire-optional field on a public DTO is nullable; `null` means "not present in (or not parseable from) this frame/row."** Streaming and REST alike.
+- The empty-string→`0` numeric coercion is reserved for genuinely non-optional counters — never money, quantity, or status/verdict fields the wire can omit.
+- No DTO fabricates a verdict from absence: an absent `authenticated`/`isPaper` is `null`, never `false`.
+- `[JsonExtensionData]` overflow bags remain the forward-compat net for *unmapped* keys; they do not substitute for presence semantics on mapped fields.
+
+---
+
 ## 7. Session Lifecycle Management
 
 ### 7.1 Session Initialization Sequence
@@ -464,6 +475,18 @@ The session manager must treat maintenance windows as expected operational event
 - Do not attempt aggressive reconnection during the window — wait and retry
 
 The CP Web API itself (non-brokerage endpoints) remains accessible during maintenance. Only `/iserver` endpoints are affected.
+
+---
+
+### 7.7 Competing Sessions and Health Evidence
+
+**[ADR-0004](adr/0004-competing-session-truth-and-health-evidence.md).** IBKR signals a lost compete or failed brokerage-bridge bring-up as HTTP 200 with `authenticated=false` on `ssodh/init`, and relays competing status on the `sts` topic. The contract:
+
+- A 200 `ssodh/init` with `authenticated=false` is a **failed** init/reauth; the surfaced error carries `IsCompeting=true` when the response or tickle/`sts` evidence reports competition.
+- `SessionHealthState` is fed from server responses, never literals; competing evidence is not overwritten by reauth.
+- With `Compete=false` and a competing session observed, re-authentication backs off rather than looping.
+- `sts` competing/fail evidence surfaces on `SessionStatusEvent` (shaped per §6.5) and feeds health state.
+- **Tickle successes are liveness evidence:** an initialized, tickling session is healthy while consumer-idle; consumer-call staleness alone is not Unhealthy.
 
 ---
 
@@ -657,6 +680,16 @@ The CP Web API does not support native multi-leg combo orders. Legs must be subm
 
 ---
 
+### 9.9 Order Outcome Classification and 401 Replay
+
+**[ADR-0003](adr/0003-order-post-replay-gate.md).** The order path guarantees the outcome trichotomy — definitively transmitted / definitively refused / **ambiguous** — and never converts ambiguity into a silent retry:
+
+- **Order-mutating POSTs (place, modify, reply) are excluded from automatic 401 replay.** Re-auth still happens; the call surfaces a dedicated ambiguous-outcome error ("sent, outcome unknown — reconcile before resubmitting"). Idempotent requests (GET, DELETE cancel) keep replay.
+- Whether IBKR can process an order POST and then 401 is unpinned in either direction (findings AMB-2); this design is safe under both answers and does not depend on pinning it.
+- Every 2xx order-path response routes through `ResultFactory.FromResponse` classification (including reply); unrecognized-but-plausible 200 shapes classify as refusals carrying the raw body; a 2xx body that fails typed deserialization surfaces as a classified error, never a raw exception.
+
+---
+
 ## 10. Order History and Reconciliation Data
 
 ### 10.1 The Session-Scoped Order History Problem
@@ -705,6 +738,15 @@ IbkrConduit surfaces the necessary APIs. A consuming application performing star
 4. Reconcile against internal state
 
 This sequence handles arbitrarily long outages. The flex query for open orders is the only reliable way to enumerate working GTC orders across session boundaries.
+
+---
+
+### 10.6 Live-Orders Priming Surface
+
+`GET /iserver/account/orders` is unprimed on first call — `{"orders":[],"snapshot":false}` even when orders exist — and reprimes on a follow-up call; `force=true` clears cached state and itself returns a blank array. All three shapes are pinned by live captures (`recordings/orders/001-002`, `recordings/priming/001-003` — local captures per the `recordings/` convention, carried into committed WireMock fixtures; the latter showing a *filtered* call returning fake-empty while cancelled orders demonstrably exist). The captured spec (docs/ibkr-web-api-spec.md:4150) further warns that filtered calls suppress `sor` order-detail frames until a `force=true` follow-up — documented, not independently observable on demand. The contract (operator-decided 2026-07-07, implemented by VCR-05):
+
+- **`GetLiveOrdersAsync` returns a record carrying the orders and `IsSnapshot`** so primedness is consumer-visible; an unprimed empty response is distinguishable from "no orders."
+- **After any filtered call, the library itself issues the `force=true` follow-up** (the library-owns-quirks rule, `.claude/rules/architecture.md`) — defensive against the documented `sor` suppression whether or not it manifests.
 
 ---
 
@@ -883,6 +925,17 @@ WebSocket connections can drop due to network issues, maintenance windows, or to
 ### 12.7 Market Data Pre-flight — WebSocket vs REST
 
 The pre-flight requirement (first request returns no data) applies to the REST snapshot endpoint (`/iserver/marketdata/snapshot`). WebSocket market data subscriptions (`smd+`) do not require a pre-flight — data flows immediately on subscription.
+
+---
+
+### 12.8 Delivery Guarantees and Backpressure
+
+**[ADR-0002](adr/0002-streaming-delivery-guarantee.md).** The streaming surface promises **at-most-once per subscriber, loss-is-observable**:
+
+- Per-subscriber channels are bounded (`StreamingBufferSize`, default 2048) with `DropOldest` overflow — a stalled consumer never back-pressures the shared socket receive loop.
+- **No silent loss:** every eviction, mapper drop, or observer failure emits a Warning log and increments a dropped-frames counter tagged tenant + wire topic (by cause).
+- Reconnect/gap transitions are consumer-observable (connection-lifecycle events with replayed topics) so consumers can trigger REST reconciliation deterministically.
+- `IIbkrSubscription<T>.Stream` is **single-observer**: a second concurrent `Subscribe` throws `InvalidOperationException`.
 
 ---
 
