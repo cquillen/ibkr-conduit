@@ -410,6 +410,7 @@ public class IbkrClientTests
 
         public bool IsConnected => false;
         public DateTimeOffset? LastMessageReceivedAt => null;
+        public IIbkrSubscription<ConnectionEvent> SubscribeConnectionEvents() => EmptySubscription<ConnectionEvent>();
         public IIbkrSubscription<SessionStatusEvent> SubscribeSessionStatus() => EmptySubscription<SessionStatusEvent>();
         public IIbkrSubscription<BulletinEvent> SubscribeBulletins() => EmptySubscription<BulletinEvent>();
         public IIbkrSubscription<NotificationEvent> SubscribeTradingNotifications() => EmptySubscription<NotificationEvent>();

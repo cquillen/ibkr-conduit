@@ -49,6 +49,7 @@ public class DiagnosticsTests
         LogFields.PollCount.ShouldNotBeNullOrWhiteSpace();
         LogFields.Trigger.ShouldNotBeNullOrWhiteSpace();
         LogFields.Topic.ShouldNotBeNullOrWhiteSpace();
+        LogFields.Cause.ShouldNotBeNullOrWhiteSpace();
         LogFields.QueryId.ShouldNotBeNullOrWhiteSpace();
         LogFields.Attempt.ShouldNotBeNullOrWhiteSpace();
         LogFields.Cached.ShouldNotBeNullOrWhiteSpace();
@@ -74,6 +75,7 @@ public class DiagnosticsTests
         LogFields.PollCount.ShouldStartWith("ibkr.");
         LogFields.Trigger.ShouldStartWith("ibkr.");
         LogFields.Topic.ShouldStartWith("ibkr.");
+        LogFields.Cause.ShouldStartWith("ibkr.");
         LogFields.QueryId.ShouldStartWith("ibkr.");
         LogFields.Attempt.ShouldStartWith("ibkr.");
         LogFields.Cached.ShouldStartWith("ibkr.");

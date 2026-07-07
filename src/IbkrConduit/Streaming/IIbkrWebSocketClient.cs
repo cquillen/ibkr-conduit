@@ -63,4 +63,15 @@ internal interface IIbkrWebSocketClient : IAsyncDisposable
     /// local teardown only (no wire cancel is sent for unsolicited topics).
     /// </returns>
     (ChannelReader<JsonElement> Reader, Func<CancellationToken, ValueTask> Unsubscribe) RegisterUnsolicitedTopic(string topicPrefix);
+
+    /// <summary>
+    /// Registers a subscriber for consumer-visible connection-lifecycle events
+    /// (<see cref="ConnectionDisconnected"/> / <see cref="ConnectionReconnected"/>). The events are
+    /// broadcast to every registered subscriber and are never dropped under overflow.
+    /// </summary>
+    /// <returns>
+    /// A tuple of the channel reader and an asynchronous unsubscribe delegate that removes this
+    /// subscriber and completes its channel (local teardown only; no wire message).
+    /// </returns>
+    (ChannelReader<ConnectionEvent> Reader, Func<CancellationToken, ValueTask> Unsubscribe) RegisterConnectionEvents();
 }

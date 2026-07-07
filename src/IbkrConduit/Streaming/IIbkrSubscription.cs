@@ -7,7 +7,13 @@ namespace IbkrConduit.Streaming;
 /// <typeparam name="T">The type of items emitted by the subscription.</typeparam>
 public interface IIbkrSubscription<out T> : IAsyncDisposable
 {
-    /// <summary>The live stream of items for this subscription.</summary>
+    /// <summary>
+    /// The live stream of items for this subscription. <strong>Single-observer:</strong> a second
+    /// concurrent <see cref="IObservable{T}.Subscribe"/> on this stream throws
+    /// <see cref="System.InvalidOperationException"/> rather than silently splitting delivery across
+    /// two competing readers (ADR-0002). Dispose the first subscription before subscribing again, or
+    /// fan out to multiple consumers in your own code.
+    /// </summary>
     IObservable<T> Stream { get; }
 
     /// <summary>

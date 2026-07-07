@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Diagnostics;
 using IbkrConduit.Streaming;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -638,10 +639,49 @@ public class StreamingOperationsTests
         evt.IsPaper.ShouldBeNull();
     }
 
+    [Fact]
+    public async Task SubscribeConnectionEvents_ServerPublishesEvents_SurfacesThroughStream()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var sub = ops.SubscribeConnectionEvents();
+        var received = new System.Collections.Generic.List<ConnectionEvent>();
+        var done = new TaskCompletionSource();
+        using var s = sub.Stream.Subscribe(new TestObserver<ConnectionEvent>(
+            onNext: e =>
+            {
+                received.Add(e);
+                if (received.Count == 2)
+                {
+                    done.TrySetResult();
+                }
+            }));
+
+        var now = DateTimeOffset.UtcNow;
+        await wsClient.ConnectionEvents.Writer.WriteAsync(new ConnectionDisconnected(now, "server_close"), ct);
+        await wsClient.ConnectionEvents.Writer.WriteAsync(new ConnectionReconnected(now, new[] { "sor", "str" }), ct);
+
+        await done.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        received[0].ShouldBeOfType<ConnectionDisconnected>().Reason.ShouldBe("server_close");
+        received[1].ShouldBeOfType<ConnectionReconnected>().ReplayedTopics.ShouldBe(new[] { "sor", "str" });
+    }
+
+    [Fact]
+    public void SubscribeConnectionEvents_SecondSubscribe_ThrowsInvalidOperationException()
+    {
+        var (ops, _) = CreateOperations();
+        var sub = ops.SubscribeConnectionEvents();
+
+        using var first = sub.Stream.Subscribe(new TestObserver<ConnectionEvent>());
+
+        Should.Throw<InvalidOperationException>(() => sub.Stream.Subscribe(new TestObserver<ConnectionEvent>()));
+    }
+
     private static (StreamingOperations Operations, FakeWebSocketClient Client) CreateOperations()
     {
         var wsClient = new FakeWebSocketClient();
-        var ops = new StreamingOperations(wsClient, NullLoggerFactory.Instance);
+        var ops = new StreamingOperations(wsClient, NullLoggerFactory.Instance, new StreamingMetrics(new TenantContext("test")));
         return (ops, wsClient);
     }
 
@@ -686,6 +726,11 @@ public class StreamingOperationsTests
                 _ => System.Threading.Channels.Channel.CreateUnbounded<JsonElement>());
             return (channel.Reader, _ => ValueTask.CompletedTask);
         }
+
+        public Channel<ConnectionEvent> ConnectionEvents { get; } = System.Threading.Channels.Channel.CreateUnbounded<ConnectionEvent>();
+
+        public (ChannelReader<ConnectionEvent> Reader, Func<CancellationToken, ValueTask> Unsubscribe) RegisterConnectionEvents() =>
+            (ConnectionEvents.Reader, _ => ValueTask.CompletedTask);
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

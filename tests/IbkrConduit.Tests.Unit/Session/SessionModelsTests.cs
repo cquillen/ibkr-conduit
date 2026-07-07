@@ -112,7 +112,8 @@ public class SessionModelsTests
         options.Compete.ShouldBeTrue();
         options.SuppressMessageIds.ShouldBeEmpty();
         options.WebSocketHeartbeatIntervalSeconds.ShouldBe(30);
-        options.StreamingBufferSize.ShouldBe(256);
+        // ADR-0002 / VCR-02: default raised 256 -> 2048 (256 too tight for burst replay).
+        options.StreamingBufferSize.ShouldBe(2048);
         options.TickleFailureIntervalSeconds.ShouldBe(5);
     }
 
