@@ -16,12 +16,19 @@ internal static class RateLimitingAndResilienceRegistration
     /// </summary>
     public static void Register(IServiceCollection services)
     {
-        var globalRateLimiter = CreateGlobalRateLimiter();
-        var endpointRateLimiters = CreateEndpointRateLimiters();
-
         services.TryAddSingleton<ISharedRateGovernor, NoOpSharedRateGovernor>();
-        services.AddSingleton<RateLimiter>(globalRateLimiter);
-        services.AddSingleton<IReadOnlyDictionary<string, RateLimiter>>(endpointRateLimiters);
+
+        // Register via factory lambdas so the DI container OWNS these limiters and disposes them
+        // (stopping their AutoReplenishment timers) when the tenant provider is disposed. A
+        // pre-built instance passed to AddSingleton would never be disposed by MS.DI, leaking a
+        // live replenishment timer per tenant remove/re-add cycle (VCR-09 / MGR-5).
+        services.AddSingleton<RateLimiter>(_ => CreateGlobalRateLimiter());
+
+        // The endpoint dictionary itself is not IDisposable, so a container-owned holder disposes
+        // each endpoint limiter within it.
+        services.AddSingleton(_ => new EndpointRateLimiters(CreateEndpointRateLimiters()));
+        services.AddSingleton<IReadOnlyDictionary<string, RateLimiter>>(
+            sp => sp.GetRequiredService<EndpointRateLimiters>().Limiters);
     }
 
     /// <summary>

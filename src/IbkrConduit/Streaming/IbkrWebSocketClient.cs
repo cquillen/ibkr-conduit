@@ -65,6 +65,12 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly HashSet<string> _loggedOverflowTopics = [];
     private readonly object _overflowLogLock = new();
 
+    // Per-tenant Meter that owns the connection_state gauge. It shares the public meter name so
+    // consumers subscribing to "IbkrConduit" still see the gauge, but is instance-scoped and
+    // disposed with this client — so add/remove churn accumulates no stale gauges pinning disposed
+    // clients alive and reporting 0 forever (VCR-09 / FIL-7). No static mutable state.
+    private readonly Meter _connectionStateMeter;
+
     private IWebSocketAdapter? _webSocket;
     private CancellationTokenSource? _heartbeatCts;
     private CancellationTokenSource? _messagePumpCts;
@@ -123,9 +129,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         _timeProvider = timeProvider ?? TimeProvider.System;
         _resolvedWebSocketBaseUrl = webSocketBaseUrl ?? _webSocketBaseUrl;
 
-        IbkrConduitDiagnostics.Meter.CreateObservableGauge(
+        _connectionStateMeter = new Meter(IbkrConduitDiagnostics.MeterName);
+        _connectionStateMeter.CreateObservableGauge(
             "ibkr.conduit.websocket.connection_state",
-            () => _webSocket is { State: WebSocketState.Open } ? 1 : 0);
+            ObserveConnectionState);
 
         _notifierSubscription = _notifier.Subscribe(OnSessionRefreshedAsync);
         _tickleWatchdogSubscription = _notifier.SubscribeTickleSucceeded(OnTickleSucceededAsync);
@@ -338,6 +345,23 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         }
     }
 
+    /// <summary>
+    /// Observes the connection_state gauge: 1 when the socket is open, 0 otherwise, stamped with
+    /// the tenant id. After disposal it yields no measurement — the gauge falls silent rather than
+    /// reporting 0 forever for a disposed client (FIL-7).
+    /// </summary>
+    private IEnumerable<Measurement<int>> ObserveConnectionState()
+    {
+        if (_disposed)
+        {
+            yield break;
+        }
+
+        yield return new Measurement<int>(
+            _webSocket is { State: WebSocketState.Open } ? 1 : 0,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
+    }
+
     /// <summary>Broadcasts a connection-lifecycle event to every registered connection-event subscriber.</summary>
     private void PublishConnectionEvent(ConnectionEvent connectionEvent)
     {
@@ -404,6 +428,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         _connectLock.Dispose();
         _disposeCts.Dispose();
+
+        // Dispose the per-tenant Meter last so the connection_state gauge is removed with the
+        // client — its callback is already disposal-gated above (FIL-7).
+        _connectionStateMeter.Dispose();
     }
 
     private async Task ConnectCoreAsync(CancellationToken cancellationToken)
