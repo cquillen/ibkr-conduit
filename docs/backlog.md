@@ -99,7 +99,7 @@ Implements ADR-0003: order-mutating POSTs excluded from automatic 401 replay, su
 **TDD notes:** red tests = AMB-2/3/4 + WIR-4 suggested regression tests as DI-stack WireMock scenarios; 401-recovery tests updated to the gate semantics.
 
 #### VCR-05 — 📦 Live-orders priming & filters/sor interaction
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #245 · **Stream:** VCR · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-05-live-orders-priming.md
 Implements design doc §10.6: `GetLiveOrdersAsync` returns `LiveOrdersSnapshot(Orders, IsSnapshot)` so an unprimed empty response is distinguishable from "no orders"; the library auto-issues the `force=true` follow-up after any filtered call (library-owns-quirks); fixtures/tests stop enshrining the unprimed shape as canonical (findings GAP1-1 high, GAP1-2 high, GAP1-3). Evidence: the `recordings/orders/001-002` and 2026-07-07 `recordings/priming/001-003` live captures (local; fixtures carry the shapes). **Breaking — `feat!:`.**
