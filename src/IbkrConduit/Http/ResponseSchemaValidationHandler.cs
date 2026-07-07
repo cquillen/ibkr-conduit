@@ -108,60 +108,49 @@ internal sealed partial class ResponseSchemaValidationHandler : DelegatingHandle
             return;
         }
 
-        // For collection responses, validate the first element
-        if (dtoInfo.IsCollection && jsonElement.ValueKind == JsonValueKind.Array)
+        var knownFields = new HashSet<string>(fieldMap.FieldNames, StringComparer.Ordinal);
+
+        // WIR-5 (1): validate EVERY element of a collection body, not just element[0] — a field
+        // missing/renamed on a later element (e.g. price on trade #5 of a trades list) is invisible
+        // if only the first element is checked. Endpoint payloads are bounded (live-orders caps at
+        // 1000), so full-collection validation is safe. Extra/missing findings are unioned across all
+        // elements and reported once so a drift on N elements is one signal, not N.
+        var extraFields = new HashSet<string>(StringComparer.Ordinal);
+        var missingFields = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var element in EnumerateValidationTargets(jsonElement, dtoInfo))
         {
-            if (jsonElement.GetArrayLength() == 0)
+            if (element.ValueKind != JsonValueKind.Object)
             {
-                return;
+                continue;
             }
 
-            jsonElement = jsonElement[0];
-        }
-
-        // For dictionary responses, validate the first value
-        if (dtoInfo.IsDictionary && jsonElement.ValueKind == JsonValueKind.Object)
-        {
-            using var enumerator = jsonElement.EnumerateObject();
-            if (!enumerator.MoveNext())
+            var responseFields = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var prop in element.EnumerateObject())
             {
-                return;
+                responseFields.Add(prop.Name);
             }
 
-            jsonElement = enumerator.Current.Value;
-
-            // Handle Dictionary<string, List<T>> -- get first element of the array
-            if (jsonElement.ValueKind == JsonValueKind.Array)
+            // Extra fields: in response but not in the DTO. WIR-5 (2): run this even when the DTO has
+            // [JsonExtensionData] — an extension-data DTO silently absorbs a renamed field into its
+            // AdditionalData bag, so without this diff a rename is invisible in that direction.
+            foreach (var field in responseFields)
             {
-                if (jsonElement.GetArrayLength() == 0)
+                if (!knownFields.Contains(field))
                 {
-                    return;
+                    extraFields.Add(field);
                 }
+            }
 
-                jsonElement = jsonElement[0];
+            // Missing fields: on the DTO but not in the response (only required, non-optional fields).
+            foreach (var field in fieldMap.FieldNames)
+            {
+                if (!responseFields.Contains(field) && !fieldMap.IsOptional(field))
+                {
+                    missingFields.Add(field);
+                }
             }
         }
-
-        if (jsonElement.ValueKind != JsonValueKind.Object)
-        {
-            return;
-        }
-
-        var responseFields = new HashSet<string>();
-        foreach (var prop in jsonElement.EnumerateObject())
-        {
-            responseFields.Add(prop.Name);
-        }
-
-        // Extra fields: in response but not in DTO (skip if DTO has [JsonExtensionData])
-        var extraFields = fieldMap.HasExtensionData
-            ? []
-            : responseFields.Except(fieldMap.FieldNames).ToList();
-
-        // Missing fields: on DTO but not in response (only required fields)
-        var missingFields = fieldMap.FieldNames
-            .Where(f => !responseFields.Contains(f) && !fieldMap.IsOptional(f))
-            .ToList();
 
         if (extraFields.Count == 0 && missingFields.Count == 0)
         {
@@ -170,11 +159,54 @@ internal sealed partial class ResponseSchemaValidationHandler : DelegatingHandle
 
         if (_options.StrictResponseValidation)
         {
-            throw new IbkrSchemaViolationException(path, dtoInfo.DtoType, extraFields, missingFields);
+            throw new IbkrSchemaViolationException(
+                path, dtoInfo.DtoType, extraFields.ToList(), missingFields.ToList());
         }
 
         LogSchemaMismatch(path, dtoInfo.DtoType.Name,
             string.Join(", ", extraFields), string.Join(", ", missingFields));
+    }
+
+    /// <summary>
+    /// Yields every JSON object that should be validated against the endpoint's DTO. A collection
+    /// body yields all of its array elements; a dictionary body yields all of its values (and, for a
+    /// <c>Dictionary&lt;string, List&lt;T&gt;&gt;</c>, all elements of every value array); a plain
+    /// object yields itself. Empty arrays yield nothing (skip validation).
+    /// </summary>
+    private static IEnumerable<JsonElement> EnumerateValidationTargets(JsonElement root, EndpointDtoInfo dtoInfo)
+    {
+        if (dtoInfo.IsDictionary && root.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in root.EnumerateObject())
+            {
+                var value = prop.Value;
+                if (dtoInfo.IsCollection && value.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var element in value.EnumerateArray())
+                    {
+                        yield return element;
+                    }
+                }
+                else
+                {
+                    yield return value;
+                }
+            }
+
+            yield break;
+        }
+
+        if (dtoInfo.IsCollection && root.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var element in root.EnumerateArray())
+            {
+                yield return element;
+            }
+
+            yield break;
+        }
+
+        yield return root;
     }
 
     [LoggerMessage(

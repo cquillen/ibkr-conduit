@@ -235,4 +235,77 @@ public class TradeExecutionMapperTests
         executions.ShouldBeEmpty();
         dropped.Count.ShouldBe(2);
     }
+
+    [Fact]
+    public void MapMany_FrameMissingSize_ReportsSizeToCensus()
+    {
+        // WIR-5: a str execution frame that omits a required money field (size) raises the
+        // required-money-field census signal so wire drift on the primary fill path is observable,
+        // even though the fill is still delivered (with Size=null per ADR-0001).
+        var frame = JsonDocument.Parse(
+            """{"topic":"str","args":[{"execution_id":"x","price":"150.25"}]}""").RootElement;
+
+        var absent = new List<string>();
+        var execution = TradeExecutionMapper.MapMany(frame, onRequiredMoneyFieldAbsent: absent.Add).Single();
+
+        execution.Size.ShouldBeNull();
+        absent.ShouldContain("size");
+        absent.ShouldNotContain("price");
+    }
+
+    [Fact]
+    public void MapMany_FrameMissingPrice_ReportsPriceToCensus()
+    {
+        var frame = JsonDocument.Parse(
+            """{"topic":"str","args":[{"execution_id":"x","size":100}]}""").RootElement;
+
+        var absent = new List<string>();
+        TradeExecutionMapper.MapMany(frame, onRequiredMoneyFieldAbsent: absent.Add).ToList();
+
+        absent.ShouldContain("price");
+        absent.ShouldNotContain("size");
+    }
+
+    [Fact]
+    public void MapMany_FrameWithSizeAndPrice_ReportsNoCensus()
+    {
+        var frame = JsonDocument.Parse(
+            """{"topic":"str","args":[{"execution_id":"x","size":100,"price":"150.25"}]}""").RootElement;
+
+        var absent = new List<string>();
+        TradeExecutionMapper.MapMany(frame, onRequiredMoneyFieldAbsent: absent.Add).ToList();
+
+        absent.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void MapMany_EmptyStringMoneyFieldsPresent_ReportsNoCensus()
+    {
+        // Present-but-empty (size:"" / price:"") is presence, not absence — the census fires only
+        // on a field the wire omits entirely (the drift signal), never on an empty value that
+        // ADR-0001 preserves as null. Without this, every market order would false-census.
+        var frame = JsonDocument.Parse(
+            """{"topic":"str","args":[{"execution_id":"x","size":"","price":""}]}""").RootElement;
+
+        var absent = new List<string>();
+        TradeExecutionMapper.MapMany(frame, onRequiredMoneyFieldAbsent: absent.Add).Single();
+
+        absent.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void MapMany_MalformedElement_NotCensused()
+    {
+        // A dropped (malformed) element is already counted as a mapper drop; it must not also raise
+        // a census signal — the two taxonomies are distinct and must not double-count one element.
+        var frame = JsonDocument.Parse(
+            """{"topic":"str","args":[{"execution_id":"bad","conid":"garbage-object"}]}""").RootElement;
+
+        var absent = new List<string>();
+        var executions = TradeExecutionMapper.MapMany(
+            frame, onElementDropped: _ => { }, onRequiredMoneyFieldAbsent: absent.Add).ToList();
+
+        executions.ShouldBeEmpty();
+        absent.ShouldBeEmpty();
+    }
 }

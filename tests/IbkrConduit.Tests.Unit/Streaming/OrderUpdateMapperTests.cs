@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using IbkrConduit.Streaming;
@@ -113,5 +114,47 @@ public class OrderUpdateMapperTests
         var frame = JsonDocument.Parse("""{"topic":"sor","args":{"orderId":1}}""").RootElement;
 
         OrderUpdateMapper.MapMany(frame).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void MapMany_StatusBearingFrameMissingPrice_ReportsPriceToCensus()
+    {
+        // WIR-5: a status-bearing sor frame (a full order-state frame, not a bare sparse delta)
+        // that omits a required money field raises the census signal so wire drift is observable,
+        // even though the order is still delivered (with Price=null per ADR-0001).
+        var frame = JsonDocument.Parse(
+            """{"topic":"sor","args":[{"orderId":1,"status":"Submitted","totalSize":100}]}""").RootElement;
+
+        var absent = new List<string>();
+        OrderUpdateMapper.MapMany(frame, absent.Add).ToList();
+
+        absent.ShouldContain("price");
+        absent.ShouldNotContain("totalSize");
+    }
+
+    [Fact]
+    public void MapMany_SparseIdentityDelta_ReportsNoCensus()
+    {
+        // ADR-0001: a sor delta omits fields wholesale. A bare identity delta (no status) legitimately
+        // carries no money fields, so it must NOT raise a false census signal on every normal delta.
+        var frame = JsonDocument.Parse(_realOrderFrame).RootElement;
+
+        var absent = new List<string>();
+        OrderUpdateMapper.MapMany(frame, absent.Add).ToList();
+
+        absent.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void MapMany_StatusBearingFrameWithMoneyFields_ReportsNoCensus()
+    {
+        // The real market-order snapshot carries status + totalSize + price:"" (present-but-empty);
+        // presence is presence, so a well-formed order-state frame raises no census.
+        var frame = JsonDocument.Parse(_realMarketOrderFrame).RootElement;
+
+        var absent = new List<string>();
+        OrderUpdateMapper.MapMany(frame, absent.Add).ToList();
+
+        absent.ShouldBeEmpty();
     }
 }

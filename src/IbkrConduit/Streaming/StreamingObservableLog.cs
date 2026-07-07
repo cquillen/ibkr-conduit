@@ -31,4 +31,16 @@ internal static partial class StreamingObservableLog
     /// <param name="exception">The observer exception.</param>
     [LoggerMessage(Level = LogLevel.Warning, Message = "Observer threw handling a {Topic} frame; tearing down the subscription via OnError: {Message}")]
     public static partial void LogObserverError(this ILogger logger, string topic, string message, Exception exception);
+
+    /// <summary>
+    /// Logs that a delivered <paramref name="topic"/> frame omitted a required money field (WIR-5).
+    /// The frame is still delivered (the field is <c>null</c> per ADR-0001); this census signal makes
+    /// an IBKR wire-shape drift on a money field observable rather than silent. Paired with the
+    /// <c>ibkr.conduit.streaming.money_field.absent</c> counter.
+    /// </summary>
+    /// <param name="logger">The logger to write to.</param>
+    /// <param name="topic">The wire topic prefix the frame belonged to.</param>
+    /// <param name="field">The wire name of the required money field that was absent.</param>
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A {Topic} frame omitted required money field '{Field}' — still delivered as null (possible wire-shape drift)")]
+    public static partial void LogMissingMoneyField(this ILogger logger, string topic, string field);
 }
