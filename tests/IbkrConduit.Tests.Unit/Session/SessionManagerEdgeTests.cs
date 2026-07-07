@@ -140,14 +140,16 @@ public class SessionManagerEdgeTests
     }
 
     [Fact]
-    public async Task ScheduleProactiveRefresh_NearZeroExpiry_SkipsScheduling()
+    public async Task ScheduleProactiveRefresh_AlreadyDueExpiry_RefreshesImmediately()
     {
         var deps = CreateDependencies();
-        // Token expires in 30 minutes — less than the 1-hour buffer, so
-        // timeUntilRefresh = 30m - 1h = -30m <= 0, proactive refresh skipped
+        // Token expires in 30 minutes — inside the 1-hour refresh margin, so
+        // timeUntilRefresh = 30m - 1h = -30m < 0. Per SES-5 the token is already
+        // due and must refresh immediately instead of being silently skipped and
+        // left to run to expiry. (The refreshed token is 24h out, so it fires once.)
         deps.TokenProvider.TokenExpiry = DateTimeOffset.UtcNow.AddMinutes(30);
 
-        var manager = new SessionManager(
+        await using var manager = new SessionManager(
             deps.TokenProvider,
             deps.TickleTimerFactory,
             deps.SessionApi,
@@ -159,12 +161,15 @@ public class SessionManagerEdgeTests
 
         await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
 
-        // Dispose immediately — should succeed without errors from proactive refresh
-        await manager.DisposeAsync();
+        // The immediate proactive refresh runs on a background task; poll until it fires.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (deps.TokenProvider.RefreshCallCount == 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20, TestContext.Current.CancellationToken);
+        }
 
-        // Token was acquired but no proactive refresh fired (no RefreshAsync call)
-        deps.TokenProvider.GetCallCount.ShouldBe(1);
-        deps.TokenProvider.RefreshCallCount.ShouldBe(0);
+        deps.TokenProvider.RefreshCallCount.ShouldBeGreaterThanOrEqualTo(1,
+            "An already-due token must refresh immediately instead of being skipped.");
     }
 
     [Fact]
