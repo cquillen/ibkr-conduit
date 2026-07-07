@@ -1,5 +1,7 @@
 # Money-Boundary Hardening Backlog (Stream MBH)
 
+> **RETIRED 2026-07-07 — superseded by [Stream VCR](backlog.md) (operator decision).** This pre-pipeline tracker was drafted before the backlog pipeline (PR #235) existed. The same findings were independently re-decomposed and groomed through the pipeline as **Stream VCR** in [docs/backlog.md](backlog.md) (PR #236: VCR-01..11 loop-ready + VCR-12 deferred, ADR-0001..0004, design doc §6.5/§7.7/§9.9/§10.6/§12.8), which is now the **only** buildable tracker for this work. **No MBH task was ever started** (all 14 were Not Started at retirement) — nothing was migrated. Retained unchanged below as history; do not build from it, do not update its statuses.
+
 Fix stream for the money-boundary defects found by the
 [2026-07-04 RTOS venue-consumer review](findings/2026-07-04-rtos-venue-consumer-review.md)
 (33 adversarially verified + 4 unverified findings). Design spec:
