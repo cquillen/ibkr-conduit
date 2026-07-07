@@ -83,3 +83,25 @@ public record IbkrHiddenError(
     string? RawBody,
     string? RequestPath)
     : IbkrError(HttpStatusCode.OK, Message, RawBody, RequestPath);
+
+/// <summary>
+/// Ambiguous order outcome — an order-mutating POST (place, modify, or reply) received a 401 and was
+/// deliberately <b>not</b> replayed (ADR-0003, design doc §9.9). The request was transmitted; whether
+/// IBKR processed it is unknown. The library never silently re-sends an order-mutating POST after a
+/// 401, because a replay could double-submit a live order.
+/// <para>
+/// <b>Consumer obligation:</b> treat this as "sent — outcome unknown" (never as a definitive refusal).
+/// Reconcile via <c>GetLiveOrdersAsync</c> / <c>GetTradesAsync</c> (matching on your <c>cOID</c>) before
+/// resubmitting. <c>StatusCode</c> is the status of the original response (401);
+/// <c>RequestPath</c> is the order endpoint; <see cref="ReauthSucceeded"/> reports whether
+/// the re-authentication triggered by the 401 succeeded.
+/// </para>
+/// </summary>
+[ExcludeFromCodeCoverage]
+public record IbkrAmbiguousOrderError(
+    HttpStatusCode? StatusCode,
+    string? Message,
+    string? RawBody,
+    string? RequestPath,
+    bool ReauthSucceeded)
+    : IbkrError(StatusCode, Message, RawBody, RequestPath);
