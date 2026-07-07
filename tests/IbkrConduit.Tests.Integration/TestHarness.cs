@@ -42,20 +42,23 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
     /// <param name="configureOptions">Optional callback to customize client options (e.g., TickleIntervalSeconds).</param>
     /// <param name="tokenExpiryHours">How many hours until the mock LST expires. Default 24.</param>
     /// <param name="configureServices">Optional callback to customize the DI container before building (e.g., replace resilience pipeline).</param>
+    /// <param name="ssodhInitResponseBody">Optional override for the ssodh/init response body — used to drive the ADR-0004 authenticated=false / competing paths. Defaults to a fully-authenticated body.</param>
     public static Task<TestHarness> CreateAsync(
         Action<IbkrClientOptions>? configureOptions = null,
         double tokenExpiryHours = 24,
-        Action<IServiceCollection>? configureServices = null)
+        Action<IServiceCollection>? configureServices = null,
+        string? ssodhInitResponseBody = null)
     {
         var harness = new TestHarness();
-        harness.Initialize(configureOptions, tokenExpiryHours, configureServices);
+        harness.Initialize(configureOptions, tokenExpiryHours, configureServices, ssodhInitResponseBody);
         return Task.FromResult(harness);
     }
 
     private void Initialize(
         Action<IbkrClientOptions>? configureOptions = null,
         double tokenExpiryHours = 24,
-        Action<IServiceCollection>? configureServices = null)
+        Action<IServiceCollection>? configureServices = null,
+        string? ssodhInitResponseBody = null)
     {
         _credentials = TestCredentials.Create();
 
@@ -75,7 +78,8 @@ public sealed class TestHarness : IAsyncDisposable, IDisposable
                 Response.Create()
                     .WithStatusCode(200)
                     .WithHeader("Content-Type", "application/json")
-                    .WithBody("""{"authenticated":true,"competing":false,"connected":true,"passed":true,"established":true}"""));
+                    .WithBody(ssodhInitResponseBody
+                        ?? """{"authenticated":true,"competing":false,"connected":true,"passed":true,"established":true}"""));
 
         // Stub logout (called during dispose — prevents error noise in test output)
         Server.Given(

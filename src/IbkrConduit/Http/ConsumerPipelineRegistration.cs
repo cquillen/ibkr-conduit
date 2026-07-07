@@ -99,6 +99,7 @@ internal static class ConsumerPipelineRegistration
             .AddHttpMessageHandler(sp =>
                 new TokenRefreshHandler(
                     sp.GetRequiredService<ISessionManager>(),
+                    sp.GetRequiredService<SessionHealthState>(),
                     sp.GetRequiredService<ILogger<TokenRefreshHandler>>()))
             .AddHttpMessageHandler(sp =>
                 new ResponseSchemaValidationHandler(

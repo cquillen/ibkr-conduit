@@ -41,6 +41,20 @@ internal sealed partial class SessionManager : ISessionManager
     /// <summary>Ceiling for the exponential proactive-refresh retry backoff.</summary>
     private static readonly TimeSpan _proactiveRefreshRetryMaxBackoff = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Initial spacing between re-auth attempts once a competing session is observed with
+    /// <see cref="IbkrClientOptions.Compete"/> false (ADR-0004). Without this, a lost compete has the
+    /// tickle loop re-firing re-auth every failure interval (~5 s) — two <c>Compete=true</c> processes
+    /// ping-pong the session. The spacing grows exponentially up to <see cref="_competeReauthMaxBackoff"/>.
+    /// </summary>
+    private static readonly TimeSpan _competeReauthInitialBackoff = TimeSpan.FromSeconds(5);
+
+    /// <summary>Ceiling for the exponential compete-backoff spacing between re-auth attempts.</summary>
+    private static readonly TimeSpan _competeReauthMaxBackoff = TimeSpan.FromMinutes(5);
+
+    /// <summary>Path reported on the session error raised when ssodh/init returns <c>authenticated=false</c>.</summary>
+    private const string _ssodhInitPath = "/v1/api/iserver/auth/ssodh/init";
+
     private readonly ISessionTokenProvider _sessionTokenProvider;
     private readonly ITickleTimerFactory _tickleTimerFactory;
     private readonly IIbkrSessionApi _sessionApi;
@@ -78,6 +92,20 @@ internal sealed partial class SessionManager : ISessionManager
     private ITickleTimer? _tickleTimer;
     private CancellationTokenSource? _proactiveRefreshCts;
     private LiveSessionToken? _currentLst;
+
+    /// <summary>
+    /// Current compete-backoff spacing. Grows exponentially each time a re-auth observes a competing
+    /// session under <c>Compete=false</c>; reset to <see cref="_competeReauthInitialBackoff"/> on a
+    /// successful re-auth. Mutated only under <see cref="_semaphore"/>.
+    /// </summary>
+    private TimeSpan _competeReauthBackoff = _competeReauthInitialBackoff;
+
+    /// <summary>
+    /// Earliest time the next compete-backed-off re-auth may actually contact ssodh. Re-auth calls
+    /// arriving before this (from the tickle failure loop) short-circuit without hammering the server.
+    /// Mutated only under <see cref="_semaphore"/>.
+    /// </summary>
+    private DateTimeOffset _competeReauthNextAllowed = DateTimeOffset.MinValue;
 
     /// <summary>
     /// Creates a new session manager.
@@ -131,11 +159,12 @@ internal sealed partial class SessionManager : ISessionManager
 
             try
             {
+                SsodhInitResponse initResponse;
                 try
                 {
                     _currentLst = await _sessionTokenProvider.GetLiveSessionTokenAsync(cancellationToken);
 
-                    await _sessionApi.InitializeBrokerageSessionAsync(
+                    initResponse = await _sessionApi.InitializeBrokerageSessionAsync(
                         new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -158,6 +187,14 @@ internal sealed partial class SessionManager : ISessionManager
                     throw WrapCredentialException(ex);
                 }
 
+                // SES-1/ADR-0004: a 200 ssodh/init with authenticated=false is a FAILED init, not
+                // success — the session never reached the brokerage bridge. Surface it as a session
+                // error carrying the server's competing verdict (no Ready transition, no tickle start).
+                if (!initResponse.Authenticated)
+                {
+                    throw BuildUnauthenticatedInitError(initResponse);
+                }
+
                 if (_options.SuppressMessageIds.Count > 0)
                 {
                     try
@@ -174,7 +211,13 @@ internal sealed partial class SessionManager : ISessionManager
                     }
                 }
 
-                _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);
+                // GAP3-2/ADR-0004: health is fed from the server response, never a literal — a
+                // competing:true reported here is not laundered into competing:false.
+                _sessionHealthState.Update(
+                    authenticated: true,
+                    connected: initResponse.Connected,
+                    competing: initResponse.Competing,
+                    established: initResponse.Established);
 
                 // Stop any prior tickle timer before creating a new one. A failed reauth leaves the
                 // old timer running (reauth intentionally does not stop it — deadlock hazard); re-init
@@ -259,6 +302,16 @@ internal sealed partial class SessionManager : ISessionManager
                 return;
             }
 
+            // ADR-0004 compete backoff: after a competing session was observed with Compete=false,
+            // space out the actual re-auth attempts instead of hammering ssodh every tickle-failure
+            // interval. The tickle loop still fires; these excess calls short-circuit here so only one
+            // real re-auth runs per (growing) backoff window — no 5-second steal-back ping-pong.
+            if (!_options.Compete && _timeProvider.GetUtcNow() < _competeReauthNextAllowed)
+            {
+                LogCompeteBackoffSkip();
+                return;
+            }
+
             _state = SessionState.Reauthenticating;
             LogReauthenticating();
 
@@ -278,11 +331,12 @@ internal sealed partial class SessionManager : ISessionManager
 
             try
             {
+                SsodhInitResponse initResponse;
                 try
                 {
                     _currentLst = await _sessionTokenProvider.RefreshAsync(cancellationToken);
 
-                    await _sessionApi.InitializeBrokerageSessionAsync(
+                    initResponse = await _sessionApi.InitializeBrokerageSessionAsync(
                         new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -305,6 +359,21 @@ internal sealed partial class SessionManager : ISessionManager
                     throw WrapCredentialException(ex);
                 }
 
+                // SES-1/ADR-0004: authenticated=false is a FAILED reauth (no Ready, no epoch bump).
+                // If the server reports competing under Compete=false, arm the backoff so subsequent
+                // tickle-driven reauth attempts space out instead of looping at the failure interval.
+                if (!initResponse.Authenticated)
+                {
+                    if (!_options.Compete && initResponse.Competing)
+                    {
+                        _competeReauthNextAllowed = _timeProvider.GetUtcNow() + _competeReauthBackoff;
+                        _competeReauthBackoff = TimeSpan.FromTicks(
+                            Math.Min(_competeReauthBackoff.Ticks * 2, _competeReauthMaxBackoff.Ticks));
+                    }
+
+                    throw BuildUnauthenticatedInitError(initResponse);
+                }
+
                 if (_options.SuppressMessageIds.Count > 0)
                 {
                     try
@@ -321,7 +390,16 @@ internal sealed partial class SessionManager : ISessionManager
                     }
                 }
 
-                _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);
+                // GAP3-2/ADR-0004: fed from the server response, never a literal competing:false —
+                // a competing verdict a tickle just recorded is only cleared by a server response
+                // that positively reports competing:false. Reset the backoff on a clean reauth.
+                _sessionHealthState.Update(
+                    authenticated: true,
+                    connected: initResponse.Connected,
+                    competing: initResponse.Competing,
+                    established: initResponse.Established);
+                _competeReauthBackoff = _competeReauthInitialBackoff;
+                _competeReauthNextAllowed = DateTimeOffset.MinValue;
 
                 // No tickle timer recreate either — see the comment above. The existing timer keeps
                 // running. ScheduleProactiveRefresh replaces any pending proactive-refresh slot.
@@ -428,6 +506,12 @@ internal sealed partial class SessionManager : ISessionManager
     [LoggerMessage(Level = LogLevel.Warning, Message = "Tickle failure detected — triggering re-authentication")]
     private partial void LogTickleFailure();
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Brokerage session initialization reported authenticated=false (competing={Competing}) — treating as failed")]
+    private partial void LogInitNotAuthenticated(bool competing);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Re-authentication skipped — competing session backoff in effect (Compete=false)")]
+    private partial void LogCompeteBackoffSkip();
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Proactive refresh failed")]
     private partial void LogProactiveRefreshFailed(Exception exception);
 
@@ -435,6 +519,30 @@ internal sealed partial class SessionManager : ISessionManager
     {
         LogTickleFailure();
         return ReauthenticateAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Feeds the failed-auth server verdict into health state and builds the session error that
+    /// carries the competing evidence (ADR-0004: SES-1 honesty + GAP3-1 truthful <c>IsCompeting</c>).
+    /// The caller throws the returned exception so the failure path is explicit.
+    /// </summary>
+    private IbkrApiException BuildUnauthenticatedInitError(SsodhInitResponse response)
+    {
+        LogInitNotAuthenticated(response.Competing);
+
+        _sessionHealthState.Update(
+            authenticated: false,
+            connected: response.Connected,
+            competing: response.Competing,
+            established: response.Established,
+            failReason: response.Message ?? "Brokerage session initialization returned authenticated=false");
+
+        return new IbkrApiException(new IbkrSessionError(
+            HttpStatusCode.Unauthorized,
+            response.Message ?? "Brokerage session initialization failed — server reported authenticated=false",
+            RawBody: null,
+            RequestPath: _ssodhInitPath,
+            IsCompeting: response.Competing));
     }
 
     private void ScheduleProactiveRefresh()

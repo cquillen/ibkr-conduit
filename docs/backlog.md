@@ -115,7 +115,7 @@ Repairs within the recorded §7 lifecycle contract: tickle 401 triggers re-auth 
 **TDD notes:** red tests = SES-2/3/5/6 suggested regression tests extending the existing `TickleTimerTests`/session WireMock suites; timer accounting via mock-server tickle counts.
 
 #### VCR-07 — 📦 Competing-session truth & health evidence
-**Status:** Not started · **Stream:** VCR · **Depends on:** VCR-01, VCR-06
+**Status:** ✅ Done — #244 · **Stream:** VCR · **Depends on:** VCR-01, VCR-06
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-07-competing-session-truth.md
 Implements ADR-0004: 200 ssodh with `authenticated=false` fails init/reauth with competing evidence carried into `IbkrSessionError.IsCompeting` (the literal-`false` site eliminated); health fed from server responses with sticky competing evidence; compete backoff under `Compete=false`; `SessionStatusEvent` gains `Competing`/`FailReason` (ADR-0001 shapes — hence dep on VCR-01); tickle successes are liveness evidence (findings SES-1 high, GAP3-1 high, GAP3-2, GAP3-3, SES-4 high). **Breaking-behavioral — `feat!:`.**

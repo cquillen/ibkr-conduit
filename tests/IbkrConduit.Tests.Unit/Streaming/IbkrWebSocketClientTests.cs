@@ -951,7 +951,7 @@ public class IbkrWebSocketClientTests
         await using var client = CreateClient();
         await client.ConnectAsync(ct);
 
-        var ops = new StreamingOperations(client, NullLoggerFactory.Instance, new StreamingMetrics(new TenantContext("test")));
+        var ops = new StreamingOperations(client, NullLoggerFactory.Instance, new IbkrConduit.Health.SessionHealthState(), new StreamingMetrics(new TenantContext("test")));
         var subscription = await ops.TradeExecutionsAsync(cancellationToken: ct);
 
         var received = new List<TradeExecution>();
