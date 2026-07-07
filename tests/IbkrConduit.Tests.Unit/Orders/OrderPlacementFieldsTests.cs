@@ -99,6 +99,33 @@ public class OrderPlacementFieldsTests
     }
 
     [Fact]
+    public void OrderWireModel_WithTrailingParams_SerializesTrailingAmtAndType()
+    {
+        // Pins the probe-accepted shape (2026-07-07: trailingAmt:50, trailingType:"amt").
+        var wire = new OrderWireModel(756733, "SELL", 1m, "TRAIL", null, null, "GTC", null)
+        {
+            TrailingAmt = 50m,
+            TrailingType = "amt",
+        };
+
+        var json = JsonSerializer.Serialize(wire);
+
+        json.ShouldContain("\"trailingAmt\":50");
+        json.ShouldContain("\"trailingType\":\"amt\"");
+    }
+
+    [Fact]
+    public void OrderWireModel_WithoutTrailingParams_OmitsThem()
+    {
+        var wire = new OrderWireModel(265598, "BUY", 50m, "MKT", null, null, "GTC", null);
+
+        var json = JsonSerializer.Serialize(wire);
+
+        json.ShouldNotContain("trailingAmt");
+        json.ShouldNotContain("trailingType");
+    }
+
+    [Fact]
     public void OrderSubmissionResponse_WithGroupFields_DeserializesLocalAndOcaGroupId()
     {
         var json = """{"order_id":"636441077","order_status":"PreSubmitted","local_order_id":"conduit-oca-a","oca_group_id":"oco-636441077","encrypt_message":"1"}""";

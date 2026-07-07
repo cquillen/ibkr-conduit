@@ -171,6 +171,134 @@ public class OrderOperationsTests
     }
 
     [Fact]
+    public async Task PlaceOrderAsync_TrailOrderWithBothParams_PlacesSuccessfully()
+    {
+        // Probe-pinned happy path (2026-07-07): trailingAmt:50, trailingType:"amt" -> PreSubmitted.
+        _fakeApi.PlaceOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(null, null, null, null, "261920143", "PreSubmitted"),
+        ]);
+
+        var order = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "SELL",
+            Quantity = 1,
+            OrderType = "TRAIL",
+            Tif = "GTC",
+            TrailingAmt = 50m,
+            TrailingType = "amt",
+        };
+
+        var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
+
+        result.Value.AsT0.OrderId.ShouldBe("261920143");
+        var wire = _fakeApi.LastPlaceOrderPayload!.Orders[0];
+        wire.TrailingAmt.ShouldBe(50m);
+        wire.TrailingType.ShouldBe("amt");
+    }
+
+    [Fact]
+    public async Task PlaceOrderAsync_TrailOrderMissingTrailingAmt_ThrowsBeforeWire()
+    {
+        // No response enqueued: if the wire were reached the fake would record a payload — so a null
+        // LastPlaceOrderPayload proves the throw preceded any wire activity.
+        var order = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "SELL",
+            Quantity = 1,
+            OrderType = "TRAIL",
+            Tif = "GTC",
+            TrailingType = "amt",
+        };
+
+        await Should.ThrowAsync<ArgumentException>(
+            () => _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken));
+
+        _fakeApi.LastPlaceOrderPayload.ShouldBeNull("validation must fail before any wire activity");
+    }
+
+    [Fact]
+    public async Task PlaceOrderAsync_TrailOrderMissingTrailingType_ThrowsBeforeWire()
+    {
+        var order = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "SELL",
+            Quantity = 1,
+            OrderType = "TRAIL",
+            Tif = "GTC",
+            TrailingAmt = 50m,
+        };
+
+        await Should.ThrowAsync<ArgumentException>(
+            () => _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken));
+
+        _fakeApi.LastPlaceOrderPayload.ShouldBeNull("validation must fail before any wire activity");
+    }
+
+    [Fact]
+    public async Task PlaceOrderAsync_TrailLmtOrderMissingBothParams_ThrowsBeforeWire()
+    {
+        var order = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "SELL",
+            Quantity = 1,
+            OrderType = "TRAILLMT",
+            Price = 150.00m,
+            AuxPrice = 149.00m,
+            Tif = "GTC",
+        };
+
+        await Should.ThrowAsync<ArgumentException>(
+            () => _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken));
+
+        _fakeApi.LastPlaceOrderPayload.ShouldBeNull("validation must fail before any wire activity");
+    }
+
+    [Fact]
+    public async Task PlaceOrderAsync_NonTrailingOrderWithNullTrailingParams_Succeeds()
+    {
+        // A non-trailing order type must not trip the trailing fail-fast (no false positive).
+        _fakeApi.PlaceOrderResponses.Enqueue(
+        [
+            new OrderSubmissionResponse(null, null, null, null, "111", "PreSubmitted"),
+        ]);
+
+        var order = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "LMT",
+            Price = 150.00m,
+            Tif = "GTC",
+        };
+
+        var result = await _sut.PlaceOrderAsync("DU1234567", order, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        var wire = _fakeApi.LastPlaceOrderPayload!.Orders[0];
+        wire.TrailingAmt.ShouldBeNull();
+        wire.TrailingType.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task PlaceOrdersAsync_TrailChildMissingParams_ThrowsBeforeWire()
+    {
+        // Fail-fast applies per-leg in a group submission too, before any wire activity.
+        var parent = new OrderRequest { Conid = 756733, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC", CustomerOrderId = "Parent" };
+        var trailChild = new OrderRequest { Conid = 756733, Side = "SELL", Quantity = 1, OrderType = "TRAIL", Tif = "GTC", ParentId = "Parent" };
+
+        await Should.ThrowAsync<ArgumentException>(
+            () => _sut.PlaceOrdersAsync("DU1234567", [parent, trailChild], TestContext.Current.CancellationToken));
+
+        _fakeApi.LastPlaceOrderPayload.ShouldBeNull("validation must fail before any wire activity");
+    }
+
+    [Fact]
     public async Task PlaceOrderAsync_SerializesPerAccount()
     {
         var callOrder = new List<string>();
