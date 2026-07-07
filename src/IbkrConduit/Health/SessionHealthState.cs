@@ -66,6 +66,26 @@ internal sealed class SessionHealthState
     }
 
     /// <summary>
+    /// Records a competing-session verdict observed on a server-originated signal (an <c>sts</c>
+    /// frame) without disturbing the authenticated/connected/established fields the tickle loop owns.
+    /// This is a sticky escalation: it only ever sets <c>Competing</c> to <c>true</c> — competing is
+    /// positively cleared later by a tickle/ssodh server response that reports <c>competing:false</c>
+    /// (ADR-0004: fed from server responses, persists until positively cleared).
+    /// </summary>
+    /// <param name="failReason">Optional failure reason from the frame; recorded only when non-empty.</param>
+    public void MarkCompeting(string? failReason = null)
+    {
+        lock (_lock)
+        {
+            _competing = true;
+            if (!string.IsNullOrEmpty(failReason))
+            {
+                _failReason = failReason;
+            }
+        }
+    }
+
+    /// <summary>
     /// Atomically marks the session as failed by clearing authentication and setting a failure reason.
     /// </summary>
     /// <param name="reason">Description of the failure.</param>

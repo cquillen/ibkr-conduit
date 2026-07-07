@@ -1,6 +1,9 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using IbkrConduit.Errors;
+using IbkrConduit.Health;
+using IbkrConduit.Session;
 using IbkrConduit.Tests.Integration.Fixtures;
 using Shouldly;
 using WireMock.RequestBuilders;
@@ -204,6 +207,53 @@ public class SessionLifecycleTests : IAsyncDisposable
             "Proactive refresh should have caused re-initialization (ssodh/init called at least twice)");
 
         await harness.DisposeAsync();
+    }
+
+    /// <summary>
+    /// SES-1/GAP3-1/GAP3-2 (ADR-0004): a 200 ssodh/init with authenticated=false is a FAILED init.
+    /// Through the full DI stack, initialization throws a session error carrying IsCompeting, and the
+    /// passive health snapshot reflects the server verdict (authenticated:false, competing:true) rather
+    /// than a laundered authenticated:true / competing:false.
+    /// </summary>
+    [Fact]
+    public async Task SsodhInitReturnsUnauthenticatedCompeting_InitFailsWithCompetingSessionError()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        _harness = await TestHarness.CreateAsync(
+            ssodhInitResponseBody:
+                """{"authenticated":false,"competing":true,"connected":true,"passed":false,"established":false}""");
+
+        var sessionManager = _harness.GetRequiredService<ISessionManager>();
+
+        var ex = await Should.ThrowAsync<IbkrApiException>(() => sessionManager.EnsureInitializedAsync(ct));
+        ex.Error.ShouldBeOfType<IbkrSessionError>().IsCompeting.ShouldBeTrue();
+
+        var health = await _harness.GetRequiredService<IHealthStatusCollector>()
+            .GetHealthStatusAsync(activeProbe: false, cancellationToken: ct);
+        health.Session.Authenticated.ShouldBeFalse();
+        health.Session.Competing.ShouldBeTrue();
+        health.OverallStatus.ShouldBe(HealthState.Unhealthy);
+    }
+
+    /// <summary>
+    /// SES-4 (ADR-0004): a successful tickle through the session pipeline records into the
+    /// last-successful-call tracker, so a consumer-idle-but-tickling session has liveness evidence
+    /// that is not tied to consumer REST traffic.
+    /// </summary>
+    [Fact]
+    public async Task TickleThroughSessionPipeline_RecordsLastSuccessfulCall()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        _harness = await TestHarness.CreateAsync();
+
+        var tracker = _harness.GetRequiredService<LastSuccessfulCallTracker>();
+        tracker.LastSuccessfulCall.ShouldBeNull("no call has traversed the pipeline yet");
+
+        // A tickle goes through the session pipeline (LST acquisition + tickle stub returns 200).
+        await _harness.GetRequiredService<IIbkrSessionApi>().TickleAsync(ct);
+
+        tracker.LastSuccessfulCall.ShouldNotBeNull(
+            "a successful tickle should record liveness via the session-pipeline LastSuccessfulCallHandler");
     }
 
     /// <inheritdoc />

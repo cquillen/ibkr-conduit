@@ -1241,6 +1241,146 @@ public class SessionManagerTests
             "The immediate proactive refresh must re-initialize the session.");
     }
 
+    // ---- ADR-0004: competing-session truth & health evidence (VCR-07) ----
+
+    [Fact]
+    public async Task EnsureInitializedAsync_SsodhReturnsUnauthenticatedCompeting_ThrowsSessionErrorWithIsCompeting()
+    {
+        var deps = CreateDependencies();
+        deps.SessionApi.InitResponse = new SsodhInitResponse(
+            Authenticated: false, Connected: true, Competing: true, Established: false,
+            Message: "competing session", Mac: null, ServerInfo: null, HardwareInfo: null);
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider, deps.TickleTimerFactory, deps.SessionApi, deps.Options,
+            deps.Notifier, deps.SessionHealthState, NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        var ex = await Should.ThrowAsync<IbkrApiException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        var sessionError = ex.Error.ShouldBeOfType<IbkrSessionError>();
+        sessionError.IsCompeting.ShouldBeTrue();
+
+        // GAP3-2: health reflects the server verdict, not a laundered authenticated:true / competing:false.
+        var snapshot = deps.SessionHealthState.GetSnapshot();
+        snapshot.Authenticated.ShouldBeFalse();
+        snapshot.Competing.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_SsodhReturnsUnauthenticatedCompeting_ThrowsAndDoesNotReachReady()
+    {
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider, deps.TickleTimerFactory, deps.SessionApi, deps.Options,
+            deps.Notifier, deps.SessionHealthState, NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        // Bring the session up cleanly first.
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        // Now a competing takeover: the reauth's ssodh reports authenticated=false, competing=true.
+        deps.SessionApi.InitResponse = new SsodhInitResponse(
+            Authenticated: false, Connected: true, Competing: true, Established: false,
+            Message: null, Mac: null, ServerInfo: null, HardwareInfo: null);
+
+        var ex = await Should.ThrowAsync<IbkrApiException>(
+            () => manager.ReauthenticateAsync(TestContext.Current.CancellationToken));
+        ex.Error.ShouldBeOfType<IbkrSessionError>().IsCompeting.ShouldBeTrue();
+
+        var snapshot = deps.SessionHealthState.GetSnapshot();
+        snapshot.Authenticated.ShouldBeFalse();
+        snapshot.Competing.ShouldBeTrue();
+
+        // Not Ready: the notifier (fired only on a successful reauth) never ran.
+        deps.Notifier.NotifyCallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_SsodhReportsCompeting_HealthSnapshotRetainsCompeting()
+    {
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider, deps.TickleTimerFactory, deps.SessionApi, deps.Options,
+            deps.Notifier, deps.SessionHealthState, NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        // A tickle recorded competing:true just before reauth.
+        deps.SessionHealthState.Update(authenticated: false, connected: true, competing: true, established: true);
+
+        // The reauth "succeeds" (authenticated:true) but the server still reports competing:true.
+        deps.SessionApi.InitResponse = new SsodhInitResponse(
+            Authenticated: true, Connected: true, Competing: true, Established: true,
+            Message: null, Mac: null, ServerInfo: null, HardwareInfo: null);
+
+        await manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
+
+        // GAP3-2: reauth did not launder competing:true into competing:false.
+        deps.SessionHealthState.GetSnapshot().Competing.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_ServerReportsCompetingCleared_ClearsHealthCompeting()
+    {
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider, deps.TickleTimerFactory, deps.SessionApi, deps.Options,
+            deps.Notifier, deps.SessionHealthState, NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+        deps.SessionHealthState.Update(authenticated: false, connected: true, competing: true, established: true);
+
+        // The reauth wins the session back — server positively reports competing:false.
+        deps.SessionApi.InitResponse = new SsodhInitResponse(
+            Authenticated: true, Connected: true, Competing: false, Established: true,
+            Message: null, Mac: null, ServerInfo: null, HardwareInfo: null);
+
+        await manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
+
+        // A positive competing:false from the server clears the sticky verdict.
+        deps.SessionHealthState.GetSnapshot().Competing.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_CompeteFalseCompetingObserved_SpacesOutReauthAttempts()
+    {
+        var clock = new FakeTimeProvider();
+        var deps = CreateDependencies();
+        deps.TokenProvider = new FakeSessionTokenProvider(clock);
+        deps.Options = new IbkrClientOptions { Compete = false };
+        deps.SessionApi.InitResponse = new SsodhInitResponse(
+            Authenticated: false, Connected: true, Competing: true, Established: false,
+            Message: null, Mac: null, ServerInfo: null, HardwareInfo: null);
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider, deps.TickleTimerFactory, deps.SessionApi, deps.Options,
+            deps.Notifier, deps.SessionHealthState, NullLogger<SessionManager>.Instance,
+            new TenantContext("test"), clock);
+
+        // First reauth actually contacts ssodh and observes competing → arms the backoff, throws.
+        await Should.ThrowAsync<IbkrApiException>(
+            () => manager.ReauthenticateAsync(TestContext.Current.CancellationToken));
+        deps.SessionApi.InitCallCount.ShouldBe(1);
+
+        // A reauth arriving inside the backoff window (as the tickle loop would drive it) short-circuits
+        // without a second ssodh call — no 5-second steal-back ping-pong.
+        await manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
+        deps.SessionApi.InitCallCount.ShouldBe(1);
+
+        // Once the backoff elapses, a reauth attempt runs again.
+        clock.Advance(TimeSpan.FromSeconds(6));
+        await Should.ThrowAsync<IbkrApiException>(
+            () => manager.ReauthenticateAsync(TestContext.Current.CancellationToken));
+        deps.SessionApi.InitCallCount.ShouldBe(2);
+    }
+
     private static TestDependencies CreateDependencies() => new();
 
     private class TestDependencies
@@ -1412,6 +1552,12 @@ public class SessionManagerTests
         /// <summary>If set, InitializeBrokerageSessionAsync throws this exception.</summary>
         public Exception? InitException { get; set; }
 
+        /// <summary>
+        /// If set, InitializeBrokerageSessionAsync returns this response instead of the default
+        /// authenticated:true body. Lets a test drive the ADR-0004 authenticated=false / competing paths.
+        /// </summary>
+        public SsodhInitResponse? InitResponse { get; set; }
+
         /// <summary>If set, SuppressQuestionsAsync throws this exception.</summary>
         public Exception? SuppressException { get; set; }
 
@@ -1439,6 +1585,11 @@ public class SessionManagerTests
             if (InitException != null)
             {
                 throw InitException;
+            }
+
+            if (InitResponse != null)
+            {
+                return Task.FromResult(InitResponse);
             }
 
             return Task.FromResult(new SsodhInitResponse(Authenticated: true, Connected: true, Competing: false, Established: true, Message: null, Mac: null, ServerInfo: null, HardwareInfo: null));

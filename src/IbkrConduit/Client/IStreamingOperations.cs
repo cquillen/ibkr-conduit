@@ -36,6 +36,19 @@ public interface IStreamingOperations
     DateTimeOffset? LastMessageReceivedAt { get; }
 
     /// <summary>
+    /// Subscribes to consumer-visible WebSocket connection-lifecycle events
+    /// (<see cref="ConnectionDisconnected"/> / <see cref="ConnectionReconnected"/>). Every reconnect
+    /// path emits a <see cref="ConnectionDisconnected"/> at the start of the gap and a
+    /// <see cref="ConnectionReconnected"/> (listing the replayed topics) once the socket is back and
+    /// subscriptions are replayed. Use this to bound a coverage gap and trigger REST reconciliation
+    /// deterministically instead of inferring an outage from message staleness. Subscribe before
+    /// <see cref="ConnectAsync"/>; the returned <see cref="IIbkrSubscription{T}.Stream"/> is
+    /// single-observer.
+    /// </summary>
+    /// <returns>A subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> pushes connection-lifecycle events.</returns>
+    IIbkrSubscription<ConnectionEvent> SubscribeConnectionEvents();
+
+    /// <summary>
     /// Subscribes to brokerage authentication-state changes. Call this method before
     /// <see cref="ConnectAsync"/> to receive the initial-on-connect state.
     /// </summary>

@@ -365,6 +365,22 @@ public sealed record SessionStatusEvent
     /// as "IBKR said the session is dead".
     /// </summary>
     public bool? Authenticated { get; init; }
+
+    /// <summary>
+    /// True when the <c>sts</c> frame reports this session is competing with another login for the
+    /// brokerage session, false when it explicitly reports no competition, and <c>null</c> when the
+    /// frame carried no competing verdict (ADR-0001 presence semantics — absence is never fabricated
+    /// into <c>false</c>). A <c>true</c> value is the push-side signal of a competing takeover; it
+    /// also feeds the passive session-health snapshot.
+    /// </summary>
+    public bool? Competing { get; init; }
+
+    /// <summary>
+    /// The failure reason carried on the <c>sts</c> frame (the <c>fail</c> field), or <c>null</c>
+    /// when the frame carried no <c>fail</c> field at all. An empty string is preserved as-is
+    /// (present but empty), distinct from <c>null</c> (absent), per ADR-0001.
+    /// </summary>
+    public string? FailReason { get; init; }
 }
 
 /// <summary>Urgent message about exchange issues, system problems, or trading information.</summary>

@@ -5,6 +5,8 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using IbkrConduit.Client;
+using IbkrConduit.Diagnostics;
+using IbkrConduit.Health;
 using IbkrConduit.Streaming;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -438,6 +440,46 @@ public class StreamingOperationsTests
     }
 
     [Fact]
+    public async Task SessionStatus_CompetingFrame_SurfacesCompetingAndFeedsHealth()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient, health) = CreateOperationsWithHealth();
+
+        var sub = ((IStreamingOperations)ops).SubscribeSessionStatus();
+        var received = new TaskCompletionSource<SessionStatusEvent>();
+        using var s = sub.Stream.Subscribe(new TestObserver<SessionStatusEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse(
+            """{"topic":"sts","args":{"authenticated":false,"competing":true,"fail":"Competing session"}}""").RootElement;
+        await wsClient.UnsolicitedChannels["sts"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Competing.ShouldBe(true);
+        evt.FailReason.ShouldBe("Competing session");
+        health.GetSnapshot().Competing.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SessionStatus_NonCompetingFrame_DoesNotEscalateHealthCompeting()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient, health) = CreateOperationsWithHealth();
+
+        var sub = ((IStreamingOperations)ops).SubscribeSessionStatus();
+        var received = new TaskCompletionSource<SessionStatusEvent>();
+        using var s = sub.Stream.Subscribe(new TestObserver<SessionStatusEvent>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":true}}""").RootElement;
+        await wsClient.UnsolicitedChannels["sts"].Writer.WriteAsync(json, ct);
+
+        var evt = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        evt.Competing.ShouldBeNull();
+        health.GetSnapshot().Competing.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task Bulletins_DeliversTypedEventOnTopicMessage()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -638,11 +680,58 @@ public class StreamingOperationsTests
         evt.IsPaper.ShouldBeNull();
     }
 
+    [Fact]
+    public async Task SubscribeConnectionEvents_ServerPublishesEvents_SurfacesThroughStream()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var sub = ops.SubscribeConnectionEvents();
+        var received = new System.Collections.Generic.List<ConnectionEvent>();
+        var done = new TaskCompletionSource();
+        using var s = sub.Stream.Subscribe(new TestObserver<ConnectionEvent>(
+            onNext: e =>
+            {
+                received.Add(e);
+                if (received.Count == 2)
+                {
+                    done.TrySetResult();
+                }
+            }));
+
+        var now = DateTimeOffset.UtcNow;
+        await wsClient.ConnectionEvents.Writer.WriteAsync(new ConnectionDisconnected(now, "server_close"), ct);
+        await wsClient.ConnectionEvents.Writer.WriteAsync(new ConnectionReconnected(now, new[] { "sor", "str" }), ct);
+
+        await done.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        received[0].ShouldBeOfType<ConnectionDisconnected>().Reason.ShouldBe("server_close");
+        received[1].ShouldBeOfType<ConnectionReconnected>().ReplayedTopics.ShouldBe(new[] { "sor", "str" });
+    }
+
+    [Fact]
+    public void SubscribeConnectionEvents_SecondSubscribe_ThrowsInvalidOperationException()
+    {
+        var (ops, _) = CreateOperations();
+        var sub = ops.SubscribeConnectionEvents();
+
+        using var first = sub.Stream.Subscribe(new TestObserver<ConnectionEvent>());
+
+        Should.Throw<InvalidOperationException>(() => sub.Stream.Subscribe(new TestObserver<ConnectionEvent>()));
+    }
+
     private static (StreamingOperations Operations, FakeWebSocketClient Client) CreateOperations()
     {
         var wsClient = new FakeWebSocketClient();
-        var ops = new StreamingOperations(wsClient, NullLoggerFactory.Instance);
+        var ops = new StreamingOperations(wsClient, NullLoggerFactory.Instance, new SessionHealthState(), new StreamingMetrics(new TenantContext("test")));
         return (ops, wsClient);
+    }
+
+    private static (StreamingOperations Operations, FakeWebSocketClient Client, SessionHealthState Health) CreateOperationsWithHealth()
+    {
+        var wsClient = new FakeWebSocketClient();
+        var health = new SessionHealthState();
+        var ops = new StreamingOperations(wsClient, NullLoggerFactory.Instance, health, new StreamingMetrics(new TenantContext("test")));
+        return (ops, wsClient, health);
     }
 
     internal sealed class FakeWebSocketClient : IIbkrWebSocketClient
@@ -686,6 +775,11 @@ public class StreamingOperationsTests
                 _ => System.Threading.Channels.Channel.CreateUnbounded<JsonElement>());
             return (channel.Reader, _ => ValueTask.CompletedTask);
         }
+
+        public Channel<ConnectionEvent> ConnectionEvents { get; } = System.Threading.Channels.Channel.CreateUnbounded<ConnectionEvent>();
+
+        public (ChannelReader<ConnectionEvent> Reader, Func<CancellationToken, ValueTask> Unsubscribe) RegisterConnectionEvents() =>
+            (ConnectionEvents.Reader, _ => ValueTask.CompletedTask);
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

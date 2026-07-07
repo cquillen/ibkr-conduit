@@ -80,11 +80,13 @@ public class IbkrClientOptions
     /// <summary>
     /// Per-subscriber buffer size for WebSocket observables. When a consumer
     /// falls behind, the oldest queued message is dropped to make room for
-    /// the newest. Default is 256. Increase for bursty sources, decrease
-    /// for memory-constrained hosts. The drop policy itself (DropOldest)
-    /// is fixed and not configurable.
+    /// the newest. Default is 2048 (ADR-0002: 256 was too tight for burst
+    /// replay). Increase for bursty sources, decrease for memory-constrained
+    /// hosts. The drop policy itself (DropOldest) is fixed and not configurable,
+    /// but every eviction is observable — a Warning log plus the
+    /// <c>ibkr.conduit.streaming.frames.dropped</c> counter (tagged tenant/topic/cause).
     /// </summary>
-    public int StreamingBufferSize { get; set; } = 256;
+    public int StreamingBufferSize { get; set; } = 2048;
 
     /// <summary>
     /// How long before token expiry to trigger a proactive refresh.

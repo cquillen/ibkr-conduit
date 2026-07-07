@@ -75,7 +75,7 @@ Nullable-as-presence retrofit per ADR-0001 across `OrderUpdate`, `TradeExecution
 **TDD notes:** red tests = the findings' suggested regression tests per finding ID, with sanitized fixtures derived from the 2026-07-07 live captures; update the pinned-coercion tests.
 
 #### VCR-02 — 📦 Streaming delivery observability & subscription semantics
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #243 · **Stream:** VCR · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-02-streaming-delivery-observability.md
 Implements ADR-0002: observable evictions (itemDropped → Warning + `ibkr.conduit.streaming.frames.dropped` counter tagged tenant/topic/cause, first-drop-per-topic log throttle), wire-topic drop logging, observer-failure honesty (OCE ≠ graceful completion), consumer-visible connection-lifecycle events, single-observer `Stream` (second `Subscribe` throws), default buffer 256→2048 (findings FIL-1 critical, GAP2-4, FIL-3, FIL-4, FIL-5). **Breaking-behavioral — `feat!:`.**
@@ -115,7 +115,7 @@ Repairs within the recorded §7 lifecycle contract: tickle 401 triggers re-auth 
 **TDD notes:** red tests = SES-2/3/5/6 suggested regression tests extending the existing `TickleTimerTests`/session WireMock suites; timer accounting via mock-server tickle counts.
 
 #### VCR-07 — 📦 Competing-session truth & health evidence
-**Status:** Not started · **Stream:** VCR · **Depends on:** VCR-01, VCR-06
+**Status:** ✅ Done — #244 · **Stream:** VCR · **Depends on:** VCR-01, VCR-06
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-07-competing-session-truth.md
 Implements ADR-0004: 200 ssodh with `authenticated=false` fails init/reauth with competing evidence carried into `IbkrSessionError.IsCompeting` (the literal-`false` site eliminated); health fed from server responses with sticky competing evidence; compete backoff under `Compete=false`; `SessionStatusEvent` gains `Competing`/`FailReason` (ADR-0001 shapes — hence dep on VCR-01); tickle successes are liveness evidence (findings SES-1 high, GAP3-1 high, GAP3-2, GAP3-3, SES-4 high). **Breaking-behavioral — `feat!:`.**
@@ -147,7 +147,7 @@ Decided scope (internal safety net, no public surface): `ResponseSchemaValidatio
 **TDD notes:** red tests = WIR-5's suggested regression tests (element[1] drift fixture; extension-data extra-field fixture; sparse money frame).
 
 #### VCR-11 — Order-type documentation vs captured wire enum
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #246 · **Stream:** VCR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 CONFIRMED against the captured spec (`docs/ibkr-web-api-spec.md:4507`): the wire enum is `LMT, MKT, STP, STOP_LIMIT, MIDPRICE, TRAIL, TRAILLMT`; the XML docs on `OrderRequest.OrderType` (`IIbkrOrderApiModels.cs:23`) wrongly list `STP_LMT, MOC, LOC`. Decided scope: correct the XML docs to the pinned enum, including STOP_LIMIT's dual `price`+`auxPrice` requirement (WIR-6). ExtOperator is out of scope → VCR-12. **`fix:`** (shipped XML docs are consumer-facing).

@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Errors;
+using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -24,7 +25,7 @@ public class TokenRefreshHandlerTests
             return new HttpResponseMessage(HttpStatusCode.OK);
         });
 
-        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -60,7 +61,7 @@ public class TokenRefreshHandlerTests
             };
         });
 
-        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -88,7 +89,7 @@ public class TokenRefreshHandlerTests
             return new HttpResponseMessage(HttpStatusCode.Unauthorized);
         });
 
-        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -116,7 +117,7 @@ public class TokenRefreshHandlerTests
             return new HttpResponseMessage(HttpStatusCode.Unauthorized);
         });
 
-        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -147,7 +148,7 @@ public class TokenRefreshHandlerTests
             return new HttpResponseMessage(HttpStatusCode.Unauthorized);
         });
 
-        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -189,7 +190,7 @@ public class TokenRefreshHandlerTests
             return new HttpResponseMessage(HttpStatusCode.OK);
         });
 
-        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -204,6 +205,102 @@ public class TokenRefreshHandlerTests
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         secondRequestBody.ShouldBe("""{"publish":true,"compete":true}""");
+    }
+
+    [Fact]
+    public async Task SendAsync_ReauthThrowsCompetingSessionError_PropagatesIsCompeting()
+    {
+        // GAP3-1: the re-auth surfaced a competing session error (ADR-0004 authenticated=false path);
+        // the handler must propagate IsCompeting=true, not the old hardcoded false.
+        var sessionManager = new FakeSessionManager
+        {
+            ThrowOnReauth = new IbkrApiException(new IbkrSessionError(
+                HttpStatusCode.Unauthorized, "authenticated=false", null, "/ssodh", IsCompeting: true)),
+        };
+        var innerHandler = new FakeInnerHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
+        {
+            InnerHandler = innerHandler,
+        };
+
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.ibkr.com") };
+
+        var ex = await Should.ThrowAsync<IbkrApiException>(
+            client.GetAsync("/v1/api/portfolio/accounts", TestContext.Current.CancellationToken));
+
+        ex.Error.ShouldBeOfType<IbkrSessionError>().IsCompeting.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SendAsync_ReauthThrowsWithCompetingHealth_PropagatesIsCompetingFromHealth()
+    {
+        // The re-auth threw a non-session exception, but the health snapshot (fed by a tickle/sts)
+        // shows the session is competing — the surfaced error must reflect that.
+        var health = new SessionHealthState();
+        health.MarkCompeting();
+        var sessionManager = new FakeSessionManager
+        {
+            ThrowOnReauth = new InvalidOperationException("transport blip"),
+        };
+        var innerHandler = new FakeInnerHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        var handler = new TokenRefreshHandler(sessionManager, health, NullLogger<TokenRefreshHandler>.Instance)
+        {
+            InnerHandler = innerHandler,
+        };
+
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.ibkr.com") };
+
+        var ex = await Should.ThrowAsync<IbkrApiException>(
+            client.GetAsync("/v1/api/portfolio/accounts", TestContext.Current.CancellationToken));
+
+        ex.Error.ShouldBeOfType<IbkrSessionError>().IsCompeting.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SendAsync_PostRetryStillUnauthorizedWithCompetingHealth_ThrowsCompetingSessionError()
+    {
+        // GAP3-1: re-auth "succeeds" but the retried request is still 401 and health shows competing —
+        // surface a competing session error rather than laundering it as a generic 401 for the facade.
+        var health = new SessionHealthState();
+        health.MarkCompeting();
+        var sessionManager = new FakeSessionManager();
+        var innerHandler = new FakeInnerHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        var handler = new TokenRefreshHandler(sessionManager, health, NullLogger<TokenRefreshHandler>.Instance)
+        {
+            InnerHandler = innerHandler,
+        };
+
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.ibkr.com") };
+
+        var ex = await Should.ThrowAsync<IbkrApiException>(
+            client.GetAsync("/v1/api/portfolio/accounts", TestContext.Current.CancellationToken));
+
+        ex.Error.ShouldBeOfType<IbkrSessionError>().IsCompeting.ShouldBeTrue();
+        sessionManager.ReauthCallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task SendAsync_PostRetryStillUnauthorizedNoCompeting_ReturnsResponseUnchanged()
+    {
+        // Without competing evidence, a post-retry 401 is still returned to the facade for
+        // interpretation (e.g., invalid account id) — behavior preserved.
+        var sessionManager = new FakeSessionManager();
+        var innerHandler = new FakeInnerHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
+        {
+            InnerHandler = innerHandler,
+        };
+
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.ibkr.com") };
+
+        var response = await client.GetAsync("/v1/api/portfolio/accounts", TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        sessionManager.ReauthCallCount.ShouldBe(1);
     }
 
     // --- ADR-0003 order-mutating POST replay gate (AMB-2) ---
@@ -225,7 +322,7 @@ public class TokenRefreshHandlerTests
             };
         });
 
-        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -263,7 +360,7 @@ public class TokenRefreshHandlerTests
             return new HttpResponseMessage(HttpStatusCode.Unauthorized);
         });
 
-        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -304,7 +401,7 @@ public class TokenRefreshHandlerTests
                 };
         });
 
-        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };
@@ -341,7 +438,7 @@ public class TokenRefreshHandlerTests
                 };
         });
 
-        var handler = new TokenRefreshHandler(sessionManager, NullLogger<TokenRefreshHandler>.Instance)
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
         {
             InnerHandler = innerHandler,
         };

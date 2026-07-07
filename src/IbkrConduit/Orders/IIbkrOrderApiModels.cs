@@ -20,13 +20,22 @@ public record OrderRequest
     /// <summary>Order quantity.</summary>
     public decimal Quantity { get; init; }
 
-    /// <summary>Order type: "MKT", "LMT", "STP", "STP_LMT", "MOC", "LOC", "TRAIL".</summary>
+    /// <summary>
+    /// Order type. One of: "LMT", "MKT", "STP", "STOP_LIMIT", "MIDPRICE", "TRAIL", "TRAILLMT".
+    /// A STOP_LIMIT order requires both <see cref="Price"/> and <see cref="AuxPrice"/>.
+    /// </summary>
     public string OrderType { get; init; } = string.Empty;
 
-    /// <summary>Limit price. Required for LMT, STP_LMT, LOC.</summary>
+    /// <summary>
+    /// Limit price (the stop price for STP/TRAIL; the option price cap for MIDPRICE).
+    /// Required for LMT or STOP_LIMIT.
+    /// </summary>
     public decimal? Price { get; init; }
 
-    /// <summary>Aux/stop price. Required for STP, STP_LMT, TRAIL.</summary>
+    /// <summary>
+    /// Stop price for STOP_LIMIT and TRAILLMT orders. A STOP_LIMIT order requires both
+    /// <see cref="Price"/> and <see cref="AuxPrice"/>.
+    /// </summary>
     public decimal? AuxPrice { get; init; }
 
     /// <summary>Time in force: "DAY", "GTC", "IOC".</summary>
@@ -94,7 +103,7 @@ public record OrdersPayload(
 /// <param name="Conid">The IBKR contract identifier.</param>
 /// <param name="Side">The order side: "BUY" or "SELL".</param>
 /// <param name="Quantity">The order quantity.</param>
-/// <param name="OrderType">The order type (e.g., "MKT", "LMT").</param>
+/// <param name="OrderType">The order type. One of: "LMT", "MKT", "STP", "STOP_LIMIT", "MIDPRICE", "TRAIL", "TRAILLMT". A STOP_LIMIT order requires both Price and AuxPrice.</param>
 /// <param name="Price">The limit price, if applicable.</param>
 /// <param name="AuxPrice">The auxiliary/stop price, if applicable.</param>
 /// <param name="Tif">Time in force (e.g., "DAY", "GTC").</param>
