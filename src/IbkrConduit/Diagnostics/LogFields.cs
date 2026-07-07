@@ -47,6 +47,9 @@ public static class LogFields
     /// <summary>WebSocket or streaming topic.</summary>
     public const string Topic = "ibkr.topic";
 
+    /// <summary>Cause of a streaming frame drop (e.g. overflow, mapper, observer).</summary>
+    public const string Cause = "ibkr.cause";
+
     /// <summary>Flex query template identifier.</summary>
     public const string QueryId = "ibkr.query_id";
 

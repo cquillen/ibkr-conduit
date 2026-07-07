@@ -45,6 +45,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly ISessionLifecycleNotifier _notifier;
     private readonly ILogger<IbkrWebSocketClient> _logger;
     private readonly TenantContext _tenant;
+    private readonly StreamingMetrics _metrics;
     private readonly Dictionary<string, object> _logScope;
     private readonly Func<IWebSocketAdapter> _webSocketFactory;
     private readonly int _heartbeatIntervalSeconds;
@@ -53,8 +54,16 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly string _resolvedWebSocketBaseUrl;
     private readonly ConcurrentDictionary<string, List<ChannelWriter<JsonElement>>> _subscribers = new();
     private readonly List<TopicSubscription> _subscriptions = [];
+    private readonly List<ChannelWriter<ConnectionEvent>> _connectionEventWriters = [];
     private readonly SemaphoreSlim _connectLock = new(1, 1);
     private readonly object _subscriptionLock = new();
+    private readonly object _connectionEventLock = new();
+
+    // Log-throttle state for buffer-overflow drops: the first eviction on a topic per connection
+    // logs a Warning; subsequent evictions on that topic are counted (not logged) until the next
+    // reconnect clears the set — preventing a log flood under a stalled consumer (ADR-0002).
+    private readonly HashSet<string> _loggedOverflowTopics = [];
+    private readonly object _overflowLogLock = new();
 
     private IWebSocketAdapter? _webSocket;
     private CancellationTokenSource? _heartbeatCts;
@@ -83,6 +92,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <param name="heartbeatIntervalSeconds">Seconds between "tic" ping messages used to keep the WebSocket session alive. IBKR requires at least one per minute.</param>
     /// <param name="streamingBufferSize">Per-subscriber channel capacity. When full, the oldest message is dropped to make room for the newest.</param>
     /// <param name="tenant">Per-provider tenant identity used to tag telemetry.</param>
+    /// <param name="metrics">Reporter that counts every dropped frame (overflow evictions here) so no streaming loss is silent.</param>
     /// <param name="timeProvider">Time provider for delays; defaults to <see cref="TimeProvider.System"/>.</param>
     /// <param name="webSocketBaseUrl">Override for the WebSocket base URL. When null, defaults to <c>wss://api.ibkr.com/v1/api/ws</c>.</param>
     public IbkrWebSocketClient(
@@ -95,6 +105,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         int heartbeatIntervalSeconds,
         int streamingBufferSize,
         TenantContext tenant,
+        StreamingMetrics metrics,
         TimeProvider? timeProvider = null,
         string? webSocketBaseUrl = null)
     {
@@ -104,6 +115,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         _notifier = notifier;
         _logger = logger;
         _tenant = tenant;
+        _metrics = metrics;
         _logScope = new Dictionary<string, object> { [LogFields.TenantId] = _tenant.TenantId };
         _webSocketFactory = webSocketFactory;
         _heartbeatIntervalSeconds = heartbeatIntervalSeconds;
@@ -220,7 +232,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             {
                 FullMode = BoundedChannelFullMode.DropOldest,
                 SingleReader = true,
-            });
+            },
+            itemDropped: _ => OnFrameDropped(topicPrefix));
 
         var entry = new TopicSubscription(topicPrefix, subscribeMessage, cancelMessage, channel.Writer);
         var writers = _subscribers.GetOrAdd(topicPrefix, _ => []);
@@ -254,7 +267,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             {
                 FullMode = BoundedChannelFullMode.DropOldest,
                 SingleReader = true,
-            });
+            },
+            itemDropped: _ => OnFrameDropped(topicPrefix));
 
         var writers = _subscribers.GetOrAdd(topicPrefix, _ => []);
         lock (writers)
@@ -275,6 +289,74 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             return ValueTask.CompletedTask;
         }
         );
+    }
+
+    /// <inheritdoc />
+    public (ChannelReader<ConnectionEvent> Reader, Func<CancellationToken, ValueTask> Unsubscribe) RegisterConnectionEvents()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // Unbounded: connection-lifecycle events are low-frequency (one pair per reconnect) and are
+        // the consumer's reconciliation trigger — they must never be dropped under overflow.
+        var channel = Channel.CreateUnbounded<ConnectionEvent>(new UnboundedChannelOptions { SingleReader = true });
+
+        lock (_connectionEventLock)
+        {
+            _connectionEventWriters.Add(channel.Writer);
+        }
+
+        return (channel.Reader, _ =>
+        {
+            lock (_connectionEventLock)
+            {
+                _connectionEventWriters.Remove(channel.Writer);
+            }
+            channel.Writer.TryComplete();
+            return ValueTask.CompletedTask;
+        }
+        );
+    }
+
+    /// <summary>
+    /// Records a dropped frame on the given wire topic under buffer overflow: increments the
+    /// dropped-frames counter (<c>cause=overflow</c>) and logs a Warning on the first eviction for
+    /// this topic since the current connection was established. No overflow eviction is silent
+    /// (finding FIL-1).
+    /// </summary>
+    private void OnFrameDropped(string topic)
+    {
+        _metrics.RecordDrop(topic, StreamingMetrics.OverflowCause);
+
+        bool firstForTopic;
+        lock (_overflowLogLock)
+        {
+            firstForTopic = _loggedOverflowTopics.Add(topic);
+        }
+        if (firstForTopic)
+        {
+            LogFrameOverflowDropped(topic);
+        }
+    }
+
+    /// <summary>Broadcasts a connection-lifecycle event to every registered connection-event subscriber.</summary>
+    private void PublishConnectionEvent(ConnectionEvent connectionEvent)
+    {
+        lock (_connectionEventLock)
+        {
+            foreach (var writer in _connectionEventWriters)
+            {
+                writer.TryWrite(connectionEvent);
+            }
+        }
+    }
+
+    /// <summary>The distinct wire topic prefixes that are replayed on a reconnect (solicited subscriptions only).</summary>
+    private string[] GetReplayedTopics()
+    {
+        lock (_subscriptionLock)
+        {
+            return _subscriptions.Select(s => s.TopicPrefix).Distinct().ToArray();
+        }
     }
 
     /// <inheritdoc />
@@ -309,6 +391,17 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         }
 
         _subscribers.Clear();
+
+        // Complete connection-event subscriber channels so their observables complete.
+        lock (_connectionEventLock)
+        {
+            foreach (var writer in _connectionEventWriters)
+            {
+                writer.TryComplete();
+            }
+            _connectionEventWriters.Clear();
+        }
+
         _connectLock.Dispose();
         _disposeCts.Dispose();
     }
@@ -352,6 +445,13 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         _webSocket = ws;
 
         LogConnected();
+
+        // A new socket is a new connection: reset the per-connection overflow log throttle so the
+        // first eviction on each topic logs again after a reconnect.
+        lock (_overflowLogLock)
+        {
+            _loggedOverflowTopics.Clear();
+        }
 
         StartHeartbeat();
         StartMessagePump();
@@ -418,7 +518,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
                         LogHeartbeatError(ex);
-                        _ = Task.Run(() => ReconnectAsync(_disposeCts.Token));
+                        _ = Task.Run(() => ReconnectAsync("heartbeat_failure", _disposeCts.Token));
                         break;
                     }
                 }
@@ -465,7 +565,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                         if (result.MessageType == WebSocketMessageType.Close)
                         {
                             LogWebSocketClosed();
-                            _ = Task.Run(() => ReconnectAsync(_disposeCts.Token));
+                            _ = Task.Run(() => ReconnectAsync("server_close", _disposeCts.Token));
                             break;
                         }
 
@@ -485,7 +585,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                     catch (WebSocketException ex)
                     {
                         LogWebSocketError(ex);
-                        _ = Task.Run(() => ReconnectAsync(_disposeCts.Token));
+                        _ = Task.Run(() => ReconnectAsync("receive_error", _disposeCts.Token));
                         break;
                     }
                 }
@@ -548,7 +648,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         }
     }
 
-    private async Task ReconnectAsync(CancellationToken cancellationToken)
+    private async Task ReconnectAsync(string reason, CancellationToken cancellationToken)
     {
         if (_disposed)
         {
@@ -560,12 +660,16 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         {
             using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Reconnect");
             activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
-            activity?.SetTag(LogFields.Trigger, "connection_lost");
+            activity?.SetTag(LogFields.Trigger, reason);
 
             _reconnectCount.Add(1,
                 new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
-                new KeyValuePair<string, object?>(LogFields.Trigger, "connection_lost"));
+                new KeyValuePair<string, object?>(LogFields.Trigger, reason));
             LogReconnecting();
+
+            // Mark the start of the coverage gap so consumers can begin REST reconciliation
+            // immediately instead of inferring an outage from staleness (finding FIL-4).
+            PublishConnectionEvent(new ConnectionDisconnected(_timeProvider.GetUtcNow(), reason));
 
             await DisconnectAsync();
 
@@ -573,6 +677,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(_reconnectDelayMs), _timeProvider, cancellationToken);
                 await ConnectCoreAsync(cancellationToken);
+
+                // Mark the end of the gap, listing the topics whose subscriptions were replayed.
+                PublishConnectionEvent(new ConnectionReconnected(_timeProvider.GetUtcNow(), GetReplayedTopics()));
             }
             catch (Exception ex)
             {
@@ -607,7 +714,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         }
 
         LogSessionRefreshed();
-        await ReconnectAsync(cancellationToken);
+        await ReconnectAsync("session_refresh", cancellationToken);
     }
 
     private async Task OnTickleSucceededAsync(CancellationToken cancellationToken)
@@ -625,7 +732,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         LogTickleWatchdogTriggeringReconnect();
         try
         {
-            await ReconnectAsync(cancellationToken);
+            await ReconnectAsync("tickle_watchdog", cancellationToken);
         }
         catch (Exception ex)
         {
@@ -746,6 +853,9 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "WebSocket unsubscribe send failed")]
     private partial void LogUnsubscribeSendError(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Dropping oldest {Topic} frame under buffer overflow (a stalled consumer); further {Topic} overflow drops are counted, not logged, until reconnect")]
+    private partial void LogFrameOverflowDropped(string topic);
 
     private sealed record TopicSubscription(
         string TopicPrefix,

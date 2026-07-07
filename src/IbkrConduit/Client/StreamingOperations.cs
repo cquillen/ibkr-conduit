@@ -15,16 +15,26 @@ internal sealed class StreamingOperations : IStreamingOperations
 {
     private readonly IIbkrWebSocketClient _webSocketClient;
     private readonly ILoggerFactory _loggerFactory;
+    private readonly StreamingMetrics _metrics;
 
     /// <summary>
     /// Creates a new <see cref="StreamingOperations"/>.
     /// </summary>
     /// <param name="webSocketClient">The underlying WebSocket client.</param>
     /// <param name="loggerFactory">Factory used to create a per-topic logger for each subscription's observable, so a dropped-frame warning can be traced back to its topic.</param>
-    public StreamingOperations(IIbkrWebSocketClient webSocketClient, ILoggerFactory loggerFactory)
+    /// <param name="metrics">Reporter that counts every dropped frame (mapper/observer failures in the observables) so no streaming loss is silent.</param>
+    public StreamingOperations(IIbkrWebSocketClient webSocketClient, ILoggerFactory loggerFactory, StreamingMetrics metrics)
     {
         _webSocketClient = webSocketClient;
         _loggerFactory = loggerFactory;
+        _metrics = metrics;
+    }
+
+    /// <inheritdoc />
+    public IIbkrSubscription<ConnectionEvent> SubscribeConnectionEvents()
+    {
+        var (reader, unsubscribe) = _webSocketClient.RegisterConnectionEvents();
+        return new IbkrSubscription<ConnectionEvent>(new ConnectionEventObservable(reader), unsubscribe);
     }
 
     /// <inheritdoc />
@@ -66,7 +76,7 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "smd", cancelMessage, cancellationToken);
 
-        return new IbkrSubscription<MarketDataTick>(new ChannelObservable<MarketDataTick>(reader, MarketDataTickMapper.Map, CreateTopicLogger("smd")), unsubscribe);
+        return new IbkrSubscription<MarketDataTick>(new ChannelObservable<MarketDataTick>(reader, MarketDataTickMapper.Map, CreateTopicLogger("smd"), _metrics, "smd"), unsubscribe);
     }
 
     /// <inheritdoc />
@@ -79,7 +89,7 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sor", cancelMessage, cancellationToken);
 
-        return new IbkrSubscription<OrderUpdate>(new FanOutChannelObservable<OrderUpdate>(reader, OrderUpdateMapper.MapMany, CreateTopicLogger("sor")), unsubscribe);
+        return new IbkrSubscription<OrderUpdate>(new FanOutChannelObservable<OrderUpdate>(reader, OrderUpdateMapper.MapMany, CreateTopicLogger("sor"), _metrics, "sor"), unsubscribe);
     }
 
     /// <inheritdoc />
@@ -101,7 +111,7 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "str", "utr", cancellationToken);
 
-        return new IbkrSubscription<TradeExecution>(new FanOutChannelObservable<TradeExecution>(reader, TradeExecutionMapper.MapMany, CreateTopicLogger("str")), unsubscribe);
+        return new IbkrSubscription<TradeExecution>(new FanOutChannelObservable<TradeExecution>(reader, TradeExecutionMapper.MapMany, CreateTopicLogger("str"), _metrics, "str"), unsubscribe);
     }
 
     /// <inheritdoc />
@@ -109,7 +119,7 @@ internal sealed class StreamingOperations : IStreamingOperations
     {
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync("spl+{}", "spl", "upl+{}", cancellationToken);
 
-        return new IbkrSubscription<PnlUpdate>(new FanOutChannelObservable<PnlUpdate>(reader, PnlUpdateMapper.MapMany, CreateTopicLogger("spl")), unsubscribe);
+        return new IbkrSubscription<PnlUpdate>(new FanOutChannelObservable<PnlUpdate>(reader, PnlUpdateMapper.MapMany, CreateTopicLogger("spl"), _metrics, "spl"), unsubscribe);
     }
 
     /// <inheritdoc />
@@ -124,7 +134,7 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "ssd", cancelMessage, cancellationToken);
 
-        return new IbkrSubscription<AccountSummaryUpdate>(new ChannelObservable<AccountSummaryUpdate>(reader, AccountSummaryUpdateMapper.Map, CreateTopicLogger("ssd")), unsubscribe);
+        return new IbkrSubscription<AccountSummaryUpdate>(new ChannelObservable<AccountSummaryUpdate>(reader, AccountSummaryUpdateMapper.Map, CreateTopicLogger("ssd"), _metrics, "ssd"), unsubscribe);
     }
 
     /// <inheritdoc />
@@ -139,7 +149,7 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sld", cancelMessage, cancellationToken);
 
-        return new IbkrSubscription<AccountLedgerUpdate>(new ChannelObservable<AccountLedgerUpdate>(reader, AccountLedgerUpdateMapper.Map, CreateTopicLogger("sld")), unsubscribe);
+        return new IbkrSubscription<AccountLedgerUpdate>(new ChannelObservable<AccountLedgerUpdate>(reader, AccountLedgerUpdateMapper.Map, CreateTopicLogger("sld"), _metrics, "sld"), unsubscribe);
     }
 
     private static string BuildKeysFieldsArgs(string[]? keys, string[]? fields)
@@ -159,7 +169,7 @@ internal sealed class StreamingOperations : IStreamingOperations
     private IbkrSubscription<T> CreateUnsolicitedSubscription<T>(string topicPrefix, Func<JsonElement, T> mapper)
     {
         var (reader, unsubscribe) = _webSocketClient.RegisterUnsolicitedTopic(topicPrefix);
-        return new IbkrSubscription<T>(new ChannelObservable<T>(reader, mapper, CreateTopicLogger(topicPrefix)), unsubscribe);
+        return new IbkrSubscription<T>(new ChannelObservable<T>(reader, mapper, CreateTopicLogger(topicPrefix), _metrics, topicPrefix), unsubscribe);
     }
 
     /// <summary>Creates a logger scoped to a topic, used to trace dropped-frame warnings back to their subscription.</summary>
