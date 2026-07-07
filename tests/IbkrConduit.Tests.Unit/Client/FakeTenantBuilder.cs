@@ -41,6 +41,18 @@ internal sealed class FakeTenantBuilder : ITenantBuilder
 internal sealed class FakeManagedTenant : IManagedTenant
 {
     public bool Disposed { get; private set; }
+
+    /// <summary>The token the manager threaded into the last teardown call, if any.</summary>
+    public CancellationToken LastDisposeToken { get; private set; }
+
     public IIbkrClient Client { get; } = new StubIbkrClient();
-    public ValueTask DisposeAsync() { Disposed = true; return ValueTask.CompletedTask; }
+
+    public ValueTask DisposeAsync() => DisposeAsync(CancellationToken.None);
+
+    public ValueTask DisposeAsync(CancellationToken cancellationToken)
+    {
+        Disposed = true;
+        LastDisposeToken = cancellationToken;
+        return ValueTask.CompletedTask;
+    }
 }

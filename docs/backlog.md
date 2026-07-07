@@ -91,7 +91,7 @@ Pattern-following fixes, decided: `TradeExecutionMapper.MapMany` isolates failur
 **TDD notes:** red tests = FIL-2/GAP2-1 suggested regression tests (multi-execution frame with one bad element; `"authenticated": "false"` frame).
 
 #### VCR-04 — 📦 Order-outcome classification & 401 replay gate
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #242 · **Stream:** VCR · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-04-order-outcome-replay-gate.md
 Implements ADR-0003: order-mutating POSTs excluded from automatic 401 replay, surfacing a new `IbkrAmbiguousOrderError`; reply 2xx routes through `ResultFactory.FromResponse`; array-wrapped/empty 200 shapes classify as refusals with raw body; `FlexibleStringJsonConverter` on `OrderSubmissionResponse.OrderId`/`Id`; 2xx-unparseable surfaces as a classified error (findings AMB-2 high, AMB-3, AMB-4, WIR-4). AMB-2's empirical question is tolerated by design. **Breaking-behavioral — `feat!:`.**
@@ -107,7 +107,7 @@ Implements design doc §10.6: `GetLiveOrdersAsync` returns `LiveOrdersSnapshot(O
 **TDD notes:** red tests = GAP1-1/2/3 suggested regression tests; sanitized fixtures derived from the recorded shapes.
 
 #### VCR-06 — Session lifecycle state-machine hardening
-**Status:** Not started · **Stream:** VCR · **Depends on:** none · **Blocks:** VCR-07
+**Status:** ✅ Done — #240 · **Stream:** VCR · **Depends on:** none · **Blocks:** VCR-07
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-06-session-lifecycle-hardening.md
 Repairs within the recorded §7 lifecycle contract: tickle 401 triggers re-auth (and truthful health) instead of log-and-rot; LST expiry is checked and failed init/reauth resets state (no permanent wedge); proactive refresh retries with backoff and fires immediately when already due; re-init stops the old tickle timer (no leaked loops) (findings SES-2 high, SES-3 high, SES-5, SES-6). Health-state writes follow ADR-0004. **`fix:`.**
@@ -123,7 +123,7 @@ Implements ADR-0004: 200 ssodh with `authenticated=false` fails init/reauth with
 **TDD notes:** red tests = SES-1/4 + GAP3-1/2/3 suggested regression tests; WireMock ssodh/tickle scenarios + mock-WS `sts` frames; backoff via the mock-clock pattern.
 
 #### VCR-08 — Manager lifecycle integrity
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #239 · **Stream:** VCR · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-08-manager-lifecycle.md
 Cancellable bounded teardown for `RemoveAsync` via internal linked-CTS bound (operator-decided: no new public surface; CT obligation rule-settled by `code-style.md`); credential disposal on every `AddAsync` throw path per the documented ownership contract; the add/dispose race can no longer orphan a live tenant; the manager path validates effective options like `AddIbkrClient` (findings MGR-1 high, MGR-2, MGR-3, MGR-6 — all CONFIRMED, incl. the 2026-07-07 verification of MGR-6). **`fix:`.**

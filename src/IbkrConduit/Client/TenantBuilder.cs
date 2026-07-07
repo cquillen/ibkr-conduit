@@ -22,30 +22,43 @@ internal sealed class TenantBuilder(ILoggerFactory loggerFactory) : ITenantBuild
         ISharedRateGovernor sharedGovernor,
         CancellationToken cancellationToken)
     {
-        var services = new ServiceCollection();
-        services.AddSingleton(loggerFactory);
-        services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
-        services.AddSingleton(sharedGovernor);          // shared instance wins (TryAdd in pipeline)
-        services.AddSingleton(new TenantContext(tenantId));
+        // The managed tenant owns the single bounded logout on teardown, so the child
+        // session manager must not log out a second time when its provider is disposed.
+        effectiveOptions.SkipLogoutOnDispose = true;
 
-        var baseUrl = effectiveOptions.BaseUrl ?? "https://api.ibkr.com";
-        ServiceCollectionExtensions.BuildTenantServices(services, credentials, effectiveOptions, baseUrl);
-
-        var provider = services.BuildServiceProvider();
+        ServiceProvider? provider = null;
         try
         {
+            var services = new ServiceCollection();
+            services.AddSingleton(loggerFactory);
+            services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
+            services.AddSingleton(sharedGovernor);          // shared instance wins (TryAdd in pipeline)
+            services.AddSingleton(new TenantContext(tenantId));
+
+            var baseUrl = effectiveOptions.BaseUrl ?? "https://api.ibkr.com";
+            ServiceCollectionExtensions.BuildTenantServices(services, credentials, effectiveOptions, baseUrl);
+
+            provider = services.BuildServiceProvider();
             var client = provider.GetRequiredService<IIbkrClient>();
             // Eager: force session init then connect the stream.
             await provider.GetRequiredService<ISessionManager>()
                 .EnsureInitializedAsync(cancellationToken);
             await provider.GetRequiredService<IIbkrWebSocketClient>()
                 .ConnectAsync(cancellationToken);
-            return new ManagedTenant(provider, client, credentials);
+            return new ManagedTenant(provider, client, credentials, effectiveOptions.LogoutTimeout);
         }
         catch
         {
-            await provider.DisposeAsync();
-            credentials.Dispose();   // success hands ownership to ManagedTenant; failure cleans up here
+            // Ownership is unconditional on failure — dispose the (possibly partially built)
+            // provider AND the credentials on EVERY throw path, including a synchronous throw
+            // from service construction before the provider exists (MGR-2). Success instead
+            // hands credential ownership to the returned ManagedTenant.
+            if (provider is not null)
+            {
+                await provider.DisposeAsync();
+            }
+
+            credentials.Dispose();
             throw;
         }
     }

@@ -145,15 +145,31 @@ public record OrderWireModel(
 /// <param name="EncryptMessage">IBKR returns "1" to indicate the acknowledgement message was encrypted. Informational only.</param>
 [ExcludeFromCodeCoverage]
 public record OrderSubmissionResponse(
-    [property: JsonPropertyName("id")] string? Id,
+    // WIR-4: IBKR unquotes numeric identifiers on its other order surfaces (trades REST, sor/str
+    // frames); normalize a numeric id/order_id to a string so a transmitted order never surfaces as a
+    // deserialization failure indistinguishable from a refusal.
+    [property: JsonPropertyName("id")]
+    [property: JsonConverter(typeof(FlexibleStringJsonConverter))]
+    string? Id,
     [property: JsonPropertyName("message")] List<string>? Message,
     [property: JsonPropertyName("isSuppressed")] bool? IsSuppressed,
     [property: JsonPropertyName("messageIds")] List<string>? MessageIds,
-    [property: JsonPropertyName("order_id")] string? OrderId,
+    [property: JsonPropertyName("order_id")]
+    [property: JsonConverter(typeof(FlexibleStringJsonConverter))]
+    string? OrderId,
     [property: JsonPropertyName("order_status")] string? OrderStatus,
     [property: JsonPropertyName("local_order_id")] string? LocalOrderId = null,
     [property: JsonPropertyName("oca_group_id")] string? OcaGroupId = null,
-    [property: JsonPropertyName("encrypt_message")] string? EncryptMessage = null);
+    [property: JsonPropertyName("encrypt_message")] string? EncryptMessage = null)
+{
+    /// <summary>
+    /// Reject reason present when IBKR returns a 200 error element in place of an order id or a
+    /// question — e.g. an array-wrapped <c>[{"error":"…"}]</c> reject that bypasses the bare-object
+    /// hidden-error detection (AMB-4). Null on the success and question shapes.
+    /// </summary>
+    [JsonPropertyName("error")]
+    public string? Error { get; init; }
+}
 
 /// <summary>
 /// Reply confirmation body sent to IBKR to confirm or reject an order question.

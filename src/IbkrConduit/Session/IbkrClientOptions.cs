@@ -124,6 +124,24 @@ public class IbkrClientOptions
     public FlexQueryOptions FlexQueries { get; set; } = new();
 
     /// <summary>
+    /// When <c>true</c>, <see cref="Session.SessionManager.DisposeAsync"/> skips its
+    /// best-effort logout because the caller already issued one. The manager path
+    /// (<see cref="Client.TenantBuilder"/>) sets this so a managed tenant logs out exactly
+    /// once — <see cref="Client.ManagedTenant"/> owns the single bounded logout. Internal:
+    /// the single-account <c>AddIbkrClient</c> path leaves it <c>false</c> and still logs
+    /// out on dispose.
+    /// </summary>
+    internal bool SkipLogoutOnDispose { get; set; }
+
+    /// <summary>
+    /// Upper bound on a managed tenant's best-effort logout during teardown, so a hung
+    /// logout can never block disposal for minutes — even when the caller passes
+    /// <see cref="System.Threading.CancellationToken.None"/>. Default is 10 seconds.
+    /// Internal (tests shrink it to keep the bounded-teardown assertion fast).
+    /// </summary>
+    internal TimeSpan LogoutTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>
     /// Creates a per-tenant copy: scalars are copied, the mutable
     /// <see cref="SuppressMessageIds"/> list and <see cref="FlexQueries"/> are
     /// deep-copied so a per-tenant override cannot mutate the shared baseline.
@@ -146,5 +164,7 @@ public class IbkrClientOptions
         ThrowOnApiError = ThrowOnApiError,
         FlexPollTimeout = FlexPollTimeout,
         FlexQueries = FlexQueries.Clone(),
+        SkipLogoutOnDispose = SkipLogoutOnDispose,
+        LogoutTimeout = LogoutTimeout,
     };
 }
