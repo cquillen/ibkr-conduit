@@ -454,6 +454,30 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task DisposeAsync_SkipLogoutOnDispose_DoesNotLogout()
+    {
+        // The manager path (ManagedTenant) issues its own single bounded logout, so the
+        // session manager suppresses its dispose-time logout to avoid a duplicate (MGR-1).
+        var deps = CreateDependencies();
+        deps.Options.SkipLogoutOnDispose = true;
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+        await manager.DisposeAsync();
+
+        deps.SessionApi.LogoutCallCount.ShouldBe(0);
+    }
+
+    [Fact]
     public async Task DisposeAsync_LogoutThrows_DoesNotPropagate()
     {
         var deps = CreateDependencies();
