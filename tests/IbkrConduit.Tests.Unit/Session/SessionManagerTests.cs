@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -1048,6 +1049,198 @@ public class SessionManagerTests
             "Proactive refresh should have re-initialized the session (1 init + 1 refresh)");
     }
 
+    [Fact]
+    public async Task EnsureInitializedAsync_AfterFailedReauth_StopsLeakedTickleTimerAndReinits()
+    {
+        // SES-6 + SES-3: a failed reauth leaves the tickle timer running and (before the fix)
+        // the state stranded off-Ready. The next consumer call re-enters EnsureInitializedAsync
+        // and — without the fix — creates a SECOND tickle timer, leaking the first (a concurrent
+        // duplicate tickle loop). The fix stops the old timer before creating the new one.
+        var deps = CreateDependencies();
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+        var firstTimer = deps.TickleTimerFactory.CreatedTimers[0];
+
+        // Fail the reauth: the token refresh throws a transient error.
+        deps.TokenProvider.RefreshException =
+            new HttpRequestException("boom", null, HttpStatusCode.ServiceUnavailable);
+        await Should.ThrowAsync<IbkrTransientException>(
+            () => manager.ReauthenticateAsync(TestContext.Current.CancellationToken));
+
+        // A later consumer call re-enters init cleanly (no permanent wedge).
+        deps.TokenProvider.RefreshException = null;
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        deps.TickleTimerFactory.CreateCount.ShouldBe(2, "Re-init after a failed reauth must create a new tickle timer.");
+        var secondTimer = deps.TickleTimerFactory.CreatedTimers[1];
+        secondTimer.ShouldNotBeSameAs(firstTimer);
+        firstTimer.Stopped.ShouldBeTrue(
+            "Re-init must stop the previous tickle timer so a failed-reauth cycle cannot leak a second live loop.");
+        secondTimer.Started.ShouldBeTrue("The new tickle timer must be started.");
+    }
+
+    [Fact]
+    public async Task InitFailedReauthReinit_ActiveSessionCount_NetsToZeroAfterDispose()
+    {
+        // SES-3/SES-6: a failed reauth must reset session state so the next call re-inits
+        // cleanly, and the active-session gauge must count the tenant exactly once — never
+        // double-incrementing on re-init, and always decrementing on dispose. The gauge is an
+        // UpDownCounter, so its net over init → failed-reauth → re-init → dispose must be zero.
+        var tenantId = "vcr06-active-" + Guid.NewGuid().ToString("N");
+        long net = 0;
+        using var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, l) =>
+            {
+                if (instrument.Meter.Name == IbkrConduitDiagnostics.MeterName
+                    && instrument.Name == "ibkr.conduit.session.active")
+                {
+                    l.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        listener.SetMeasurementEventCallback<long>((_, measurement, tags, _) =>
+        {
+            foreach (var t in tags)
+            {
+                if (t.Key == LogFields.TenantId && (string?)t.Value == tenantId)
+                {
+                    Interlocked.Add(ref net, measurement);
+                }
+            }
+        });
+        listener.Start();
+
+        var deps = CreateDependencies();
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext(tenantId));
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken); // +1
+
+        deps.TokenProvider.RefreshException =
+            new HttpRequestException("boom", null, HttpStatusCode.ServiceUnavailable);
+        await Should.ThrowAsync<IbkrTransientException>(
+            () => manager.ReauthenticateAsync(TestContext.Current.CancellationToken)); // no gauge change
+
+        deps.TokenProvider.RefreshException = null;
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken); // must NOT double-count
+
+        await manager.DisposeAsync(); // -1
+        listener.Dispose();
+
+        Interlocked.Read(ref net).ShouldBe(0,
+            "The active-session gauge must net to zero: re-init after a failed reauth must not double-count, "
+            + "and dispose must decrement exactly once.");
+    }
+
+    [Fact]
+    public async Task ProactiveRefresh_TransientFailureThenSuccess_RetriesUntilSuccess()
+    {
+        // SES-5: proactive refresh must NOT be one-shot. A transient failure at the refresh
+        // margin must be retried with backoff rather than abandoning the token to expiry.
+        var fakeTime = new FakeTimeProvider();
+        var deps = CreateDependencies();
+        deps.TokenProvider = new FakeSessionTokenProvider(fakeTime)
+        {
+            TokenLifetime = TimeSpan.FromSeconds(10),
+            SimulateAsyncRefresh = true,
+        };
+        deps.Options.ProactiveRefreshMargin = TimeSpan.FromSeconds(8); // timeUntilRefresh = 2s
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"),
+            fakeTime);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        // The first proactive refresh attempt throws a transient error; subsequent ones succeed.
+        deps.TokenProvider.ThrowOnNextRefresh = true;
+
+        // Pump the fake clock: 2s to reach the refresh point, then repeatedly past the retry
+        // backoff so the retried attempt fires. The retry must eventually re-init the session.
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (deps.SessionApi.InitCallCount < 2 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(10));
+            await Task.Yield();
+        }
+
+        await deps.SessionApi.SecondInitTask.WaitAsync(TestContext.Current.CancellationToken);
+
+        deps.TokenProvider.RefreshCallCount.ShouldBeGreaterThanOrEqualTo(2,
+            "A failed proactive refresh must be retried (at least the failed attempt + one retry).");
+        deps.SessionApi.InitCallCount.ShouldBeGreaterThanOrEqualTo(2,
+            "The retried proactive refresh must re-initialize the session.");
+    }
+
+    [Fact]
+    public async Task ScheduleProactiveRefresh_TokenAlreadyDue_RefreshesImmediately()
+    {
+        // SES-5: when the freshly-acquired token is already inside the refresh margin, the
+        // refresh must fire immediately instead of being silently skipped and left to expire.
+        var fakeTime = new FakeTimeProvider();
+        var deps = CreateDependencies();
+        deps.TokenProvider = new FakeSessionTokenProvider(fakeTime)
+        {
+            TokenLifetime = TimeSpan.FromSeconds(5),      // initial token already inside the margin
+            RefreshTokenLifetime = TimeSpan.FromHours(1), // refreshed token is long-lived (no tight loop)
+        };
+        deps.Options.ProactiveRefreshMargin = TimeSpan.FromSeconds(30); // timeUntilRefresh = 5 - 30 < 0
+
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"),
+            fakeTime);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        // The already-due refresh is scheduled with a zero delay; nudge the fake clock so the
+        // zero-delay timer fires (the refreshed token is long-lived, so it fires exactly once).
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (deps.SessionApi.InitCallCount < 2 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromMilliseconds(1));
+            await Task.Yield();
+        }
+
+        await deps.SessionApi.SecondInitTask.WaitAsync(TestContext.Current.CancellationToken);
+
+        deps.TokenProvider.RefreshCallCount.ShouldBeGreaterThanOrEqualTo(1,
+            "An already-due token must refresh immediately, not be skipped.");
+        deps.SessionApi.InitCallCount.ShouldBeGreaterThanOrEqualTo(2,
+            "The immediate proactive refresh must re-initialize the session.");
+    }
+
     private static TestDependencies CreateDependencies() => new();
 
     private class TestDependencies
@@ -1077,6 +1270,14 @@ public class SessionManagerTests
 
         /// <summary>Token expiry for newly created tokens. Default 24 hours.</summary>
         public TimeSpan TokenLifetime { get; set; } = TimeSpan.FromHours(24);
+
+        /// <summary>
+        /// Token lifetime for tokens produced by <see cref="RefreshAsync"/>. When null,
+        /// <see cref="TokenLifetime"/> is used. Lets a test seed a short-lived initial token
+        /// (already inside the refresh margin) while the refreshed token is long-lived, so an
+        /// immediate proactive refresh fires exactly once instead of tight-looping.
+        /// </summary>
+        public TimeSpan? RefreshTokenLifetime { get; set; }
 
         /// <summary>If set, GetLiveSessionTokenAsync throws this exception.</summary>
         public Exception? GetException { get; set; }
@@ -1133,7 +1334,7 @@ public class SessionManagerTests
                 cancellationToken.ThrowIfCancellationRequested();
             }
 
-            _lastExpiry = _timeProvider.GetUtcNow().Add(TokenLifetime);
+            _lastExpiry = _timeProvider.GetUtcNow().Add(RefreshTokenLifetime ?? TokenLifetime);
             return new LiveSessionToken(
                 new byte[] { 0x04, 0x05, 0x06 },
                 _lastExpiry.Value);
@@ -1145,12 +1346,16 @@ public class SessionManagerTests
         public int CreateCount { get; private set; }
         public FakeTickleTimer? CreatedTimer { get; private set; }
 
+        /// <summary>Every timer this factory has created, in creation order.</summary>
+        public List<FakeTickleTimer> CreatedTimers { get; } = new();
+
         public ITickleTimer Create(
             IIbkrSessionApi sessionApi,
             Func<CancellationToken, Task> onFailure)
         {
             CreateCount++;
             CreatedTimer = new FakeTickleTimer();
+            CreatedTimers.Add(CreatedTimer);
             return CreatedTimer;
         }
     }

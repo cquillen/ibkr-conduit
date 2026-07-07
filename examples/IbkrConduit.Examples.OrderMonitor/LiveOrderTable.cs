@@ -12,9 +12,10 @@ namespace IbkrConduit.Examples.OrderMonitor;
 /// loads existing orders from the REST snapshot on startup (the <c>sor</c> stream's initial
 /// frames are id-only), and <see cref="Upsert"/> applies live <c>sor</c> updates. Because
 /// <c>sor</c> deltas are sparse — a later frame carries only the id plus whatever changed —
-/// the merge only overwrites a field when the incoming value carries real data (non-empty
-/// string, non-zero quantity, non-null price), so a sparse frame never blanks a column an
-/// earlier frame (or the seed) populated. Rows render sorted by OrderId.
+/// every wire-optional <see cref="OrderUpdate"/> field is nullable and a field the frame omits
+/// arrives as <c>null</c> (never a fabricated 0 / empty). The merge overwrites only on non-null
+/// fields, so a sparse frame never blanks a column an earlier frame (or the seed) populated.
+/// Rows render sorted by OrderId.
 /// </summary>
 internal sealed class LiveOrderTable
 {
@@ -60,10 +61,9 @@ internal sealed class LiveOrderTable
             }
 
             // sor status deltas are sparse: a later frame carries only the id plus whatever
-            // changed, so every other field arrives at its default (empty string / 0 / null).
-            // Merge rather than last-write-wins so a sparse delta never blanks a column an
-            // earlier, fuller frame populated — only overwrite when the incoming value carries
-            // real data.
+            // changed, so every omitted field arrives as null. Merge rather than last-write-wins
+            // so a sparse delta never blanks a column an earlier, fuller frame populated — only
+            // overwrite when the incoming field is present (non-null).
             if (!string.IsNullOrEmpty(update.Symbol))
             {
                 row.Symbol = update.Symbol;
@@ -74,9 +74,9 @@ internal sealed class LiveOrderTable
                 row.Side = update.Side;
             }
 
-            if (update.Size != 0)
+            if (update.Size is { } size && size != 0)
             {
-                row.Qty = update.Size;
+                row.Qty = size;
             }
 
             if (!string.IsNullOrEmpty(update.OrderType))
@@ -94,9 +94,9 @@ internal sealed class LiveOrderTable
                 row.Status = update.Status;
             }
 
-            if (update.FilledQuantity != 0)
+            if (update.FilledQuantity is { } filled && filled != 0)
             {
-                row.Filled = update.FilledQuantity;
+                row.Filled = filled;
             }
 
             if (!string.IsNullOrEmpty(update.OrderRef))
@@ -130,11 +130,11 @@ internal sealed class LiveOrderTable
             // The REST snapshot is the authoritative full picture of the order.
             row.Symbol = order.Ticker ?? string.Empty;
             row.Side = order.Side;
-            row.Qty = order.TotalSize;
+            row.Qty = order.TotalSize ?? 0m; // wire-optional; treat an absent size as 0 for display
             row.Type = order.OrderType ?? string.Empty;
             row.Price = order.Price; // null for market orders
             row.Status = order.Status;
-            row.Filled = order.FilledQuantity;
+            row.Filled = order.FilledQuantity ?? 0m; // wire-optional; absent -> 0 for display
             if (!string.IsNullOrEmpty(order.OrderRef))
             {
                 row.OrderRef = order.OrderRef;

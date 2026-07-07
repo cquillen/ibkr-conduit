@@ -146,4 +146,58 @@ public class OrderResponseSchemaFieldsTests
         result.ShouldNotBeNull();
         result!.Commission.ShouldBeNull();
     }
+
+    [Fact]
+    public async Task Trade_EmptyStringSizeAndPrice_MapToNullNotZero()
+    {
+        // WIR-3: IBKR can send money fields as empty strings; they must map to null (absent),
+        // never a fabricated 0m that RTOS would book as real fill economics.
+        var result = await DeserializeAsync<Trade>(
+            """{"execution_id":"x","conid":1,"symbol":"A","side":"B","size":"","price":""}""");
+
+        result.ShouldNotBeNull();
+        result!.Size.ShouldBeNull();
+        result.Price.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Trade_OmittedMoneyAndRefFields_MapToNull()
+    {
+        // WIR-3: a manual/TWS trade placed without a cOID omits order_ref/submitter, and the
+        // OpenAPI capture marks all trades fields optional — none may surface as a fabricated 0m / "".
+        var result = await DeserializeAsync<Trade>(
+            """{"execution_id":"x","conid":1,"symbol":"A","side":"B"}""");
+
+        result.ShouldNotBeNull();
+        result!.Size.ShouldBeNull();
+        result.Price.ShouldBeNull();
+        result.OrderRef.ShouldBeNull();
+        result.Submitter.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task LiveOrder_EmptyStringQuantities_MapToNullNotZero()
+    {
+        // WIR-3: filledQuantity/remainingQuantity/totalSize sent as "" must map to null so a
+        // sparse read never reports zeroed fill state as real.
+        var result = await DeserializeAsync<LiveOrder>(
+            """{"orderId":1,"side":"BUY","status":"PreSubmitted","filledQuantity":"","remainingQuantity":"","totalSize":""}""");
+
+        result.ShouldNotBeNull();
+        result!.FilledQuantity.ShouldBeNull();
+        result.RemainingQuantity.ShouldBeNull();
+        result.TotalSize.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task LiveOrder_OmittedQuantities_MapToNull()
+    {
+        var result = await DeserializeAsync<LiveOrder>(
+            """{"orderId":1,"side":"BUY","status":"PreSubmitted"}""");
+
+        result.ShouldNotBeNull();
+        result!.FilledQuantity.ShouldBeNull();
+        result.RemainingQuantity.ShouldBeNull();
+        result.TotalSize.ShouldBeNull();
+    }
 }

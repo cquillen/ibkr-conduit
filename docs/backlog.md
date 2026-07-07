@@ -67,7 +67,7 @@ Stories have a stable ID (`<PREFIX>-NN`), a **Status** line, a **Stream**, **dep
 </details>
 
 #### VCR-01 — 📦 Presence-preserving wire DTOs (streaming + REST)
-**Status:** Not started · **Stream:** VCR · **Depends on:** none · **Blocks:** VCR-07
+**Status:** ✅ Done — #238 · **Stream:** VCR · **Depends on:** none · **Blocks:** VCR-07
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-01-presence-preserving-dtos.md
 Nullable-as-presence retrofit per ADR-0001 across `OrderUpdate`, `TradeExecution`, REST `Trade`/`LiveOrder`, `SessionStatusEvent.Authenticated`, `AccountStatusEvent.IsPaper`/`IsFT` — `null` means "absent from this frame/row"; no fabricated verdicts (findings WIR-1 critical, WIR-3, FIL-6, GAP2-2, GAP2-3). **Breaking — `feat!:`.**
@@ -107,7 +107,7 @@ Implements design doc §10.6: `GetLiveOrdersAsync` returns `LiveOrdersSnapshot(O
 **TDD notes:** red tests = GAP1-1/2/3 suggested regression tests; sanitized fixtures derived from the recorded shapes.
 
 #### VCR-06 — Session lifecycle state-machine hardening
-**Status:** Not started · **Stream:** VCR · **Depends on:** none · **Blocks:** VCR-07
+**Status:** ✅ Done — #240 · **Stream:** VCR · **Depends on:** none · **Blocks:** VCR-07
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-06-session-lifecycle-hardening.md
 Repairs within the recorded §7 lifecycle contract: tickle 401 triggers re-auth (and truthful health) instead of log-and-rot; LST expiry is checked and failed init/reauth resets state (no permanent wedge); proactive refresh retries with backoff and fires immediately when already due; re-init stops the old tickle timer (no leaked loops) (findings SES-2 high, SES-3 high, SES-5, SES-6). Health-state writes follow ADR-0004. **`fix:`.**

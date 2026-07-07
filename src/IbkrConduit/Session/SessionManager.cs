@@ -35,6 +35,12 @@ internal sealed partial class SessionManager : ISessionManager
     private static readonly Histogram<double> _refreshDuration =
         IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.session.refresh.duration", "ms");
 
+    /// <summary>Initial delay between proactive-refresh retry attempts after a transient failure.</summary>
+    private static readonly TimeSpan _proactiveRefreshRetryInitialBackoff = TimeSpan.FromSeconds(5);
+
+    /// <summary>Ceiling for the exponential proactive-refresh retry backoff.</summary>
+    private static readonly TimeSpan _proactiveRefreshRetryMaxBackoff = TimeSpan.FromMinutes(5);
+
     private readonly ISessionTokenProvider _sessionTokenProvider;
     private readonly ITickleTimerFactory _tickleTimerFactory;
     private readonly IIbkrSessionApi _sessionApi;
@@ -59,6 +65,15 @@ internal sealed partial class SessionManager : ISessionManager
 
     private volatile SessionState _state = SessionState.Uninitialized;
     private volatile bool _disposed;
+
+    /// <summary>
+    /// Whether the session was ever brought fully up (reached <see cref="SessionState.Ready"/>),
+    /// so the active-session gauge was incremented and a logout is warranted on dispose. Tracked
+    /// separately from <see cref="_state"/> because a failed reauth resets the state machine to
+    /// <see cref="SessionState.Uninitialized"/> (SES-3) without un-establishing the session, and a
+    /// clean re-init must not double-count the gauge (SES-6).
+    /// </summary>
+    private volatile bool _sessionEstablished;
     private readonly object _proactiveRefreshLock = new();
     private ITickleTimer? _tickleTimer;
     private CancellationTokenSource? _proactiveRefreshCts;
@@ -116,60 +131,88 @@ internal sealed partial class SessionManager : ISessionManager
 
             try
             {
-                _currentLst = await _sessionTokenProvider.GetLiveSessionTokenAsync(cancellationToken);
-
-                await _sessionApi.InitializeBrokerageSessionAsync(
-                    new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (ApiRequestException ex)
-            {
-                // Refit 11 wraps caller cancellation from raw Task<T> session calls in
-                // ApiRequestException; unwrap so cancellation is not misreported as a credential error.
-                ex.RethrowIfWrappedCancellation(cancellationToken);
-                // Refit 11 also wraps transport failures (network error / timeout) in
-                // ApiRequestException. Unwrap to the original SendAsync exception so the
-                // type-switch in WrapCredentialException classifies it correctly (e.g.
-                // transient) rather than falling through to the configuration-error default.
-                throw WrapCredentialException(ex.InnerException ?? ex);
-            }
-            catch (Exception ex)
-            {
-                throw WrapCredentialException(ex);
-            }
-
-            if (_options.SuppressMessageIds.Count > 0)
-            {
                 try
                 {
-                    await _sessionApi.SuppressQuestionsAsync(
-                        new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+                    _currentLst = await _sessionTokenProvider.GetLiveSessionTokenAsync(cancellationToken);
+
+                    await _sessionApi.InitializeBrokerageSessionAsync(
+                        new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (ApiRequestException ex)
                 {
-                    // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
-                    // exception type (transport/timeout/cancellation) they did under Refit 10.
-                    ex.RethrowOriginal();
-                    throw; // unreachable unless InnerException is null
+                    // Refit 11 wraps caller cancellation from raw Task<T> session calls in
+                    // ApiRequestException; unwrap so cancellation is not misreported as a credential error.
+                    ex.RethrowIfWrappedCancellation(cancellationToken);
+                    // Refit 11 also wraps transport failures (network error / timeout) in
+                    // ApiRequestException. Unwrap to the original SendAsync exception so the
+                    // type-switch in WrapCredentialException classifies it correctly (e.g.
+                    // transient) rather than falling through to the configuration-error default.
+                    throw WrapCredentialException(ex.InnerException ?? ex);
                 }
+                catch (Exception ex)
+                {
+                    throw WrapCredentialException(ex);
+                }
+
+                if (_options.SuppressMessageIds.Count > 0)
+                {
+                    try
+                    {
+                        await _sessionApi.SuppressQuestionsAsync(
+                            new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+                    }
+                    catch (ApiRequestException ex)
+                    {
+                        // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
+                        // exception type (transport/timeout/cancellation) they did under Refit 10.
+                        ex.RethrowOriginal();
+                        throw; // unreachable unless InnerException is null
+                    }
+                }
+
+                _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);
+
+                // Stop any prior tickle timer before creating a new one. A failed reauth leaves the
+                // old timer running (reauth intentionally does not stop it — deadlock hazard); re-init
+                // must tear it down here so a failed-reauth→re-init cycle cannot leak a second live
+                // tickle loop (SES-6). Safe here because EnsureInitializedAsync is never invoked from
+                // the tickle's own failure callback (that path is ReauthenticateAsync).
+                if (_tickleTimer != null)
+                {
+                    await _tickleTimer.StopAsync();
+                }
+
+                _tickleTimer = _tickleTimerFactory.Create(_sessionApi, OnTickleFailureAsync);
+                await _tickleTimer.StartAsync(cancellationToken);
+
+                ScheduleProactiveRefresh();
+
+                _state = SessionState.Ready;
+
+                // Count the tenant on the active-session gauge exactly once, even across a
+                // failed-reauth→re-init cycle (SES-6: no duplicate increment).
+                if (!_sessionEstablished)
+                {
+                    _sessionEstablished = true;
+                    _activeSessionCount.Add(1,
+                        new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
+                }
+
+                _initDuration.Record(sw.Elapsed.TotalMilliseconds,
+                    new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
+                LogInitialized();
             }
-
-            _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);
-
-            _tickleTimer = _tickleTimerFactory.Create(_sessionApi, OnTickleFailureAsync);
-            await _tickleTimer.StartAsync(cancellationToken);
-
-            ScheduleProactiveRefresh();
-
-            _state = SessionState.Ready;
-            _activeSessionCount.Add(1,
-                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
-            _initDuration.Record(sw.Elapsed.TotalMilliseconds,
-                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
-            LogInitialized();
+            catch
+            {
+                // SES-3: a failed init must not strand the state machine off-Ready. Reset so the
+                // next consumer call re-enters init cleanly instead of taking the slow path forever.
+                _state = SessionState.Uninitialized;
+                throw;
+            }
         }
         finally
         {
@@ -227,71 +270,86 @@ internal sealed partial class SessionManager : ISessionManager
             // signing layer reads the new LST as soon as SessionTokenProvider
             // updates it below, so the next tickle cycle uses the refreshed
             // credentials automatically — no restart needed.
-            CancelProactiveRefresh();
+            //
+            // We also intentionally do NOT cancel a pending proactive refresh here.
+            // A successful reauth reschedules it on the success path below; a failed
+            // one must keep its retry slot alive so proactive refresh survives a
+            // transient failure rather than being cancelled mid-flight (SES-5).
 
             try
             {
-                _currentLst = await _sessionTokenProvider.RefreshAsync(cancellationToken);
-
-                await _sessionApi.InitializeBrokerageSessionAsync(
-                    new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (ApiRequestException ex)
-            {
-                // Refit 11 wraps caller cancellation from raw Task<T> session calls in
-                // ApiRequestException; unwrap so cancellation is not misreported as a credential error.
-                ex.RethrowIfWrappedCancellation(cancellationToken);
-                // Refit 11 also wraps transport failures (network error / timeout) in
-                // ApiRequestException. Unwrap to the original SendAsync exception so the
-                // type-switch in WrapCredentialException classifies it correctly (e.g.
-                // transient) rather than falling through to the configuration-error default.
-                throw WrapCredentialException(ex.InnerException ?? ex);
-            }
-            catch (Exception ex)
-            {
-                throw WrapCredentialException(ex);
-            }
-
-            if (_options.SuppressMessageIds.Count > 0)
-            {
                 try
                 {
-                    await _sessionApi.SuppressQuestionsAsync(
-                        new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+                    _currentLst = await _sessionTokenProvider.RefreshAsync(cancellationToken);
+
+                    await _sessionApi.InitializeBrokerageSessionAsync(
+                        new SsodhInitRequest(Publish: true, Compete: _options.Compete), cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (ApiRequestException ex)
                 {
-                    // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
-                    // exception type (transport/timeout/cancellation) they did under Refit 10.
-                    ex.RethrowOriginal();
-                    throw; // unreachable unless InnerException is null
+                    // Refit 11 wraps caller cancellation from raw Task<T> session calls in
+                    // ApiRequestException; unwrap so cancellation is not misreported as a credential error.
+                    ex.RethrowIfWrappedCancellation(cancellationToken);
+                    // Refit 11 also wraps transport failures (network error / timeout) in
+                    // ApiRequestException. Unwrap to the original SendAsync exception so the
+                    // type-switch in WrapCredentialException classifies it correctly (e.g.
+                    // transient) rather than falling through to the configuration-error default.
+                    throw WrapCredentialException(ex.InnerException ?? ex);
                 }
+                catch (Exception ex)
+                {
+                    throw WrapCredentialException(ex);
+                }
+
+                if (_options.SuppressMessageIds.Count > 0)
+                {
+                    try
+                    {
+                        await _sessionApi.SuppressQuestionsAsync(
+                            new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+                    }
+                    catch (ApiRequestException ex)
+                    {
+                        // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
+                        // exception type (transport/timeout/cancellation) they did under Refit 10.
+                        ex.RethrowOriginal();
+                        throw; // unreachable unless InnerException is null
+                    }
+                }
+
+                _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);
+
+                // No tickle timer recreate either — see the comment above. The existing timer keeps
+                // running. ScheduleProactiveRefresh replaces any pending proactive-refresh slot.
+                ScheduleProactiveRefresh();
+
+                await _notifier.NotifyAsync(cancellationToken);
+
+                _state = SessionState.Ready;
+                _refreshCount.Add(1,
+                    new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+                    new KeyValuePair<string, object?>(LogFields.Trigger, "reauth"));
+                _refreshDuration.Record(sw.Elapsed.TotalMilliseconds,
+                    new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
+
+                // Mark the reauth complete BEFORE releasing the semaphore so any
+                // caller queued behind us short-circuits via the epoch check above.
+                Interlocked.Increment(ref _reauthEpoch);
+
+                LogReauthenticated();
             }
-
-            _sessionHealthState.Update(authenticated: true, connected: true, competing: false, established: true);
-
-            // No tickle timer recreate either — see comment above the
-            // CancelProactiveRefresh call. The existing timer keeps running.
-            ScheduleProactiveRefresh();
-
-            await _notifier.NotifyAsync(cancellationToken);
-
-            _state = SessionState.Ready;
-            _refreshCount.Add(1,
-                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
-                new KeyValuePair<string, object?>(LogFields.Trigger, "reauth"));
-            _refreshDuration.Record(sw.Elapsed.TotalMilliseconds,
-                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
-
-            // Mark the reauth complete BEFORE releasing the semaphore so any
-            // caller queued behind us short-circuits via the epoch check above.
-            Interlocked.Increment(ref _reauthEpoch);
-
-            LogReauthenticated();
+            catch
+            {
+                // SES-3: a failed reauth must not strand the state machine at Reauthenticating.
+                // Reset so the next consumer call (or the surviving tickle loop / proactive-refresh
+                // retry) re-enters init cleanly instead of wedging on the stale credentials.
+                _state = SessionState.Uninitialized;
+                throw;
+            }
         }
         finally
         {
@@ -312,7 +370,10 @@ internal sealed partial class SessionManager : ISessionManager
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Shutdown");
         activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
 
-        var wasInitialized = _state != SessionState.Uninitialized;
+        // Key off whether the session was ever established (not the current state): a failed
+        // reauth resets _state to Uninitialized (SES-3) without un-establishing the session, so
+        // deriving "was initialized" from _state would skip the logout + gauge decrement.
+        var wasInitialized = _sessionEstablished;
         _state = SessionState.ShuttingDown;
 
         if (wasInitialized)
@@ -386,9 +447,11 @@ internal sealed partial class SessionManager : ISessionManager
         CancelProactiveRefresh();
 
         var timeUntilRefresh = _currentLst.Expiry - _timeProvider.GetUtcNow() - _options.ProactiveRefreshMargin;
-        if (timeUntilRefresh <= TimeSpan.Zero)
+        if (timeUntilRefresh < TimeSpan.Zero)
         {
-            return;
+            // SES-5: an already-due token must refresh immediately, not be skipped —
+            // skipping lets the LST run to expiry and wedges the session.
+            timeUntilRefresh = TimeSpan.Zero;
         }
 
         var cts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
@@ -404,23 +467,52 @@ internal sealed partial class SessionManager : ISessionManager
         _ = RunProactiveRefreshAsync(timeUntilRefresh, cts.Token);
     }
 
-    private async Task RunProactiveRefreshAsync(TimeSpan timeUntilRefresh, CancellationToken delayToken)
+    private async Task RunProactiveRefreshAsync(TimeSpan timeUntilRefresh, CancellationToken slotToken)
     {
         try
         {
-            await Task.Delay(timeUntilRefresh, _timeProvider, delayToken);
-            if (!_disposeCts.IsCancellationRequested)
+            await Task.Delay(timeUntilRefresh, _timeProvider, slotToken);
+
+            // SES-5: retry with exponential backoff until success, dispose, or supersession.
+            // A single transient failure must not abandon the token to expiry (which would then
+            // wedge the session via SES-2/SES-3). A successful ReauthenticateAsync reschedules a
+            // fresh proactive-refresh slot and cancels this one, so we return on success.
+            var backoff = _proactiveRefreshRetryInitialBackoff;
+            while (!slotToken.IsCancellationRequested && !_disposeCts.IsCancellationRequested)
             {
-                // Use the dispose token for re-auth, not the proactive refresh token.
-                // ReauthenticateAsync calls CancelProactiveRefresh() which cancels
-                // _proactiveRefreshCts — using that token here would cancel the
-                // very operation we're trying to perform.
-                await ReauthenticateAsync(_disposeCts.Token);
+                var succeeded = false;
+                try
+                {
+                    // Re-auth on the dispose token, not the slot token: a successful reauth
+                    // reschedules proactive refresh, which cancels this slot — passing the slot
+                    // token here would cancel the very operation we are performing.
+                    await ReauthenticateAsync(_disposeCts.Token);
+                    succeeded = true;
+                }
+                catch (OperationCanceledException)
+                {
+                    // Shutdown or supersession — handled by the outer catch.
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    LogProactiveRefreshFailed(ex);
+                }
+
+                if (succeeded)
+                {
+                    return;
+                }
+
+                await Task.Delay(backoff, _timeProvider, slotToken);
+                backoff = backoff < _proactiveRefreshRetryMaxBackoff
+                    ? TimeSpan.FromTicks(Math.Min(backoff.Ticks * 2, _proactiveRefreshRetryMaxBackoff.Ticks))
+                    : _proactiveRefreshRetryMaxBackoff;
             }
         }
         catch (OperationCanceledException)
         {
-            // Expected on shutdown
+            // Expected on shutdown or when a newer schedule supersedes this slot.
         }
         catch (Exception ex)
         {
