@@ -11,4 +11,13 @@ Doc content is IBKR's CLAIM — recordings/ and attended probes remain the only 
 **Covers:** full REST endpoint surface (168 paths) — accounts, orders, contracts/secdef, market data snapshots, alerts, watchlists, scanner, PnL, FYI, Flex-adjacent endpoints — plus 453 request/response schemas
 **Authority notes:** Operator: "one would hope it's authoritative, but it is NOT — it has gaps; treat as a peer source, never the sole authority."
 **Structure:** single machine-readable OpenAPI 3.0.0 document, `info.title` = "IB REST API", `info.version` = 2.35.0 (self-describing version field — free drift detector: re-check this on each re-verify). Not a shell; served directly as JSON with no browser rendering needed. Reachable with plain `curl` (no special User-Agent required — this host is not behind the IBKR Campus WAF that blocks WebFetch).
-**Overlaps:** none registered yet
+**Overlaps:** DOC-02 (Redoc shell whose `spec-url` points at this exact URL — DOC-02 is a rendering of this document, not independent content)
+
+#### DOC-02 — Web API Reference (Redoc rendering)
+**URL:** https://www.interactivebrokers.com/campus/ibkr-api-page/webapi-ref/
+**Kind:** html · **Fetch:** curl-ok (needs desktop-browser User-Agent; WebFetch gets 403 from the IBKR Campus WAF) · **Size:** ~371KB (HTML shell only — actual spec content is fetched client-side from the `spec-url`)
+**Registered:** 2026-07-07 · **Last verified:** 2026-07-07
+**Covers:** same surface as DOC-01 (it renders DOC-01) — full REST endpoint reference, once resolved through the shell
+**Authority notes:** Operator: "looks like an openapi rendering." Confirmed: this is a Redoc single-page shell, `<title>Web API Reference | IBKR API | IBKR Campus</title>`, containing `spec-url='https://api.ibkr.com/gw/api/v3/api-docs'`. Do not fetch this URL for content — fetch DOC-01 directly instead; this entry exists so a scout that lands here (e.g. via search/link) knows to redirect to DOC-01 rather than treating the shell as needs-browser.
+**Structure:** JS-rendered Redoc shell around the DOC-01 OpenAPI document; no independent structure of its own. No self-describing version beyond what DOC-01 carries.
+**Overlaps:** DOC-01 — full overlap, DOC-02 is strictly a rendering of DOC-01's data; DOC-01 is the source of truth, fetch it instead of this shell
