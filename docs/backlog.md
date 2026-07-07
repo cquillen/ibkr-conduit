@@ -163,7 +163,7 @@ Split from VCR-11 (operator decision 2026-07-07); **groomed loop-ready 2026-07-0
 **TDD notes:** red tests = wire-model serialization pins (present when set, absent when null) mirroring the PVR-05 trailing-param tests; no WireMock scenario changes needed beyond fixture echo.
 
 #### VCR-13 — Order-type XML docs widening (probe-verified extra values)
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #252 · **Stream:** VCR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Follow-up to VCR-11, drafted+groomed 2026-07-07 during the PVR re-groom (operator-decided via the probe ack): the VCR-11-pinned seven-value `orderType` list is wire-falsified **as a closed set** — an operator-acked live probe accepted `LOC`, `MOC`, `MIT`, `LIT`, `REL` (1 sample each, all live `PreSubmitted` then cancelled; `recordings/ordertype-probe-2026-07-07.log`), matching DOC-08's CP API examples. Evidence: `docs/ibkr-doc-evidence/2026-07-07-ordertype-enum-trailing-params.md`. Decided scope: widen the `OrderRequest.OrderType`/`OrderWireModel.OrderType` XML docs (`IIbkrOrderApiModels.cs:24,:106`) to list the seven documented-core values plus the five probe-verified extras with a per-sample caveat ("accepted in live probes; not a closed set — IBKR documents no admissible enum"), and record the observed submission→read-side name mapping (`LOC→LIMITONCLOSE`, `MOC→MARKETONCLOSE`, `REL→RELATIVE`, `MIT`/`LIT` unchanged) where the read-side DTO documents `order_type`. No behavior change; no validation added (the field stays a pass-through string — `OrderType` is a bare string RTOS consumes as-is). **`fix:`** (shipped XML docs are consumer-facing; additive wording, non-breaking).
