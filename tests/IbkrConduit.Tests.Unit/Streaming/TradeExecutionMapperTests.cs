@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using IbkrConduit.Streaming;
@@ -171,5 +173,66 @@ public class TradeExecutionMapperTests
         var frame = JsonDocument.Parse("""{"topic":"str","args":[]}""").RootElement;
 
         TradeExecutionMapper.MapMany(frame).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void MapMany_OneMalformedElement_YieldsRemainingExecutions()
+    {
+        // FIL-2: one malformed execution mid-array must not discard the frame's tail — a str
+        // snapshot frame carries up to a whole day's fills. Per-element isolation deserializes
+        // each element independently so every good execution is still delivered.
+        var frame = JsonDocument.Parse(
+            """
+            {"topic":"str","args":[
+              {"execution_id":"good-1","symbol":"AAPL","conid":265598},
+              {"execution_id":"bad","conid":"garbage-object"},
+              {"execution_id":"good-2","symbol":"MSFT","conid":272093}
+            ]}
+            """).RootElement;
+
+        var executions = TradeExecutionMapper.MapMany(frame).ToList();
+
+        executions.Count.ShouldBe(2);
+        executions[0].ExecutionId.ShouldBe("good-1");
+        executions[1].ExecutionId.ShouldBe("good-2");
+    }
+
+    [Fact]
+    public void MapMany_OneMalformedElement_ReportsExactlyOneDropToCallback()
+    {
+        // The malformed element must be reported to the drop callback so the caller can count and
+        // log it per the VCR-02 drop taxonomy — never silently swallowed (FIL-2).
+        var frame = JsonDocument.Parse(
+            """
+            {"topic":"str","args":[
+              {"execution_id":"good-1","conid":265598},
+              {"execution_id":"bad","conid":"garbage-object"},
+              {"execution_id":"good-2","conid":272093}
+            ]}
+            """).RootElement;
+
+        var dropped = new List<Exception>();
+        var executions = TradeExecutionMapper.MapMany(frame, dropped.Add).ToList();
+
+        executions.Count.ShouldBe(2);
+        dropped.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void MapMany_AllElementsMalformed_YieldsNothingAndReportsEachDrop()
+    {
+        var frame = JsonDocument.Parse(
+            """
+            {"topic":"str","args":[
+              {"execution_id":"bad-1","conid":"garbage-object"},
+              {"execution_id":"bad-2","conid":"also-garbage"}
+            ]}
+            """).RootElement;
+
+        var dropped = new List<Exception>();
+        var executions = TradeExecutionMapper.MapMany(frame, dropped.Add).ToList();
+
+        executions.ShouldBeEmpty();
+        dropped.Count.ShouldBe(2);
     }
 }

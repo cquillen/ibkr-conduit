@@ -83,7 +83,7 @@ Implements ADR-0002: observable evictions (itemDropped → Warning + `ibkr.condu
 **TDD notes:** mock-WS harness (`BroadcastTextAsync`) drives overflow/mapper/observer/reconnect scenarios; metrics via `MeterListener`.
 
 #### VCR-03 — Streaming mapper robustness
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #247 · **Stream:** VCR · **Depends on:** none
 **Risk:** high
 **Spec:** trivial-skip
 Pattern-following fixes, decided: `TradeExecutionMapper.MapMany` isolates failures per `args` element (materialize before yield; log-and-skip only the bad element, keeping the observable-level catch as last resort) so one malformed execution no longer discards the frame's tail (FIL-2 — the `str` snapshot frame carries up to a day's fills); `SessionStatusMapper` parses `authenticated` with tolerant boolean logic mirroring `FlexibleBoolJsonConverter` instead of raw `GetBoolean()` (GAP2-1). Lane note: build after VCR-02 (shared files).
