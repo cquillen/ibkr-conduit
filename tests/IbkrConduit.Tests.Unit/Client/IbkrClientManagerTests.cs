@@ -131,6 +131,60 @@ public class IbkrClientManagerTests
     }
 
     [Fact]
+    public async Task AddAsync_InvalidTickleFailureIntervalOverride_FailsFastWithValidationError()
+    {
+        var builder = new FakeTenantBuilder();
+        await using var mgr = NewManager(builder);
+        var creds = TrackingCreds("t1", out var signatureTracker);
+
+        var ex = await Should.ThrowAsync<ArgumentOutOfRangeException>(
+            () => mgr.AddAsync("t1", creds,
+                configureOverrides: o => o.TickleFailureIntervalSeconds = 0,
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        ex.ParamName.ShouldBe("IbkrClientOptions.TickleFailureIntervalSeconds");
+        builder.Built.ShouldBeEmpty();
+        signatureTracker.DisposeCount.ShouldBe(1);
+        mgr.ActiveTenants.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task AddAsync_InvalidWebSocketHeartbeatOverride_FailsFastWithValidationError()
+    {
+        var builder = new FakeTenantBuilder();
+        await using var mgr = NewManager(builder);
+        var creds = TrackingCreds("t1", out var signatureTracker);
+
+        var ex = await Should.ThrowAsync<ArgumentOutOfRangeException>(
+            () => mgr.AddAsync("t1", creds,
+                configureOverrides: o => o.WebSocketHeartbeatIntervalSeconds = -1,
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        ex.ParamName.ShouldBe("IbkrClientOptions.WebSocketHeartbeatIntervalSeconds");
+        builder.Built.ShouldBeEmpty();
+        signatureTracker.DisposeCount.ShouldBe(1);
+        mgr.ActiveTenants.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task AddAsync_InvalidStreamingBufferSizeOverride_FailsFastWithValidationError()
+    {
+        var builder = new FakeTenantBuilder();
+        await using var mgr = NewManager(builder);
+        var creds = TrackingCreds("t1", out var signatureTracker);
+
+        var ex = await Should.ThrowAsync<ArgumentOutOfRangeException>(
+            () => mgr.AddAsync("t1", creds,
+                configureOverrides: o => o.StreamingBufferSize = 0,
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        ex.ParamName.ShouldBe("IbkrClientOptions.StreamingBufferSize");
+        builder.Built.ShouldBeEmpty();
+        signatureTracker.DisposeCount.ShouldBe(1);
+        mgr.ActiveTenants.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task AddAsync_InvalidBaseUrlOverride_FailsFastWithValidationError()
     {
         var builder = new FakeTenantBuilder();

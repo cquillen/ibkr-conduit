@@ -277,7 +277,7 @@ Findings ORD-3 (medium, CONFIRMED), ORD-1 (medium, PLAUSIBLE): implements [ADR-0
 **TDD notes:** red tests per the spec test plan (lock retention/timeout via fake TimeProvider; 503 fixture = the probe body verbatim; ORD-1 shapes).
 
 #### PVR-07 — 📦 Health-status options & validation completeness
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #256 · **Stream:** PVR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Findings RST-4, TEN-3 (medium, CONFIRMED): `HealthStatusOptions` is registered as a hardcoded `new HealthStatusOptions()` with no configuration hook, so staleness thresholds cannot follow a tenant's `TickleIntervalSeconds`; and `ValidateOptions` — documented as validating all fields — skips `TickleFailureIntervalSeconds`, `WebSocketHeartbeatIntervalSeconds`, and `StreamingBufferSize`. Expose the options per the recorded surface line (design doc §7.7, D6: consumer-configurable, tickle-interval-derived defaults); add the missing range checks with the existing `ArgumentOutOfRangeException` shapes. **Additive — `feat:`.**
