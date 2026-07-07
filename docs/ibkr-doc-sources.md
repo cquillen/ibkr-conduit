@@ -11,7 +11,7 @@ Doc content is IBKR's CLAIM — recordings/ and attended probes remain the only 
 **Covers:** full REST endpoint surface (168 paths) — accounts, orders, contracts/secdef, market data snapshots, alerts, watchlists, scanner, PnL, FYI, Flex-adjacent endpoints — plus 453 request/response schemas
 **Authority notes:** Operator: "one would hope it's authoritative, but it is NOT — it has gaps; treat as a peer source, never the sole authority."
 **Structure:** single machine-readable OpenAPI 3.0.0 document, `info.title` = "IB REST API", `info.version` = 2.35.0 (self-describing version field — free drift detector: re-check this on each re-verify). Not a shell; served directly as JSON with no browser rendering needed. Reachable with plain `curl` (no special User-Agent required — this host is not behind the IBKR Campus WAF that blocks WebFetch).
-**Overlaps:** DOC-02 (Redoc shell whose `spec-url` points at this exact URL — DOC-02 is a rendering of this document, not independent content)
+**Overlaps:** DOC-02 (Redoc shell whose `spec-url` points at this exact URL — DOC-02 is a rendering of this document, not independent content); DOC-03 (older, broader narrative HTML doc covering the same endpoint families plus material this OpenAPI doc omits — operator notes new docs are incomplete, so DOC-03 fills gaps here)
 
 #### DOC-02 — Web API Reference (Redoc rendering)
 **URL:** https://www.interactivebrokers.com/campus/ibkr-api-page/webapi-ref/
@@ -21,3 +21,12 @@ Doc content is IBKR's CLAIM — recordings/ and attended probes remain the only 
 **Authority notes:** Operator: "looks like an openapi rendering." Confirmed: this is a Redoc single-page shell, `<title>Web API Reference | IBKR API | IBKR Campus</title>`, containing `spec-url='https://api.ibkr.com/gw/api/v3/api-docs'`. Do not fetch this URL for content — fetch DOC-01 directly instead; this entry exists so a scout that lands here (e.g. via search/link) knows to redirect to DOC-01 rather than treating the shell as needs-browser.
 **Structure:** JS-rendered Redoc shell around the DOC-01 OpenAPI document; no independent structure of its own. No self-describing version beyond what DOC-01 carries.
 **Overlaps:** DOC-01 — full overlap, DOC-02 is strictly a rendering of DOC-01's data; DOC-01 is the source of truth, fetch it instead of this shell
+
+#### DOC-03 — Web API v1.0 Documentation (Client Portal API, narrative)
+**URL:** https://www.interactivebrokers.com/campus/ibkr-api-page/cpapi-v1/
+**Kind:** html · **Fetch:** curl-ok (needs desktop-browser User-Agent; WebFetch gets 403 from the IBKR Campus WAF) · **Size:** ~1.2MB
+**Registered:** 2026-07-07 · **Last verified:** 2026-07-07
+**Covers:** broad narrative coverage — Client Portal Gateway setup, Authentication (session, brokerage sessions, multi-session, paper accounts, FAQ), Pacing Limitations, Regular Server Maintenance, Endpoints (Alerts, Accounts, Contract/secdef, and many more endpoint families — 246 `h3` subsections total under 11 top-level `h2` sections), Websockets, OAuth 1.0a, Flex Web Service
+**Authority notes:** Operator: "old and massive v1 documentation, but still relevant due to new docs being incomplete and the actual API is not version separated afaik." Treat as the deepest narrative source; use to fill gaps left by DOC-01/DOC-02, especially for OAuth, Websockets, Flex, and session-lifecycle prose that the OpenAPI doc doesn't capture.
+**Structure:** single large HTML page (not a tree — one page, deep-linked via anchors). `<title>Web API v1.0 Documentation | IBKR API | IBKR Campus</title>` — "v1.0" is the only version marker found (no machine-readable version field). Top-level `h2.section-title-1` anchors: Introduction, Requirements & Limitations, WebAPI Basics Tutorial, Client Portal Gateway, Authentication, Pacing Limitations, Regular Server Maintenance, Endpoints, Websockets, OAuth 1.0a, Flex Web Service. Endpoint detail lives under `h3.section-title-2` (246 of them, e.g. "Alerts", "Accounts", "Contract", "Search the security definition by Contract ID").
+**Overlaps:** DOC-01/DOC-02 — endpoint coverage overlaps but DOC-03 is broader (per operator, new docs are incomplete relative to this)
