@@ -174,12 +174,16 @@ public class PortfolioOperationsTests
     [Fact]
     public async Task GetSubAccountsPagedAsync_DelegatesToApi()
     {
-        _fakeApi.SubAccountsResponse = [new SubAccount("DU123", "DU123", "Paper", "INDIVIDUAL", "DU123")];
+        _fakeApi.SubAccountsPagedResponse = new SubAccountsPage(
+            new SubAccountsPageMetadata(1, 20, 0),
+            [new SubAccount("DU123", "DU123", "Paper", "INDIVIDUAL", "DU123")]);
 
         var result = await _sut.GetSubAccountsPagedAsync(0, TestContext.Current.CancellationToken);
 
-        result.Value.Count.ShouldBe(1);
-        result.Value[0].Id.ShouldBe("DU123");
+        result.Value.Metadata.ShouldNotBeNull();
+        result.Value.Metadata!.PageNum.ShouldBe(0);
+        result.Value.Subaccounts.Count.ShouldBe(1);
+        result.Value.Subaccounts[0].Id.ShouldBe("DU123");
     }
 
     [Fact]
@@ -221,6 +225,7 @@ public class PortfolioOperationsTests
         public AccountAllocation? ConsolidatedAllocationResponse { get; set; }
         public List<ComboPosition>? ComboPositionsResponse { get; set; }
         public List<SubAccount>? SubAccountsResponse { get; set; }
+        public SubAccountsPage? SubAccountsPagedResponse { get; set; }
         public AllPeriodsPerformance? AllPeriodsResponse { get; set; }
         public PartitionedPnl? PartitionedPnlResponse { get; set; }
         public PerformanceRequest? LastPerformanceRequest { get; private set; }
@@ -302,9 +307,9 @@ public class PortfolioOperationsTests
         public Task<IApiResponse<List<SubAccount>>> GetSubAccountsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(SubAccountsResponse!));
 
-        public Task<IApiResponse<List<SubAccount>>> GetSubAccountsPagedAsync(
+        public Task<IApiResponse<SubAccountsPage>> GetSubAccountsPagedAsync(
             int page = 0, CancellationToken cancellationToken = default) =>
-            Task.FromResult(FakeApiResponse.Success(SubAccountsResponse!));
+            Task.FromResult(FakeApiResponse.Success(SubAccountsPagedResponse!));
 
         public Task<IApiResponse<AllPeriodsPerformance>> GetAllPeriodsPerformanceAsync(
             AllPeriodsRequest request, string? param = null, CancellationToken cancellationToken = default)

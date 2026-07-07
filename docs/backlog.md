@@ -245,7 +245,7 @@ Findings WIR-3 (high, PLAUSIBLE), WIR-4 (medium, CONFIRMED): `Position`/`LedgerE
 **TDD notes:** red tests per the spec test plan (presence + decimal-precision per model family; reflection sweep pinning no-double-money).
 
 #### PVR-03 — 📦 Paged sub-accounts response shape
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #257 · **Stream:** PVR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Finding RST-2 (medium, CONFIRMED): `GetSubAccountsPagedAsync` declares the `/portfolio/subaccounts2` response as a bare `List<SubAccount>`, while the live docs claim an object wrapper `{metadata, subaccounts}` (DOC-01 schema + DOC-03 prose — though DOC-03's own example shows a bare array; `docs/ibkr-doc-evidence/2026-07-07-subaccounts2-response-shape.md`). Grooming evidence (2026-07-07): the committed live-capture fixture shows the paper account returning a **bare array** — the wrapper is verified nowhere and is likely FA-structure-only (operator assessment, aligned with the docs' explicit tiered/FA scoping; paper accounts don't support sub-accounts). Operator-decided: deserialize **both shapes** — wrapper or bare array — normalizing into one paged DTO (§16.4 as corrected); safe under both answers. **Breaking — `feat!:`** (return shape changes to the paged DTO).
