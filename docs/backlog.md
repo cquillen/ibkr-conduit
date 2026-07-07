@@ -261,7 +261,7 @@ Findings WIR-1 (high, PLAUSIBLE), PRB-3.2, PRB-3.3 (medium, PLAUSIBLE), WIR-5 (l
 **TDD notes:** red tests from sanitized probe-derived fixtures per the spec test plan (mixed valid/malformed frames per topic; the Cushion-row pin).
 
 #### PVR-05 — 📦 Trailing-order parameters
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #254 · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** trivial-skip
 Finding ORD-4 (medium, CONFIRMED): `OrderRequest` documents `TRAIL`/`TRAILLMT` (per the VCR-11-pinned wire enum, re-confirmed live 2026-07-07 — `docs/ibkr-doc-evidence/2026-07-07-ordertype-enum-trailing-params.md`) but exposes no `trailingAmt`/`trailingType`, which the live docs require for those order types ("You must specify both trailingType and trailingAmt for TRAIL and TRAILLMT order", DOC-03) — a consumer can name a trailing order it cannot parameterize. Operator-decided 2026-07-07 (D6, design doc §9.7): add `TrailingAmt` (`decimal?`) / `TrailingType` (`string?`) with fail-fast validation when the order type requires them — the enum-retraction alternative was rejected. Wire acceptance pinned by the 2026-07-07 live probe: `trailingAmt:50, trailingType:"amt"` → question `o10331` → `order_id 261920143, PreSubmitted` (see stream Evidence). Related: VCR-12 (`ExtOperator`, groomed loop-ready 2026-07-07) is the same additive-`OrderRequest` surface family. **Additive — `feat:`.**
