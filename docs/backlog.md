@@ -123,7 +123,7 @@ Implements ADR-0004: 200 ssodh with `authenticated=false` fails init/reauth with
 **TDD notes:** red tests = SES-1/4 + GAP3-1/2/3 suggested regression tests; WireMock ssodh/tickle scenarios + mock-WS `sts` frames; backoff via the mock-clock pattern.
 
 #### VCR-08 — Manager lifecycle integrity
-**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Status:** ✅ Done — #239 · **Stream:** VCR · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-vcr-08-manager-lifecycle.md
 Cancellable bounded teardown for `RemoveAsync` via internal linked-CTS bound (operator-decided: no new public surface; CT obligation rule-settled by `code-style.md`); credential disposal on every `AddAsync` throw path per the documented ownership contract; the add/dispose race can no longer orphan a live tenant; the manager path validates effective options like `AddIbkrClient` (findings MGR-1 high, MGR-2, MGR-3, MGR-6 — all CONFIRMED, incl. the 2026-07-07 verification of MGR-6). **`fix:`.**
