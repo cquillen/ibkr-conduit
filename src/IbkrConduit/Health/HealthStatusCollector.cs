@@ -187,9 +187,13 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
             return HealthState.Unhealthy;
         }
 
-        if (lastCall is null && _tokenProvider.CurrentTokenExpiry is not null)
+        if (lastCall is null && _tokenProvider.CurrentTokenExpiry is not null && !session.Established)
         {
-            // Token exists but no successful call has ever been made — likely broken
+            // Token exists but no successful call has ever been made and the brokerage session was
+            // never established — likely broken. A freshly established, tickling session with no
+            // consumer call yet is NOT unhealthy: its liveness is the tickle loop, not consumer REST
+            // traffic (SES-4 / ADR-0004). Once a tickle records via the session pipeline, lastCall is
+            // non-null and the staleness check below governs.
             return HealthState.Unhealthy;
         }
 

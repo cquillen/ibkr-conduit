@@ -1,4 +1,5 @@
 using System.Text.Json;
+using IbkrConduit.Health;
 using IbkrConduit.Streaming;
 using IbkrConduit.Streaming.Mappers;
 using Microsoft.Extensions.Logging;
@@ -15,21 +16,42 @@ internal sealed class StreamingOperations : IStreamingOperations
 {
     private readonly IIbkrWebSocketClient _webSocketClient;
     private readonly ILoggerFactory _loggerFactory;
+    private readonly SessionHealthState _sessionHealthState;
 
     /// <summary>
     /// Creates a new <see cref="StreamingOperations"/>.
     /// </summary>
     /// <param name="webSocketClient">The underlying WebSocket client.</param>
     /// <param name="loggerFactory">Factory used to create a per-topic logger for each subscription's observable, so a dropped-frame warning can be traced back to its topic.</param>
-    public StreamingOperations(IIbkrWebSocketClient webSocketClient, ILoggerFactory loggerFactory)
+    /// <param name="sessionHealthState">Shared session-health state that a competing <c>sts</c> frame feeds (ADR-0004).</param>
+    public StreamingOperations(
+        IIbkrWebSocketClient webSocketClient,
+        ILoggerFactory loggerFactory,
+        SessionHealthState sessionHealthState)
     {
         _webSocketClient = webSocketClient;
         _loggerFactory = loggerFactory;
+        _sessionHealthState = sessionHealthState;
     }
 
     /// <inheritdoc />
     public IIbkrSubscription<SessionStatusEvent> SubscribeSessionStatus() =>
-        CreateUnsolicitedSubscription("sts", SessionStatusMapper.Map);
+        CreateUnsolicitedSubscription("sts", MapSessionStatusAndFeedHealth);
+
+    /// <summary>
+    /// Maps an <c>sts</c> frame to a <see cref="SessionStatusEvent"/> and, when the frame reports a
+    /// competing session, feeds that verdict into the passive session-health snapshot so a competing
+    /// takeover is observable through health as well as the push event (ADR-0004 / GAP3-3).
+    /// </summary>
+    private SessionStatusEvent MapSessionStatusAndFeedHealth(JsonElement element)
+    {
+        var evt = SessionStatusMapper.Map(element);
+        if (evt.Competing == true)
+        {
+            _sessionHealthState.MarkCompeting(evt.FailReason);
+        }
+        return evt;
+    }
 
     /// <inheritdoc />
     public IIbkrSubscription<BulletinEvent> SubscribeBulletins() =>

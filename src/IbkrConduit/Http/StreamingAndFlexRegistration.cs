@@ -6,6 +6,7 @@ using IbkrConduit.Auth;
 using IbkrConduit.Client;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Flex;
+using IbkrConduit.Health;
 using IbkrConduit.Session;
 using IbkrConduit.Streaming;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,7 +45,8 @@ internal static class StreamingAndFlexRegistration
         services.AddSingleton<IStreamingOperations>(sp =>
             new StreamingOperations(
                 sp.GetRequiredService<IIbkrWebSocketClient>(),
-                sp.GetRequiredService<ILoggerFactory>()));
+                sp.GetRequiredService<ILoggerFactory>(),
+                sp.GetRequiredService<SessionHealthState>()));
 
         // Flex Web Service (plain HTTP via IHttpClientFactory, no signing pipeline)
         if (!string.IsNullOrEmpty(clientOptions.FlexToken))

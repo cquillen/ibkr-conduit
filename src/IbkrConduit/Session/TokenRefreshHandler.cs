@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
+using IbkrConduit.Health;
 using Microsoft.Extensions.Logging;
 
 namespace IbkrConduit.Session;
@@ -18,16 +19,22 @@ namespace IbkrConduit.Session;
 internal sealed partial class TokenRefreshHandler : DelegatingHandler
 {
     private readonly ISessionManager _sessionManager;
+    private readonly SessionHealthState _sessionHealthState;
     private readonly ILogger<TokenRefreshHandler> _logger;
 
     /// <summary>
     /// Creates a new token refresh handler.
     /// </summary>
     /// <param name="sessionManager">Session manager for re-authentication.</param>
+    /// <param name="sessionHealthState">Shared session-health state — its competing verdict is the evidence propagated into the session error (ADR-0004 / GAP3-1).</param>
     /// <param name="logger">Logger for 401 retry events.</param>
-    public TokenRefreshHandler(ISessionManager sessionManager, ILogger<TokenRefreshHandler> logger)
+    public TokenRefreshHandler(
+        ISessionManager sessionManager,
+        SessionHealthState sessionHealthState,
+        ILogger<TokenRefreshHandler> logger)
     {
         _sessionManager = sessionManager;
+        _sessionHealthState = sessionHealthState;
         _logger = logger;
     }
 
@@ -73,13 +80,22 @@ internal sealed partial class TokenRefreshHandler : DelegatingHandler
         {
             LogReauthFailed(ex, requestPath);
             response.Dispose();
+
+            // GAP3-1: propagate the competing evidence into the surfaced session error instead of the
+            // old hardcoded false. The evidence is the IsCompeting flag on a session error the re-auth
+            // itself raised (ADR-0004 ssodh authenticated=false path), falling back to the current
+            // health snapshot's competing verdict (recorded by a tickle or an sts frame).
+            var isCompeting = (ex as IbkrApiException)?.Error is IbkrSessionError sessionError
+                ? sessionError.IsCompeting
+                : _sessionHealthState.GetSnapshot().Competing;
+
             throw new IbkrApiException(
                 new IbkrSessionError(
                     HttpStatusCode.Unauthorized,
                     "Re-authentication failed — credentials may be invalidated",
                     "",
                     request.RequestUri?.AbsolutePath,
-                    false),
+                    isCompeting),
                 ex);
         }
 
@@ -97,6 +113,20 @@ internal sealed partial class TokenRefreshHandler : DelegatingHandler
         if (retryResponse.StatusCode == HttpStatusCode.Unauthorized)
         {
             LogRetryStillUnauthorized(requestPath);
+
+            // GAP3-1: a post-retry 401 whose health snapshot shows a competing session is a
+            // contested-session error, not a generic 401 — surface it as an IbkrSessionError with
+            // IsCompeting so the consumer's session-loss recovery path can fire.
+            if (_sessionHealthState.GetSnapshot().Competing)
+            {
+                retryResponse.Dispose();
+                throw new IbkrApiException(new IbkrSessionError(
+                    HttpStatusCode.Unauthorized,
+                    "Request remained unauthorized after re-authentication — session is competing with another login",
+                    "",
+                    request.RequestUri?.AbsolutePath,
+                    IsCompeting: true));
+            }
         }
         else
         {

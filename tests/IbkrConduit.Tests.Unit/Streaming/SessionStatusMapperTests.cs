@@ -43,4 +43,50 @@ public class SessionStatusMapperTests
         // Absence must not be reported as an explicit "not authenticated" verdict.
         SessionStatusMapper.Map(frame).Authenticated.ShouldBeNull();
     }
+
+    [Fact]
+    public void Map_FrameWithCompetingTrue_SurfacesCompeting()
+    {
+        var frame = JsonDocument.Parse(
+            """{"topic":"sts","args":{"authenticated":false,"competing":true,"fail":""}}""").RootElement;
+
+        var evt = SessionStatusMapper.Map(frame);
+
+        evt.Competing.ShouldBe(true);
+        evt.Authenticated.ShouldBe(false);
+    }
+
+    [Fact]
+    public void Map_FrameWithCompetingFalse_MapsCompetingFalse()
+    {
+        var frame = JsonDocument.Parse(
+            """{"topic":"sts","args":{"authenticated":true,"competing":false}}""").RootElement;
+
+        SessionStatusMapper.Map(frame).Competing.ShouldBe(false);
+    }
+
+    [Fact]
+    public void Map_MissingCompetingProperty_CompetingIsNull()
+    {
+        var frame = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":true}}""").RootElement;
+
+        SessionStatusMapper.Map(frame).Competing.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Map_FrameWithFailReason_SurfacesFailReason()
+    {
+        var frame = JsonDocument.Parse(
+            """{"topic":"sts","args":{"authenticated":false,"fail":"Competing session"}}""").RootElement;
+
+        SessionStatusMapper.Map(frame).FailReason.ShouldBe("Competing session");
+    }
+
+    [Fact]
+    public void Map_MissingFailProperty_FailReasonIsNull()
+    {
+        var frame = JsonDocument.Parse("""{"topic":"sts","args":{"authenticated":true}}""").RootElement;
+
+        SessionStatusMapper.Map(frame).FailReason.ShouldBeNull();
+    }
 }

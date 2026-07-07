@@ -68,13 +68,19 @@ internal static class SessionServiceRegistration
                 TimeProvider.System));
 
         // Internal session API client:
-        //   GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
+        //   LastSuccessfulCallHandler -> GlobalRateLimitingHandler -> EndpointRateLimitingHandler -> OAuthSigningHandler
+        // The LastSuccessfulCallHandler records tickle (and init) successes as liveness evidence so a
+        // healthy, consumer-idle-but-tickling session is not reported Unhealthy on consumer-call
+        // staleness alone (SES-4 / ADR-0004).
         services.AddRefitClient<IIbkrSessionApi>(IbkrRefitSettings.Create())
             .ConfigureHttpClient(c => c.BaseAddress = new Uri(baseUrl))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             {
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
             })
+            .AddHttpMessageHandler(sp =>
+                new LastSuccessfulCallHandler(
+                    sp.GetRequiredService<LastSuccessfulCallTracker>()))
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
                     sp.GetRequiredService<ISharedRateGovernor>(),

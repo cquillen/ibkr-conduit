@@ -356,6 +356,42 @@ public class HealthStatusCollectorTests
         afterExpiry.OverallStatus.ShouldBe(HealthState.Unhealthy);
     }
 
+    [Fact]
+    public async Task GetHealthStatusAsync_EstablishedSessionNoConsumerCallYet_ReturnsHealthy()
+    {
+        // SES-4/ADR-0004: a freshly established, tickling session that has recorded no consumer REST
+        // call yet must not report Unhealthy — its liveness is the tickle loop, not consumer traffic.
+        _tokenProvider.CurrentTokenExpiry.Returns(DateTimeOffset.UtcNow.AddHours(1));
+        _wsClient.IsConnected.Returns(false);
+        _wsClient.ActiveSubscriptionCount.Returns(0);
+
+        // Deliberately do NOT record any successful call — lastCall stays null.
+        var collector = CreateCollector();
+        var result = await collector.GetHealthStatusAsync(
+            activeProbe: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.OverallStatus.ShouldNotBe(HealthState.Unhealthy);
+    }
+
+    [Fact]
+    public async Task GetHealthStatusAsync_NeverEstablishedNoCall_ReturnsUnhealthy()
+    {
+        // A token exists but the session never established AND no call succeeded — genuinely broken.
+        _tokenProvider.CurrentTokenExpiry.Returns(DateTimeOffset.UtcNow.AddHours(1));
+        _wsClient.IsConnected.Returns(false);
+        _wsClient.ActiveSubscriptionCount.Returns(0);
+
+        var notEstablished = new SessionHealthState();
+        notEstablished.Update(authenticated: true, connected: true, competing: false, established: false);
+
+        var collector = new HealthStatusCollector(
+            _sessionApi, _tokenProvider, _wsClient, _lastCallTracker, _rateLimiter, _options, notEstablished);
+        var result = await collector.GetHealthStatusAsync(
+            activeProbe: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.OverallStatus.ShouldBe(HealthState.Unhealthy);
+    }
+
     private HealthStatusCollector CreateCollector(TimeProvider? timeProvider = null) =>
         new(_sessionApi, _tokenProvider, _wsClient, _lastCallTracker, _rateLimiter, _options, _sessionHealthState, timeProvider);
 
