@@ -55,4 +55,17 @@ public class IbkrClientOptionsCloneTests
 
         clone.WebSocketBaseUrl.ShouldBe("wss://custom.test/v1/api/ws");
     }
+
+    [Fact]
+    public void Clone_CopiesConfigureHealthStatusHook()
+    {
+        var original = new IbkrClientOptions
+        {
+            ConfigureHealthStatus = h => h.StalenessTimeout = System.TimeSpan.FromSeconds(42),
+        };
+
+        var clone = original.Clone();
+
+        clone.ConfigureHealthStatus.ShouldBeSameAs(original.ConfigureHealthStatus);
+    }
 }

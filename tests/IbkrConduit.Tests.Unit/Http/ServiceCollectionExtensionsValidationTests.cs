@@ -55,6 +55,66 @@ public class ServiceCollectionExtensionsValidationTests
         ex.ActualValue.ShouldBe(value);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(-100)]
+    public void AddIbkrClient_InvalidTickleFailureIntervalSeconds_ThrowsArgumentOutOfRangeException(int value)
+    {
+        var services = new ServiceCollection();
+        var creds = CreateTestCredentials();
+
+        var ex = Should.Throw<ArgumentOutOfRangeException>(
+            () => services.AddIbkrClient(opts =>
+            {
+                opts.Credentials = creds;
+                opts.TickleFailureIntervalSeconds = value;
+            }));
+
+        ex.ParamName.ShouldBe("IbkrClientOptions.TickleFailureIntervalSeconds");
+        ex.ActualValue.ShouldBe(value);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(-100)]
+    public void AddIbkrClient_InvalidWebSocketHeartbeatIntervalSeconds_ThrowsArgumentOutOfRangeException(int value)
+    {
+        var services = new ServiceCollection();
+        var creds = CreateTestCredentials();
+
+        var ex = Should.Throw<ArgumentOutOfRangeException>(
+            () => services.AddIbkrClient(opts =>
+            {
+                opts.Credentials = creds;
+                opts.WebSocketHeartbeatIntervalSeconds = value;
+            }));
+
+        ex.ParamName.ShouldBe("IbkrClientOptions.WebSocketHeartbeatIntervalSeconds");
+        ex.ActualValue.ShouldBe(value);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(-100)]
+    public void AddIbkrClient_InvalidStreamingBufferSize_ThrowsArgumentOutOfRangeException(int value)
+    {
+        var services = new ServiceCollection();
+        var creds = CreateTestCredentials();
+
+        var ex = Should.Throw<ArgumentOutOfRangeException>(
+            () => services.AddIbkrClient(opts =>
+            {
+                opts.Credentials = creds;
+                opts.StreamingBufferSize = value;
+            }));
+
+        ex.ParamName.ShouldBe("IbkrClientOptions.StreamingBufferSize");
+        ex.ActualValue.ShouldBe(value);
+    }
+
     [Fact]
     public void AddIbkrClient_ZeroPreflightCacheDuration_ThrowsArgumentOutOfRangeException()
     {

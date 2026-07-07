@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using IbkrConduit.Auth;
 using IbkrConduit.Flex;
+using IbkrConduit.Health;
 
 namespace IbkrConduit.Session;
 
@@ -108,6 +109,17 @@ public class IbkrClientOptions
     public bool ThrowOnApiError { get; set; }
 
     /// <summary>
+    /// Optional hook to configure the health-status staleness and warning thresholds
+    /// (design doc §7.7, PVR-07). Invoked once at registration <em>after</em> the defaults
+    /// have been derived from <see cref="TickleIntervalSeconds"/> — the staleness window
+    /// defaults to twice the tickle interval so a longer <see cref="TickleIntervalSeconds"/>
+    /// cannot silently outrun it. Set any threshold on the supplied
+    /// <see cref="Health.HealthStatusOptions"/> to override the derived default; leave it
+    /// null to accept the tickle-derived defaults.
+    /// </summary>
+    public Action<HealthStatusOptions>? ConfigureHealthStatus { get; set; }
+
+    /// <summary>
     /// Maximum time to wait for a Flex Web Service report to finish generating.
     /// Wider date ranges and reports with many sections can take minutes to generate.
     /// Default is 60 seconds — sufficient for built-in period queries (e.g., LastBusinessDay)
@@ -159,6 +171,7 @@ public class IbkrClientOptions
         TickleFailureIntervalSeconds = TickleFailureIntervalSeconds,
         WebSocketHeartbeatIntervalSeconds = WebSocketHeartbeatIntervalSeconds,
         StreamingBufferSize = StreamingBufferSize,
+        ConfigureHealthStatus = ConfigureHealthStatus,
         ProactiveRefreshMargin = ProactiveRefreshMargin,
         StrictResponseValidation = StrictResponseValidation,
         ThrowOnApiError = ThrowOnApiError,

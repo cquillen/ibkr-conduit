@@ -140,7 +140,7 @@ public static class ServiceCollectionExtensions
 
         // Health check infrastructure
         services.AddSingleton(_ => new LastSuccessfulCallTracker(TimeProvider.System));
-        services.AddSingleton(new HealthStatusOptions());
+        services.AddSingleton(BuildHealthStatusOptions(clientOptions));
         services.AddSingleton<SessionHealthState>();
         services.AddSingleton<IHealthStatusCollector>(sp =>
             new HealthStatusCollector(
@@ -161,6 +161,31 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<TenantDiagnostics>();
             return ActivatorUtilities.CreateInstance<IbkrClient>(sp);
         });
+    }
+
+    /// <summary>
+    /// The health staleness window defaults to this multiple of the tenant's tickle
+    /// interval, so a longer <see cref="IbkrClientOptions.TickleIntervalSeconds"/> cannot
+    /// silently outrun the staleness window (design doc §7.7, PVR-07). With the default
+    /// 60-second tickle interval this yields the historical 120-second default.
+    /// </summary>
+    private const int _stalenessTickleIntervalMultiplier = 2;
+
+    /// <summary>
+    /// Builds the per-tenant <see cref="HealthStatusOptions"/>: the staleness threshold is
+    /// derived from the tenant's tickle interval, then the consumer's
+    /// <see cref="IbkrClientOptions.ConfigureHealthStatus"/> hook (if any) overrides any
+    /// threshold. Runs on both facade paths via <see cref="BuildTenantServices"/>.
+    /// </summary>
+    private static HealthStatusOptions BuildHealthStatusOptions(IbkrClientOptions clientOptions)
+    {
+        var health = new HealthStatusOptions
+        {
+            StalenessTimeout = TimeSpan.FromSeconds(
+                (long)clientOptions.TickleIntervalSeconds * _stalenessTickleIntervalMultiplier),
+        };
+        clientOptions.ConfigureHealthStatus?.Invoke(health);
+        return health;
     }
 
     /// <summary>Marker proving AddIbkrClient has already run on a collection.</summary>
@@ -185,6 +210,30 @@ public static class ServiceCollectionExtensions
                 "IbkrClientOptions.TickleIntervalSeconds",
                 options.TickleIntervalSeconds,
                 "TickleIntervalSeconds must be greater than zero.");
+        }
+
+        if (options.TickleFailureIntervalSeconds <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                "IbkrClientOptions.TickleFailureIntervalSeconds",
+                options.TickleFailureIntervalSeconds,
+                "TickleFailureIntervalSeconds must be greater than zero.");
+        }
+
+        if (options.WebSocketHeartbeatIntervalSeconds <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                "IbkrClientOptions.WebSocketHeartbeatIntervalSeconds",
+                options.WebSocketHeartbeatIntervalSeconds,
+                "WebSocketHeartbeatIntervalSeconds must be greater than zero.");
+        }
+
+        if (options.StreamingBufferSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                "IbkrClientOptions.StreamingBufferSize",
+                options.StreamingBufferSize,
+                "StreamingBufferSize must be greater than zero.");
         }
 
         if (options.PreflightCacheDuration <= TimeSpan.Zero)
