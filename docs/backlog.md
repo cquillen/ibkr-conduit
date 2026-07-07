@@ -57,7 +57,7 @@ Stories have a stable ID (`<PREFIX>-NN`), a **Status** line, a **Stream**, **dep
 
 - **Wave 1 (independent):** VCR-01 📦 · VCR-02 📦 · VCR-04 📦 · VCR-05 📦 · VCR-06 · VCR-08 · VCR-09 · VCR-10 · VCR-11. Lane note: VCR-02 and VCR-03 touch the same observable/mapper files — run VCR-03 after VCR-02 in one lane.
 - **Wave 2:** VCR-03 (after VCR-02, lane ordering) · VCR-07 (deps: VCR-01, VCR-06).
-- **Deferred:** VCR-12 (ExtOperator follow-on — not in this loop).
+- **Deferred:** ~~VCR-12 (ExtOperator follow-on)~~ — groomed loop-ready 2026-07-07 (independent; buildable any wave). **VCR-13** (order-type doc widening, drafted 2026-07-07) likewise independent.
 
 <details><summary>Build-order map v1.0 (2026-07-06, historical — superseded by v1.1)</summary>
 
@@ -154,11 +154,13 @@ CONFIRMED against the captured spec (`docs/ibkr-web-api-spec.md:4507`): the wire
 **Done when:** the `OrderType` XML docs (both `OrderRequest` and `OrderWireModel`) match the captured wire enum verbatim and state the STOP_LIMIT price requirements; no code behavior change.
 **TDD notes:** doc-only — no new tests; existing suites stay green.
 
-#### VCR-12 — ExtOperator futures-compliance field
-**Status:** Deferred — future additive surface work, split from VCR-11 by operator decision 2026-07-07; not groomed in this pass
-**Spec:** pending
-The WIR-6 finding also suggested adding `ExtOperator` to `OrderRequest` for futures compliance — a 📦 additive surface change with its own (unverified) compliance question. Deliberately split from the doc fix; groom before building (verify the compliance requirement against the live IBKR docs via `scout-ibkr-docs`, then spec).
-**Done when:** (rough) `OrderRequest` supports the ExtOperator field where futures compliance requires it, or the requirement is refuted and recorded here.
+#### VCR-12 — 📦 ExtOperator futures-compliance field
+**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Risk:** high
+**Spec:** trivial-skip
+Split from VCR-11 (operator decision 2026-07-07); **groomed loop-ready 2026-07-07** during the PVR re-groom session — the WIR-6 claim behind it is now verified at the claim tier (`docs/ibkr-doc-evidence/2026-07-07-extoperator-field.md`): `extOperator` is a documented order-body string on place/modify/whatif (DOC-01 schema + DOC-03), documented as required "when trading Futures and Futures Options contracts to remain in compliance with CME Group Rule 536-B" (DOC-03, which hangs the identical sentence on the already-shipped `manualIndicator`). The library's gap is exactly the body field: `ManualIndicator` and the cancel-side `extOperator`/`manualIndicator` query params are shipped; `OrderRequest`/`OrderWireModel` lack `ExtOperator`. Decided scope (operator, 2026-07-07 — design doc §9.7): add `ExtOperator` (`string?`) as a **pure pass-through** per the PVR-05 pattern — `[JsonPropertyName("extOperator")]`, omitted from the wire when null, **no client-side gating** (enforcement is documented-not-verified; pass-through is safe under both answers), XML docs stating the CME 536-B condition. **Additive — `feat:`.**
+**Done when:** a consumer can set `ExtOperator` on an order request and it serializes to the wire as `extOperator` (omitted when null, on place/modify/whatif paths); XML docs state the documented futures/futures-options condition; existing suites green.
+**TDD notes:** red tests = wire-model serialization pins (present when set, absent when null) mirroring the PVR-05 trailing-param tests; no WireMock scenario changes needed beyond fixture echo.
 
 #### VCR-13 — Order-type XML docs widening (probe-verified extra values)
 **Status:** Not started · **Stream:** VCR · **Depends on:** none
@@ -262,7 +264,7 @@ Findings WIR-1 (high, PLAUSIBLE), PRB-3.2, PRB-3.3 (medium, PLAUSIBLE), WIR-5 (l
 **Status:** Not started · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** trivial-skip
-Finding ORD-4 (medium, CONFIRMED): `OrderRequest` documents `TRAIL`/`TRAILLMT` (per the VCR-11-pinned wire enum, re-confirmed live 2026-07-07 — `docs/ibkr-doc-evidence/2026-07-07-ordertype-enum-trailing-params.md`) but exposes no `trailingAmt`/`trailingType`, which the live docs require for those order types ("You must specify both trailingType and trailingAmt for TRAIL and TRAILLMT order", DOC-03) — a consumer can name a trailing order it cannot parameterize. Operator-decided 2026-07-07 (D6, design doc §9.7): add `TrailingAmt` (`decimal?`) / `TrailingType` (`string?`) with fail-fast validation when the order type requires them — the enum-retraction alternative was rejected. Wire acceptance pinned by the 2026-07-07 live probe: `trailingAmt:50, trailingType:"amt"` → question `o10331` → `order_id 261920143, PreSubmitted` (see stream Evidence). Related: deferred VCR-12 (`ExtOperator`) is the same additive-`OrderRequest` surface family. **Additive — `feat:`.**
+Finding ORD-4 (medium, CONFIRMED): `OrderRequest` documents `TRAIL`/`TRAILLMT` (per the VCR-11-pinned wire enum, re-confirmed live 2026-07-07 — `docs/ibkr-doc-evidence/2026-07-07-ordertype-enum-trailing-params.md`) but exposes no `trailingAmt`/`trailingType`, which the live docs require for those order types ("You must specify both trailingType and trailingAmt for TRAIL and TRAILLMT order", DOC-03) — a consumer can name a trailing order it cannot parameterize. Operator-decided 2026-07-07 (D6, design doc §9.7): add `TrailingAmt` (`decimal?`) / `TrailingType` (`string?`) with fail-fast validation when the order type requires them — the enum-retraction alternative was rejected. Wire acceptance pinned by the 2026-07-07 live probe: `trailingAmt:50, trailingType:"amt"` → question `o10331` → `order_id 261920143, PreSubmitted` (see stream Evidence). Related: VCR-12 (`ExtOperator`, groomed loop-ready 2026-07-07) is the same additive-`OrderRequest` surface family. **Additive — `feat:`.**
 **Done when:** a consumer can place a fully-parameterized trailing order through the facade, and a `TRAIL`/`TRAILLMT` request without the parameters fails fast before any wire activity.
 **TDD notes:** red tests = wire-model serialization pins (trailingAmt/trailingType present for TRAIL, omitted when null) + fail-fast validation cases; WireMock fixture derived from the probe capture.
 
@@ -401,4 +403,4 @@ Finding RST-5 (low, PLAUSIBLE): the preflight cache marks a conid preflighted fo
 
 ## Deferred
 
-- **VCR-12** — ExtOperator futures-compliance field (see entry above): future additive surface work; unblock = groom it (verify the compliance requirement, spec, set Risk). Related: **PVR-05** (trailing-order parameters) is the same additive-`OrderRequest` surface family — grooming may co-schedule the two.
+*(empty — VCR-12, formerly here, was groomed loop-ready on 2026-07-07 after its compliance claim was verified against the live docs; see its entry.)*

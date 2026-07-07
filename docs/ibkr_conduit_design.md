@@ -685,7 +685,9 @@ All order submission requires IBKR contract IDs (conids), not ticker symbols.
 | Limit-on-Close (LOC) | DAY | End-of-day with price protection |
 | Trailing Stop | DAY, GTC | Dynamic stop management |
 
-Trailing orders (`TRAIL`/`TRAILLMT` on the wire) require `trailingAmt` and `trailingType` alongside the order type (captured spec). The public surface carries `TrailingAmt` (`decimal?`) and `TrailingType` (`string?`) on the order request — omitted from the wire when null — with fail-fast validation when the order type requires them (operator-decided 2026-07-07; PVR-05).
+Trailing orders (`TRAIL`/`TRAILLMT` on the wire) require `trailingAmt` and `trailingType` alongside the order type (live docs, re-scouted 2026-07-07 — `docs/ibkr-doc-evidence/2026-07-07-ordertype-enum-trailing-params.md`; TRAIL acceptance wire-pinned). The public surface carries `TrailingAmt` (`decimal?`) and `TrailingType` (`string?`) on the order request — omitted from the wire when null — with fail-fast validation when the order type requires them (operator-decided 2026-07-07; PVR-05).
+
+Futures/futures-options compliance fields: the wire's order body carries `extOperator` (string) and `manualIndicator` (bool), documented as required when trading Futures and Futures Options contracts under CME Group Rule 536-B (DOC-03; `docs/ibkr-doc-evidence/2026-07-07-extoperator-field.md` — enforcement is documented-not-verified). The public surface carries `ManualIndicator` (`bool?`, shipped) and `ExtOperator` (`string?`, VCR-12) on the order request — pure pass-through, omitted from the wire when null, no client-side gating (safe whether or not IBKR enforces the condition); both also ride order cancellation as query parameters (shipped).
 
 ### 9.8 Multi-Leg Options — Leg Risk Note
 
