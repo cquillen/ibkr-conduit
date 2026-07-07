@@ -29,6 +29,7 @@ internal static class StreamingAndFlexRegistration
         string baseUrl)
     {
         // WebSocket streaming
+        services.AddSingleton(sp => new StreamingMetrics(sp.GetRequiredService<TenantContext>()));
         services.AddSingleton<IIbkrWebSocketClient>(sp =>
             new IbkrWebSocketClient(
                 sp.GetRequiredService<IIbkrSessionApi>(),
@@ -40,13 +41,15 @@ internal static class StreamingAndFlexRegistration
                 clientOptions.WebSocketHeartbeatIntervalSeconds,
                 clientOptions.StreamingBufferSize,
                 sp.GetRequiredService<TenantContext>(),
+                sp.GetRequiredService<StreamingMetrics>(),
                 TimeProvider.System,
                 clientOptions.WebSocketBaseUrl));
         services.AddSingleton<IStreamingOperations>(sp =>
             new StreamingOperations(
                 sp.GetRequiredService<IIbkrWebSocketClient>(),
                 sp.GetRequiredService<ILoggerFactory>(),
-                sp.GetRequiredService<SessionHealthState>()));
+                sp.GetRequiredService<SessionHealthState>(),
+                sp.GetRequiredService<StreamingMetrics>()));
 
         // Flex Web Service (plain HTTP via IHttpClientFactory, no signing pipeline)
         if (!string.IsNullOrEmpty(clientOptions.FlexToken))

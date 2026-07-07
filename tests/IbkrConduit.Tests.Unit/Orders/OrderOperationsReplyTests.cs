@@ -33,6 +33,20 @@ public class OrderOperationsReplyTests
     }
 
     [Fact]
+    public void DeserializeReplyResponse_NumericOrderId_ParsesAsString()
+    {
+        // WIR-4: the reply path shares the numeric-order_id exposure. A numeric order_id must
+        // deserialize to a string via the hardened serializer, not throw.
+        var json = """[{"order_id":987654,"order_status":"Submitted"}]""";
+
+        var result = OrderOperations.DeserializeReplyResponse(json);
+
+        result.Count.ShouldBe(1);
+        result[0].OrderId.ShouldBe("987654");
+        result[0].OrderStatus.ShouldBe("Submitted");
+    }
+
+    [Fact]
     public void DeserializeReplyResponse_BareObjectResponse_WrapsInList()
     {
         var json = """

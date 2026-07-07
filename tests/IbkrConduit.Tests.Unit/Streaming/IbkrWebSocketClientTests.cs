@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
@@ -513,6 +514,7 @@ public class IbkrWebSocketClientTests
     public async Task SubscribeTopicAsync_SubscriberFallsBehind_DropsOldestNotNewest()
     {
         // Use a small buffer so we can fill it without writing 256 messages.
+        var tenant = new TenantContext("test");
         await using var client = new IbkrWebSocketClient(
             _sessionApi,
             _sessionManager,
@@ -522,7 +524,8 @@ public class IbkrWebSocketClientTests
             () => _adapter,
             heartbeatIntervalSeconds: 30,
             streamingBufferSize: 4,
-            tenant: new TenantContext("test"),
+            tenant: tenant,
+            metrics: new StreamingMetrics(tenant),
             timeProvider: null);
 
         await client.ConnectAsync(TestContext.Current.CancellationToken);
@@ -948,7 +951,7 @@ public class IbkrWebSocketClientTests
         await using var client = CreateClient();
         await client.ConnectAsync(ct);
 
-        var ops = new StreamingOperations(client, NullLoggerFactory.Instance, new IbkrConduit.Health.SessionHealthState());
+        var ops = new StreamingOperations(client, NullLoggerFactory.Instance, new IbkrConduit.Health.SessionHealthState(), new StreamingMetrics(new TenantContext("test")));
         var subscription = await ops.TradeExecutionsAsync(cancellationToken: ct);
 
         var received = new List<TradeExecution>();
@@ -1119,6 +1122,95 @@ public class IbkrWebSocketClientTests
         client.ActiveSubscriptionCount.ShouldBe(0);
     }
 
+    [Fact]
+    public async Task SubscribeTopicAsync_BufferOverflow_IncrementsDropCounterAndLogsOnce()
+    {
+        // FIL-1: an overflow eviction must be observable — it increments
+        // ibkr.conduit.streaming.frames.dropped (cause=overflow) and logs a Warning exactly once
+        // per topic per connection (log-throttle), never silently.
+        var ct = TestContext.Current.CancellationToken;
+        const string tenantId = "ws-overflow-tenant";
+        using var drops = new MeterDropCapture(tenantId);
+        var logger = new CapturingLogger();
+        var tenant = new TenantContext(tenantId);
+
+        await using var client = new IbkrWebSocketClient(
+            _sessionApi,
+            _sessionManager,
+            _credentials,
+            _notifier,
+            logger,
+            () => _adapter,
+            heartbeatIntervalSeconds: 30,
+            streamingBufferSize: 4,
+            tenant: tenant,
+            metrics: new StreamingMetrics(tenant),
+            timeProvider: null);
+
+        await client.ConnectAsync(ct);
+
+        var (reader, _) = await client.SubscribeTopicAsync("smd+265598+{}", "smd", null, ct);
+
+        // Drain the startup signal: the pump started and called ReceiveAsync once already.
+        await _adapter.WaitForReceiveAsync(ct);
+
+        // Inject more frames than the buffer holds while nobody reads -> overflow evictions.
+        for (var i = 1; i <= 8; i++)
+        {
+            _adapter.EnqueueServerMessage($"{{\"topic\":\"smd+265598\",\"seq\":{i}}}");
+        }
+        for (var i = 0; i < 8; i++)
+        {
+            await _adapter.WaitForReceiveAsync(ct);
+        }
+
+        drops.Drops.ShouldContain(("smd", "overflow"));
+        logger.Messages
+            .Count(m => m.Level == LogLevel.Warning
+                && m.Formatted.Contains("smd", StringComparison.Ordinal)
+                && m.Formatted.Contains("overflow", StringComparison.Ordinal))
+            .ShouldBe(1);
+        reader.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task Reconnect_EmitsDisconnectedThenReconnectedWithReplayedTopics()
+    {
+        // FIL-4: every reconnect emits a consumer-visible Disconnected/Reconnected pair, with the
+        // reconnect listing the replayed topics, so a consumer can bound the gap and reconcile.
+        var ct = TestContext.Current.CancellationToken;
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
+        await client.ConnectAsync(ct);
+
+        var (events, _) = client.RegisterConnectionEvents();
+
+        // A solicited subscription so the reconnect has a topic to replay.
+        await client.SubscribeTopicAsync("sor+{}", "sor", "uor+{}", ct);
+
+        var reconnectTask = Task.Run(() => _notifier.TriggerRefreshAsync(ct), ct);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!reconnectTask.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+        await reconnectTask;
+
+        var first = await ReadEventAsync(events, ct);
+        var second = await ReadEventAsync(events, ct);
+
+        first.ShouldBeOfType<ConnectionDisconnected>().Reason.ShouldBe("session_refresh");
+        second.ShouldBeOfType<ConnectionReconnected>().ReplayedTopics.ShouldContain("sor");
+    }
+
+    private static async Task<ConnectionEvent> ReadEventAsync(ChannelReader<ConnectionEvent> reader, CancellationToken cancellationToken)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(TimeSpan.FromSeconds(5));
+        return await reader.ReadAsync(cts.Token);
+    }
+
     private sealed class EndToEndObserver(Action<TradeExecution> onNext) : IObserver<TradeExecution>
     {
         public void OnNext(TradeExecution value) => onNext(value);
@@ -1131,8 +1223,10 @@ public class IbkrWebSocketClientTests
         int heartbeatIntervalSeconds = 30,
         int streamingBufferSize = 256,
         ILogger<IbkrWebSocketClient>? logger = null,
-        string? webSocketBaseUrl = null) =>
-        new(
+        string? webSocketBaseUrl = null)
+    {
+        var tenant = new TenantContext("test");
+        return new IbkrWebSocketClient(
             _sessionApi,
             _sessionManager,
             _credentials,
@@ -1141,9 +1235,11 @@ public class IbkrWebSocketClientTests
             () => _adapter,
             heartbeatIntervalSeconds,
             streamingBufferSize,
-            new TenantContext("test"),
+            tenant,
+            new StreamingMetrics(tenant),
             timeProvider,
             webSocketBaseUrl);
+    }
 
     private sealed class CapturingLogger(LogLevel minimumLevel = LogLevel.Trace) : ILogger<IbkrWebSocketClient>
     {

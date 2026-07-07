@@ -200,6 +200,39 @@ internal sealed class MockWebSocketServer : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Sends a close frame to every currently-connected client, forcing the client's message pump to
+    /// observe a server-initiated close and reconnect. Use this to drive the reconnect path through
+    /// the DI-composed client. A socket that has gone away is skipped.
+    /// </summary>
+    public async Task CloseAllConnectionsAsync(CancellationToken cancellationToken = default)
+    {
+        foreach (var (ws, sendLock) in _liveSockets)
+        {
+            if (ws.State != WebSocketState.Open)
+            {
+                continue;
+            }
+
+            await sendLock.WaitAsync(cancellationToken);
+            try
+            {
+                if (ws.State == WebSocketState.Open)
+                {
+                    await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "server drop", cancellationToken);
+                }
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Socket vanished between the state check and the close — skip it.
+            }
+            finally
+            {
+                sendLock.Release();
+            }
+        }
+    }
+
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {

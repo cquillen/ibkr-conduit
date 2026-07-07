@@ -91,13 +91,15 @@ public class OrderTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task Reply_401Recovery_ReauthenticatesAndRetries()
+    public async Task Reply_401_ReturnsAmbiguousError_WithoutReplay()
     {
+        // ADR-0003 (AMB-2): the reply POST is order-mutating — a 401 must NOT be replayed. Re-auth
+        // still happens, but the outcome is ambiguous and surfaces as IbkrAmbiguousOrderError.
         _harness.StubAuthenticatedPost(
             "/v1/api/iserver/account/*/orders",
             FixtureLoader.LoadBody("Orders", "POST-place-order-confirmation"));
 
-        // First reply call returns 401
+        // 401-then-success configured; the gate must stop before the success stub is ever reached.
         _harness.Server.Given(
             Request.Create()
                 .WithPath("/v1/api/iserver/reply/*")
@@ -109,7 +111,6 @@ public class OrderTests : IAsyncLifetime, IDisposable
                     .WithStatusCode(401)
                     .WithBody("Unauthorized"));
 
-        // After re-auth, second reply succeeds
         _harness.Server.Given(
             Request.Create()
                 .WithPath("/v1/api/iserver/reply/*")
@@ -136,18 +137,24 @@ public class OrderTests : IAsyncLifetime, IDisposable
             "U1234567", order, TestContext.Current.CancellationToken)).Value;
         placeResult.IsT1.ShouldBeTrue();
 
-        var replyResult = (await _harness.Client.Orders.ReplyAsync(
-            placeResult.AsT1.ReplyId, true, TestContext.Current.CancellationToken)).Value;
+        var replyResult = await _harness.Client.Orders.ReplyAsync(
+            placeResult.AsT1.ReplyId, true, TestContext.Current.CancellationToken);
 
-        replyResult.IsT0.ShouldBeTrue("Expected OrderSubmitted after 401 recovery on reply");
-        replyResult.AsT0.OrderId.ShouldBe("987654321");
+        replyResult.IsSuccess.ShouldBeFalse("a 401 on the order-mutating reply POST is ambiguous, never replayed");
+        var ambiguous = replyResult.Error.ShouldBeOfType<IbkrAmbiguousOrderError>();
+        ambiguous.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        ambiguous.ReauthSucceeded.ShouldBeTrue();
 
+        _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/reply/*").UsingPost())
+            .Count.ShouldBe(1, "the reply POST must be sent exactly once — no replay");
         _harness.VerifyReauthenticationOccurred();
     }
 
     [Fact]
-    public async Task PlaceOrder_401Recovery_ReauthenticatesAndRetries()
+    public async Task PlaceOrder_401_ReturnsAmbiguousError_WithoutReplay()
     {
+        // ADR-0003 (AMB-2): place is order-mutating — a 401 is ambiguous and must not be replayed.
         _harness.Server.Given(
             Request.Create()
                 .WithPath("/v1/api/iserver/account/*/orders")
@@ -181,12 +188,17 @@ public class OrderTests : IAsyncLifetime, IDisposable
             Tif = "GTC",
         };
 
-        var result = (await _harness.Client.Orders.PlaceOrderAsync(
-            "U1234567", order, TestContext.Current.CancellationToken)).Value;
+        var result = await _harness.Client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken);
 
-        result.IsT0.ShouldBeTrue("Expected OrderSubmitted after 401 recovery");
-        result.AsT0.OrderId.ShouldBe("123456789");
+        result.IsSuccess.ShouldBeFalse("a 401 on the place POST is ambiguous, never replayed");
+        var ambiguous = result.Error.ShouldBeOfType<IbkrAmbiguousOrderError>();
+        ambiguous.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        ambiguous.ReauthSucceeded.ShouldBeTrue();
 
+        _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/account/*/orders").UsingPost())
+            .Count.ShouldBe(1, "the place POST must be sent exactly once — no replay");
         _harness.VerifyReauthenticationOccurred();
     }
 
@@ -657,8 +669,9 @@ public class OrderTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task ModifyOrder_401Recovery_ReauthenticatesAndRetries()
+    public async Task ModifyOrder_401_ReturnsAmbiguousError_WithoutReplay()
     {
+        // ADR-0003 (AMB-2): modify is order-mutating — a 401 is ambiguous and must not be replayed.
         _harness.Server.Given(
             Request.Create()
                 .WithPath("/v1/api/iserver/account/U1234567/order/473740665")
@@ -692,12 +705,17 @@ public class OrderTests : IAsyncLifetime, IDisposable
             Tif = "GTC",
         };
 
-        var result = (await _harness.Client.Orders.ModifyOrderAsync(
-            "U1234567", "473740665", order, TestContext.Current.CancellationToken)).Value;
+        var result = await _harness.Client.Orders.ModifyOrderAsync(
+            "U1234567", "473740665", order, TestContext.Current.CancellationToken);
 
-        result.IsT0.ShouldBeTrue("Expected OrderSubmitted after 401 recovery");
-        result.AsT0.OrderId.ShouldBe("555666777");
+        result.IsSuccess.ShouldBeFalse("a 401 on the modify POST is ambiguous, never replayed");
+        var ambiguous = result.Error.ShouldBeOfType<IbkrAmbiguousOrderError>();
+        ambiguous.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        ambiguous.ReauthSucceeded.ShouldBeTrue();
 
+        _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/account/U1234567/order/473740665").UsingPost())
+            .Count.ShouldBe(1, "the modify POST must be sent exactly once — no replay");
         _harness.VerifyReauthenticationOccurred();
     }
 
@@ -719,6 +737,85 @@ public class OrderTests : IAsyncLifetime, IDisposable
         result.IsSuccess.ShouldBeFalse();
         var error = result.Error.ShouldBeOfType<IbkrApiError>();
         error.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+    }
+
+    // --- Order-outcome classification of 200-OK edge shapes (AMB-3 / AMB-4 / WIR-4) ---
+
+    [Fact]
+    public async Task PlaceOrder_ArrayWrappedError200_ReturnsClassifiedRefusalWithRawBody()
+    {
+        // AMB-4: an array-wrapped reject [{"error":"…"}] bypasses bare-object hidden-error detection.
+        // It must classify as a refusal carrying the raw body, not throw InvalidOperationException.
+        const string body = """[{"error":"We cannot accept an order at the limit price you selected."}]""";
+        _harness.StubAuthenticatedPost("/v1/api/iserver/account/*/orders", body);
+
+        var order = new OrderRequest { Conid = 756733, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC" };
+
+        var result = await _harness.Client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var rejected = result.Error.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldContain("cannot accept an order");
+        rejected.RawBody.ShouldBe(body);
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task PlaceOrder_EmptyArray200_ReturnsClassifiedFailureNotThrow()
+    {
+        // AMB-4: a 200 [] must classify as a failure carrying the raw body, not throw
+        // ArgumentOutOfRangeException.
+        _harness.StubAuthenticatedPost("/v1/api/iserver/account/*/orders", "[]");
+
+        var order = new OrderRequest { Conid = 756733, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC" };
+
+        var result = await _harness.Client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<IbkrOrderRejectedError>();
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task PlaceOrder_NumericOrderId200_ReturnsSubmitted()
+    {
+        // WIR-4: a numeric order_id on the place response must deserialize as a string (a transmitted
+        // order), not collapse into a deserialization-failure Result.
+        _harness.StubAuthenticatedPost(
+            "/v1/api/iserver/account/*/orders",
+            """[{"order_id":987654321,"order_status":"Submitted"}]""");
+
+        var order = new OrderRequest { Conid = 756733, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC" };
+
+        var result = (await _harness.Client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken)).Value;
+
+        result.IsT0.ShouldBeTrue("Expected OrderSubmitted for a numeric order_id");
+        result.AsT0.OrderId.ShouldBe("987654321");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task Reply_HiddenError200_ReturnsClassifiedRefusal()
+    {
+        // AMB-3: the reply 2xx path routes through hidden-error detection like every other order path,
+        // so a 200 {"error":"…"} reject surfaces the reject text instead of throwing.
+        _harness.StubAuthenticatedPost(
+            "/v1/api/iserver/reply/*",
+            """{"error":"We cannot accept an order at the limit price you selected."}""");
+
+        var result = await _harness.Client.Orders.ReplyAsync(
+            "test-reply-id-001", true, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.Message.ShouldContain("cannot accept an order");
+
+        _harness.VerifyHandshakeOccurred();
     }
 
     [Fact]

@@ -303,6 +303,154 @@ public class TokenRefreshHandlerTests
         sessionManager.ReauthCallCount.ShouldBe(1);
     }
 
+    // --- ADR-0003 order-mutating POST replay gate (AMB-2) ---
+
+    [Theory]
+    [InlineData("/v1/api/iserver/account/DU1234567/orders")]           // place
+    [InlineData("/v1/api/iserver/account/DU1234567/order/473740665")]  // modify
+    [InlineData("/v1/api/iserver/reply/test-reply-id")]                 // reply
+    public async Task SendAsync_OrderMutatingPost401_DoesNotReplayAndMarksAmbiguous(string path)
+    {
+        var sessionManager = new FakeSessionManager();
+        var callCount = 0;
+        var innerHandler = new FakeInnerHandler(_ =>
+        {
+            callCount++;
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized)
+            {
+                Content = new StringContent("Unauthorized"),
+            };
+        });
+
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
+        {
+            InnerHandler = innerHandler,
+        };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.ibkr.com") };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = new StringContent("""{"orders":[]}"""),
+        };
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        callCount.ShouldBe(1, "the order-mutating POST must be sent exactly once — never replayed");
+        sessionManager.ReauthCallCount.ShouldBe(1, "re-authentication still happens after the 401");
+
+        request.Options.TryGetValue(
+            new HttpRequestOptionsKey<AmbiguousOrderOutcome>(AmbiguousOrderOutcome.OptionKey),
+            out var outcome).ShouldBeTrue("the request must carry the ambiguous-outcome marker");
+        outcome!.OriginalStatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        outcome.ReauthSucceeded.ShouldBeTrue();
+        outcome.Endpoint.ShouldBe(path);
+    }
+
+    [Fact]
+    public async Task SendAsync_OrderPost401_ReauthFails_MarksAmbiguousReauthFalse_DoesNotThrow()
+    {
+        var sessionManager = new FakeSessionManager
+        {
+            ThrowOnReauth = new InvalidOperationException("DH exchange failed"),
+        };
+        var callCount = 0;
+        var innerHandler = new FakeInnerHandler(_ =>
+        {
+            callCount++;
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        });
+
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
+        {
+            InnerHandler = innerHandler,
+        };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.ibkr.com") };
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post, "/v1/api/iserver/account/DU1234567/orders")
+        {
+            Content = new StringContent("""{"orders":[]}"""),
+        };
+
+        // Order POSTs never surface a session-exception throw — an ambiguous outcome is still ambiguous
+        // when re-auth fails; the caller must reconcile, not treat it as a definitive refusal.
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        callCount.ShouldBe(1, "no replay even when re-auth fails");
+        request.Options.TryGetValue(
+            new HttpRequestOptionsKey<AmbiguousOrderOutcome>(AmbiguousOrderOutcome.OptionKey),
+            out var outcome).ShouldBeTrue();
+        outcome!.ReauthSucceeded.ShouldBeFalse("re-auth threw, so the marker records a failed re-auth");
+    }
+
+    [Fact]
+    public async Task SendAsync_WhatIfPost401_Replays()
+    {
+        // /orders/whatif is a preview, not order-mutating — it keeps the idempotent replay behavior.
+        var sessionManager = new FakeSessionManager();
+        var callCount = 0;
+        var innerHandler = new FakeInnerHandler(_ =>
+        {
+            callCount++;
+            return callCount == 1
+                ? new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                : new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{}", Encoding.UTF8, "application/json"),
+                };
+        });
+
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
+        {
+            InnerHandler = innerHandler,
+        };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.ibkr.com") };
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post, "/v1/api/iserver/account/DU1234567/orders/whatif")
+        {
+            Content = new StringContent("""{"orders":[]}"""),
+        };
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        callCount.ShouldBe(2, "whatif is not order-mutating — it replays and succeeds");
+        request.Options.TryGetValue(
+            new HttpRequestOptionsKey<AmbiguousOrderOutcome>(AmbiguousOrderOutcome.OptionKey),
+            out _).ShouldBeFalse("whatif is not gated — no ambiguous marker");
+    }
+
+    [Fact]
+    public async Task SendAsync_LiveOrdersGet401_Replays()
+    {
+        // GET is idempotent — the live-orders GET keeps replay-and-succeed.
+        var sessionManager = new FakeSessionManager();
+        var callCount = 0;
+        var innerHandler = new FakeInnerHandler(_ =>
+        {
+            callCount++;
+            return callCount == 1
+                ? new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                : new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"orders":[]}""", Encoding.UTF8, "application/json"),
+                };
+        });
+
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
+        {
+            InnerHandler = innerHandler,
+        };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.ibkr.com") };
+
+        var response = await client.GetAsync(
+            "/v1/api/iserver/account/orders", TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        callCount.ShouldBe(2, "the idempotent live-orders GET still replays");
+    }
+
     private class FakeSessionManager : ISessionManager
     {
         public int ReauthCallCount { get; private set; }

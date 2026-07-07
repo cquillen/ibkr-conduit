@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Diagnostics;
@@ -15,9 +16,25 @@ namespace IbkrConduit.Session;
 /// DelegatingHandler that detects 401 responses, triggers session re-authentication
 /// via <see cref="ISessionManager"/>, and retries the request once. Tickle requests
 /// are excluded from retry to avoid masking dead session detection.
+/// <para>
+/// ADR-0003 (design doc §9.9): order-mutating POSTs (place, modify, reply) are excluded from the
+/// automatic replay. A replay after a 401 could double-submit a live order, and whether IBKR
+/// processed the original before the 401 is unpinned. Re-auth still happens, but the original call is
+/// not re-sent; the request is marked with an <see cref="AmbiguousOrderOutcome"/> that
+/// <c>ResultFactory</c> converts into a public <see cref="IbkrAmbiguousOrderError"/>. Idempotent
+/// requests (GET, DELETE cancel) and non-mutating POSTs (e.g. <c>/orders/whatif</c>) keep the replay.
+/// </para>
 /// </summary>
 internal sealed partial class TokenRefreshHandler : DelegatingHandler
 {
+    // Order-mutating POST paths (ADR-0003): place (/iserver/account/{id}/orders), modify
+    // (/iserver/account/{id}/order/{orderId}), and reply (/iserver/reply/{replyId}). Anchored to the
+    // path end so /orders/whatif and /account/order/status/{id} are NOT matched.
+    private static readonly Regex _orderMutatingPostPattern = new(
+        @"/iserver/account/[^/]+/orders$|/iserver/account/[^/]+/order/[^/]+$|/iserver/reply/[^/]+$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(100));
+
     private readonly ISessionManager _sessionManager;
     private readonly SessionHealthState _sessionHealthState;
     private readonly ILogger<TokenRefreshHandler> _logger;
@@ -72,6 +89,10 @@ internal sealed partial class TokenRefreshHandler : DelegatingHandler
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Http.TokenRefreshRetry");
         activity?.SetTag("original_status_code", (int)response.StatusCode);
 
+        // ADR-0003: an order-mutating POST is never replayed — its outcome is ambiguous after a 401.
+        var isOrderMutatingPost = IsOrderMutatingPost(request);
+
+        var reauthSucceeded = true;
         try
         {
             await _sessionManager.ReauthenticateAsync(cancellationToken);
@@ -79,24 +100,50 @@ internal sealed partial class TokenRefreshHandler : DelegatingHandler
         catch (Exception ex)
         {
             LogReauthFailed(ex, requestPath);
-            response.Dispose();
 
-            // GAP3-1: propagate the competing evidence into the surfaced session error instead of the
-            // old hardcoded false. The evidence is the IsCompeting flag on a session error the re-auth
-            // itself raised (ADR-0004 ssodh authenticated=false path), falling back to the current
-            // health snapshot's competing verdict (recorded by a tickle or an sts frame).
-            var isCompeting = (ex as IbkrApiException)?.Error is IbkrSessionError sessionError
-                ? sessionError.IsCompeting
-                : _sessionHealthState.GetSnapshot().Competing;
+            // ADR-0003 money-safety gate wins over the ADR-0004 competing-session throw: for an
+            // order-mutating POST the outcome stays ambiguous even when re-auth fails — the request
+            // was sent and must be reconciled, never converted into a session-error throw (which a
+            // consumer's trichotomy would read as a definitive refusal). Fall through to the ambiguous
+            // gate below carrying reauthSucceeded=false; the competing-throw applies only to
+            // non-order 401s.
+            if (!isOrderMutatingPost)
+            {
+                response.Dispose();
 
-            throw new IbkrApiException(
-                new IbkrSessionError(
-                    HttpStatusCode.Unauthorized,
-                    "Re-authentication failed — credentials may be invalidated",
-                    "",
-                    request.RequestUri?.AbsolutePath,
-                    isCompeting),
-                ex);
+                // GAP3-1 (ADR-0004): propagate the competing evidence into the surfaced session error
+                // instead of the old hardcoded false. The evidence is the IsCompeting flag on a session
+                // error the re-auth itself raised (ssodh authenticated=false path), falling back to the
+                // current health snapshot's competing verdict (recorded by a tickle or an sts frame).
+                var isCompeting = (ex as IbkrApiException)?.Error is IbkrSessionError sessionError
+                    ? sessionError.IsCompeting
+                    : _sessionHealthState.GetSnapshot().Competing;
+
+                throw new IbkrApiException(
+                    new IbkrSessionError(
+                        HttpStatusCode.Unauthorized,
+                        "Re-authentication failed — credentials may be invalidated",
+                        "",
+                        request.RequestUri?.AbsolutePath,
+                        isCompeting),
+                    ex);
+            }
+
+            reauthSucceeded = false;
+        }
+
+        if (isOrderMutatingPost)
+        {
+            // Do NOT re-send. Mark the request so ResultFactory surfaces IbkrAmbiguousOrderError, and
+            // return the original 401 response for the pipeline to convert. This gate returns before
+            // the post-retry competing check below, so an order-mutating POST 401 is never reclassified
+            // as a competing-session error — the ambiguous outcome always wins (ADR-0003).
+            activity?.SetTag("order_replay_gated", true);
+            LogOrderReplayGated(requestPath, reauthSucceeded);
+            request.Options.Set(
+                new HttpRequestOptionsKey<AmbiguousOrderOutcome>(AmbiguousOrderOutcome.OptionKey),
+                new AmbiguousOrderOutcome(requestPath, response.StatusCode, reauthSucceeded));
+            return response;
         }
 
         // Clone the request for retry
@@ -147,6 +194,24 @@ internal sealed partial class TokenRefreshHandler : DelegatingHandler
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "401 retry succeeded for {RequestPath} with status {StatusCode}")]
     private partial void LogRetrySucceeded(string requestPath, int statusCode);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "401 on order-mutating POST {RequestPath} — replay gated (ADR-0003); outcome ambiguous (reauthSucceeded={ReauthSucceeded})")]
+    private partial void LogOrderReplayGated(string requestPath, bool reauthSucceeded);
+
+    /// <summary>
+    /// Whether the request is an order-mutating POST (place, modify, or reply) whose 401 replay is
+    /// gated by ADR-0003. Non-mutating POSTs such as <c>/orders/whatif</c> and GET/DELETE are excluded.
+    /// </summary>
+    private static bool IsOrderMutatingPost(HttpRequestMessage request)
+    {
+        if (request.Method != HttpMethod.Post)
+        {
+            return false;
+        }
+
+        var path = request.RequestUri?.AbsolutePath;
+        return path is not null && _orderMutatingPostPattern.IsMatch(path);
+    }
 
     private static HttpRequestMessage CloneRequest(
         HttpRequestMessage original, byte[]? bufferedContent, string? contentType)

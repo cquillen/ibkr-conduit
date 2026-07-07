@@ -23,6 +23,14 @@ internal static class ResultFactory
     {
         response.ThrowOnSendFailure();
 
+        // ADR-0003: an order-mutating POST that 401'd was gated (not replayed) by TokenRefreshHandler.
+        // The outcome is ambiguous — surface the dedicated error rather than a generic 401 failure.
+        var ambiguous = GetAmbiguousOrderOutcome(response);
+        if (ambiguous is not null)
+        {
+            return Result<T>.Failure(BuildAmbiguousError(ambiguous, GetRawBody(response), requestPath));
+        }
+
         // Prefer the raw body captured by ResponseBodyCaptureHandler (available for all status codes).
         // Fall back to response.Error?.Content (only populated for non-2xx by Refit).
         var rawBody = GetCapturedBody(response) ?? (response.Error as ApiException)?.Content ?? "";
@@ -56,6 +64,14 @@ internal static class ResultFactory
     public static Result<T> FromResponse<T>(IApiResponse<string> response, Func<string, T> parser, string? requestPath = null)
     {
         response.ThrowOnSendFailure();
+
+        // ADR-0003: same order-mutating-POST 401 gate as the pre-deserialized overload (covers reply).
+        var ambiguous = GetAmbiguousOrderOutcome(response);
+        if (ambiguous is not null)
+        {
+            var body = GetCapturedBody(response) ?? response.Content ?? (response.Error as ApiException)?.Content ?? "";
+            return Result<T>.Failure(BuildAmbiguousError(ambiguous, body, requestPath));
+        }
 
         var rawBody = GetCapturedBody(response) ?? response.Content ?? (response.Error as ApiException)?.Content ?? "";
 
@@ -166,6 +182,43 @@ internal static class ResultFactory
             return rawBody;
         }
     }
+
+    /// <summary>
+    /// Builds the public <see cref="IbkrAmbiguousOrderError"/> from the internal marker stashed by
+    /// <c>TokenRefreshHandler</c> when it gated an order-mutating POST's 401 replay (ADR-0003).
+    /// </summary>
+    private static IbkrAmbiguousOrderError BuildAmbiguousError(
+        AmbiguousOrderOutcome outcome, string? rawBody, string? requestPath) =>
+        new(
+            outcome.OriginalStatusCode,
+            "Order request was sent but the outcome is unknown after a 401; the request was not replayed. " +
+            "Reconcile via live-order/trade queries (matching your cOID) before resubmitting.",
+            rawBody,
+            outcome.Endpoint ?? requestPath,
+            outcome.ReauthSucceeded);
+
+    /// <summary>
+    /// Reads the <see cref="AmbiguousOrderOutcome"/> marker off the response's request options, set by
+    /// <c>TokenRefreshHandler</c> when it gated an order-mutating POST replay. Null when absent.
+    /// </summary>
+    private static AmbiguousOrderOutcome? GetAmbiguousOrderOutcome<T>(IApiResponse<T> response)
+    {
+        if (response.RequestMessage?.Options.TryGetValue(
+                new HttpRequestOptionsKey<AmbiguousOrderOutcome>(AmbiguousOrderOutcome.OptionKey),
+                out var outcome) == true)
+        {
+            return outcome;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The raw response body for an order-path classification (AMB-4): the captured body when the
+    /// request went through the pipeline, else the Refit error content. Null when neither is available.
+    /// </summary>
+    internal static string? GetRawBody<T>(IApiResponse<T> response) =>
+        GetCapturedBody(response) ?? (response.Error as ApiException)?.Content;
 
     /// <summary>
     /// Reads the raw response body captured by <see cref="ResponseBodyCaptureHandler"/>

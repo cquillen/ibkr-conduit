@@ -5,6 +5,7 @@ using System.Text.Json;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.Orders;
+using IbkrConduit.Serialization;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging;
 using OneOf;
@@ -72,23 +73,25 @@ internal partial class OrderOperations : IOrderOperations
         {
             var payload = new OrdersPayload([ToWireModel(order)]);
             var response = await _orderApi.PlaceOrderAsync(accountId, payload, cancellationToken);
-            var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+            var requestPath = response.RequestMessage?.RequestUri?.AbsolutePath;
+            var apiResult = ResultFactory.FromResponse(response, requestPath);
             if (!apiResult.IsSuccess)
             {
                 var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(apiResult.Error);
                 return _options.ThrowOnApiError ? failResult.EnsureSuccess() : failResult;
             }
 
-            var classified = ClassifyResponse(apiResult.Value[0]);
+            var result = ClassifyOrderResponses(apiResult.Value, ResultFactory.GetRawBody(response), requestPath);
+            if (result.IsSuccess)
+            {
+                _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
+                    new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
+                _submissionCount.Add(1,
+                    new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+                    new KeyValuePair<string, object?>(LogFields.Side, order.Side),
+                    new KeyValuePair<string, object?>(LogFields.OrderType, order.OrderType));
+            }
 
-            _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
-                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
-            _submissionCount.Add(1,
-                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
-                new KeyValuePair<string, object?>(LogFields.Side, order.Side),
-                new KeyValuePair<string, object?>(LogFields.OrderType, order.OrderType));
-
-            var result = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(classified);
             return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
         }
         finally
@@ -116,7 +119,8 @@ internal partial class OrderOperations : IOrderOperations
         {
             var payload = new OrdersPayload(orders.Select(ToWireModel).ToList());
             var response = await _orderApi.PlaceOrderAsync(accountId, payload, cancellationToken);
-            var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+            var requestPath = response.RequestMessage?.RequestUri?.AbsolutePath;
+            var apiResult = ResultFactory.FromResponse(response, requestPath);
             if (!apiResult.IsSuccess)
             {
                 var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(apiResult.Error);
@@ -125,18 +129,19 @@ internal partial class OrderOperations : IOrderOperations
 
             // A grouped submission returns a single parent element (verified live); child
             // order ids are obtained via GetLiveOrdersAsync, correlated on the parent cOID.
-            var classified = ClassifyResponse(apiResult.Value[0]);
+            var result = ClassifyOrderResponses(apiResult.Value, ResultFactory.GetRawBody(response), requestPath);
+            if (result.IsSuccess)
+            {
+                _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
+                    new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
 
-            _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
-                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
+                // Count every leg; tag with the parent order's side/type (legs vary across the group).
+                _submissionCount.Add(orders.Count,
+                    new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+                    new KeyValuePair<string, object?>(LogFields.Side, orders[0].Side),
+                    new KeyValuePair<string, object?>(LogFields.OrderType, orders[0].OrderType));
+            }
 
-            // Count every leg; tag with the parent order's side/type (legs vary across the group).
-            _submissionCount.Add(orders.Count,
-                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
-                new KeyValuePair<string, object?>(LogFields.Side, orders[0].Side),
-                new KeyValuePair<string, object?>(LogFields.OrderType, orders[0].OrderType));
-
-            var result = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(classified);
             return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
         }
         finally
@@ -245,23 +250,25 @@ internal partial class OrderOperations : IOrderOperations
         {
             var payload = new OrdersPayload([ToWireModel(order)]);
             var response = await _orderApi.ModifyOrderAsync(accountId, orderId, payload, cancellationToken);
-            var apiResult = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+            var requestPath = response.RequestMessage?.RequestUri?.AbsolutePath;
+            var apiResult = ResultFactory.FromResponse(response, requestPath);
             if (!apiResult.IsSuccess)
             {
                 var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(apiResult.Error);
                 return _options.ThrowOnApiError ? failResult.EnsureSuccess() : failResult;
             }
 
-            var classified = ClassifyResponse(apiResult.Value[0]);
+            var result = ClassifyOrderResponses(apiResult.Value, ResultFactory.GetRawBody(response), requestPath);
+            if (result.IsSuccess)
+            {
+                _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
+                    new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
+                _submissionCount.Add(1,
+                    new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+                    new KeyValuePair<string, object?>(LogFields.Side, order.Side),
+                    new KeyValuePair<string, object?>(LogFields.OrderType, order.OrderType));
+            }
 
-            _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
-                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
-            _submissionCount.Add(1,
-                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
-                new KeyValuePair<string, object?>(LogFields.Side, order.Side),
-                new KeyValuePair<string, object?>(LogFields.OrderType, order.OrderType));
-
-            var result = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(classified);
             return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
         }
         finally
@@ -286,20 +293,39 @@ internal partial class OrderOperations : IOrderOperations
         var replyApiResponse = await _orderApi.ReplyAsync(
             replyId, new ReplyRequest(confirmed), cancellationToken);
 
-        replyApiResponse.ThrowOnSendFailure();
+        var requestPath = replyApiResponse.RequestMessage?.RequestUri?.AbsolutePath;
+        LogReplyRawContent(replyApiResponse.Content ?? string.Empty);
 
-        if (!replyApiResponse.IsSuccessStatusCode)
+        // AMB-3: route the reply 2xx through the same classification every other order path uses —
+        // ThrowOnSendFailure, the ADR-0003 ambiguous 401 gate, non-2xx error parsing, and bare-object
+        // hidden-error detection — instead of a bespoke IsSuccessStatusCode branch. The identity parser
+        // yields the raw body; classification of the parsed shapes happens below.
+        var bodyResult = ResultFactory.FromResponse(replyApiResponse, static body => body, requestPath);
+        if (!bodyResult.IsSuccess)
         {
-            var rawBody = (replyApiResponse.Error as ApiException)?.Content ?? "";
-            var error = new IbkrApiError(replyApiResponse.StatusCode, rawBody, rawBody, replyApiResponse.RequestMessage?.RequestUri?.AbsolutePath);
-            var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(error);
+            var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(bodyResult.Error);
             return _options.ThrowOnApiError ? failResult.EnsureSuccess() : failResult;
         }
 
-        LogReplyRawContent(replyApiResponse.Content ?? string.Empty);
-        var replyResponses = DeserializeReplyResponse(replyApiResponse.Content!);
-        var classified = ClassifyResponse(replyResponses[0]);
-        var result = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(classified);
+        Result<OneOf<OrderSubmitted, OrderConfirmationRequired>> result;
+        try
+        {
+            // WIR-4: hardened deserialize; AMB-4: empty/array-error shapes classify as refusals.
+            var replyResponses = DeserializeReplyResponse(bodyResult.Value);
+            result = ClassifyOrderResponses(replyResponses, bodyResult.Value, requestPath);
+        }
+        catch (JsonException)
+        {
+            // WIR-4: a 2xx body that still fails typed deserialization surfaces as a classified error,
+            // never an uncaught JsonException — so a consumer can map it to its ambiguous leg by type.
+            result = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(
+                new IbkrApiError(
+                    System.Net.HttpStatusCode.OK,
+                    "Reply response body could not be deserialized",
+                    bodyResult.Value,
+                    requestPath));
+        }
+
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
@@ -346,10 +372,41 @@ internal partial class OrderOperations : IOrderOperations
     }
 
     /// <summary>
+    /// Classifies a deserialized order response array into a submitted-order / confirmation-required
+    /// success, or a classified refusal for the unrecognized-but-plausible 200 shapes (AMB-4): an empty
+    /// array or an array-wrapped <c>[{"error":"…"}]</c> reject (which bypasses bare-object hidden-error
+    /// detection). Only a truly-unrecognized residual shape still throws — now carrying the raw body.
+    /// </summary>
+    internal static Result<OneOf<OrderSubmitted, OrderConfirmationRequired>> ClassifyOrderResponses(
+        IReadOnlyList<OrderSubmissionResponse> responses, string? rawBody, string? requestPath)
+    {
+        // AMB-4: an empty array [] has no element to index — a refusal carrying the raw body, never an
+        // ArgumentOutOfRangeException.
+        if (responses.Count == 0)
+        {
+            return Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(
+                new IbkrOrderRejectedError(
+                    "IBKR returned an empty order response with no order id or question.", rawBody, requestPath));
+        }
+
+        var first = responses[0];
+
+        // AMB-4: an array-wrapped reject [{"error":"…"}] bypasses DetectHiddenError (which skips arrays);
+        // classify it as a refusal carrying the reject text and raw body.
+        if (first.OrderId is null && (first.Id is null || first.Message is null) && !string.IsNullOrEmpty(first.Error))
+        {
+            return Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(
+                new IbkrOrderRejectedError(first.Error, rawBody, requestPath));
+        }
+
+        return Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(ClassifyResponse(first, rawBody));
+    }
+
+    /// <summary>
     /// Classifies an IBKR order submission response as either a confirmed order or a confirmation request.
     /// </summary>
     internal static OneOf<OrderSubmitted, OrderConfirmationRequired> ClassifyResponse(
-        OrderSubmissionResponse response)
+        OrderSubmissionResponse response, string? rawBody = null)
     {
         if (response.OrderId is not null)
         {
@@ -368,8 +425,10 @@ internal partial class OrderOperations : IOrderOperations
                 (response.MessageIds ?? []).AsReadOnly());
         }
 
+        // AMB-4: the residual fallback carries the raw body so the broker's shape survives to the log.
         throw new InvalidOperationException(
-            "Unexpected order submission response: no order ID and no question message.");
+            "Unexpected order submission response: no order ID and no question message." +
+            (string.IsNullOrEmpty(rawBody) ? string.Empty : $" Raw body: {rawBody}"));
     }
 
     /// <summary>
@@ -384,16 +443,19 @@ internal partial class OrderOperations : IOrderOperations
                 "IBKR reply endpoint returned an empty response body.");
         }
 
+        // WIR-4: deserialize through the hardened shared serializer (the same one Refit uses for
+        // place/modify) so the reply path shares the tolerant converters — a numeric order_id maps to a
+        // string instead of throwing.
         if (trimmed[0] == '[')
         {
-            return JsonSerializer.Deserialize<List<OrderSubmissionResponse>>(trimmed)
+            return JsonSerializer.Deserialize<List<OrderSubmissionResponse>>(trimmed, IbkrRefitSettings.Options)
                 ?? throw new InvalidOperationException(
                     $"Failed to deserialize IBKR reply response as array: {content}");
         }
 
         if (trimmed[0] == '{')
         {
-            var single = JsonSerializer.Deserialize<OrderSubmissionResponse>(trimmed)
+            var single = JsonSerializer.Deserialize<OrderSubmissionResponse>(trimmed, IbkrRefitSettings.Options)
                 ?? throw new InvalidOperationException(
                     $"Failed to deserialize IBKR reply response as object: {content}");
             return [single];
