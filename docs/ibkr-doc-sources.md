@@ -6,6 +6,8 @@ Doc content is IBKR's CLAIM — recordings/ and attended probes remain the only 
 
 **Selection heuristic (operator, 2026-07-07):** the "new docs" family (DOC-04 landing, DOC-05 trading, DOC-07 Flex, with DOC-01 as the machine schema) is *intended to supersede* the v1 page (DOC-03) — but it is incomplete, so scouts must still dig into DOC-03 for gaps. Expect DOC-03 to be poorly structured and aggravating to parse (one huge page, 246 h3 anchors, inconsistent sectioning) — budget scout effort accordingly, and prefer the new-docs family first when both cover a topic. DOC-06 is a different product (OAuth 2.0 account management) — out of scope for current implementation work.
 
+**Selection is a topical judgement call, not all-sources-every-time (operator, 2026-07-07):** match the question against each entry's `Covers`/scope caveats and skip plainly-off-topic sources — DOC-08 earns a scout only for order-type/order-ticket questions, DOC-09 only when recency/drift matters, DOC-10 only for entitlement/subscription/billing-side questions (it is NOT an API-endpoint reference despite its nav label). When relevance is uncertain, include the source; name what was skipped so a bad pruning call is visible.
+
 #### DOC-01 — OpenAPI JSON (api.ibkr.com gateway)
 **URL:** https://api.ibkr.com/gw/api/v3/api-docs
 **Kind:** openapi-json · **Fetch:** curl-ok · **Size:** ~864KB
