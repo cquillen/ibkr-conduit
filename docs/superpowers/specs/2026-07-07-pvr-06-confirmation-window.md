@@ -10,6 +10,8 @@ Serialize the confirmation round in-process (per-account order lock held from co
 
 Reply on an invalidated confirmation → `503 {"error":"Service Unavailable","statusCode":503}` (no invalidation marker → recognition is reply-endpoint + 503, contextual). The invalidated order **later became a live Submitted order** (released by confirming the other pending same-type question) — "refused → re-place" double-places. Question issuance is non-deterministic (identical order: no question in one run, `o354` the next).
 
+Doc claims (re-groomed live, 2026-07-07 — `../../ibkr-doc-evidence/2026-07-07-order-reply-confirmation-suppression.md`): DOC-03 documents the reply-immediately obligation and the 503 on a stale acknowledgment, but its "Submitting other orders or other requests **will cancel the order**" half is falsified by the probe above — the doc-claimed semantics are exactly the double-place trap ADR-0006 designs out. DOC-01 documents the reply endpoint's 200 response as a `oneOf` **five** shapes — `orderSubmitSuccess`, chained `orderReplyMessage`, `orderSubmitError` (`{"error": "Order not confirmed "}`), `orderReplyNotFound` (`{"error": "reply id not found: '…'"}`), `advancedOrderReject` — the ORD-1 classification net (scope item 3) must cover all five; the three never-wire-observed shapes take fixtures from DOC-01's documented examples.
+
 ## Scope
 
 1. **Lock scope change (`OrderOperations`):** when `PlaceOrderAsync`/`PlaceOrdersAsync`/`ModifyOrderAsync` returns `OrderConfirmationRequired`, the per-account semaphore is retained; `ReplyAsync` (confirm or reject) for that pending confirmation releases it on resolution (a reply that returns another question keeps the round open). A new `IbkrClientOptions.ConfirmationTimeout` (positive `TimeSpan`, validated like other options) bounds retention: on expiry the lock releases and the pending order's tracked outcome becomes ambiguous.
@@ -28,6 +30,7 @@ Reply on an invalidated confirmation → `503 {"error":"Service Unavailable","st
 - A stubbed reply 503 surfaces as the ambiguous-outcome error (not `IbkrApiError(503)`), and its message carries reconcile guidance; a reply after timeout classifies identically.
 - Reply-`false` resolves the round as a definitive refusal and releases the lock; a reply chaining a second question keeps the lock held until the chain resolves.
 - Empty, whitespace, and HTML 2xx reply bodies each classify with raw body attached (no `InvalidOperationException` escapes).
+- Each of DOC-01's five documented reply-200 shapes resolves the round correctly: success array resolves it, a chained `orderReplyMessage` keeps it open, and `orderSubmitError`/`orderReplyNotFound`/`advancedOrderReject` classify as errors (fixtures from the documented examples — see Evidence).
 - A consumer that never replies: the account's next placement proceeds after `ConfirmationTimeout` (fake clock), with the abandoned order's outcome ambiguous.
 - No test assumes a question always arrives (probe: non-deterministic issuance).
 

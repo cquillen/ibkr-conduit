@@ -1,7 +1,7 @@
 # ADR-0006 — Order confirmation window: serialized confirmation round, ambiguous invalidated-reply outcome
 
 **Status:** Accepted · **Date:** 2026-07-07 *(revised same day, pre-merge, after the grooming live probe below — the original "reply-immediately obligation + typed definitive refusal" decision was falsified by the probe before it ever merged)*
-**Relates to:** ADR-0003 (order-outcome trichotomy — sibling decision); design doc §9.1/§9.9/§9.10; finding ORD-3 (`docs/findings/2026-07-07-multi-agent-code-review.md`); captured spec `docs/ibkr-web-api-spec.md` (reply invalidation, ~4559); live probe `recordings/order-probe-2026-07-07.log`. **Implemented by:** PVR-06 (`docs/backlog.md`, Stream PVR).
+**Relates to:** ADR-0003 (order-outcome trichotomy — sibling decision); design doc §9.1/§9.9/§9.10; finding ORD-3 (`docs/findings/2026-07-07-multi-agent-code-review.md`); doc claim `docs/ibkr-doc-evidence/2026-07-07-order-reply-confirmation-suppression.md` (live DOC-03, re-scouted 2026-07-07 — supersedes the deprecated-mirror citation: "Submitting other orders or other requests will cancel the order and attempts to acknowledge the reply will result in a 503 error"; the cancellation half is wire-falsified by the probe below); live probe `recordings/order-probe-2026-07-07.log`. **Implemented by:** PVR-06 (`docs/backlog.md`, Stream PVR).
 
 ## Context
 

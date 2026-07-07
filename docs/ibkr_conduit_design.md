@@ -769,7 +769,7 @@ This sequence handles arbitrarily long outages. The flex query for open orders i
 
 ### 10.6 Live-Orders Priming Surface
 
-`GET /iserver/account/orders` is unprimed on first call — `{"orders":[],"snapshot":false}` even when orders exist — and reprimes on a follow-up call; `force=true` clears cached state and itself returns a blank array. All three shapes are pinned by live captures (`recordings/orders/001-002`, `recordings/priming/001-003` — local captures per the `recordings/` convention, carried into committed WireMock fixtures; the latter showing a *filtered* call returning fake-empty while cancelled orders demonstrably exist). The captured spec (docs/ibkr-web-api-spec.md:4150) further warns that filtered calls suppress `sor` order-detail frames until a `force=true` follow-up — documented, not independently observable on demand. The contract (operator-decided 2026-07-07, implemented by VCR-05):
+`GET /iserver/account/orders` is unprimed on first call — `{"orders":[],"snapshot":false}` even when orders exist — and reprimes on a follow-up call; `force=true` clears cached state and itself returns a blank array. All three shapes are pinned by live captures (`recordings/orders/001-002`, `recordings/priming/001-003` — local captures per the `recordings/` convention, carried into committed WireMock fixtures; the latter showing a *filtered* call returning fake-empty while cancelled orders demonstrably exist). The live docs (DOC-03, re-scouted 2026-07-07 — `docs/ibkr-doc-evidence/2026-07-07-live-orders-filters-force.md`, superseding the deprecated-mirror citation) further warn that filtered calls "will prevent order details from coming through over the websocket \"sor\" topic" until a `force=true` **follow-up** call — documented, not independently observable on demand; the same page's own example combines filters+force in one call without comment, so single-call sufficiency is unpinned in every tier. The contract (operator-decided 2026-07-07, implemented by VCR-05):
 
 - **`GetLiveOrdersAsync` returns a record carrying the orders and `IsSnapshot`** so primedness is consumer-visible; an unprimed empty response is distinguishable from "no orders."
 - **After any filtered call, the library itself issues the `force=true` follow-up** (the library-owns-quirks rule, `.claude/rules/architecture.md`) — defensive against the documented `sor` suppression whether or not it manifests.
@@ -1201,7 +1201,7 @@ https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService/
 | `/iserver/trades` | GET | Get current session fills (1 req/5s limit) |
 | `/portfolio/{id}/positions/0` | GET | Current positions — session-independent |
 | `/portfolio/{id}/summary` | GET | Account summary — session-independent |
-| `/portfolio/subaccounts2` | GET | Paged sub-account enumeration — object wrapper `{metadata, subaccounts}`, not a bare array (recorded 2026-07-07; PVR-03) |
+| `/portfolio/subaccounts2` | GET | Paged sub-account enumeration — shape is doc-conflicted: `{metadata, subaccounts}` wrapper (DOC-01 schema + DOC-03 prose) vs bare array (DOC-03's own example + the sole wire sample, paper/non-FA); the library deserializes **both** (operator-decided 2026-07-07; PVR-03; `docs/ibkr-doc-evidence/2026-07-07-subaccounts2-response-shape.md`) |
 | `/iserver/marketdata/snapshot` | GET | Market data snapshot (requires pre-flight) |
 | `/iserver/marketdata/history` | GET | Historical market data (5 concurrent max) |
 | `/iserver/secdef/search` | GET | Symbol to conid resolution |
