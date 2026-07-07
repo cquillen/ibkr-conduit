@@ -706,11 +706,13 @@ The CP Web API does not support native multi-leg combo orders. Legs must be subm
 
 ### 9.10 Order Confirmation Window
 
-**[ADR-0006](adr/0006-order-confirmation-window.md).** A pending order confirmation (question/reply round) is invalidated by any subsequent order submission on the session; the reply then fails server-side (captured spec). The contract:
+**[ADR-0006](adr/0006-order-confirmation-window.md).** A pending order confirmation (question/reply round) is invalidated by a subsequent order submission on the session; the reply then fails with a **fully generic** 503 body, and the "invalidated" order can **still become a live order** (both pinned by the 2026-07-07 live probe, `recordings/order-probe-2026-07-07.log`). The contract:
 
-- **Reply-immediately is a documented consumer obligation** — resolve a pending confirmation before submitting the next order on the same account. The library does not hold the per-account order lock across the round; concurrent placement remains possible and its consequence is surfaced, not prevented.
-- **An invalidated-confirmation reply surfaces as a typed, definitive refusal** identifying the invalidated confirmation (consumer response: re-place from scratch) — never a generic or transient failure.
+- **The confirmation round is serialized in-process:** the per-account order lock is held from a confirmation-returning placement until the confirmation resolves (reply, dismiss, or timeout) — overlapping same-account confirmation windows cannot occur in-process.
+- **A confirmation timeout bounds the lock** (configurable); on expiry the lock releases and that order's outcome is **ambiguous**. Reply-`false`/dismiss resolves the round as a definitive refusal.
+- **A failed reply on an invalidated confirmation classifies as an ambiguous order outcome** (ADR-0003 semantics: reconcile before resubmitting) — never a definitive refusal (the probe showed re-placing can double-place), never a generic 503. Recognition is contextual (reply endpoint + 503) — the wire body carries no marker.
 - **Every 2xx reply shape classifies:** empty/whitespace/non-JSON reply bodies surface as classified errors carrying the raw body, never raw exceptions.
+- Question issuance is **non-deterministic** (probe: an identical order drew a question in one run and none in another) — neither the library nor its tests may assume a question always arrives.
 
 ---
 
