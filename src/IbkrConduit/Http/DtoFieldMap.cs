@@ -17,9 +17,32 @@ internal static class DtoFieldMap
     /// Extracts field metadata for the specified DTO type. Results are cached.
     /// </summary>
     public static DtoFieldInfo Extract(Type dtoType) =>
-        _cache.GetOrAdd(dtoType, ExtractCore);
+        _cache.TryGetValue(dtoType, out var cached)
+            ? cached
+            : ExtractWithCycleGuard(dtoType, [dtoType]);
 
-    private static DtoFieldInfo ExtractCore(Type dtoType)
+    /// <summary>
+    /// Cache-checking extraction step carrying the set of types currently on the recursion path.
+    /// The path-scoped <paramref name="visiting"/> set breaks type cycles (direct or transitive,
+    /// e.g. A → List&lt;B&gt; → B → A) that would otherwise recurse unboundedly: a type already
+    /// being expanded on the current path is treated as already mapped and not re-descended — its
+    /// own fields are validated where it was first encountered; only the back-edge is skipped.
+    /// A cycle guard is preferred over a depth cap so legitimately deep finite graphs still map fully.
+    /// </summary>
+    private static DtoFieldInfo ExtractWithCycleGuard(Type dtoType, HashSet<Type> visiting)
+    {
+        if (_cache.TryGetValue(dtoType, out var cached))
+        {
+            return cached;
+        }
+
+        // GetOrAdd(key, value) rather than GetOrAdd(key, factory): if two threads race, both
+        // compute an equivalent map and the first one in wins — same semantics the factory
+        // overload had (its factory could also run more than once).
+        return _cache.GetOrAdd(dtoType, ExtractCore(dtoType, visiting));
+    }
+
+    private static DtoFieldInfo ExtractCore(Type dtoType, HashSet<Type> visiting)
     {
         var fields = new Dictionary<string, bool>(); // jsonName -> isOptional
         var nestedMaps = new Dictionary<string, DtoFieldInfo>();
@@ -45,20 +68,25 @@ internal static class DtoFieldMap
             var isOptional = IsOptionalType(prop.PropertyType) || HasDefaultValue(dtoType, jsonName);
             fields[jsonName] = isOptional;
 
-            // Check if this property is a nested DTO type (has its own JsonPropertyName fields)
+            // Check if this property is a nested DTO type (has its own JsonPropertyName fields).
+            // visiting.Add returning false means the type is already on the current recursion
+            // path (immediate self-reference included) — skip the back-edge instead of recursing.
             var elementType = GetNestedDtoType(prop.PropertyType);
-            if (elementType is not null && elementType != dtoType)
+            if (elementType is not null && visiting.Add(elementType))
             {
-                nestedMaps[jsonName] = Extract(elementType);
+                nestedMaps[jsonName] = ExtractWithCycleGuard(elementType, visiting);
+                visiting.Remove(elementType);
             }
 
             // WIR-2/TEN-2: a List<T>-typed property whose element is itself a DTO (a wrapper's row
             // list, e.g. OrdersResponse.Orders) is recorded so the validator can descend into every
-            // row element — previously such properties were never descended.
+            // row element — previously such properties were never descended. Same cycle guard as
+            // above: a row element type already on the path is not re-descended.
             var collectionElementType = GetNestedCollectionElementDtoType(prop.PropertyType);
-            if (collectionElementType is not null && collectionElementType != dtoType)
+            if (collectionElementType is not null && visiting.Add(collectionElementType))
             {
-                nestedCollectionMaps[jsonName] = Extract(collectionElementType);
+                nestedCollectionMaps[jsonName] = ExtractWithCycleGuard(collectionElementType, visiting);
+                visiting.Remove(collectionElementType);
             }
         }
 
