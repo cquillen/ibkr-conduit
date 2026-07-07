@@ -23,6 +23,7 @@ internal static class DtoFieldMap
     {
         var fields = new Dictionary<string, bool>(); // jsonName -> isOptional
         var nestedMaps = new Dictionary<string, DtoFieldInfo>();
+        var nestedCollectionMaps = new Dictionary<string, DtoFieldInfo>();
         var hasExtensionData = false;
 
         // Check properties (covers both class-style { get; init; } and positional record generated properties)
@@ -50,9 +51,18 @@ internal static class DtoFieldMap
             {
                 nestedMaps[jsonName] = Extract(elementType);
             }
+
+            // WIR-2/TEN-2: a List<T>-typed property whose element is itself a DTO (a wrapper's row
+            // list, e.g. OrdersResponse.Orders) is recorded so the validator can descend into every
+            // row element — previously such properties were never descended.
+            var collectionElementType = GetNestedCollectionElementDtoType(prop.PropertyType);
+            if (collectionElementType is not null && collectionElementType != dtoType)
+            {
+                nestedCollectionMaps[jsonName] = Extract(collectionElementType);
+            }
         }
 
-        return new DtoFieldInfo(fields, hasExtensionData, nestedMaps);
+        return new DtoFieldInfo(fields, hasExtensionData, nestedMaps, nestedCollectionMaps);
     }
 
     private static bool IsOptionalType(Type type)
@@ -176,6 +186,43 @@ internal static class DtoFieldMap
 
         return hasJsonProps ? underlying : null;
     }
+
+    /// <summary>
+    /// If <paramref name="type"/> is a collection (array or a common generic list/collection
+    /// interface) whose element type is itself a DTO, returns that element type — otherwise null.
+    /// Collections of primitives/strings and dictionaries return null (nothing to descend into).
+    /// </summary>
+    private static Type? GetNestedCollectionElementDtoType(Type type)
+    {
+        var underlying = Nullable.GetUnderlyingType(type) ?? type;
+
+        Type? elementType = null;
+        if (underlying.IsArray)
+        {
+            elementType = underlying.GetElementType();
+        }
+        else if (underlying.IsGenericType)
+        {
+            var genDef = underlying.GetGenericTypeDefinition();
+            if (genDef == typeof(List<>) || genDef == typeof(IReadOnlyList<>) ||
+                genDef == typeof(IList<>) || genDef == typeof(ICollection<>) ||
+                genDef == typeof(IReadOnlyCollection<>) || genDef == typeof(IEnumerable<>))
+            {
+                elementType = underlying.GetGenericArguments()[0];
+            }
+        }
+
+        if (elementType is null)
+        {
+            return null;
+        }
+
+        // Only descend into collections whose element is itself a DTO (has JsonPropertyName fields).
+        var hasJsonProps = elementType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Any(p => p.GetCustomAttribute<JsonPropertyNameAttribute>() is not null);
+
+        return hasJsonProps ? elementType : null;
+    }
 }
 
 /// <summary>
@@ -191,8 +238,14 @@ internal sealed class DtoFieldInfo
     /// <summary>Whether the DTO has a <see cref="JsonExtensionDataAttribute"/> property.</summary>
     public bool HasExtensionData { get; }
 
-    /// <summary>Nested DTO field maps keyed by the parent field's JSON name.</summary>
+    /// <summary>Nested DTO field maps for scalar object properties, keyed by the parent field's JSON name.</summary>
     public IReadOnlyDictionary<string, DtoFieldInfo> NestedMaps { get; }
+
+    /// <summary>
+    /// Nested DTO field maps for <c>List&lt;T&gt;</c>-typed (collection) row properties, keyed by the
+    /// parent field's JSON name. The validator descends into every element of these collections.
+    /// </summary>
+    public IReadOnlyDictionary<string, DtoFieldInfo> NestedCollectionMaps { get; }
 
     /// <summary>
     /// Creates a new <see cref="DtoFieldInfo"/>.
@@ -200,12 +253,14 @@ internal sealed class DtoFieldInfo
     public DtoFieldInfo(
         Dictionary<string, bool> fields,
         bool hasExtensionData,
-        Dictionary<string, DtoFieldInfo> nestedMaps)
+        Dictionary<string, DtoFieldInfo> nestedMaps,
+        Dictionary<string, DtoFieldInfo> nestedCollectionMaps)
     {
         _fields = fields;
         FieldNames = fields.Keys.ToList().AsReadOnly();
         HasExtensionData = hasExtensionData;
         NestedMaps = nestedMaps;
+        NestedCollectionMaps = nestedCollectionMaps;
     }
 
     /// <summary>

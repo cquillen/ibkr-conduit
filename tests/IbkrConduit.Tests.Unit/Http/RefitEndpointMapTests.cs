@@ -65,13 +65,30 @@ public class RefitEndpointMapTests
     }
 
     [Fact]
-    public void Build_IApiResponseString_SkippedInMap()
+    public void Build_IApiResponseString_MapsToKnownRawSentinel()
     {
+        // WIR-2/TEN-2: string-returning endpoints are deliberately not schema-validated, but they
+        // must resolve to a known-raw sentinel (not a null/absent entry) so strict mode can tell
+        // them apart from a genuinely unmapped endpoint.
         var map = RefitEndpointMap.Build([typeof(ITestApiWithRawResponse)]);
 
         var result = map.TryGetDtoType(HttpMethod.Post, "/v1/api/test/raw");
 
-        result.ShouldBeNull();
+        result.ShouldNotBeNull();
+        result.IsKnownRaw.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Build_ReplyEndpoint_MapsToKnownRawSentinel()
+    {
+        // Grooming evidence: POST /iserver/reply/{id} (IApiResponse<string>) was logged unmapped at
+        // fail level. It must land on the known-raw sentinel via the real order interface.
+        var map = RefitEndpointMap.Build([typeof(IbkrConduit.Orders.IIbkrOrderApi)]);
+
+        var result = map.TryGetDtoType(HttpMethod.Post, "/v1/api/iserver/reply/12345");
+
+        result.ShouldNotBeNull();
+        result.IsKnownRaw.ShouldBeTrue();
     }
 
     [Fact]

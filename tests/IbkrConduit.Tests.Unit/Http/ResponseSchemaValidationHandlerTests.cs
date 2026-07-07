@@ -35,6 +35,28 @@ public class ResponseSchemaValidationHandlerTests
         public Dictionary<string, JsonElement>? AdditionalData { get; init; }
     }
 
+    // A row element inside a wrapper DTO — both fields required so drift is observable.
+    [ExcludeFromCodeCoverage]
+    public record TestRow(
+        [property: JsonPropertyName("row_id")] string RowId,
+        [property: JsonPropertyName("row_name")] string RowName);
+
+    // A wrapper DTO holding a List<T> of rows plus a scalar priming flag — mirrors OrdersResponse.
+    [ExcludeFromCodeCoverage]
+    public record TestWrapper(
+        [property: JsonPropertyName("rows")] List<TestRow>? Rows,
+        [property: JsonPropertyName("snapshot")] bool? Snapshot = null);
+
+    // A nested (non-collection) child DTO reached via a scalar object property.
+    [ExcludeFromCodeCoverage]
+    public record TestNestedChild(
+        [property: JsonPropertyName("child_id")] string ChildId);
+
+    [ExcludeFromCodeCoverage]
+    public record TestParent(
+        [property: JsonPropertyName("parent_id")] string ParentId,
+        [property: JsonPropertyName("child")] TestNestedChild Child);
+
     // --- Test Refit interface ---
 
     public interface ITestValidationApi
@@ -50,6 +72,16 @@ public class ResponseSchemaValidationHandlerTests
 
         [Refit.Get("/v1/api/test/items")]
         Task<List<TestDto>> GetItemsAsync(CancellationToken cancellationToken = default);
+
+        [Refit.Get("/v1/api/test/wrapper")]
+        Task<TestWrapper> GetWrapperAsync(CancellationToken cancellationToken = default);
+
+        [Refit.Get("/v1/api/test/parent")]
+        Task<TestParent> GetParentAsync(CancellationToken cancellationToken = default);
+
+        [Refit.Post("/v1/api/test/reply/{id}")]
+        Task<Refit.IApiResponse<string>> ReplyRawAsync(
+            string id, CancellationToken cancellationToken = default);
     }
 
     // --- Helpers ---
@@ -289,6 +321,68 @@ public class ResponseSchemaValidationHandlerTests
         var handler = CreateHandler(strict: true, map, response);
 
         var result = await SendAsync(handler, MakeRequest(HttpMethod.Get, "/v1/api/test/items"));
+
+        result.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task StrictMode_DriftOnNonFirstWrappedRow_ThrowsSchemaViolationException()
+    {
+        // WIR-2/TEN-2: a wrapper DTO's List<T> row property is now descended — a drifted/missing
+        // field on a NON-first row element raises the signal (previously only the wrapper's
+        // top-level fields were diffed, so row-level drift was invisible).
+        var map = BuildMap();
+        var response = MakeJsonResponse(
+            """{"rows":[{"row_id":"1","row_name":"a"},{"row_id":"2","drifted":"x"}],"snapshot":true}""");
+        var handler = CreateHandler(strict: true, map, response);
+
+        var ex = await Should.ThrowAsync<IbkrSchemaViolationException>(
+            SendAsync(handler, MakeRequest(HttpMethod.Get, "/v1/api/test/wrapper")));
+
+        ex.ExtraFields.ShouldContain("drifted");
+        ex.MissingFields.ShouldContain("row_name");
+    }
+
+    [Fact]
+    public async Task StrictMode_AllWrappedRowsWellFormed_PassesThrough()
+    {
+        var map = BuildMap();
+        var response = MakeJsonResponse(
+            """{"rows":[{"row_id":"1","row_name":"a"},{"row_id":"2","row_name":"b"}],"snapshot":true}""");
+        var handler = CreateHandler(strict: true, map, response);
+
+        var result = await SendAsync(handler, MakeRequest(HttpMethod.Get, "/v1/api/test/wrapper"));
+
+        result.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task StrictMode_DriftOnNestedObject_ThrowsSchemaViolationException()
+    {
+        // WIR-2: nested object DTO maps were computed but never recursed — a drifted field on a
+        // nested (non-collection) object is now surfaced.
+        var map = BuildMap();
+        var response = MakeJsonResponse(
+            """{"parent_id":"1","child":{"child_id":"1","drifted_nested":"x"}}""");
+        var handler = CreateHandler(strict: true, map, response);
+
+        var ex = await Should.ThrowAsync<IbkrSchemaViolationException>(
+            SendAsync(handler, MakeRequest(HttpMethod.Get, "/v1/api/test/parent")));
+
+        ex.ExtraFields.ShouldContain("drifted_nested");
+    }
+
+    [Fact]
+    public async Task StrictMode_KnownRawStringEndpoint_PassesThrough()
+    {
+        // WIR-2/TEN-2: string-returning endpoints resolve to a known-raw sentinel, so strict mode
+        // skips them (their body is deliberately unvalidated) instead of treating them as an
+        // unmapped violation — contrast StrictMode_UnknownEndpoint_* which still throws.
+        var map = BuildMap();
+        var response = MakeJsonResponse("""{"anything":"goes"}""");
+        var handler = CreateHandler(strict: true, map, response);
+
+        var result = await SendAsync(handler, MakeRequest(HttpMethod.Post, "/v1/api/test/reply/12345"));
 
         result.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
