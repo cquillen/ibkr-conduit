@@ -20,7 +20,16 @@ internal static class TradeExecutionMapper
     /// streaming drop taxonomy (count with <c>cause=mapper</c>, log against the wire topic); when
     /// <see langword="null"/> the bad element is skipped silently.
     /// </param>
-    public static IEnumerable<TradeExecution> MapMany(JsonElement frame, Action<Exception>? onElementDropped = null)
+    /// <param name="onRequiredMoneyFieldAbsent">
+    /// Invoked once per absent required money field (<c>size</c>, <c>price</c>) on each successfully
+    /// mapped execution — the WIR-5 census signal. The execution is still delivered (the field is
+    /// <c>null</c> per ADR-0001); a dropped element is never censused. When <see langword="null"/> the
+    /// census is skipped.
+    /// </param>
+    public static IEnumerable<TradeExecution> MapMany(
+        JsonElement frame,
+        Action<Exception>? onElementDropped = null,
+        Action<string>? onRequiredMoneyFieldAbsent = null)
     {
         if (!frame.TryGetProperty("args", out var args) || args.ValueKind != JsonValueKind.Array)
         {
@@ -46,6 +55,8 @@ internal static class TradeExecutionMapper
 
             if (execution is not null)
             {
+                MoneyFieldCensus.ReportAbsent(
+                    element, MoneyFieldCensus.TradeExecutionFields, onRequiredMoneyFieldAbsent);
                 yield return execution;
             }
         }

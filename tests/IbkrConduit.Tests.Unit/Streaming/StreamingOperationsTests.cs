@@ -146,6 +146,59 @@ public class StreamingOperationsTests
     }
 
     [Fact]
+    public async Task TradeExecutionsAsync_FrameMissingSize_RecordsMoneyFieldAbsentCensus()
+    {
+        // WIR-5 end-to-end: a str execution frame missing a required money field (size) drives the
+        // mapper's census callback through StreamingOperations into the money_field.absent counter,
+        // tagged with the wire topic and field — so drift on the primary fill path is observable.
+        var ct = TestContext.Current.CancellationToken;
+        var tenantId = $"tenant-{Guid.NewGuid()}";
+        using var capture = new MeterMoneyFieldAbsentCapture(tenantId);
+        var wsClient = new FakeWebSocketClient();
+        var ops = new StreamingOperations(
+            wsClient, NullLoggerFactory.Instance, new SessionHealthState(), new StreamingMetrics(new TenantContext(tenantId)));
+
+        var sub = await ops.TradeExecutionsAsync(cancellationToken: ct);
+        var received = new TaskCompletionSource<TradeExecution>();
+        using var s = sub.Stream.Subscribe(new TestObserver<TradeExecution>(
+            onNext: e => received.TrySetResult(e)));
+
+        var json = JsonDocument.Parse(
+            """{"topic":"str","args":[{"execution_id":"e1","price":"150.25","conid":265598}]}""").RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        var execution = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        execution.Size.ShouldBeNull();
+        capture.Absences.ShouldContain(("str", "size"));
+    }
+
+    [Fact]
+    public async Task OrderUpdatesAsync_StatusFrameMissingPrice_RecordsMoneyFieldAbsentCensus()
+    {
+        // WIR-5 end-to-end for sor: a status-bearing order frame missing price feeds the census
+        // counter tagged topic=sor,field=price; a bare identity delta would not (ADR-0001).
+        var ct = TestContext.Current.CancellationToken;
+        var tenantId = $"tenant-{Guid.NewGuid()}";
+        using var capture = new MeterMoneyFieldAbsentCapture(tenantId);
+        var wsClient = new FakeWebSocketClient();
+        var ops = new StreamingOperations(
+            wsClient, NullLoggerFactory.Instance, new SessionHealthState(), new StreamingMetrics(new TenantContext(tenantId)));
+
+        var sub = await ops.OrderUpdatesAsync(cancellationToken: ct);
+        var received = new TaskCompletionSource<OrderUpdate>();
+        using var s = sub.Stream.Subscribe(new TestObserver<OrderUpdate>(
+            onNext: o => received.TrySetResult(o)));
+
+        var json = JsonDocument.Parse(
+            """{"topic":"sor","args":[{"orderId":1,"status":"Submitted","totalSize":100}]}""").RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        var order = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        order.Price.ShouldBeNull();
+        capture.Absences.ShouldContain(("sor", "price"));
+    }
+
+    [Fact]
     public async Task TradeExecutionsAsync_FrameWithNoArgs_EmitsNothing()
     {
         var ct = TestContext.Current.CancellationToken;

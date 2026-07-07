@@ -68,14 +68,42 @@ public class ResponseSchemaValidationTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task StrictMode_ExtensionDataDto_ExtraFieldsAllowed()
+    public async Task StrictMode_ExtensionDataDto_ExtraFieldsFlagged()
     {
         _harness = await TestHarness.CreateAsync(opts =>
         {
             opts.StrictResponseValidation = true;
         });
 
-        // IserverAccountsResponse has [JsonExtensionData], so extra fields should be allowed
+        // WIR-5: IserverAccountsResponse has [JsonExtensionData]; an unexpected field previously
+        // slipped silently into AdditionalData. Extra-field detection now runs for extension-data
+        // DTOs too, so a wire rename surfaces as a schema violation in strict mode.
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/accounts")
+                .UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"accounts":["U1234567"],"selectedAccount":"U1234567","unexpectedNewField":"surprise"}"""));
+
+        var ex = await Should.ThrowAsync<IbkrSchemaViolationException>(
+            _harness.Client.Accounts.GetAccountsAsync(TestContext.Current.CancellationToken));
+
+        ex.ExtraFields.ShouldContain("unexpectedNewField");
+    }
+
+    [Fact]
+    public async Task NonStrictMode_ExtensionDataDto_ExtraField_DoesNotThrow()
+    {
+        _harness = await TestHarness.CreateAsync(opts =>
+        {
+            opts.StrictResponseValidation = false;
+        });
+
+        // Default (non-strict) mode: the newly-surfaced extra field is a Warning log only, so a
+        // real consumer on the extension-data DTO is never broken by the WIR-5 tightening.
         _harness.Server.Given(
             Request.Create()
                 .WithPath("/v1/api/iserver/accounts")

@@ -122,11 +122,30 @@ public class ResponseSchemaValidationHandlerTests
     }
 
     [Fact]
-    public async Task StrictMode_ExtensionData_ExtraFieldsNotFlagged()
+    public async Task StrictMode_ExtensionData_ExtraFieldsFlagged()
     {
+        // WIR-5: extra-field detection now runs even when the DTO has [JsonExtensionData]. A renamed
+        // wire field lands silently in AdditionalData; surfacing it as an extra field makes the drift
+        // observable instead of invisible (previously suppressed for all extension-data DTOs).
         var map = BuildMap();
         var response = MakeJsonResponse("""{"id":"1","extra_field":"value","another":"value2"}""");
         var handler = CreateHandler(strict: true, map, response);
+
+        var ex = await Should.ThrowAsync<IbkrSchemaViolationException>(
+            SendAsync(handler, MakeRequest(HttpMethod.Get, "/v1/api/test/extension")));
+
+        ex.ExtraFields.ShouldContain("extra_field");
+        ex.ExtraFields.ShouldContain("another");
+    }
+
+    [Fact]
+    public async Task NonStrictMode_ExtensionData_ExtraField_DoesNotThrow()
+    {
+        // In the default (non-strict) mode the newly-surfaced extra field on an extension-data DTO
+        // is a Warning log only — default consumers are never broken by the WIR-5 tightening.
+        var map = BuildMap();
+        var response = MakeJsonResponse("""{"id":"1","extra_field":"value"}""");
+        var handler = CreateHandler(strict: false, map, response);
 
         var result = await SendAsync(handler, MakeRequest(HttpMethod.Get, "/v1/api/test/extension"));
 
@@ -232,6 +251,46 @@ public class ResponseSchemaValidationHandlerTests
             SendAsync(handler, MakeRequest(HttpMethod.Get, "/v1/api/test/items")));
 
         ex.ExtraFields.ShouldContain("extra");
+    }
+
+    [Fact]
+    public async Task StrictMode_MissingRequiredFieldOnSecondElement_ThrowsSchemaViolationException()
+    {
+        // WIR-5 (1): collection bodies are validated element-by-element, not just element[0] — a
+        // required field vanished from a later element (e.g. price gone from trade #2) is now caught.
+        var map = BuildMap();
+        var response = MakeJsonResponse("""[{"id":"1","name":"a"},{"id":"2"}]""");
+        var handler = CreateHandler(strict: true, map, response);
+
+        var ex = await Should.ThrowAsync<IbkrSchemaViolationException>(
+            SendAsync(handler, MakeRequest(HttpMethod.Get, "/v1/api/test/items")));
+
+        ex.MissingFields.ShouldContain("name");
+    }
+
+    [Fact]
+    public async Task StrictMode_ExtraFieldOnSecondElement_ThrowsSchemaViolationException()
+    {
+        var map = BuildMap();
+        var response = MakeJsonResponse("""[{"id":"1","name":"a"},{"id":"2","name":"b","drifted":"x"}]""");
+        var handler = CreateHandler(strict: true, map, response);
+
+        var ex = await Should.ThrowAsync<IbkrSchemaViolationException>(
+            SendAsync(handler, MakeRequest(HttpMethod.Get, "/v1/api/test/items")));
+
+        ex.ExtraFields.ShouldContain("drifted");
+    }
+
+    [Fact]
+    public async Task StrictMode_AllElementsWellFormed_PassesThrough()
+    {
+        var map = BuildMap();
+        var response = MakeJsonResponse("""[{"id":"1","name":"a"},{"id":"2","name":"b"}]""");
+        var handler = CreateHandler(strict: true, map, response);
+
+        var result = await SendAsync(handler, MakeRequest(HttpMethod.Get, "/v1/api/test/items"));
+
+        result.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]

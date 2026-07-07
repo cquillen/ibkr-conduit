@@ -50,6 +50,9 @@ public static class LogFields
     /// <summary>Cause of a streaming frame drop (e.g. overflow, mapper, observer).</summary>
     public const string Cause = "ibkr.cause";
 
+    /// <summary>Wire field name (e.g. the absent required money field on a streaming frame).</summary>
+    public const string Field = "ibkr.field";
+
     /// <summary>Flex query template identifier.</summary>
     public const string QueryId = "ibkr.query_id";
 
