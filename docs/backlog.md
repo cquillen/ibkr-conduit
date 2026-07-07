@@ -27,7 +27,7 @@ Stories have a stable ID (`<PREFIX>-NN`), a **Status** line, a **Stream**, **dep
 
 ## Key references (link, don't re-decide)
 
-- **Contract:** `docs/ibkr_conduit_design.md` (the living design doc — canonical) · `docs/adr/` (decisions going forward) · `docs/ibkr-web-api-spec.md` + `recordings/` (upstream ground truth — verified, never decided).
+- **Contract:** `docs/ibkr_conduit_design.md` (the living design doc — canonical) · `docs/adr/` (decisions going forward) · live IBKR docs via `scout-ibkr-docs` (registry `docs/ibkr-doc-sources.md`, dated snapshots `docs/ibkr-doc-evidence/`) = the claim tier · `recordings/` + attended probes = the only verification tier. The old local mirrors (`docs/ibkr-web-api-spec.md` etc.) are deprecated snapshots — never cite as authority.
 - **Findings:** `docs/findings/` — adversarial reviews of the contract; the evidence trail behind fix streams.
 - **Process:** `.claude/skills/draft-backlog/`, `.claude/skills/groom-backlog/`, `.claude/skills/ship-backlog/`, `.claude/skills/writing-adrs/`.
 
@@ -57,7 +57,7 @@ Stories have a stable ID (`<PREFIX>-NN`), a **Status** line, a **Stream**, **dep
 
 - **Wave 1 (independent):** VCR-01 📦 · VCR-02 📦 · VCR-04 📦 · VCR-05 📦 · VCR-06 · VCR-08 · VCR-09 · VCR-10 · VCR-11. Lane note: VCR-02 and VCR-03 touch the same observable/mapper files — run VCR-03 after VCR-02 in one lane.
 - **Wave 2:** VCR-03 (after VCR-02, lane ordering) · VCR-07 (deps: VCR-01, VCR-06).
-- **Deferred:** VCR-12 (ExtOperator follow-on — not in this loop).
+- **Deferred:** ~~VCR-12 (ExtOperator follow-on)~~ — groomed loop-ready 2026-07-07 (independent; buildable any wave). **VCR-13** (order-type doc widening, drafted 2026-07-07) likewise independent.
 
 <details><summary>Build-order map v1.0 (2026-07-06, historical — superseded by v1.1)</summary>
 
@@ -154,12 +154,253 @@ CONFIRMED against the captured spec (`docs/ibkr-web-api-spec.md:4507`): the wire
 **Done when:** the `OrderType` XML docs (both `OrderRequest` and `OrderWireModel`) match the captured wire enum verbatim and state the STOP_LIMIT price requirements; no code behavior change.
 **TDD notes:** doc-only — no new tests; existing suites stay green.
 
-#### VCR-12 — ExtOperator futures-compliance field
-**Status:** Deferred — future additive surface work, split from VCR-11 by operator decision 2026-07-07; not groomed in this pass
-**Spec:** pending
-The WIR-6 finding also suggested adding `ExtOperator` to `OrderRequest` for futures compliance — a 📦 additive surface change with its own (unverified) compliance question. Deliberately split from the doc fix; groom before building (verify the compliance requirement against the captured spec/IBKR docs, then spec).
-**Done when:** (rough) `OrderRequest` supports the ExtOperator field where futures compliance requires it, or the requirement is refuted and recorded here.
+#### VCR-12 — 📦 ExtOperator futures-compliance field
+**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Risk:** high
+**Spec:** trivial-skip
+Split from VCR-11 (operator decision 2026-07-07); **groomed loop-ready 2026-07-07** during the PVR re-groom session — the WIR-6 claim behind it is now verified at the claim tier (`docs/ibkr-doc-evidence/2026-07-07-extoperator-field.md`): `extOperator` is a documented order-body string on place/modify/whatif (DOC-01 schema + DOC-03), documented as required "when trading Futures and Futures Options contracts to remain in compliance with CME Group Rule 536-B" (DOC-03, which hangs the identical sentence on the already-shipped `manualIndicator`). The library's gap is exactly the body field: `ManualIndicator` and the cancel-side `extOperator`/`manualIndicator` query params are shipped; `OrderRequest`/`OrderWireModel` lack `ExtOperator`. Decided scope (operator, 2026-07-07 — design doc §9.7): add `ExtOperator` (`string?`) as a **pure pass-through** per the PVR-05 pattern — `[JsonPropertyName("extOperator")]`, omitted from the wire when null, **no client-side gating** (enforcement is documented-not-verified; pass-through is safe under both answers), XML docs stating the CME 536-B condition. **Additive — `feat:`.**
+**Done when:** a consumer can set `ExtOperator` on an order request and it serializes to the wire as `extOperator` (omitted when null, on place/modify/whatif paths); XML docs state the documented futures/futures-options condition; existing suites green.
+**TDD notes:** red tests = wire-model serialization pins (present when set, absent when null) mirroring the PVR-05 trailing-param tests; no WireMock scenario changes needed beyond fixture echo.
+
+#### VCR-13 — Order-type XML docs widening (probe-verified extra values)
+**Status:** Not started · **Stream:** VCR · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+Follow-up to VCR-11, drafted+groomed 2026-07-07 during the PVR re-groom (operator-decided via the probe ack): the VCR-11-pinned seven-value `orderType` list is wire-falsified **as a closed set** — an operator-acked live probe accepted `LOC`, `MOC`, `MIT`, `LIT`, `REL` (1 sample each, all live `PreSubmitted` then cancelled; `recordings/ordertype-probe-2026-07-07.log`), matching DOC-08's CP API examples. Evidence: `docs/ibkr-doc-evidence/2026-07-07-ordertype-enum-trailing-params.md`. Decided scope: widen the `OrderRequest.OrderType`/`OrderWireModel.OrderType` XML docs (`IIbkrOrderApiModels.cs:24,:106`) to list the seven documented-core values plus the five probe-verified extras with a per-sample caveat ("accepted in live probes; not a closed set — IBKR documents no admissible enum"), and record the observed submission→read-side name mapping (`LOC→LIMITONCLOSE`, `MOC→MARKETONCLOSE`, `REL→RELATIVE`, `MIT`/`LIT` unchanged) where the read-side DTO documents `order_type`. No behavior change; no validation added (the field stays a pass-through string — `OrderType` is a bare string RTOS consumes as-is). **`fix:`** (shipped XML docs are consumer-facing; additive wording, non-breaking).
+**Done when:** both `OrderType` XML doc lines list the widened value set with the per-sample caveat and the read-side mapping note; no code behavior change; existing suites green.
+**TDD notes:** doc-only — no new tests.
+
+### Stream PVR — post-VCR full-library review fixes
+
+> **GROOMED 2026-07-07 — loop-ready.** Every fork was closed with the operator on 2026-07-07 (design items D1–D7 in the same-day design pass — ADR-0005/ADR-0006 + the design-doc sections cited below — with D3/ADR-0006 **revised on probe evidence** during grooming); empirics were verified by same-day live probes (see Evidence). PVR-17 was closed by its probe (no code change). **RE-GROOMED 2026-07-07 (same day, post-#251):** every doc-claim the original groom carried from the deprecated local mirrors was re-closed against the live registry via `scout-ibkr-docs` (13 scouts over DOC-01/03/05/07) — five evidence files under `docs/ibkr-doc-evidence/` (see Doc evidence below). **No groomed decision changed**; the live docs strengthened ADR-0006 (the invalidation claim exists live and its cancellation half is wire-falsified) and PVR-18 (the live prose prescribes the follow-up call). One new cross-source conflict surfaced (orderType enum vs DOC-08's examples) and was **resolved same-day by an operator-acked probe** (all five extras accepted) → follow-up story **VCR-13** (doc widening, loop-ready), no PVR impact. `ship-backlog` may build this stream.
+
+**What this decomposes:** the 50 verified + 1 unverified findings of [`docs/findings/2026-07-07-multi-agent-code-review.md`](findings/2026-07-07-multi-agent-code-review.md) (full-library adversarial sweep at `main` @ `18c6a23`, run after the entire Stream VCR fix set merged; 12 high, 24 medium, 14 low). The findings doc is **immutable evidence** — entries cite finding IDs; fix work never edits the review. The 2 refuted claims (STR-1, PRB-4.1) and the 126 clean areas produce no stories. The 1 unverified finding (RST-6) is folded into PVR-09 with a grooming-verify flag.
+
+**Design decisions (closed — the drafted stream's D1–D7, now recorded):**
+
+- **D1 → [ADR-0005](adr/0005-subscription-scoped-streaming-delivery.md)** + design doc §12.8/§12.5 — subscription-scoped delivery: target-qualified topics route by full wire-topic identity; target-less/unsolicited keep prefix routing; same-target duplicates fan out; unmatched frames drop observably; facade validates subscribe inputs. (Findings PRB-1.1/1.2/3.1/1.3.)
+- **D2 → design doc §6.5** (story-scoped, no ADR) — money/quantity fields on public DTOs are `decimal` (`decimal?` when wire-optional), never `double`/`float`. (Finding WIR-4.)
+- **D3 → [ADR-0006](adr/0006-order-confirmation-window.md)** + §9.10 — reply-immediately is a documented consumer obligation; invalidated-confirmation replies classify as a typed definitive refusal; every 2xx reply shape classifies. Held-lock/auto-reply rejected for now (recorded as a possible future opt-in). (Finding ORD-3.)
+- **D4 → design doc §11.10** — Flex fidelity: nullable money + observable parse-failure signal (raw text preserved); raw timestamp strings, no offset guessing; wall-clock poll bound. (Findings RST-1/RST-3/RST-6.)
+- **D5 → design doc §5.4** — facade `DisposeAsync` is the full-client teardown in `ManagedTenant` order, idempotent via atomic guard. (Finding PRB-4.3.)
+- **D6 → surface lines recorded** — §16.4 (subaccounts2 `{metadata, subaccounts}` wrapper, PVR-03) · §12.5 (`AccountSummaryRow` `value` + extension data, PVR-04) · §9.7 (`TrailingAmt`/`TrailingType` added with fail-fast validation — enum retraction rejected, PVR-05) · §7.7 (health staleness consumer-configurable, tickle-interval-derived defaults, PVR-07) · §15.2 (`ToString` redaction; tenant label defaults to literal `"default"`, explicit `tenantId` override, PVR-08).
+- **D7 → design doc §9.9 + §6.6** — order-mutating 200-with-error classifies as `IbkrOrderRejectedError` (hidden-error stays for non-order surfaces); uninitialized `Result<T>` member access throws `InvalidOperationException`. (Findings ERR-4/ERR-5.)
+
+**Evidence (grooming verifications, 2026-07-07 — live paper-account probes; raw logs local under `recordings/` per the repo convention, sanitized fixtures carry the shapes into committed tests):**
+
+- **Topic-echo + ssd/sld shapes pinned** (`recordings/streaming-probe-2026-07-07.log`): the wire echoes full topic identities (`smd+756733`, `ssd+DUO873728`, `sld+DUO873728`) — ADR-0005's routing key exists on every target-qualified frame; captured ssd frames carry 114 monetary rows *and 21 non-monetary rows whose `value` field today maps nowhere* (PRB-3.3 live-confirmed); the 24-key sld row shape is pinned.
+- **OAuth space-query divergence REFUTED** (`probe-oauth-space`): `secdef/search?symbol=BRK B` succeeds through the current signing (3 results, conid 72063691) — AUT-1's 401 scenario does not manifest; PVR-17 closed with no code change.
+- **Confirmation invalidation pinned + decision-changing** (`recordings/order-probe-2026-07-07.log`): reply on an invalidated confirmation → `503 {"error":"Service Unavailable","statusCode":503}` (no marker), and the invalidated order **still went live afterwards** — falsifying the drafted "definitive refusal → re-place" semantics; ADR-0006 revised to serialized-round + ambiguous classification (operator-decided). Question issuance observed non-deterministic.
+- **TRAIL acceptance pinned** (same log): raw order with `trailingAmt:50, trailingType:"amt"` → question `o10331` → reply → `order_id 261920143, PreSubmitted` → cancelled. The PVR-05 surface matches what the wire accepts.
+- **Suppress response already pinned** by the committed live-capture fixture `tests/.../Fixtures/Session/POST-suppress.json` (`{"status":"submitted"}`); the reply endpoint was additionally observed missing from `RefitEndpointMap` at fail level during the probes (PVR-19 evidence).
+- **subaccounts2**: the committed live-capture fixture shows the paper account returning a **bare array**, vs the captured spec's `{metadata, subaccounts}` wrapper (likely FA-only — operator assessment; paper accounts don't support sub-accounts) — PVR-03 handles **both shapes** (operator-decided); §16.4 corrected accordingly.
+- **RST-6 CONFIRMED by code trace** (`FlexOperations.cs:333` — `totalWaited` sums only sleeps; the HTTP round-trip at :281 never counts), settling the review's one unverified finding.
+- **Residual unpinned behaviors, handled by safe-under-both designs** (VCR precedent — no story builds on them): WIR-3's REST sparse-row trigger (retrofit safe either way) · filters+`force` single-call sufficiency (PVR-18 drops the exemption — always follow up, per §10.6's defensive posture) · server-side preflight reset on re-auth (PVR-23 clears the cache on re-auth regardless) · Flex wire number/timestamp formats (PVR-09's design is format-agnostic; **named follow-on:** pin formats against a real statement once a Flex query/token is configured on the paper account).
+
+**Doc evidence (re-groom, 2026-07-07 — live-doc claim tier via `scout-ibkr-docs`; each file supersedes the corresponding deprecated-mirror citation):**
+
+- `docs/ibkr-doc-evidence/2026-07-07-subaccounts2-response-shape.md` — PVR-03/§16.4: the wrapper-vs-bare-array conflict lives inside IBKR's own current docs (DOC-01 schema + DOC-03 prose claim the wrapper; DOC-03's own example is a bare array); both-shapes decision confirmed.
+- `docs/ibkr-doc-evidence/2026-07-07-ordertype-enum-trailing-params.md` — PVR-05/§9.7 (+ VCR-11 historical): the seven-value enum and trailing/dual-price requirements confirmed live (DOC-03); `trailingType ∈ {"amt","%"}` (DOC-01+DOC-03); **new conflict, probe-resolved:** DOC-08's CP API examples submit LOC/MOC/MIT/LIT/REL and an operator-acked probe accepted all five (1 sample each) — no PVR impact; remedied by **VCR-13**.
+- `docs/ibkr-doc-evidence/2026-07-07-order-reply-confirmation-suppression.md` — ADR-0006/PVR-06/PVR-14: the reply-immediately + 503 invalidation claim exists live (DOC-03) and its "will cancel the order" half is wire-falsified — ADR-0006's ambiguous classification is the only design safe under both; DOC-01's five documented reply-200 shapes feed PVR-06's ORD-1 test fixtures; suppress `{"status":"submitted"}` agreed everywhere.
+- `docs/ibkr-doc-evidence/2026-07-07-live-orders-filters-force.md` — §10.6/PVR-18: the sor-suppression warning exists live (DOC-03) and prescribes a **follow-up** `force=true` call (its own example combines both in one call, unexplained) — always-follow-up confirmed; the unprimed fake-empty first call remains observed-but-undocumented.
+- `docs/ibkr-doc-evidence/2026-07-07-flex-error-codes-formats.md` — PVR-09/PVR-10/§11.10: the 1012/1013/1015 table confirmed live (DOC-07 = DOC-03 verbatim); **no tier documents statement content formats or a retryability contract** — format-agnostic design mandated; poll/rate guidance qualitative only (1/sec, 10/min hard cap).
+
+**Release train (operator-decided 2026-07-07, stricter behavioral-is-breaking partition):** the eight breaking stories — PVR-01, 02, 03, 06, 08, 09, 10, 21, all `feat!:` — merge before the release-please release PR is accepted, so **one minor cut carries the full PVR breaking set** and RTOS re-pins once. `feat:` (PVR-04, 05, 07) and `fix:` stories may land in the same or later cuts. Consumer migration notes are an acceptance item on each breaking story.
+
+**Build-order map (v1.2, 2026-07-07 — supersedes v1.1; groomed):**
+
+- **Wave 1 (independent):** PVR-02 📦 · PVR-03 📦 · PVR-05 📦 · PVR-07 📦 · PVR-08 📦 · PVR-09 📦 · PVR-10 📦 · PVR-11 · PVR-12 · PVR-13 · PVR-15 · PVR-18 · PVR-19 · PVR-20 · PVR-21 📦 · PVR-22 · PVR-23.
+- **Lanes (shared files, sequential within a lane, not DAG deps):** streaming-client lane — PVR-15 → PVR-16 → PVR-01 📦; `SessionManager` lane — PVR-13 → PVR-14; PVR-04 📦 (mappers/models) coordinates with PVR-01 (registries) if both in flight; PVR-06 📦 (OrderOperations lock scope) after PVR-18 (same file) in one lane.
+- **Closed:** PVR-17 (probe refuted the finding — no build).
+- Semver per story is decided and marked on each entry (release train above).
+
+<details><summary>Build-order map v1.1 (2026-07-07, historical — superseded by v1.2)</summary>
+
+- All 23 stories groomable — no design dependencies remain (D1–D7 closed).
+- Lane notes: streaming lane PVR-15 → PVR-16 → PVR-01; SessionManager lane PVR-13 → PVR-14; PVR-04 coordinates with PVR-01.
+
+</details>
+
+<details><summary>Build-order map v1.0 (2026-07-07, historical — superseded by v1.1)</summary>
+
+- **Blocked on design items:** PVR-01 (D1) · PVR-02 (D2, retype half) · PVR-06 (D3) · PVR-09 (D4) · PVR-21 (D5) · PVR-03/04/05/07/08 (their D6 lines) · PVR-10 (D7).
+- **Buildable after grooming, no design dependency:** PVR-11 · PVR-12 · PVR-13 · PVR-14 · PVR-15 · PVR-16 · PVR-17 · PVR-18 · PVR-19 · PVR-20 · PVR-22 · PVR-23.
+
+</details>
+
+#### PVR-01 — 📦 Subscription-scoped streaming topic routing
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** docs/superpowers/specs/2026-07-07-pvr-01-subscription-scoped-routing.md
+Findings PRB-1.1, PRB-1.2, PRB-3.1 (all high, CONFIRMED) + PRB-1.3 (low): solicited per-target subscriptions register under bare topic prefixes (`smd`/`ssd`/`sld`, `StreamingOperations.cs`) and `ProcessMessage` routes by prefix only, so two concurrent subscriptions for **different** conids/accounts each receive both targets' frames — silently wrong market/account data unless the consumer knows to filter, which nothing in the public surface states. Additionally, consumer-supplied conid/accountId/fields are interpolated into subscribe messages unescaped and unvalidated (PRB-1.3). Implements [ADR-0005](adr/0005-subscription-scoped-streaming-delivery.md) (D1): full-topic-identity routing for target-qualified topics, prefix for target-less/unsolicited, observable unmatched-frame drops, facade input validation. **Breaking-behavioral — `feat!:`.**
+**Done when:** two concurrent market-data subscriptions for different conids each observe only their own target's frames, the same holds per-account for `ssd`/`sld`, and malformed target segments are rejected at the facade.
+**TDD notes:** red tests per the spec test plan (mock-WS cross-target isolation, unmatched-frame counter via MeterListener, input validation).
+
+#### PVR-02 — 📦 Presence-preserving REST money DTOs — portfolio, account summary, event contracts
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** docs/superpowers/specs/2026-07-07-pvr-02-rest-money-dto-retrofit.md
+Findings WIR-3 (high, PLAUSIBLE), WIR-4 (medium, CONFIRMED): `Position`/`LedgerEntry` money+quantity fields and the sixteen `AccountSummaryOverview`/`AccountSummaryCashBalance` money fields (plus event-contract strike/payout) erase presence (absent → 0) and/or are typed `double` — outside VCR-01's retrofit scope. Both halves are now recorded: nullability per ADR-0001 + §6.5 ("Streaming and REST alike"), and the `double`→`decimal` retype per the §6.5 money-numeric rule (D2). WIR-3's sparse-row trigger is unpinned upstream — handled as safe-under-both (see stream Evidence); no story dependency. **Breaking — `feat!:`.**
+**Done when:** absent/empty portfolio, account-summary, and event-contract money fields surface as `null` (not 0/0.0) and money fields are `decimal`-typed per §6.5.
+**TDD notes:** red tests per the spec test plan (presence + decimal-precision per model family; reflection sweep pinning no-double-money).
+
+#### PVR-03 — 📦 Paged sub-accounts response shape
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+Finding RST-2 (medium, CONFIRMED): `GetSubAccountsPagedAsync` declares the `/portfolio/subaccounts2` response as a bare `List<SubAccount>`, while the live docs claim an object wrapper `{metadata, subaccounts}` (DOC-01 schema + DOC-03 prose — though DOC-03's own example shows a bare array; `docs/ibkr-doc-evidence/2026-07-07-subaccounts2-response-shape.md`). Grooming evidence (2026-07-07): the committed live-capture fixture shows the paper account returning a **bare array** — the wrapper is verified nowhere and is likely FA-structure-only (operator assessment, aligned with the docs' explicit tiered/FA scoping; paper accounts don't support sub-accounts). Operator-decided: deserialize **both shapes** — wrapper or bare array — normalizing into one paged DTO (§16.4 as corrected); safe under both answers. **Breaking — `feat!:`** (return shape changes to the paged DTO).
+**Done when:** both the live-captured bare-array shape and the spec-claimed wrapper shape deserialize into the same paged DTO through the facade, with page metadata null-absent for the bare-array form.
+**TDD notes:** red tests = one WireMock scenario per shape; the existing sanitized live fixture is the bare-array case.
+
+#### PVR-04 — 📦 Streaming mapper isolation wave 2 & ssd row completeness
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** docs/superpowers/specs/2026-07-07-pvr-04-streaming-mapper-isolation-wave2.md
+Findings WIR-1 (high, PLAUSIBLE), PRB-3.2, PRB-3.3 (medium, PLAUSIBLE), WIR-5 (low, PLAUSIBLE): the VCR-03 per-element isolation (`TradeExecutionMapper.MapMany`'s materialize-then-yield + `onElementDropped` → `RecordMapperDrop`, on `main` since #247) was applied only to `str` — `OrderUpdateMapper`/`PnlUpdateMapper` (`sor`/`spl`) and `AccountSummaryUpdateMapper`/`AccountLedgerUpdateMapper` (`ssd`/`sld`) still drop a whole frame on one bad element; `MarketDataTickMapper` reads `_updated`/`conid` without ValueKind guards (WIR-5); `AccountSummaryRow` lacks the `value` field and `[JsonExtensionData]` escape hatch its `sld` sibling has (PRB-3.3 — D6 surface line); the money-field census is wired only for `sor`/`str`. The `AccountSummaryRow` surface line is recorded (design doc §12.5, D6); the isolation work follows the recorded VCR-03 pattern. Empirics pinned by the 2026-07-07 live probe — full topic echoes plus the 21 non-monetary `value` rows and the 24-key `sld` row shape (see stream Evidence + the spec). **Additive — `feat:`.**
+**Done when:** one malformed element in a `sor`/`spl`/`ssd`/`sld` frame drops only that element (observably, per the VCR-02 drop taxonomy) and an `ssd` row's non-monetary value survives mapping.
+**TDD notes:** red tests from sanitized probe-derived fixtures per the spec test plan (mixed valid/malformed frames per topic; the Cushion-row pin).
+
+#### PVR-05 — 📦 Trailing-order parameters
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** trivial-skip
+Finding ORD-4 (medium, CONFIRMED): `OrderRequest` documents `TRAIL`/`TRAILLMT` (per the VCR-11-pinned wire enum, re-confirmed live 2026-07-07 — `docs/ibkr-doc-evidence/2026-07-07-ordertype-enum-trailing-params.md`) but exposes no `trailingAmt`/`trailingType`, which the live docs require for those order types ("You must specify both trailingType and trailingAmt for TRAIL and TRAILLMT order", DOC-03) — a consumer can name a trailing order it cannot parameterize. Operator-decided 2026-07-07 (D6, design doc §9.7): add `TrailingAmt` (`decimal?`) / `TrailingType` (`string?`) with fail-fast validation when the order type requires them — the enum-retraction alternative was rejected. Wire acceptance pinned by the 2026-07-07 live probe: `trailingAmt:50, trailingType:"amt"` → question `o10331` → `order_id 261920143, PreSubmitted` (see stream Evidence). Related: VCR-12 (`ExtOperator`, groomed loop-ready 2026-07-07) is the same additive-`OrderRequest` surface family. **Additive — `feat:`.**
+**Done when:** a consumer can place a fully-parameterized trailing order through the facade, and a `TRAIL`/`TRAILLMT` request without the parameters fails fast before any wire activity.
+**TDD notes:** red tests = wire-model serialization pins (trailingAmt/trailingType present for TRAIL, omitted when null) + fail-fast validation cases; WireMock fixture derived from the probe capture.
+
+#### PVR-06 — 📦 Question/reply confirmation-window contract
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** docs/superpowers/specs/2026-07-07-pvr-06-confirmation-window.md
+Findings ORD-3 (medium, CONFIRMED), ORD-1 (medium, PLAUSIBLE): implements [ADR-0006](adr/0006-order-confirmation-window.md) + §9.10 **as revised on the 2026-07-07 probe evidence** (the invalidated order went live after its reply 503'd — "refusal → re-place" double-places; see stream Evidence): the confirmation round is **serialized in-process** (per-account lock held from confirmation-returning placement until reply/dismiss/timeout, new `ConfirmationTimeout` option), a failed reply on an invalidated confirmation classifies as an **ambiguous order outcome** (ADR-0003 family — reconcile before resubmitting), and every 2xx reply shape classifies (ORD-1). Lane: after PVR-18 (shared `OrderOperations`). **Breaking-behavioral — `feat!:`.**
+**Done when:** a second same-account placement waits for a pending confirmation round (and proceeds after reply/dismiss/timeout), a reply 503 surfaces as the ambiguous outcome with reconcile guidance, and no 2xx reply shape escapes as an unclassified exception.
+**TDD notes:** red tests per the spec test plan (lock retention/timeout via fake TimeProvider; 503 fixture = the probe body verbatim; ORD-1 shapes).
+
+#### PVR-07 — 📦 Health-status options & validation completeness
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+Findings RST-4, TEN-3 (medium, CONFIRMED): `HealthStatusOptions` is registered as a hardcoded `new HealthStatusOptions()` with no configuration hook, so staleness thresholds cannot follow a tenant's `TickleIntervalSeconds`; and `ValidateOptions` — documented as validating all fields — skips `TickleFailureIntervalSeconds`, `WebSocketHeartbeatIntervalSeconds`, and `StreamingBufferSize`. Expose the options per the recorded surface line (design doc §7.7, D6: consumer-configurable, tickle-interval-derived defaults); add the missing range checks with the existing `ArgumentOutOfRangeException` shapes. **Additive — `feat:`.**
+**Done when:** health staleness thresholds are configurable with tickle-interval-derived defaults, and non-positive values for the three unvalidated options fail fast at registration on both facade paths.
+
+#### PVR-08 — 📦 Credential hygiene & tenant identity
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** trivial-skip
+Findings AUT-2 (medium, CONFIRMED), AUT-5 (low, CONFIRMED): `IbkrOAuthCredentials` is a public positional record with no `ToString` override — the compiler-generated form prints `AccessToken`/`EncryptedAccessTokenSecret`, one log/exception interpolation away from a credential leak (`.claude/rules/security.md`); and `OAuthCredentialsFactory` defaults `TenantId` to the raw `ConsumerKey`, spreading the consumer key into logs/metrics as a tenant label. Redact via a sealed `ToString` override; add the `tenantId` field/parameter per the recorded surface line (design doc §15.2, D6, operator-decided: the default tenant label is the literal `"default"` — never the consumer key; the manager path always supplies its own). **Breaking-behavioral — `feat!:`** (telemetry label default changes; `tenantId` field/parameter is additive).
+**Done when:** rendering the credentials object exposes no token material, and the tenant label defaults to `"default"` with an explicit `tenantId` override through both factory paths.
+
+#### PVR-09 — 📦 Flex statement data fidelity
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+Findings RST-1 (medium, PLAUSIBLE), RST-3 (medium, PLAUSIBLE), RST-6 (low, UNVERIFIED): `AttrDecimal` silently coerces any unparseable money attribute to `0m` (authoritative-looking zeros on Amount/Price/Proceeds/NetCash/Commission/Quantity/FxRateToBase); `ParseFlexDateTime` guesses offsets from an 8-abbreviation US table (wrong-or-null for CET/BST/HKT/…); `PollForStatementAsync` bounds only its own inter-poll delays, not HTTP round-trip + limiter time (RST-6 — **CONFIRMED by grooming code trace**, `FlexOperations.cs:333`). Implements design doc §11.10 (D4): nullable money + observable parse-failure signal with raw text preserved; raw timestamp strings, no offset guessing; wall-clock poll bound. The design is format-agnostic (operator-decided: loop-ready without a live format pin — no Flex query is configured on the paper account); pinning the wire formats against a real statement is the **named follow-on** in the stream Evidence. **Breaking — `feat!:`** (Flex DTO money fields become nullable).
+**Done when:** an unparseable Flex money/timestamp value is distinguishable from a genuine 0/absent value (null + parse-failure signal + raw text), and the poll loop's timeout bounds wall-clock elapsed time (fake TimeProvider test).
+**TDD notes:** red tests = synthetic statements per RST-1/RST-3 suggested regression tests (unparseable amounts, non-US timezone suffixes, absent attributes) + a wall-clock timeout test with slow stubbed polls.
+
+#### PVR-10 — 📦 Error-taxonomy completeness wave 2
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** trivial-skip
+Findings ERR-2 (medium, CONFIRMED), ERR-3, ERR-4, ERR-5 (low, CONFIRMED): `ValidateFlexTokenAsync` misclassifies transient transport failures as token errors and its 1012/1013/1015 mapping is bypassed under `ThrowOnApiError`; Flex send-retry exhaustion hardcodes `IsRetryable=false` for codes the library itself classifies transient; the order-endpoint 200-hidden-error subtype contradicts the XML docs (D7); `default(Result<T>)` yields `IsSuccess=false` with a null `Error` (NRE downstream). Implements design doc §9.9 + §6.6 (D7, operator-decided): order-mutating 200-with-error remaps to `IbkrOrderRejectedError`; uninitialized `Result<T>` member access throws `InvalidOperationException`. **Breaking-behavioral — `feat!:`.**
+**Done when:** startup flex validation classifies transport vs token errors truthfully under both throw settings, exhausted-transient Flex errors carry `IsRetryable=true`, the order hidden-error subtype matches the recorded taxonomy, and an uninitialized `Result` surfaces a clear invalid-use error.
+
+#### PVR-11 — 401-retry-leg response integrity
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** trivial-skip
+Findings ERR-1 (high, CONFIRMED), SES-3 (medium, CONFIRMED): on the 401-reauth-retry leg, `TokenRefreshHandler` returns the retry response whose `RequestMessage` is the clone, so `ResultFactory.GetCapturedBody` misses the `ResponseBodyCaptureHandler` stash — hidden-error (200-with-error-body) detection is disabled exactly on retried calls (see the finding's trace for how this differs from the previously-refuted AMB-1); and the reauth-failure `catch` has no `OperationCanceledException` exclusion, so the consumer's own cancellation mid-reauth is misreported as `IbkrSessionError`. Fix the Options plumbing per the finding's fix direction and add the caller-cancelled passthrough, keeping ADR-0003's ambiguous-outcome marking for order-mutating POSTs. **`fix:`.**
+**Done when:** a 200-with-error-body on the 401-retry leg classifies as the hidden error (not silent success), and a caller-cancelled reauth surfaces as cancellation for non-order requests.
+**TDD notes:** red tests = WireMock 401-then-200-error-body scenario asserting hidden-error classification on the retry leg; cancellation-mid-reauth case per SES-3.
+
+#### PVR-12 — Tickle-loop resilience & lifetime
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** trivial-skip
+Findings SES-1, SES-2 (both high, CONFIRMED): a reauth failure thrown from the tickle loop's 401-branch `await _onFailure(...)` escapes the enclosing catch and kills the keepalive loop permanently — one transient blip during recovery rots the session (SES-1, a VCR-06/SES-2 residual); and the loop's lifetime CTS is linked to whichever caller's token happened to initialize the session, so that caller cancelling/disposing later silently stops keepalive (SES-2). Repairs within the recorded §7 lifecycle contract — no new contract. **`fix:`.**
+**Done when:** a failed reauth attempt inside the tickle loop leaves the loop running at the failure cadence, and cancelling the initializing caller's token after init does not stop the keepalive loop.
+**TDD notes:** red tests extend TickleTimerTests: reauth-throw inside the 401 branch leaves the loop ticking (mock-server tickle counts); cancel-initializer-token case.
+
+#### PVR-13 — Session/auth internals concurrency hardening
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** trivial-skip
+Findings CON-1 (high, CONFIRMED), AUT-3, AUT-4 (low, CONFIRMED): `SessionManager.DisposeAsync` neither cancels `_disposeCts` first nor serializes with an in-flight reauth — the ODE/leaked-tickle-timer window CON-1's corroboration traces end-to-end; `SessionTokenProvider`'s refresh dedupe misses acquisitions completed by the lazy path (redundant double-handshake); the LST-validation `CryptographicException` maps to misleading "signing" guidance instead of naming the credential fields actually implicated. **`fix:`.**
+**Done when:** dispose during in-flight init/reauth neither throws unhandled nor leaves a live tickle loop, a refresh concurrent with lazy acquisition performs one handshake, and an LST-validation failure names the implicated credential fields.
+**TDD notes:** deterministic race tests with test gates (VCR-08 pattern) for dispose-vs-reauth; version-dedupe unit tests for AUT-3.
+
+#### PVR-14 — Question-suppression robustness in init/reauth
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** trivial-skip
+Findings PRB-2.1, PRB-2.2 (medium, PLAUSIBLE), PRB-2.3 (low, CONFIRMED): a non-2xx from `POST /iserver/questions/suppress` escapes `EnsureInitializedAsync`/`ReauthenticateAsync` as a raw `Refit.ApiException` — unclassified, and failing an otherwise-successful authentication; the returned `SuppressResponse` is discarded unverified against the pinned `"submitted"` (wire fixture + all live sources agree on the lowercase form — `docs/ibkr-doc-evidence/2026-07-07-order-reply-confirmation-suppression.md`); and a suppress-aborted reauth skips the lifecycle notification even though the server session was re-established (PRB-2.3). Classify per the existing taxonomy, verify/log the suppress result, and notify once ssodh/init succeeds. Lane: after PVR-13 (shared `SessionManager`). Empirics: the success shape is pinned by the committed live-capture fixture `Fixtures/Session/POST-suppress.json` (`{"status":"submitted"}`); ApiCapture's edge entries additionally pin 500-on-empty-ids and 200-on-invalid-id. **`fix:`.**
+**Done when:** a suppress failure surfaces classified without masking a successful re-auth from the lifecycle notifier, and a failed suppression is observable.
+
+#### PVR-15 — WebSocket dispose/connect race hardening
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** docs/superpowers/specs/2026-07-07-pvr-15-websocket-dispose-race-hardening.md
+Findings STR-3, STR-2 (high, CONFIRMED), CON-2 (medium, CONFIRMED), STR-6 (low, CONFIRMED): `DisposeAsync` never acquires `_connectLock` — it disposes the semaphore under an in-flight reconnect and a straggler replay can resubscribe after dispose; `SubscriptionSlot.Dispose` frees the single-observer slot before the pump task exits (two pumps competing on one reader); subscribe-vs-dispose can add a channel writer after dispose completed the registries; a failed `ConnectAsync` leaks the factory-created adapter. **`fix:`.**
+**Done when:** dispose during reconnect/subscribe neither throws nor leaves live registrations, pumps, or adapters, and re-subscribe after slot disposal never yields two concurrent pumps.
+**TDD notes:** red tests per the spec test plan (fake adapter factory + deterministic gates per race).
+
+#### PVR-16 — WebSocket subscribe/reconnect protocol integrity
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** trivial-skip
+Findings STR-4, STR-5 (medium, CONFIRMED), CON-3 (low, CONFIRMED): a failed subscribe send leaves the already-committed registration in place — an orphan replayed on every reconnect with a never-drained channel; a stale reconnect trigger tears down a healthy connection established after the trigger was raised; and subscribe racing reconnect-replay can double-send a subscription. Per the findings' fix directions (rollback on failed send; connection-epoch check under the lock; send-under-lock or generation-marked replay). Lane: after PVR-15 (same file). **`fix:`.**
+**Done when:** a failed subscribe leaves no registered state, a pre-connection reconnect trigger is a no-op against the fresh connection, and replay+subscribe races send exactly one subscription per topic.
+**TDD notes:** red tests: failed-send rollback, stale-trigger no-op via connection epoch, replay/subscribe single-send.
+
+#### PVR-17 — OAuth signature wire-form alignment
+**Status:** ✅ Done — #250 (closed by grooming probe; no code change) · **Stream:** PVR · **Depends on:** none
+**Spec:** trivial-skip
+Finding AUT-1 (high, PLAUSIBLE): the OAuth signature is computed over `Uri.ToString()` (the SafeUnescaped form) while the wire request-target carries the escaped form — a deterministic-401 hazard for `%20`-bearing query values, if IBKR verified the raw request-target. **Resolved by live probe 2026-07-07:** `secdef/search?symbol=BRK B` **succeeds** through the current signing (200, 3 results, conid 72063691; control `SPY` and not-found `BRK.B` behaved as expected) — IBKR's verifier accepts the library's base-string form for space-bearing queries, so the divergence does not manifest and no code change is warranted. Scope note: the probe pins the space case (the only known IBKR symbology need); non-ASCII query values remain theoretical with no known use.
+**Done when:** ~~(post-probe) the signed base string matches the form IBKR verifies~~ — satisfied by the recorded probe refutation (this entry).
+
+#### PVR-18 — Filtered live-orders follow-up latency & sufficiency
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** high
+**Spec:** trivial-skip
+Findings ORD-2 (medium, CONFIRMED), ORD-5 (low, PLAUSIBLE): the VCR-05 auto force-clear follow-up is awaited inline behind the endpoint rate limiter *before* the already-computed result is returned — adding up to a limiter-window of latency to every filtered `GetLiveOrdersAsync`; and the follow-up-skip when the caller passes filters+`force=true` together assumes single-call sufficiency no doc tier pins (the live DOC-03 prose prescribes a **follow-up** call while its own example combines both, unexplained — `docs/ibkr-doc-evidence/2026-07-07-live-orders-filters-force.md`). Operator-decided 2026-07-07: the follow-up runs as a **background-tracked task** through the normal rate limiters (§8 wait-not-fail intact), logged on failure, awaited/cancelled on dispose. ORD-5 is rule-settled by §10.6's defensive posture (the `sor`-suppression effect is documented-not-observable-on-demand): **drop the filters+`force` exemption — always issue the follow-up after any filtered call**, safe under both answers. Lane: before PVR-06 (shared `OrderOperations`). **`fix:`.**
+**Done when:** a filtered call returns without waiting on the follow-up; the follow-up happens exactly once observably (asserted call sequence) including when the caller passed `force=true` with filters; dispose awaits/cancels a pending follow-up.
+**TDD notes:** red tests = WireMock call-sequence assertions (immediate return + exactly-one deferred force call) and a dispose-with-pending-follow-up case.
+
+#### PVR-19 — Schema-validation net descent & strict-mode parity
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+Findings WIR-2, TEN-2 (medium, CONFIRMED): the VCR-10 validation net still diffs only top-level DTO fields — wrapper-shaped endpoints' row elements are never validated (nested maps exist but are not recursed; `List<T>`-typed properties are not descended); and strict mode treats known string-returning endpoints as violations because `RefitEndpointMap` deliberately omits them (needs a known-raw sentinel, not a null entry). Grooming evidence: the 2026-07-07 probes observed `POST /iserver/reply/{id}` logged at fail level as unmapped — the reply endpoint must land in the map (or the sentinel) as part of this story. **`fix:`.**
+**Done when:** a drifted field on a nested/wrapped row raises the validation signal, and strict mode passes string-returning endpoints while still failing truly unmapped ones.
+
+#### PVR-20 — Active-probe health evidence flow
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+Finding PRB-4.2 (medium, CONFIRMED): `CollectActiveSessionHealthAsync` returns the server-reported authenticated/competing/fail verdict only to its immediate caller and never feeds `SessionHealthState` — probe evidence is less durable than tickle/`sts`/ssodh evidence, contrary to ADR-0004's evidence model (recorded — cite, don't re-decide). **`fix:`.**
+**Done when:** an active probe observing competing/failed session state updates `SessionHealthState` with the same durability as tickle evidence.
+
+#### PVR-21 — 📦 Facade disposal ownership
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+Finding PRB-4.3 (low, CONFIRMED): in the plain `AddIbkrClient` path, `IbkrClient.DisposeAsync` disposes only the container-owned `SessionManager` — `await using client` plus provider disposal double-runs the teardown, and the WebSocket client is untouched by the facade. Implements design doc §5.4 (D5, operator-decided): facade `DisposeAsync` performs the full-client teardown in `ManagedTenant` order, idempotent via atomic guard. **Breaking-behavioral — `feat!:`** (operator-decided stricter partition: dispose now tears down the WS client and session where it was session-only).
+**Done when:** `await using client` plus provider disposal behaves per the recorded ownership contract with no double-run logout or gauge decrement.
+
+#### PVR-22 — Tenant eager-init failure logout
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+Finding TEN-1 (medium, CONFIRMED): `TenantBuilder` sets `SkipLogoutOnDispose=true` unconditionally before building, and its failure path disposes only the child provider and credentials — a tenant whose eager init succeeded but whose build fails afterward leaves the server-side brokerage session live with nothing to tear it down. **`fix:`.**
+**Done when:** a post-init build failure issues the same bounded best-effort logout as `ManagedTenant` disposal (or the skip flag is set only once `ManagedTenant` takes ownership).
+
+#### PVR-23 — Market-data preflight cache vs session re-auth
+**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+Finding RST-5 (low, PLAUSIBLE): the preflight cache marks a conid preflighted for `PreflightCacheDuration` at retry-issue time, so a session re-auth inside the window can leave snapshot calls returning field-less rows that are treated as fresh. The server-side preflight-reset behavior is unpinned and not observable on demand; rule-settled as safe-under-both (see stream Evidence): clear the cache on lifecycle notification regardless. **`fix:`.**
+**Done when:** after a re-auth, the next snapshot per conid re-preflights (cache invalidated on lifecycle notification).
 
 ## Deferred
 
-- **VCR-12** — ExtOperator futures-compliance field (see entry above): future additive surface work; unblock = groom it (verify the compliance requirement, spec, set Risk).
+*(empty — VCR-12, formerly here, was groomed loop-ready on 2026-07-07 after its compliance claim was verified against the live docs; see its entry.)*

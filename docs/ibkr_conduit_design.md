@@ -277,6 +277,10 @@ services.AddRefitClient<IIbkrRestApi>(tenantId)
 
 ---
 
+### 5.4 Client Disposal Ownership
+
+`IIbkrClient` is `IAsyncDisposable` in both facade paths. The contract (operator-decided 2026-07-07, implemented by PVR-21): facade `DisposeAsync` performs the **full client teardown** in the `ManagedTenant` order — WebSocket disconnect/dispose first, then the bounded best-effort session logout, then session disposal — and is **idempotent** (atomic guard): `await using client` followed by provider disposal, or the reverse, runs the teardown exactly once. In the manager path, `RemoveAsync`/`ManagedTenant` remains the owning teardown; the facade defers to the same guard.
+
 ## 6. Technology Stack
 
 ### 6.1 Core Dependencies
@@ -403,6 +407,12 @@ public interface IIbkrMarketDataApi
 - The empty-string→`0` numeric coercion is reserved for genuinely non-optional counters — never money, quantity, or status/verdict fields the wire can omit.
 - No DTO fabricates a verdict from absence: an absent `authenticated`/`isPaper` is `null`, never `false`.
 - `[JsonExtensionData]` overflow bags remain the forward-compat net for *unmapped* keys; they do not substitute for presence semantics on mapped fields.
+- **Money and quantity fields on public DTOs are `decimal` (`decimal?` when wire-optional) — never `double`/`float`** (operator-decided 2026-07-07; retrofit of the pre-rule `double` surfaces tracked by PVR-02).
+- These fidelity rules cover **every wire surface** the library maps — streaming frames, REST rows, and the Flex XML statements (§11.10).
+
+### 6.6 `Result<T>` Construction Invariant
+
+`Result<T>` is a public readonly struct, so `default(Result<T>)` / `new Result<T>()` is constructible yet carries neither value nor error. The contract (operator-decided 2026-07-07, implemented by PVR-10): an uninitialized `Result<T>` is **invalid to consume** — member access (`Error`, `EnsureSuccess`, `Match`, `Switch`) throws `InvalidOperationException` naming the misuse at the misuse site, never a null-reference failure downstream.
 
 ---
 
@@ -487,6 +497,7 @@ The CP Web API itself (non-brokerage endpoints) remains accessible during mainte
 - With `Compete=false` and a competing session observed, re-authentication backs off rather than looping.
 - `sts` competing/fail evidence surfaces on `SessionStatusEvent` (shaped per §6.5) and feeds health state.
 - **Tickle successes are liveness evidence:** an initialized, tickling session is healthy while consumer-idle; consumer-call staleness alone is not Unhealthy.
+- **Health staleness thresholds are consumer-configurable** (surfaced through the client options, not a hardcoded internal default), with defaults derived from the tenant's tickle interval so a custom `TickleIntervalSeconds` cannot silently outrun the staleness window (operator-decided 2026-07-07; PVR-07). Active-probe evidence feeds `SessionHealthState` with the same durability as tickle/`sts` evidence (PVR-20).
 
 ---
 
@@ -674,6 +685,10 @@ All order submission requires IBKR contract IDs (conids), not ticker symbols.
 | Limit-on-Close (LOC) | DAY | End-of-day with price protection |
 | Trailing Stop | DAY, GTC | Dynamic stop management |
 
+Trailing orders (`TRAIL`/`TRAILLMT` on the wire) require `trailingAmt` and `trailingType` alongside the order type (live docs, re-scouted 2026-07-07 — `docs/ibkr-doc-evidence/2026-07-07-ordertype-enum-trailing-params.md`; TRAIL acceptance wire-pinned). The public surface carries `TrailingAmt` (`decimal?`) and `TrailingType` (`string?`) on the order request — omitted from the wire when null — with fail-fast validation when the order type requires them (operator-decided 2026-07-07; PVR-05).
+
+Futures/futures-options compliance fields: the wire's order body carries `extOperator` (string) and `manualIndicator` (bool), documented as required when trading Futures and Futures Options contracts under CME Group Rule 536-B (DOC-03; `docs/ibkr-doc-evidence/2026-07-07-extoperator-field.md` — enforcement is documented-not-verified). The public surface carries `ManualIndicator` (`bool?`, shipped) and `ExtOperator` (`string?`, VCR-12) on the order request — pure pass-through, omitted from the wire when null, no client-side gating (safe whether or not IBKR enforces the condition); both also ride order cancellation as query parameters (shipped).
+
 ### 9.8 Multi-Leg Options — Leg Risk Note
 
 The CP Web API does not support native multi-leg combo orders. Legs must be submitted individually. The consuming application is responsible for managing leg risk (the window between first and second leg fills where a naked position may exist temporarily). IbkrConduit surfaces single-leg order submission cleanly — leg risk management is out of scope.
@@ -687,6 +702,19 @@ The CP Web API does not support native multi-leg combo orders. Legs must be subm
 - **Order-mutating POSTs (place, modify, reply) are excluded from automatic 401 replay.** Re-auth still happens; the call surfaces a dedicated ambiguous-outcome error ("sent, outcome unknown — reconcile before resubmitting"). Idempotent requests (GET, DELETE cancel) keep replay.
 - Whether IBKR can process an order POST and then 401 is unpinned in either direction (findings AMB-2); this design is safe under both answers and does not depend on pinning it.
 - Every 2xx order-path response routes through `ResultFactory.FromResponse` classification (including reply); unrecognized-but-plausible 200 shapes classify as refusals carrying the raw body; a 2xx body that fails typed deserialization surfaces as a classified error, never a raw exception.
+- A 2xx **order-mutating** response carrying a bare-object error shape classifies as the **order-rejection subtype** (`IbkrOrderRejectedError`) — the request path is known to be an order endpoint; the generic hidden-error subtype is reserved for non-order surfaces (operator-decided 2026-07-07; PVR-10).
+
+---
+
+### 9.10 Order Confirmation Window
+
+**[ADR-0006](adr/0006-order-confirmation-window.md).** A pending order confirmation (question/reply round) is invalidated by a subsequent order submission on the session; the reply then fails with a **fully generic** 503 body, and the "invalidated" order can **still become a live order** (both pinned by the 2026-07-07 live probe, `recordings/order-probe-2026-07-07.log`). The contract:
+
+- **The confirmation round is serialized in-process:** the per-account order lock is held from a confirmation-returning placement until the confirmation resolves (reply, dismiss, or timeout) — overlapping same-account confirmation windows cannot occur in-process.
+- **A confirmation timeout bounds the lock** (configurable); on expiry the lock releases and that order's outcome is **ambiguous**. Reply-`false`/dismiss resolves the round as a definitive refusal.
+- **A failed reply on an invalidated confirmation classifies as an ambiguous order outcome** (ADR-0003 semantics: reconcile before resubmitting) — never a definitive refusal (the probe showed re-placing can double-place), never a generic 503. Recognition is contextual (reply endpoint + 503) — the wire body carries no marker.
+- **Every 2xx reply shape classifies:** empty/whitespace/non-JSON reply bodies surface as classified errors carrying the raw body, never raw exceptions.
+- Question issuance is **non-deterministic** (probe: an identical order drew a question in one run and none in another) — neither the library nor its tests may assume a question always arrives.
 
 ---
 
@@ -743,7 +771,7 @@ This sequence handles arbitrarily long outages. The flex query for open orders i
 
 ### 10.6 Live-Orders Priming Surface
 
-`GET /iserver/account/orders` is unprimed on first call — `{"orders":[],"snapshot":false}` even when orders exist — and reprimes on a follow-up call; `force=true` clears cached state and itself returns a blank array. All three shapes are pinned by live captures (`recordings/orders/001-002`, `recordings/priming/001-003` — local captures per the `recordings/` convention, carried into committed WireMock fixtures; the latter showing a *filtered* call returning fake-empty while cancelled orders demonstrably exist). The captured spec (docs/ibkr-web-api-spec.md:4150) further warns that filtered calls suppress `sor` order-detail frames until a `force=true` follow-up — documented, not independently observable on demand. The contract (operator-decided 2026-07-07, implemented by VCR-05):
+`GET /iserver/account/orders` is unprimed on first call — `{"orders":[],"snapshot":false}` even when orders exist — and reprimes on a follow-up call; `force=true` clears cached state and itself returns a blank array. All three shapes are pinned by live captures (`recordings/orders/001-002`, `recordings/priming/001-003` — local captures per the `recordings/` convention, carried into committed WireMock fixtures; the latter showing a *filtered* call returning fake-empty while cancelled orders demonstrably exist). The live docs (DOC-03, re-scouted 2026-07-07 — `docs/ibkr-doc-evidence/2026-07-07-live-orders-filters-force.md`, superseding the deprecated-mirror citation) further warn that filtered calls "will prevent order details from coming through over the websocket \"sor\" topic" until a `force=true` **follow-up** call — documented, not independently observable on demand; the same page's own example combines filters+force in one call without comment, so single-call sufficiency is unpinned in every tier. The contract (operator-decided 2026-07-07, implemented by VCR-05):
 
 - **`GetLiveOrdersAsync` returns a record carrying the orders and `IsSnapshot`** so primedness is consumer-visible; an unprimed empty response is distinguishable from "no orders."
 - **After any filtered call, the library itself issues the `force=true` follow-up** (the library-owns-quirks rule, `.claude/rules/architecture.md`) — defensive against the documented `sor` suppression whether or not it manifests.
@@ -859,6 +887,16 @@ public record IbkrFlexCredentials(
 
 ---
 
+### 11.10 Flex Data Fidelity
+
+The §6.5 fidelity rules extend to the Flex XML surface (operator-decided 2026-07-07, implemented by PVR-09):
+
+- Flex money/quantity attributes are nullable `decimal`: an **absent or unparseable attribute yields `null`, never a fabricated `0`**. An unparseable-but-present value additionally raises an observable parse-failure signal (log + counter) preserving the raw attribute text.
+- Flex timestamps preserve the **raw wire string** alongside a best-effort parse; the parser never guesses UTC offsets from timezone abbreviations.
+- The statement poll timeout bounds **wall-clock elapsed time**, not merely the loop's own inter-poll delays.
+
+---
+
 ## 12. WebSocket Support
 
 ### 12.1 Overview
@@ -908,6 +946,8 @@ This is separate from the REST `/tickle` endpoint. Both must be maintained indep
 
 Account summary (`ssd`) and account ledger (`sld`) subscribes require the account id as a topic-target segment (e.g. `ssd+{accountId}+{…}`), and their cancels mirror it (`usd+{accountId}+{}` / `uld+{accountId}+{}`). Unlike the other cancels, the trade-executions cancel `utr` is sent bare — no trailing `+{}`.
 
+The `ssd` summary row shape carries non-monetary values too: the recorded DTO includes a `value` field and a `[JsonExtensionData]` overflow bag alongside `monetaryValue`, mirroring its `sld` sibling (surface recorded 2026-07-07; PVR-04 — the `ssd`/`sld` wire shapes are to be pinned by live capture at grooming).
+
 ### 12.5.1 Subscription Handles and Unsubscribe
 
 Every streaming subscribe method returns an `IIbkrSubscription<T>` handle rather than a bare observable. The handle exposes `Stream` (the `IObservable<T>` of parsed updates) and implements `IAsyncDisposable`. Disposing the handle — or calling `UnsubscribeAsync()` explicitly — sends the topic's `u…` cancel wire message and completes `Stream`. IbkrConduit refcounts by cancel message: if two subscriptions resolve to the same cancel (for example, two market-data subscriptions for the same conid), the wire cancel is sent only when the last remaining subscription is disposed. Unsolicited topics (`sts`, `system`, `act`, `blt`, `ntf`) have no documented wire cancel, so their handles perform local teardown only and send nothing over the wire. See `docs/ibkr-websocket-api-reference.md` for the full topic and command reference.
@@ -936,6 +976,7 @@ The pre-flight requirement (first request returns no data) applies to the REST s
 - **No silent loss:** every eviction, mapper drop, or observer failure emits a Warning log and increments a dropped-frames counter tagged tenant + wire topic (by cause).
 - Reconnect/gap transitions are consumer-observable (connection-lifecycle events with replayed topics) so consumers can trigger REST reconciliation deterministically.
 - `IIbkrSubscription<T>.Stream` is **single-observer**: a second concurrent `Subscribe` throws `InvalidOperationException`.
+- **Delivery is subscription-scoped** ([ADR-0005](adr/0005-subscription-scoped-streaming-delivery.md)): target-qualified topics (`smd+{conid}`, `ssd`/`sld`+account) route by **full wire-topic identity** — a subscription receives exactly its target's frames, and an unmatched target-qualified frame drops observably (distinct cause) rather than cross-delivering. Target-less (`sor`/`spl`/`str`) and unsolicited topics route by prefix; same-target duplicates fan out. The facade validates and escapes consumer-supplied subscribe inputs before they reach the wire.
 
 ---
 
@@ -1101,6 +1142,8 @@ Never store private RSA keys or Flex tokens in source control, plain text config
 - Flex tokens held in memory only — not logged, not serialized
 - Log sanitization — ensure no credential material appears in log output
 - `IbkrOAuthCredentials` implements `IDisposable` — `RSA` objects disposed properly
+- `IbkrOAuthCredentials.ToString()` is **redacted** (sealed override) — rendering the record in a log, exception, or interpolation never exposes token material (operator-decided 2026-07-07; PVR-08)
+- The telemetry tenant label defaults to the literal `"default"` — **never the consumer key**; an explicit `tenantId` (credential-file field / factory parameter) overrides it, and the manager path always supplies its own (PVR-08)
 
 ### 15.3 Security Improvement Over Python References
 
@@ -1160,6 +1203,7 @@ https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService/
 | `/iserver/trades` | GET | Get current session fills (1 req/5s limit) |
 | `/portfolio/{id}/positions/0` | GET | Current positions — session-independent |
 | `/portfolio/{id}/summary` | GET | Account summary — session-independent |
+| `/portfolio/subaccounts2` | GET | Paged sub-account enumeration — shape is doc-conflicted: `{metadata, subaccounts}` wrapper (DOC-01 schema + DOC-03 prose) vs bare array (DOC-03's own example + the sole wire sample, paper/non-FA); the library deserializes **both** (operator-decided 2026-07-07; PVR-03; `docs/ibkr-doc-evidence/2026-07-07-subaccounts2-response-shape.md`) |
 | `/iserver/marketdata/snapshot` | GET | Market data snapshot (requires pre-flight) |
 | `/iserver/marketdata/history` | GET | Historical market data (5 concurrent max) |
 | `/iserver/secdef/search` | GET | Symbol to conid resolution |
