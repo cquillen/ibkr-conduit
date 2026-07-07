@@ -131,6 +131,13 @@ public static class ServiceCollectionExtensions
         ConsumerPipelineRegistration.Register(services, credentials, clientOptions, endpointMap, baseUrl);
         StreamingAndFlexRegistration.Register(services, credentials, clientOptions, baseUrl);
 
+        // Per-tenant diagnostics: owns the rate-limiter queue-depth gauge on a per-tenant Meter,
+        // registered once against the RateLimiter singleton and disposed with the provider so
+        // tenant churn accumulates no stale, untagged gauges (VCR-09 / MGR-4).
+        services.AddSingleton(sp => new TenantDiagnostics(
+            sp.GetRequiredService<TenantContext>(),
+            sp.GetRequiredService<RateLimiter>()));
+
         // Health check infrastructure
         services.AddSingleton(_ => new LastSuccessfulCallTracker(TimeProvider.System));
         services.AddSingleton(new HealthStatusOptions());
@@ -146,8 +153,14 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<SessionHealthState>(),
                 TimeProvider.System));
 
-        // Unified facade
-        services.AddSingleton<IIbkrClient, IbkrClient>();
+        // Unified facade. Resolving TenantDiagnostics here — via the always-resolved facade, in
+        // both the single-client and manager build paths — registers the per-tenant queue-depth
+        // gauge exactly once and ties its lifetime to the provider (VCR-09 / MGR-4).
+        services.AddSingleton<IIbkrClient>(sp =>
+        {
+            sp.GetRequiredService<TenantDiagnostics>();
+            return ActivatorUtilities.CreateInstance<IbkrClient>(sp);
+        });
     }
 
     /// <summary>Marker proving AddIbkrClient has already run on a collection.</summary>

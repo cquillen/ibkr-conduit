@@ -51,9 +51,11 @@ internal sealed partial class GlobalRateLimitingHandler : DelegatingHandler
         _tenant = tenant;
         _logScope = new Dictionary<string, object> { [LogFields.TenantId] = _tenant.TenantId };
 
-        IbkrConduitDiagnostics.Meter.CreateObservableGauge(
-            "ibkr.conduit.ratelimiter.global.queue_depth",
-            () => _limiter.GetStatistics()?.CurrentQueuedCount ?? 0);
+        // The queue-depth gauge is NOT registered here: a handler is constructed once per HTTP
+        // pipeline (up to a dozen per tenant), so registering per instance minted duplicate,
+        // untagged gauges that pinned retired handler chains and limiters. It now lives once per
+        // tenant on TenantDiagnostics' per-tenant Meter, tenant-tagged and disposed with the
+        // provider (VCR-09 / MGR-4).
     }
 
     /// <inheritdoc />

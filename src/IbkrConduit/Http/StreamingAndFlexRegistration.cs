@@ -57,25 +57,29 @@ internal static class StreamingAndFlexRegistration
             var flexToken = clientOptions.FlexToken;
             var flexClientName = $"IbkrConduit-Flex-{credentials.TenantId}";
 
-            var flexBurstLimiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
-            {
-                TokenLimit = 1,
-                ReplenishmentPeriod = TimeSpan.FromSeconds(1),
-                TokensPerPeriod = 1,
-                AutoReplenishment = true,
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 50,
-            });
-
-            var flexSustainedLimiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
-            {
-                TokenLimit = 10,
-                ReplenishmentPeriod = TimeSpan.FromMinutes(1),
-                TokensPerPeriod = 10,
-                AutoReplenishment = true,
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 50,
-            });
+            // The two Flex limiters previously lived only inside handler closures, so MS.DI never
+            // disposed them and their AutoReplenishment timers outlived the tenant. Wrap them in a
+            // container-owned disposable holder so the provider disposes them on teardown
+            // (VCR-09 / MGR-5).
+            services.AddSingleton(_ => new FlexRateLimiters(
+                new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
+                {
+                    TokenLimit = 1,
+                    ReplenishmentPeriod = TimeSpan.FromSeconds(1),
+                    TokensPerPeriod = 1,
+                    AutoReplenishment = true,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 50,
+                }),
+                new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
+                {
+                    TokenLimit = 10,
+                    ReplenishmentPeriod = TimeSpan.FromMinutes(1),
+                    TokensPerPeriod = 10,
+                    AutoReplenishment = true,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 50,
+                })));
 
             services.AddHttpClient(flexClientName, c =>
             {
@@ -91,13 +95,13 @@ internal static class StreamingAndFlexRegistration
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
                     sp.GetRequiredService<ISharedRateGovernor>(),
-                    flexBurstLimiter,
+                    sp.GetRequiredService<FlexRateLimiters>().Burst,
                     sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>(),
                     sp.GetRequiredService<TenantContext>()))
             .AddHttpMessageHandler(sp =>
                 new GlobalRateLimitingHandler(
                     sp.GetRequiredService<ISharedRateGovernor>(),
-                    flexSustainedLimiter,
+                    sp.GetRequiredService<FlexRateLimiters>().Sustained,
                     sp.GetRequiredService<ILogger<GlobalRateLimitingHandler>>(),
                     sp.GetRequiredService<TenantContext>()));
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
@@ -1202,6 +1203,77 @@ public class IbkrWebSocketClientTests
 
         first.ShouldBeOfType<ConnectionDisconnected>().Reason.ShouldBe("session_refresh");
         second.ShouldBeOfType<ConnectionReconnected>().ReplayedTopics.ShouldContain("sor");
+    }
+
+    [Fact]
+    public async Task ConnectionStateGauge_Measurement_CarriesTenantTag()
+    {
+        // FIL-7: the connection_state gauge must tag its measurement with the tenant so a
+        // multi-tenant host can attribute per-connection liveness. CreateClient() uses tenant "test".
+        var captured = new List<KeyValuePair<string, object?>[]>();
+        using var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, l) =>
+            {
+                if (instrument.Meter.Name == IbkrConduitDiagnostics.MeterName
+                    && instrument.Name == "ibkr.conduit.websocket.connection_state")
+                {
+                    l.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        listener.SetMeasurementEventCallback<int>((_, _, tags, _) => captured.Add(tags.ToArray()));
+        listener.Start();
+
+        await using (CreateClient())
+        {
+            listener.RecordObservableInstruments();
+        }
+
+        captured.ShouldContain(
+            tags => tags.Any(t => t.Key == LogFields.TenantId && (string?)t.Value == "test"),
+            customMessage: "Expected a connection_state measurement tagged with the tenant id.");
+    }
+
+    [Fact]
+    public async Task ConnectionStateGauge_AfterDispose_StopsReporting()
+    {
+        // FIL-7: after DisposeAsync the client's gauge must stop reporting — its per-tenant Meter
+        // is disposed and the callback is disposal-gated — so churn accumulates no stale gauges
+        // pinning disposed clients alive and reporting 0 forever.
+        var count = 0;
+        using var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, l) =>
+            {
+                if (instrument.Meter.Name == IbkrConduitDiagnostics.MeterName
+                    && instrument.Name == "ibkr.conduit.websocket.connection_state")
+                {
+                    l.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        listener.SetMeasurementEventCallback<int>((_, _, tags, _) =>
+        {
+            foreach (var tag in tags)
+            {
+                if (tag.Key == LogFields.TenantId && (string?)tag.Value == "test")
+                {
+                    Interlocked.Increment(ref count);
+                }
+            }
+        });
+        listener.Start();
+
+        var client = CreateClient();
+        listener.RecordObservableInstruments();
+        count.ShouldBe(1, "a live client's connection_state gauge reports exactly once for its tenant.");
+
+        await client.DisposeAsync();
+        Interlocked.Exchange(ref count, 0);
+        listener.RecordObservableInstruments();
+
+        count.ShouldBe(0, "a disposed WebSocket client's connection_state gauge stops reporting (FIL-7).");
     }
 
     private static async Task<ConnectionEvent> ReadEventAsync(ChannelReader<ConnectionEvent> reader, CancellationToken cancellationToken)
