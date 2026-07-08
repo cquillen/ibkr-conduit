@@ -132,6 +132,204 @@ public sealed class StreamingMapperRobustnessTest
         evt.Authenticated.ShouldBe(false);
     }
 
+    /// <summary>
+    /// WIR-1 for the fan-out <c>sor</c> family: a <c>sor</c> frame carrying one malformed order
+    /// mid-array must deliver every good order while counting the bad one on
+    /// <c>ibkr.conduit.streaming.frames.dropped</c> with <c>cause=mapper</c> and the <c>sor</c> topic.
+    /// </summary>
+    [Fact]
+    public async Task OrderUpdates_FrameWithOneMalformedElement_DeliversRemainingAndCountsDropThroughDiStack()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var mockWs = MockWebSocketServer.Start();
+        await using var harness = await TestHarness.CreateAsync(opts =>
+        {
+            opts.WebSocketBaseUrl = mockWs.Url;
+            opts.TickleIntervalSeconds = 3600;
+            opts.WebSocketHeartbeatIntervalSeconds = 3600;
+        });
+
+        using var drops = new DropCapture();
+
+        await harness.Client.Streaming.ConnectAsync(ct);
+
+        var subscription = await harness.Client.Streaming.OrderUpdatesAsync(cancellationToken: ct);
+
+        var received = new List<OrderUpdate>();
+        var bothSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var observer = subscription.Stream.Subscribe(new StreamObserver<OrderUpdate>(
+            onNext: o =>
+            {
+                lock (received)
+                {
+                    received.Add(o);
+                    if (received.Count == 2)
+                    {
+                        bothSeen.TrySetResult();
+                    }
+                }
+            },
+            onError: ex => bothSeen.TrySetException(ex),
+            onCompleted: () => { }));
+
+        await WaitForMessageAsync(mockWs, "sor+{}", ct);
+
+        await mockWs.BroadcastTextAsync(
+            """
+            {"topic":"sor","args":[
+              {"orderId":1,"conid":265598},
+              {"orderId":"bad","conid":"garbage-object"},
+              {"orderId":2,"conid":272093}
+            ]}
+            """, ct);
+
+        await bothSeen.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+        List<OrderUpdate> snapshot;
+        lock (received)
+        {
+            snapshot = [.. received];
+        }
+
+        snapshot.Select(o => o.OrderId).ShouldBe(["1", "2"]);
+        await WaitForDropAsync(drops, "sor", ct);
+        drops.Drops.ShouldContain(d => d.Topic == "sor" && d.Cause == "mapper");
+    }
+
+    /// <summary>
+    /// WIR-1 for the single-frame <c>ssd</c> family: a <c>ssd</c> frame with one malformed row must
+    /// deliver the frame with its good rows intact while counting the bad row (topic=ssd, cause=mapper).
+    /// </summary>
+    [Fact]
+    public async Task AccountSummary_FrameWithOneMalformedRow_DeliversRemainingAndCountsDropThroughDiStack()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var mockWs = MockWebSocketServer.Start();
+        await using var harness = await TestHarness.CreateAsync(opts =>
+        {
+            opts.WebSocketBaseUrl = mockWs.Url;
+            opts.TickleIntervalSeconds = 3600;
+            opts.WebSocketHeartbeatIntervalSeconds = 3600;
+        });
+
+        using var drops = new DropCapture();
+
+        await harness.Client.Streaming.ConnectAsync(ct);
+
+        var subscription = await harness.Client.Streaming.AccountSummaryAsync("DUO873728", cancellationToken: ct);
+
+        var firstUpdate = new TaskCompletionSource<AccountSummaryUpdate>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var observer = subscription.Stream.Subscribe(new StreamObserver<AccountSummaryUpdate>(
+            onNext: u => firstUpdate.TrySetResult(u),
+            onError: ex => firstUpdate.TrySetException(ex),
+            onCompleted: () => { }));
+
+        await WaitForMessageAsync(mockWs, "ssd+DUO873728+{}", ct);
+
+        await mockWs.BroadcastTextAsync(
+            """
+            {"topic":"ssd+DUO873728","result":[
+              {"key":"Good","currency":"USD","monetaryValue":100},
+              {"key":"Bad","monetaryValue":"garbage-object"}
+            ]}
+            """, ct);
+
+        var update = await firstUpdate.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+        update.Result.Count.ShouldBe(1);
+        update.Result[0].Key.ShouldBe("Good");
+        await WaitForDropAsync(drops, "ssd", ct);
+        drops.Drops.ShouldContain(d => d.Topic == "ssd" && d.Cause == "mapper");
+    }
+
+    /// <summary>
+    /// PRB-3.3 end-to-end: the captured non-monetary <c>ssd</c> row (e.g.
+    /// <c>{"key":"Cushion","value":"1"}</c>) must surface with <c>Value == "1"</c> through the
+    /// DI-composed client rather than being lost.
+    /// </summary>
+    [Fact]
+    public async Task AccountSummary_ServerOriginatedNonMonetaryRow_SurfacesValueThroughDiStack()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var mockWs = MockWebSocketServer.Start();
+        await using var harness = await TestHarness.CreateAsync(opts =>
+        {
+            opts.WebSocketBaseUrl = mockWs.Url;
+            opts.TickleIntervalSeconds = 3600;
+            opts.WebSocketHeartbeatIntervalSeconds = 3600;
+        });
+
+        await harness.Client.Streaming.ConnectAsync(ct);
+
+        var subscription = await harness.Client.Streaming.AccountSummaryAsync("DUO873728", cancellationToken: ct);
+
+        var firstUpdate = new TaskCompletionSource<AccountSummaryUpdate>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var observer = subscription.Stream.Subscribe(new StreamObserver<AccountSummaryUpdate>(
+            onNext: u => firstUpdate.TrySetResult(u),
+            onError: ex => firstUpdate.TrySetException(ex),
+            onCompleted: () => { }));
+
+        await WaitForMessageAsync(mockWs, "ssd+DUO873728+{}", ct);
+
+        await mockWs.BroadcastTextAsync(
+            """{"topic":"ssd+DUO873728","result":[{"key":"Cushion","value":"1","severity":0,"timestamp":1783031080}]}""", ct);
+
+        var update = await firstUpdate.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+        update.Result.Count.ShouldBe(1);
+        update.Result[0].Key.ShouldBe("Cushion");
+        update.Result[0].Value.ShouldBe("1");
+        update.Result[0].MonetaryValue.ShouldBeNull();
+    }
+
+    /// <summary>
+    /// WIR-5 end-to-end: an <c>smd</c> frame whose <c>_updated</c> arrives as a quoted string must map
+    /// instead of throwing (which would drop the frame), surfacing through the DI-composed client.
+    /// </summary>
+    [Fact]
+    public async Task MarketData_ServerOriginatedStringUpdated_MapsThroughDiStack()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var mockWs = MockWebSocketServer.Start();
+        await using var harness = await TestHarness.CreateAsync(opts =>
+        {
+            opts.WebSocketBaseUrl = mockWs.Url;
+            opts.TickleIntervalSeconds = 3600;
+            opts.WebSocketHeartbeatIntervalSeconds = 3600;
+        });
+
+        await harness.Client.Streaming.ConnectAsync(ct);
+
+        var subscription = await harness.Client.Streaming.MarketDataAsync(265598, ["31"], ct);
+
+        var firstTick = new TaskCompletionSource<MarketDataTick>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var observer = subscription.Stream.Subscribe(new StreamObserver<MarketDataTick>(
+            onNext: t => firstTick.TrySetResult(t),
+            onError: ex => firstTick.TrySetException(ex),
+            onCompleted: () => { }));
+
+        await WaitForMessageAsync(mockWs, """smd+265598+{"fields":["31"]}""", ct);
+
+        await mockWs.BroadcastTextAsync(
+            """{"topic":"smd+265598","_updated":"1717171717000","31":"647.09"}""", ct);
+
+        var tick = await firstTick.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+        tick.Conid.ShouldBe(265598);
+        tick.Updated.ShouldBe(1717171717000L);
+        tick.Fields.ShouldNotBeNull();
+        tick.Fields!["31"].ShouldBe("647.09");
+    }
+
+    private static async Task WaitForDropAsync(DropCapture drops, string topic, CancellationToken cancellationToken)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!drops.Drops.Any(d => d.Topic == topic && d.Cause == "mapper") && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+        }
+    }
+
     private static async Task WaitForMessageAsync(MockWebSocketServer mockWs, string expected, CancellationToken cancellationToken)
     {
         var deadline = DateTime.UtcNow.AddSeconds(5);

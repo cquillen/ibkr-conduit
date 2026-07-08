@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using IbkrConduit.Streaming;
 using IbkrConduit.Streaming.Mappers;
@@ -73,5 +76,82 @@ public class AccountLedgerUpdateMapperTests
         row.Key.ShouldBe("LedgerListUSD");
         row.Timestamp.ShouldBe(1700248325L);
         row.CashBalance.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Map_OneMalformedRow_YieldsRemainingRows()
+    {
+        // WIR-1 / PRB-3.2: one malformed ledger row must not discard the frame's other currencies.
+        // Per-element isolation deserializes each row independently (mirrors VCR-03 for str).
+        var frame = JsonDocument.Parse(
+            """
+            {"topic":"sld+DU1","result":[
+              {"key":"LedgerListUSD","cashbalance":100.0},
+              {"key":"LedgerListBad","cashbalance":"garbage-object"},
+              {"key":"LedgerListEUR","cashbalance":200.0}
+            ]}
+            """).RootElement;
+
+        var rows = AccountLedgerUpdateMapper.Map(frame).Result;
+
+        rows.Select(r => r.Key).ShouldBe(["LedgerListUSD", "LedgerListEUR"]);
+    }
+
+    [Fact]
+    public void Map_OneMalformedRow_ReportsExactlyOneDropToCallback()
+    {
+        var frame = JsonDocument.Parse(
+            """
+            {"topic":"sld+DU1","result":[
+              {"key":"LedgerListUSD","cashbalance":100.0},
+              {"key":"LedgerListBad","cashbalance":"garbage-object"},
+              {"key":"LedgerListEUR","cashbalance":200.0}
+            ]}
+            """).RootElement;
+
+        var dropped = new List<Exception>();
+        var update = AccountLedgerUpdateMapper.Map(frame, dropped.Add);
+
+        update.Result.Count.ShouldBe(2);
+        dropped.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Map_SubstantiveRowMissingNetLiquidationValue_ReportsCensus()
+    {
+        // WIR-5: a substantive ledger row (one reporting a cash balance) that omits
+        // netLiquidationValue raises the census so wire drift on the account-money path is observable.
+        var frame = JsonDocument.Parse(
+            """{"topic":"sld+DU1","result":[{"key":"LedgerListUSD","cashbalance":100.0,"secondKey":"USD"}]}""").RootElement;
+
+        var absent = new List<string>();
+        AccountLedgerUpdateMapper.Map(frame, onRequiredMoneyFieldAbsent: absent.Add);
+
+        absent.ShouldContain("netLiquidationValue");
+    }
+
+    [Fact]
+    public void Map_BlankEntry_ReportsNoCensus()
+    {
+        // A blank 10-second no-change entry (only key + timestamp) carries no cashbalance, so it is
+        // exempt from the census — it must not raise a false signal every interval.
+        var frame = JsonDocument.Parse(
+            """{"topic":"sld+DU1","result":[{"key":"LedgerListUSD","timestamp":1700248325}]}""").RootElement;
+
+        var absent = new List<string>();
+        AccountLedgerUpdateMapper.Map(frame, onRequiredMoneyFieldAbsent: absent.Add);
+
+        absent.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Map_SubstantiveRowWithMoneyFields_ReportsNoCensus()
+    {
+        var frame = JsonDocument.Parse(_realLedgerFrame).RootElement;
+
+        var absent = new List<string>();
+        AccountLedgerUpdateMapper.Map(frame, onRequiredMoneyFieldAbsent: absent.Add);
+
+        absent.ShouldBeEmpty();
     }
 }

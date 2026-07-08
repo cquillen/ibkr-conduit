@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -126,7 +127,7 @@ public class OrderUpdateMapperTests
             """{"topic":"sor","args":[{"orderId":1,"status":"Submitted","totalSize":100}]}""").RootElement;
 
         var absent = new List<string>();
-        OrderUpdateMapper.MapMany(frame, absent.Add).ToList();
+        OrderUpdateMapper.MapMany(frame, onRequiredMoneyFieldAbsent: absent.Add).ToList();
 
         absent.ShouldContain("price");
         absent.ShouldNotContain("totalSize");
@@ -140,7 +141,7 @@ public class OrderUpdateMapperTests
         var frame = JsonDocument.Parse(_realOrderFrame).RootElement;
 
         var absent = new List<string>();
-        OrderUpdateMapper.MapMany(frame, absent.Add).ToList();
+        OrderUpdateMapper.MapMany(frame, onRequiredMoneyFieldAbsent: absent.Add).ToList();
 
         absent.ShouldBeEmpty();
     }
@@ -153,8 +154,67 @@ public class OrderUpdateMapperTests
         var frame = JsonDocument.Parse(_realMarketOrderFrame).RootElement;
 
         var absent = new List<string>();
-        OrderUpdateMapper.MapMany(frame, absent.Add).ToList();
+        OrderUpdateMapper.MapMany(frame, onRequiredMoneyFieldAbsent: absent.Add).ToList();
 
+        absent.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void MapMany_OneMalformedElement_YieldsRemainingOrders()
+    {
+        // WIR-1 / PRB-3.2: one malformed order mid-array must not discard the frame's tail — a sor
+        // snapshot frame carries a whole day of orders. Per-element isolation deserializes each
+        // element independently so every good order is still delivered (mirrors VCR-03 for str).
+        var frame = JsonDocument.Parse(
+            """
+            {"topic":"sor","args":[
+              {"orderId":1,"conid":265598},
+              {"orderId":"bad","conid":"garbage-object"},
+              {"orderId":2,"conid":272093}
+            ]}
+            """).RootElement;
+
+        var orders = OrderUpdateMapper.MapMany(frame).ToList();
+
+        orders.Count.ShouldBe(2);
+        orders[0].OrderId.ShouldBe("1");
+        orders[1].OrderId.ShouldBe("2");
+    }
+
+    [Fact]
+    public void MapMany_OneMalformedElement_ReportsExactlyOneDropToCallback()
+    {
+        // The malformed element must be reported to the drop callback so the caller can count and
+        // log it per the VCR-02 drop taxonomy — never silently swallowed (WIR-1).
+        var frame = JsonDocument.Parse(
+            """
+            {"topic":"sor","args":[
+              {"orderId":1,"conid":265598},
+              {"orderId":"bad","conid":"garbage-object"},
+              {"orderId":2,"conid":272093}
+            ]}
+            """).RootElement;
+
+        var dropped = new List<Exception>();
+        var orders = OrderUpdateMapper.MapMany(frame, dropped.Add).ToList();
+
+        orders.Count.ShouldBe(2);
+        dropped.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void MapMany_MalformedElement_NotCensused()
+    {
+        // A dropped (malformed) element is already counted as a mapper drop; it must not also raise
+        // a census signal — the two taxonomies are distinct and must not double-count one element.
+        var frame = JsonDocument.Parse(
+            """{"topic":"sor","args":[{"orderId":"bad","conid":"garbage-object","status":"Submitted"}]}""").RootElement;
+
+        var absent = new List<string>();
+        var orders = OrderUpdateMapper.MapMany(
+            frame, onElementDropped: _ => { }, onRequiredMoneyFieldAbsent: absent.Add).ToList();
+
+        orders.ShouldBeEmpty();
         absent.ShouldBeEmpty();
     }
 }

@@ -199,6 +199,216 @@ public class StreamingOperationsTests
     }
 
     [Fact]
+    public async Task OrderUpdatesAsync_FrameWithOneMalformedElement_DeliversRemainingAndCountsDrop()
+    {
+        // WIR-1 end-to-end for sor: one malformed order still delivers the good orders and counts the
+        // bad one on the drop taxonomy (topic=sor, cause=mapper) — no whole-frame discard.
+        var ct = TestContext.Current.CancellationToken;
+        var tenantId = $"tenant-{Guid.NewGuid()}";
+        using var drops = new MeterDropCapture(tenantId);
+        var (ops, wsClient) = CreateOperationsForTenant(tenantId);
+
+        var sub = await ops.OrderUpdatesAsync(cancellationToken: ct);
+        var received = new System.Collections.Generic.List<OrderUpdate>();
+        var bothSeen = new TaskCompletionSource();
+        using var s = sub.Stream.Subscribe(new TestObserver<OrderUpdate>(
+            onNext: o =>
+            {
+                received.Add(o);
+                if (received.Count == 2)
+                {
+                    bothSeen.TrySetResult();
+                }
+            }));
+
+        var json = JsonDocument.Parse(
+            """
+            {"topic":"sor","args":[
+              {"orderId":1,"conid":265598},
+              {"orderId":"bad","conid":"garbage-object"},
+              {"orderId":2,"conid":272093}
+            ]}
+            """).RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        await bothSeen.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        received[0].OrderId.ShouldBe("1");
+        received[1].OrderId.ShouldBe("2");
+        await WaitForDropAsync(drops, "sor", ct);
+        drops.Drops.ShouldContain(("sor", "mapper"));
+    }
+
+    [Fact]
+    public async Task ProfitAndLossAsync_FrameWithOneMalformedEntry_DeliversRemainingAndCountsDrop()
+    {
+        // PRB-3.2 end-to-end for spl: one malformed per-account entry still delivers the good ones and
+        // counts the bad one (topic=spl, cause=mapper).
+        var ct = TestContext.Current.CancellationToken;
+        var tenantId = $"tenant-{Guid.NewGuid()}";
+        using var drops = new MeterDropCapture(tenantId);
+        var (ops, wsClient) = CreateOperationsForTenant(tenantId);
+
+        var sub = await ((IStreamingOperations)ops).ProfitAndLossAsync(ct);
+        var received = new System.Collections.Generic.List<PnlUpdate>();
+        var bothSeen = new TaskCompletionSource();
+        using var s = sub.Stream.Subscribe(new TestObserver<PnlUpdate>(
+            onNext: p =>
+            {
+                received.Add(p);
+                if (received.Count == 2)
+                {
+                    bothSeen.TrySetResult();
+                }
+            }));
+
+        var json = JsonDocument.Parse(
+            """
+            {"topic":"spl","args":{
+              "DU1.Core":{"dpl":1.0},
+              "DU2.Core":{"dpl":"garbage-object-value"},
+              "DU3.Core":{"dpl":3.0}
+            }}
+            """).RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        await bothSeen.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        received[0].AccountId.ShouldBe("DU1");
+        received[1].AccountId.ShouldBe("DU3");
+        await WaitForDropAsync(drops, "spl", ct);
+        drops.Drops.ShouldContain(("spl", "mapper"));
+    }
+
+    [Fact]
+    public async Task AccountSummaryAsync_FrameWithOneMalformedRow_DeliversRemainingAndCountsDrop()
+    {
+        // WIR-1 end-to-end for ssd: one malformed row still delivers the frame with its good rows and
+        // counts the bad one on the drop taxonomy (topic=ssd, cause=mapper).
+        var ct = TestContext.Current.CancellationToken;
+        var tenantId = $"tenant-{Guid.NewGuid()}";
+        using var drops = new MeterDropCapture(tenantId);
+        var (ops, wsClient) = CreateOperationsForTenant(tenantId);
+
+        var sub = await ops.AccountSummaryAsync("DU1", cancellationToken: ct);
+        var received = new TaskCompletionSource<AccountSummaryUpdate>();
+        using var s = sub.Stream.Subscribe(new TestObserver<AccountSummaryUpdate>(
+            onNext: u => received.TrySetResult(u)));
+
+        var json = JsonDocument.Parse(
+            """
+            {"topic":"ssd+DU1","result":[
+              {"key":"Good","currency":"USD","monetaryValue":100},
+              {"key":"Bad","monetaryValue":"garbage-object"}
+            ]}
+            """).RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        var update = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        update.Result.Count.ShouldBe(1);
+        update.Result[0].Key.ShouldBe("Good");
+        await WaitForDropAsync(drops, "ssd", ct);
+        drops.Drops.ShouldContain(("ssd", "mapper"));
+    }
+
+    [Fact]
+    public async Task AccountSummaryAsync_NonMonetaryRow_PreservesValueThroughOperations()
+    {
+        // PRB-3.3 end-to-end: the captured non-monetary ssd row (e.g. {"key":"Cushion","value":"1"})
+        // must surface with Value == "1" through the operations layer, not be lost.
+        var ct = TestContext.Current.CancellationToken;
+        var (ops, wsClient) = CreateOperations();
+
+        var sub = await ops.AccountSummaryAsync("DUO873728", cancellationToken: ct);
+        var received = new TaskCompletionSource<AccountSummaryUpdate>();
+        using var s = sub.Stream.Subscribe(new TestObserver<AccountSummaryUpdate>(
+            onNext: u => received.TrySetResult(u)));
+
+        var json = JsonDocument.Parse(
+            """{"topic":"ssd+DUO873728","result":[{"key":"Cushion","value":"1","severity":0,"timestamp":1783031080}]}""").RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        var update = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        update.Result[0].Value.ShouldBe("1");
+        update.Result[0].MonetaryValue.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task AccountSummaryAsync_MonetaryRowMissingMonetaryValue_RecordsMoneyFieldAbsentCensus()
+    {
+        // WIR-5 end-to-end for ssd: a monetary row missing monetaryValue feeds the census counter
+        // (topic=ssd, field=monetaryValue).
+        var ct = TestContext.Current.CancellationToken;
+        var tenantId = $"tenant-{Guid.NewGuid()}";
+        using var capture = new MeterMoneyFieldAbsentCapture(tenantId);
+        var (ops, wsClient) = CreateOperationsForTenant(tenantId);
+
+        var sub = await ops.AccountSummaryAsync("DU1", cancellationToken: ct);
+        var received = new TaskCompletionSource<AccountSummaryUpdate>();
+        using var s = sub.Stream.Subscribe(new TestObserver<AccountSummaryUpdate>(
+            onNext: u => received.TrySetResult(u)));
+
+        var json = JsonDocument.Parse(
+            """{"topic":"ssd+DU1","result":[{"key":"ExcessLiquidity-S","currency":"USD","severity":0}]}""").RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        capture.Absences.ShouldContain(("ssd", "monetaryValue"));
+    }
+
+    [Fact]
+    public async Task AccountLedgerAsync_FrameWithOneMalformedRow_DeliversRemainingAndCountsDrop()
+    {
+        // WIR-1 end-to-end for sld: one malformed ledger row still delivers the good rows and counts
+        // the bad one (topic=sld, cause=mapper).
+        var ct = TestContext.Current.CancellationToken;
+        var tenantId = $"tenant-{Guid.NewGuid()}";
+        using var drops = new MeterDropCapture(tenantId);
+        var (ops, wsClient) = CreateOperationsForTenant(tenantId);
+
+        var sub = await ops.AccountLedgerAsync("DU1", cancellationToken: ct);
+        var received = new TaskCompletionSource<AccountLedgerUpdate>();
+        using var s = sub.Stream.Subscribe(new TestObserver<AccountLedgerUpdate>(
+            onNext: u => received.TrySetResult(u)));
+
+        var json = JsonDocument.Parse(
+            """
+            {"topic":"sld+DU1","result":[
+              {"key":"LedgerListUSD","cashbalance":100.0,"netLiquidationValue":100.0},
+              {"key":"LedgerListBad","cashbalance":"garbage-object"}
+            ]}
+            """).RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        var update = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        update.Result.Count.ShouldBe(1);
+        update.Result[0].Key.ShouldBe("LedgerListUSD");
+        await WaitForDropAsync(drops, "sld", ct);
+        drops.Drops.ShouldContain(("sld", "mapper"));
+    }
+
+    [Fact]
+    public async Task AccountLedgerAsync_SubstantiveRowMissingNetLiquidationValue_RecordsMoneyFieldAbsentCensus()
+    {
+        // WIR-5 end-to-end for sld: a substantive ledger row missing netLiquidationValue feeds the
+        // census counter (topic=sld, field=netLiquidationValue).
+        var ct = TestContext.Current.CancellationToken;
+        var tenantId = $"tenant-{Guid.NewGuid()}";
+        using var capture = new MeterMoneyFieldAbsentCapture(tenantId);
+        var (ops, wsClient) = CreateOperationsForTenant(tenantId);
+
+        var sub = await ops.AccountLedgerAsync("DU1", cancellationToken: ct);
+        var received = new TaskCompletionSource<AccountLedgerUpdate>();
+        using var s = sub.Stream.Subscribe(new TestObserver<AccountLedgerUpdate>(
+            onNext: u => received.TrySetResult(u)));
+
+        var json = JsonDocument.Parse(
+            """{"topic":"sld+DU1","result":[{"key":"LedgerListUSD","cashbalance":100.0,"secondKey":"USD"}]}""").RootElement;
+        await wsClient.Channel.Writer.WriteAsync(json, ct);
+
+        await received.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        capture.Absences.ShouldContain(("sld", "netLiquidationValue"));
+    }
+
+    [Fact]
     public async Task TradeExecutionsAsync_FrameWithNoArgs_EmitsNothing()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -785,6 +995,30 @@ public class StreamingOperationsTests
         var health = new SessionHealthState();
         var ops = new StreamingOperations(wsClient, NullLoggerFactory.Instance, health, new StreamingMetrics(new TenantContext("test")));
         return (ops, wsClient, health);
+    }
+
+    private static (StreamingOperations Operations, FakeWebSocketClient Client) CreateOperationsForTenant(string tenantId)
+    {
+        var wsClient = new FakeWebSocketClient();
+        var ops = new StreamingOperations(
+            wsClient, NullLoggerFactory.Instance, new SessionHealthState(), new StreamingMetrics(new TenantContext(tenantId)));
+        return (ops, wsClient);
+    }
+
+    private static async Task WaitForDropAsync(MeterDropCapture drops, string topic, CancellationToken cancellationToken)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline)
+        {
+            foreach (var (t, cause) in drops.Drops)
+            {
+                if (t == topic && cause == "mapper")
+                {
+                    return;
+                }
+            }
+            await Task.Delay(TimeSpan.FromMilliseconds(25), cancellationToken);
+        }
     }
 
     internal sealed class FakeWebSocketClient : IIbkrWebSocketClient
