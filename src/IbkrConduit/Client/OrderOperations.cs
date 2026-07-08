@@ -35,8 +35,17 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
     private readonly IbkrClientOptions _options;
     private readonly ILogger<OrderOperations> _logger;
     private readonly TenantContext _tenant;
+    private readonly TimeProvider _timeProvider;
     private readonly Dictionary<string, object> _logScope;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _accountLocks = new();
+
+    /// <summary>
+    /// Confirmation rounds whose per-account order lock is retained (ADR-0006, §9.10), keyed by the
+    /// current reply id. A placement that returns a confirmation registers one here and does NOT
+    /// release the account lock; <see cref="ReplyAsync"/> resolves (or re-keys, on a chained question)
+    /// the round, and a <see cref="IbkrClientOptions.ConfirmationTimeout"/> timer bounds retention.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, PendingConfirmation> _pendingConfirmations = new();
 
     /// <summary>
     /// Cancels in-flight §10.6 force-clear follow-ups on disposal so a blocked follow-up unwinds
@@ -65,12 +74,20 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
     /// <param name="options">Client options.</param>
     /// <param name="logger">The logger instance.</param>
     /// <param name="tenant">Per-provider tenant identity used to tag telemetry.</param>
-    public OrderOperations(IIbkrOrderApi orderApi, IbkrClientOptions options, ILogger<OrderOperations> logger, TenantContext tenant)
+    /// <param name="timeProvider">
+    /// Clock used to arm the <see cref="IbkrClientOptions.ConfirmationTimeout"/> that bounds a retained
+    /// confirmation round (ADR-0006). Defaults to <see cref="TimeProvider.System"/> when null; tests
+    /// inject a fake clock to drive the timeout deterministically.
+    /// </param>
+    public OrderOperations(
+        IIbkrOrderApi orderApi, IbkrClientOptions options, ILogger<OrderOperations> logger,
+        TenantContext tenant, TimeProvider? timeProvider = null)
     {
         _orderApi = orderApi;
         _options = options;
         _logger = logger;
         _tenant = tenant;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _logScope = new Dictionary<string, object> { [LogFields.TenantId] = _tenant.TenantId };
     }
 
@@ -92,6 +109,7 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         var semaphore = _accountLocks.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
         await semaphore.WaitAsync(cancellationToken);
         var sw = Stopwatch.StartNew();
+        var retainLock = false;
         try
         {
             var payload = new OrdersPayload([ToWireModel(order)]);
@@ -105,6 +123,11 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             }
 
             var result = ClassifyOrderResponses(apiResult.Value, ResultFactory.GetRawBody(response), requestPath);
+
+            // ADR-0006 §9.10: a placement that returns a confirmation retains the per-account lock until
+            // the round resolves (reply/dismiss/timeout) — the finally must NOT release it here.
+            retainLock = TryRetainForConfirmation(accountId, result, semaphore);
+
             if (result.IsSuccess)
             {
                 _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
@@ -119,7 +142,10 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         }
         finally
         {
-            semaphore.Release();
+            if (!retainLock)
+            {
+                semaphore.Release();
+            }
         }
     }
 
@@ -142,6 +168,7 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         var semaphore = _accountLocks.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
         await semaphore.WaitAsync(cancellationToken);
         var sw = Stopwatch.StartNew();
+        var retainLock = false;
         try
         {
             var payload = new OrdersPayload(orders.Select(ToWireModel).ToList());
@@ -157,6 +184,10 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             // A grouped submission returns a single parent element (verified live); child
             // order ids are obtained via GetLiveOrdersAsync, correlated on the parent cOID.
             var result = ClassifyOrderResponses(apiResult.Value, ResultFactory.GetRawBody(response), requestPath);
+
+            // ADR-0006 §9.10: retain the per-account lock while a group's confirmation round is pending.
+            retainLock = TryRetainForConfirmation(accountId, result, semaphore);
+
             if (result.IsSuccess)
             {
                 _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
@@ -173,7 +204,10 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         }
         finally
         {
-            semaphore.Release();
+            if (!retainLock)
+            {
+                semaphore.Release();
+            }
         }
     }
 
@@ -377,6 +411,7 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         List<Task> pending;
+        List<PendingConfirmation> pendingConfirmations;
         lock (_followUpLock)
         {
             if (_disposed)
@@ -386,6 +421,24 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
 
             _disposed = true;
             pending = new List<Task>(_followUpTasks);
+            pendingConfirmations = new List<PendingConfirmation>(_pendingConfirmations.Values);
+            _pendingConfirmations.Clear();
+        }
+
+        // Tear down any retained confirmation round (ADR-0006 §9.10): dispose its timer so no callback
+        // fires after disposal, and release the held per-account lock so no waiter stays wedged. Guarded
+        // by the round's gate + Resolved flag so a racing timeout/reply cannot double-release.
+        foreach (var confirmation in pendingConfirmations)
+        {
+            lock (confirmation.Gate)
+            {
+                if (!confirmation.Resolved)
+                {
+                    confirmation.Resolved = true;
+                    confirmation.Timer?.Dispose();
+                    confirmation.Semaphore.Release();
+                }
+            }
         }
 
         // Signal cancellation so an in-flight follow-up's HTTP call unwinds promptly rather than
@@ -430,6 +483,7 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         var semaphore = _accountLocks.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
         await semaphore.WaitAsync(cancellationToken);
         var sw = Stopwatch.StartNew();
+        var retainLock = false;
         try
         {
             var payload = new OrdersPayload([ToWireModel(order)]);
@@ -443,6 +497,10 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             }
 
             var result = ClassifyOrderResponses(apiResult.Value, ResultFactory.GetRawBody(response), requestPath);
+
+            // ADR-0006 §9.10: a modify that returns a confirmation retains the per-account lock too.
+            retainLock = TryRetainForConfirmation(accountId, result, semaphore);
+
             if (result.IsSuccess)
             {
                 _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
@@ -457,7 +515,10 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         }
         finally
         {
-            semaphore.Release();
+            if (!retainLock)
+            {
+                semaphore.Release();
+            }
         }
     }
 
@@ -480,37 +541,73 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         var requestPath = replyApiResponse.RequestMessage?.RequestUri?.AbsolutePath;
         LogReplyRawContent(replyApiResponse.Content ?? string.Empty);
 
-        // AMB-3: route the reply 2xx through the same classification every other order path uses —
+        var result = ClassifyReplyResponse(replyApiResponse, replyId, requestPath);
+
+        // ADR-0006 §9.10: resolve (or, on a chained question, re-key) the retained confirmation round so
+        // the per-account order lock releases exactly when the round ends — not while it is still open.
+        ResolveConfirmationRound(replyId, result);
+
+        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
+    }
+
+    /// <summary>
+    /// Classifies a reply endpoint response into the order-outcome model (ADR-0006 §9.10). Two rules on
+    /// top of the shared order classification: a <b>503 on the reply endpoint</b> is an <em>invalidated
+    /// confirmation</em> — the 2026-07-07 probe pinned that the body is fully generic and, critically,
+    /// that the "refused" order can still go live — so it surfaces as an <see cref="IbkrAmbiguousOrderError"/>
+    /// (reconcile before resubmitting, ADR-0003 family), never a generic/transient 503 and never a
+    /// definitive refusal (re-placing would double-submit); and <b>every 2xx reply shape classifies</b>
+    /// (ORD-1) — an empty, whitespace, or non-JSON body surfaces as a classified error carrying the raw
+    /// body rather than an uncaught exception.
+    /// </summary>
+    private Result<OneOf<OrderSubmitted, OrderConfirmationRequired>> ClassifyReplyResponse(
+        IApiResponse<string> replyApiResponse, string replyId, string? requestPath)
+    {
+        // ORD-3 / ADR-0006: reply endpoint + 503 (contextual recognition — no wire marker) = ambiguous.
+        if (replyApiResponse.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable)
+        {
+            LogReplyInvalidated(replyId);
+            var rawBody = ResultFactory.GetRawBody(replyApiResponse) ?? replyApiResponse.Content;
+            return Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(
+                new IbkrAmbiguousOrderError(
+                    System.Net.HttpStatusCode.ServiceUnavailable,
+                    $"The reply to order confirmation '{replyId}' failed with 503 (Service Unavailable). " +
+                    "The confirmation was invalidated, but the order may still have gone live (2026-07-07 " +
+                    "probe). Reconcile via GetLiveOrdersAsync/GetTradesAsync (matching your cOID) before " +
+                    "resubmitting — never re-place, which can double-submit.",
+                    rawBody,
+                    requestPath,
+                    ReauthSucceeded: false));
+        }
+
+        // AMB-3: route the reply through the same classification every other order path uses —
         // ThrowOnSendFailure, the ADR-0003 ambiguous 401 gate, non-2xx error parsing, and bare-object
-        // hidden-error detection — instead of a bespoke IsSuccessStatusCode branch. The identity parser
-        // yields the raw body; classification of the parsed shapes happens below.
+        // hidden-error detection. The identity parser yields the raw body; the parsed shapes classify below.
         var bodyResult = ResultFactory.FromResponse(replyApiResponse, static body => body, requestPath);
         if (!bodyResult.IsSuccess)
         {
-            var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(bodyResult.Error);
-            return _options.ThrowOnApiError ? failResult.EnsureSuccess() : failResult;
+            return Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(bodyResult.Error);
         }
 
-        Result<OneOf<OrderSubmitted, OrderConfirmationRequired>> result;
         try
         {
             // WIR-4: hardened deserialize; AMB-4: empty/array-error shapes classify as refusals.
             var replyResponses = DeserializeReplyResponse(bodyResult.Value);
-            result = ClassifyOrderResponses(replyResponses, bodyResult.Value, requestPath);
+            return ClassifyOrderResponses(replyResponses, bodyResult.Value, requestPath);
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
-            // WIR-4: a 2xx body that still fails typed deserialization surfaces as a classified error,
-            // never an uncaught JsonException — so a consumer can map it to its ambiguous leg by type.
-            result = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(
+            // ORD-1 / WIR-4: EVERY 2xx reply shape must classify. Empty/whitespace/non-JSON bodies throw
+            // InvalidOperationException from DeserializeReplyResponse (and the ClassifyResponse residual);
+            // a malformed JSON body throws JsonException. Both surface as a classified error carrying the
+            // raw body — never an uncaught exception a consumer cannot map to its ambiguous leg by type.
+            return Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(
                 new IbkrApiError(
                     System.Net.HttpStatusCode.OK,
-                    "Reply response body could not be deserialized",
+                    "Reply response body could not be classified",
                     bodyResult.Value,
                     requestPath));
         }
-
-        return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <inheritdoc />
@@ -649,6 +746,138 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             $"IBKR reply endpoint returned unexpected content: {content}");
     }
 
+    /// <summary>
+    /// ADR-0006 §9.10: if <paramref name="result"/> is a confirmation-required outcome, retains the
+    /// per-account order lock by registering a <see cref="PendingConfirmation"/> keyed by its reply id
+    /// and arming the <see cref="IbkrClientOptions.ConfirmationTimeout"/>. Returns <c>true</c> when the
+    /// lock is retained (the caller's <c>finally</c> must then NOT release it); <c>false</c> otherwise —
+    /// including once disposal has begun, so no timer outlives teardown.
+    /// </summary>
+    private bool TryRetainForConfirmation(
+        string accountId,
+        Result<OneOf<OrderSubmitted, OrderConfirmationRequired>> result,
+        SemaphoreSlim semaphore)
+    {
+        if (!result.IsSuccess || !result.Value.IsT1)
+        {
+            return false;
+        }
+
+        var replyId = result.Value.AsT1.ReplyId;
+        lock (_followUpLock)
+        {
+            if (_disposed)
+            {
+                return false;
+            }
+
+            var pending = new PendingConfirmation(accountId, semaphore, replyId);
+
+            // Arm with an infinite due time first so the Timer field is assigned before the callback can
+            // ever run (a faked/fast clock could otherwise fire before the assignment), then start it.
+            var timer = _timeProvider.CreateTimer(
+                OnConfirmationTimeout, pending, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            pending.Timer = timer;
+            _pendingConfirmations[replyId] = pending;
+            timer.Change(_options.ConfirmationTimeout, Timeout.InfiniteTimeSpan);
+            LogConfirmationRetained(accountId, replyId, _options.ConfirmationTimeout);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the retained confirmation round for the replied-to <paramref name="replyId"/> based on
+    /// the reply's classified <paramref name="result"/>: a reply that returns another question re-keys
+    /// the round (the lock stays held until the chain resolves); any terminal outcome — submitted,
+    /// refused, ambiguous, or unclassifiable — releases the per-account lock. A reply for which no
+    /// in-process round is pending (a stale/cross-process/already-timed-out reply) is a no-op — the
+    /// classification stands and no lock is touched.
+    /// </summary>
+    private void ResolveConfirmationRound(
+        string replyId, Result<OneOf<OrderSubmitted, OrderConfirmationRequired>> result)
+    {
+        if (!_pendingConfirmations.TryGetValue(replyId, out var pending))
+        {
+            return;
+        }
+
+        if (result.IsSuccess && result.Value.IsT1)
+        {
+            RekeyPendingConfirmation(pending, result.Value.AsT1.ReplyId);
+        }
+        else
+        {
+            ResolvePendingConfirmation(pending);
+        }
+    }
+
+    /// <summary>
+    /// Timer callback for an expired confirmation round (ADR-0006 §9.10): releases the retained
+    /// per-account lock so the account's order flow is never wedged by a consumer that never replied.
+    /// That order's outcome is ambiguous — logged as such. Idempotent against the reply-resolution path
+    /// via the round's gate + <see cref="PendingConfirmation.Resolved"/> flag (the semaphore is released
+    /// exactly once).
+    /// </summary>
+    private void OnConfirmationTimeout(object? state)
+    {
+        var pending = (PendingConfirmation)state!;
+        lock (pending.Gate)
+        {
+            if (pending.Resolved)
+            {
+                return;
+            }
+
+            pending.Resolved = true;
+            _pendingConfirmations.TryRemove(
+                new KeyValuePair<string, PendingConfirmation>(pending.ReplyId, pending));
+            pending.Timer?.Dispose();
+            pending.Semaphore.Release();
+        }
+
+        LogConfirmationTimedOut(pending.AccountId, pending.ReplyId, _options.ConfirmationTimeout);
+    }
+
+    /// <summary>Terminally resolves a round: disposes the timer and releases the held lock exactly once.</summary>
+    private void ResolvePendingConfirmation(PendingConfirmation pending)
+    {
+        lock (pending.Gate)
+        {
+            if (pending.Resolved)
+            {
+                return;
+            }
+
+            pending.Resolved = true;
+            _pendingConfirmations.TryRemove(
+                new KeyValuePair<string, PendingConfirmation>(pending.ReplyId, pending));
+            pending.Timer?.Dispose();
+            pending.Semaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// Re-keys a round to a chained question's new reply id and restarts the confirmation timeout,
+    /// keeping the per-account lock held until the chain resolves. A no-op if the round already resolved
+    /// (the timeout fired between the wire reply and here — an extreme edge; the chain is not re-serialized).
+    /// </summary>
+    private void RekeyPendingConfirmation(PendingConfirmation pending, string newReplyId)
+    {
+        lock (pending.Gate)
+        {
+            if (pending.Resolved)
+            {
+                return;
+            }
+
+            _pendingConfirmations.TryRemove(
+                new KeyValuePair<string, PendingConfirmation>(pending.ReplyId, pending));
+            pending.ReplyId = newReplyId;
+            _pendingConfirmations[newReplyId] = pending;
+            pending.Timer?.Change(_options.ConfirmationTimeout, Timeout.InfiniteTimeSpan);
+        }
+    }
+
     private static OrderWireModel ToWireModel(OrderRequest order) =>
         new(order.Conid, order.Side, order.Quantity, order.OrderType,
             order.Price, order.AuxPrice, order.Tif, order.ManualIndicator)
@@ -673,4 +902,47 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The force=true live-orders follow-up (§10.6) failed; IBKR's filter cache may not be cleared and sor order-detail frames may be suppressed until the next unfiltered/forced call")]
     private partial void LogForceClearFollowUpFailed(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Retaining per-account order lock for account {AccountId} while confirmation {ReplyId} is pending (ADR-0006 §9.10; releases on reply/dismiss or after {Timeout})")]
+    private partial void LogConfirmationRetained(string accountId, string replyId, TimeSpan timeout);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Order confirmation {ReplyId} for account {AccountId} was not answered within {Timeout}; releasing the per-account order lock — that order's outcome is AMBIGUOUS, reconcile via live-order/trade queries before resubmitting (ADR-0006 §9.10)")]
+    private partial void LogConfirmationTimedOut(string accountId, string replyId, TimeSpan timeout);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reply to order confirmation {ReplyId} failed with 503 (invalidated confirmation); classifying as an ambiguous order outcome — the order may still have gone live, reconcile before resubmitting (ADR-0006 §9.10)")]
+    private partial void LogReplyInvalidated(string replyId);
+
+    /// <summary>
+    /// A confirmation round whose per-account order lock is retained (ADR-0006 §9.10) from the placement
+    /// that returned the confirmation until the round resolves — a reply/dismiss or the
+    /// <see cref="IbkrClientOptions.ConfirmationTimeout"/>. Its <see cref="Gate"/> serializes the
+    /// reply-resolution path against the timeout callback so the held semaphore is released exactly once.
+    /// </summary>
+    private sealed class PendingConfirmation
+    {
+        public PendingConfirmation(string accountId, SemaphoreSlim semaphore, string replyId)
+        {
+            AccountId = accountId;
+            Semaphore = semaphore;
+            ReplyId = replyId;
+        }
+
+        /// <summary>Guards <see cref="ReplyId"/>, <see cref="Resolved"/>, and the release of <see cref="Semaphore"/>.</summary>
+        public object Gate { get; } = new();
+
+        /// <summary>Account whose order lock this round holds.</summary>
+        public string AccountId { get; }
+
+        /// <summary>The retained per-account order semaphore, released exactly once when the round ends.</summary>
+        public SemaphoreSlim Semaphore { get; }
+
+        /// <summary>The current reply id (updated when a chained question re-keys the round).</summary>
+        public string ReplyId { get; set; }
+
+        /// <summary>The confirmation-timeout timer; disposed when the round resolves.</summary>
+        public ITimer? Timer { get; set; }
+
+        /// <summary>Set true by whichever of reply-resolution or timeout resolves the round first.</summary>
+        public bool Resolved { get; set; }
+    }
 }
