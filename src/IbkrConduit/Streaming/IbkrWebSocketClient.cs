@@ -79,6 +79,14 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly CancellationTokenSource _disposeCts = new();
 
     /// <summary>
+    /// Monotonic connection generation, incremented under <see cref="_connectLock"/> each time a new
+    /// socket is established in <see cref="ConnectCoreAsync"/>. A reconnect trigger captures the
+    /// generation it observed; a stale trigger whose generation the current connection has advanced
+    /// past no-ops under the lock rather than tearing down a healthy newer connection (STR-5).
+    /// </summary>
+    private long _connectionEpoch;
+
+    /// <summary>
     /// Stores the ticks value of the last received message timestamp, or 0 if none.
     /// Uses Interlocked for thread-safe access since DateTimeOffset? cannot be volatile.
     /// </summary>
@@ -178,6 +186,12 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     }
 
     /// <summary>
+    /// The current connection generation (0 before the first successful connect). Exposed for tests
+    /// asserting that a stale reconnect trigger did not advance the generation (STR-5).
+    /// </summary>
+    internal long ConnectionEpoch => Volatile.Read(ref _connectionEpoch);
+
+    /// <summary>
     /// Connects to the IBKR WebSocket API.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -251,36 +265,91 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         var entry = new TopicSubscription(topicPrefix, subscribeMessage, cancelMessage, channel.Writer);
         var writers = _subscribers.GetOrAdd(topicPrefix, _ => []);
-        lock (_subscriptionLock)
-        {
-            lock (writers)
-            {
-                writers.Add(channel.Writer);
-            }
-            _subscriptions.Add(entry);
 
-            // CON-2: a DisposeAsync that set _disposed and swept the registries between the entry
-            // guard above and this add would never complete this writer, leaving a pump that never
-            // terminates. Re-check under the same lock DisposeAsync's sweep takes; if disposed, roll
-            // the registration back and fail rather than leak a never-completed writer.
-            if (_disposed)
-            {
-                _subscriptions.Remove(entry);
-                lock (writers)
-                {
-                    writers.Remove(channel.Writer);
-                }
-                channel.Writer.TryComplete();
-                throw new ObjectDisposedException(GetType().FullName);
-            }
+        // CON-3: register and send under _connectLock so a subscribe cannot race a reconnect's
+        // replay — the replay snapshot (taken under this lock in ConnectCoreAsync) and this direct
+        // send are serialized, so each subscribe message goes out at most once per connection rather
+        // than being both replayed and direct-sent. Lock order _connectLock -> _subscriptionLock
+        // matches ConnectCoreAsync and DisposeAsync.
+        try
+        {
+            await _connectLock.WaitAsync(cancellationToken);
+        }
+        catch (ObjectDisposedException)
+        {
+            // _connectLock was disposed by a concurrent DisposeAsync — the client is gone.
+            channel.Writer.TryComplete();
+            throw new ObjectDisposedException(GetType().FullName);
         }
 
-        // Only send the subscribe message immediately if the WebSocket is
-        // already open. Otherwise leave it in the registry and let
-        // ConnectCoreAsync's replay path send it after the WebSocket opens.
-        if (_webSocket?.State == WebSocketState.Open)
+        try
         {
-            await SendTextAsync(subscribeMessage, cancellationToken);
+            lock (_subscriptionLock)
+            {
+                lock (writers)
+                {
+                    writers.Add(channel.Writer);
+                }
+                _subscriptions.Add(entry);
+
+                // CON-2: a DisposeAsync that set _disposed and swept the registries in the window
+                // between its own _connectLock release and semaphore disposal could leave us here
+                // holding the lock with _disposed already true. Re-check under the same lock
+                // DisposeAsync's sweep takes; if disposed, roll the registration back and fail rather
+                // than leak a never-completed writer.
+                if (_disposed)
+                {
+                    _subscriptions.Remove(entry);
+                    lock (writers)
+                    {
+                        writers.Remove(channel.Writer);
+                    }
+                    channel.Writer.TryComplete();
+                    throw new ObjectDisposedException(GetType().FullName);
+                }
+            }
+
+            // Only send the subscribe message immediately if the WebSocket is already open.
+            // Otherwise leave it in the registry and let ConnectCoreAsync's replay path send it after
+            // the WebSocket opens. Holding _connectLock keeps _webSocket stable across the check and
+            // the send.
+            if (_webSocket?.State == WebSocketState.Open)
+            {
+                try
+                {
+                    await SendTextAsync(subscribeMessage, cancellationToken);
+                }
+                catch
+                {
+                    // STR-4: the registration is already committed; a send that throws (socket racing
+                    // Open->Aborted, or the caller's token firing mid-send) would orphan the entry —
+                    // replayed on every reconnect into a channel nobody reads, its CancelMessage
+                    // suppressing a sibling's wire cancel via the refcount check. Roll the
+                    // registration back and complete the channel before rethrowing so a failed
+                    // subscribe leaves no registered state.
+                    lock (_subscriptionLock)
+                    {
+                        _subscriptions.Remove(entry);
+                        lock (writers)
+                        {
+                            writers.Remove(channel.Writer);
+                        }
+                    }
+                    channel.Writer.TryComplete();
+                    throw;
+                }
+            }
+        }
+        finally
+        {
+            try
+            {
+                _connectLock.Release();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Semaphore disposed by a dispose that raced our critical section — safe to ignore.
+            }
         }
 
         return (channel.Reader, ct => UnsubscribeSolicitedAsync(entry, ct));
@@ -564,6 +633,12 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         _webSocket = ws;
 
+        // A new socket is a new connection generation. Bump under _connectLock (held here) so a
+        // reconnect trigger raised against an older generation is stale and no-ops under the lock
+        // (STR-5). The heartbeat and message pump for this connection capture this generation and
+        // stamp it on any reconnect they trigger.
+        var epoch = Interlocked.Increment(ref _connectionEpoch);
+
         LogConnected();
 
         // A new socket is a new connection: reset the per-connection overflow log throttle so the
@@ -573,8 +648,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             _loggedOverflowTopics.Clear();
         }
 
-        StartHeartbeat();
-        StartMessagePump();
+        StartHeartbeat(epoch);
+        StartMessagePump(epoch);
         await ReplayActiveSubscriptionsAsync(cancellationToken);
     }
 
@@ -615,7 +690,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         _messagePumpCts = null;
     }
 
-    private void StartHeartbeat()
+    private void StartHeartbeat(long epoch)
     {
         _heartbeatCts?.Cancel();
         _heartbeatCts?.Dispose();
@@ -638,7 +713,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
                         LogHeartbeatError(ex);
-                        _ = Task.Run(() => ReconnectAsync("heartbeat_failure", _disposeCts.Token));
+                        _ = Task.Run(() => ReconnectAsync("heartbeat_failure", epoch, _disposeCts.Token));
                         break;
                     }
                 }
@@ -650,7 +725,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         }, ct);
     }
 
-    private void StartMessagePump()
+    private void StartMessagePump(long epoch)
     {
         _messagePumpCts?.Cancel();
         _messagePumpCts?.Dispose();
@@ -685,7 +760,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                         if (result.MessageType == WebSocketMessageType.Close)
                         {
                             LogWebSocketClosed();
-                            _ = Task.Run(() => ReconnectAsync("server_close", _disposeCts.Token));
+                            _ = Task.Run(() => ReconnectAsync("server_close", epoch, _disposeCts.Token));
                             break;
                         }
 
@@ -705,7 +780,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                     catch (WebSocketException ex)
                     {
                         LogWebSocketError(ex);
-                        _ = Task.Run(() => ReconnectAsync("receive_error", _disposeCts.Token));
+                        _ = Task.Run(() => ReconnectAsync("receive_error", epoch, _disposeCts.Token));
                         break;
                     }
                 }
@@ -768,7 +843,18 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         }
     }
 
-    private async Task ReconnectAsync(string reason, CancellationToken cancellationToken)
+    /// <summary>
+    /// Tears down the current socket and re-establishes it, replaying active subscriptions.
+    /// </summary>
+    /// <param name="reason">Trigger label for telemetry.</param>
+    /// <param name="observedEpoch">
+    /// The connection generation the trigger observed, or <see langword="null"/> for an unconditional
+    /// reconnect (session refresh — must reconnect to pick up new credentials regardless). When
+    /// non-null, the cycle is skipped under the lock if the current generation has advanced past it:
+    /// a stale trigger must not tear down a healthy connection established after it was raised (STR-5).
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task ReconnectAsync(string reason, long? observedEpoch, CancellationToken cancellationToken)
     {
         if (_disposed)
         {
@@ -810,6 +896,17 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                 // Re-check under the lock: a straggler that queued on the lock while DisposeAsync
                 // held it finds the client disposed and does nothing (STR-3).
                 if (_disposed)
+                {
+                    return;
+                }
+
+                // STR-5: skip a stale trigger under the lock. If the connection generation has
+                // advanced past the one this trigger observed, a newer connect already replaced the
+                // socket the trigger fired against — tearing it down would double the coverage gap and
+                // emit a redundant Disconnected/Reconnected pair, driving redundant consumer
+                // reconciliation exactly when the session is struggling. session_refresh passes null
+                // and is never skipped (it must reconnect to pick up new credentials).
+                if (observedEpoch is { } expectedEpoch && Volatile.Read(ref _connectionEpoch) != expectedEpoch)
                 {
                     return;
                 }
@@ -886,7 +983,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         }
 
         LogSessionRefreshed();
-        await ReconnectAsync("session_refresh", cancellationToken);
+
+        // Unconditional (null epoch): a re-auth changed the session/token, so the socket must be
+        // re-established regardless of its current health to reconnect with the fresh credentials.
+        await ReconnectAsync("session_refresh", observedEpoch: null, cancellationToken);
     }
 
     private async Task OnTickleSucceededAsync(CancellationToken cancellationToken)
@@ -901,10 +1001,14 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             return;
         }
 
+        // Capture the generation we observed as not-open. If a newer connect establishes a healthy
+        // socket before this reconnect runs under the lock, the trigger is stale and no-ops (STR-5).
+        var observedEpoch = Volatile.Read(ref _connectionEpoch);
+
         LogTickleWatchdogTriggeringReconnect();
         try
         {
-            await ReconnectAsync("tickle_watchdog", cancellationToken);
+            await ReconnectAsync("tickle_watchdog", observedEpoch, cancellationToken);
         }
         catch (Exception ex)
         {
