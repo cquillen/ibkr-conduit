@@ -388,7 +388,7 @@ Finding PRB-4.3 (low, CONFIRMED): in the plain `AddIbkrClient` path, `IbkrClient
 **Done when:** `await using client` plus provider disposal behaves per the recorded ownership contract with no double-run logout or gauge decrement.
 
 #### PVR-22 — Tenant eager-init failure logout
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #265 · **Stream:** PVR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Finding TEN-1 (medium, CONFIRMED): `TenantBuilder` sets `SkipLogoutOnDispose=true` unconditionally before building, and its failure path disposes only the child provider and credentials — a tenant whose eager init succeeded but whose build fails afterward leaves the server-side brokerage session live with nothing to tear it down. **`fix:`.**

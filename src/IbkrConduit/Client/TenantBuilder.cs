@@ -27,6 +27,7 @@ internal sealed class TenantBuilder(ILoggerFactory loggerFactory) : ITenantBuild
         effectiveOptions.SkipLogoutOnDispose = true;
 
         ServiceProvider? provider = null;
+        var sessionEstablished = false;
         try
         {
             var services = new ServiceCollection();
@@ -43,12 +44,35 @@ internal sealed class TenantBuilder(ILoggerFactory loggerFactory) : ITenantBuild
             // Eager: force session init then connect the stream.
             await provider.GetRequiredService<ISessionManager>()
                 .EnsureInitializedAsync(cancellationToken);
+            sessionEstablished = true;
             await provider.GetRequiredService<IIbkrWebSocketClient>()
                 .ConnectAsync(cancellationToken);
             return new ManagedTenant(provider, client, credentials, effectiveOptions.LogoutTimeout);
         }
         catch
         {
+            // TEN-1: eager init above already suppressed the child SessionManager's own
+            // dispose-time logout (SkipLogoutOnDispose), on the assumption that the returned
+            // ManagedTenant would own the single bounded logout. If a LATER step in this method
+            // fails (e.g. the eager WebSocket connect) after the session was already brought up,
+            // no ManagedTenant is ever returned to own that logout — so issue the same bounded
+            // best-effort logout here, before the provider that owns the HTTP pipeline is torn
+            // down. Bounded by (caller token ∪ effectiveOptions.LogoutTimeout), same as
+            // ManagedTenant.DisposeAsync, so a hung logout can never block this failure path.
+            if (sessionEstablished && provider is not null)
+            {
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                linked.CancelAfter(effectiveOptions.LogoutTimeout);
+                try
+                {
+                    await provider.GetRequiredService<IIbkrSessionApi>().LogoutAsync(linked.Token);
+                }
+                catch
+                {
+                    // Best-effort cleanup — a logout failure or cancellation must never block teardown.
+                }
+            }
+
             // Ownership is unconditional on failure — dispose the (possibly partially built)
             // provider AND the credentials on EVERY throw path, including a synchronous throw
             // from service construction before the provider exists (MGR-2). Success instead
