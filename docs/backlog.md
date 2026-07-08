@@ -253,7 +253,7 @@ Finding RST-2 (medium, CONFIRMED): `GetSubAccountsPagedAsync` declares the `/por
 **TDD notes:** red tests = one WireMock scenario per shape; the existing sanitized live fixture is the bare-array case.
 
 #### PVR-04 — 📦 Streaming mapper isolation wave 2 & ssd row completeness
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #273 · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-pvr-04-streaming-mapper-isolation-wave2.md
 Findings WIR-1 (high, PLAUSIBLE), PRB-3.2, PRB-3.3 (medium, PLAUSIBLE), WIR-5 (low, PLAUSIBLE): the VCR-03 per-element isolation (`TradeExecutionMapper.MapMany`'s materialize-then-yield + `onElementDropped` → `RecordMapperDrop`, on `main` since #247) was applied only to `str` — `OrderUpdateMapper`/`PnlUpdateMapper` (`sor`/`spl`) and `AccountSummaryUpdateMapper`/`AccountLedgerUpdateMapper` (`ssd`/`sld`) still drop a whole frame on one bad element; `MarketDataTickMapper` reads `_updated`/`conid` without ValueKind guards (WIR-5); `AccountSummaryRow` lacks the `value` field and `[JsonExtensionData]` escape hatch its `sld` sibling has (PRB-3.3 — D6 surface line); the money-field census is wired only for `sor`/`str`. The `AccountSummaryRow` surface line is recorded (design doc §12.5, D6); the isolation work follows the recorded VCR-03 pattern. Empirics pinned by the 2026-07-07 live probe — full topic echoes plus the 21 non-monetary `value` rows and the 24-key `sld` row shape (see stream Evidence + the spec). **Additive — `feat:`.**
