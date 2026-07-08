@@ -190,6 +190,45 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task EnsureInitializedAsync_TickleTimerLifetimeIndependentOfInitializingCallerToken()
+    {
+        // SES-2 (PVR-12): the keepalive loop's lifetime must NOT be tied to the token of whichever
+        // caller happened to initialize the session. If it were, that caller cancelling/disposing its
+        // token later (e.g. a one-off request's CTS) would silently stop keepalive and rot the session.
+        // The loop must live as long as the SessionManager; only dispose/StopAsync may end it. This
+        // pins that EnsureInitializedAsync passes the manager's own lifetime token — not the caller's —
+        // to TickleTimer.StartAsync.
+        var deps = CreateDependencies();
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        using var callerCts = new CancellationTokenSource();
+        await manager.EnsureInitializedAsync(callerCts.Token);
+
+        var timer = deps.TickleTimerFactory.CreatedTimer!;
+        timer.Started.ShouldBeTrue();
+
+        // The initializing caller cancels its token AFTER init has completed.
+        await callerCts.CancelAsync();
+
+        timer.StartToken.IsCancellationRequested.ShouldBeFalse(
+            "The tickle loop's lifetime token must be independent of the initializing caller's token — "
+            + "cancelling that caller's token must not stop keepalive.");
+
+        // Dispose must still stop the loop (cooperating with PVR-13's dispose→StopAsync flow).
+        await manager.DisposeAsync();
+        timer.Stopped.ShouldBeTrue("Dispose must still stop the tickle loop.");
+    }
+
+    [Fact]
     public async Task ReauthenticateAsync_RefreshesTokenAndReinitsSession()
     {
         var deps = CreateDependencies();
@@ -1657,9 +1696,17 @@ public class SessionManagerTests
         public bool Started { get; private set; }
         public bool Stopped { get; private set; }
 
+        /// <summary>
+        /// The cancellation token the session manager passed to <see cref="StartAsync"/>. SES-2 pins
+        /// that the keepalive loop's lifetime is tied to the SessionManager, not the initializing
+        /// caller's token, so a test can assert this token is not tripped when a caller cancels theirs.
+        /// </summary>
+        public CancellationToken StartToken { get; private set; }
+
         public Task StartAsync(CancellationToken cancellationToken)
         {
             Started = true;
+            StartToken = cancellationToken;
             return Task.CompletedTask;
         }
 

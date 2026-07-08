@@ -227,14 +227,16 @@ internal sealed partial class SessionManager : ISessionManager
                     competing: initResponse.Competing,
                     established: initResponse.Established);
 
-                // CON-1: if dispose began while this init was awaiting ssodh/init, do NOT start a
-                // tickle timer. DisposeAsync sets _state = ShuttingDown (and _disposed) and cancels
-                // _disposeCts before parking on the semaphore barrier; the timer created below is
-                // linked to the CONSUMER's token, not _disposeCts, so a timer started now would
-                // outlive dispose as a leaked tickle loop. Mirrors the ShuttingDown short-circuit in
-                // ReauthenticateAsync. This narrows the window; DisposeAsync's post-barrier StopAsync
-                // is the airtight backstop for the residual race where this check passes just before
-                // dispose flips the state.
+                // CON-1 / SES-2: if dispose began while this init was awaiting ssodh/init, do NOT start
+                // a tickle timer. DisposeAsync sets _state = ShuttingDown (and _disposed) and cancels
+                // _disposeCts before parking on the semaphore barrier. The timer created below is tied
+                // to _disposeCts (SES-2 — its lifetime is the session's, not the initializing caller's),
+                // so a timer started after that cancel would begin already-cancelled and stop on its
+                // own; the ShuttingDown short-circuit still avoids the wasted create/start and the
+                // active-session gauge races. Mirrors the ShuttingDown short-circuit in
+                // ReauthenticateAsync. DisposeAsync's post-barrier StopAsync remains the airtight
+                // backstop for the residual race where this check passes just before dispose flips
+                // the state.
                 if (_disposed || _state == SessionState.ShuttingDown)
                 {
                     return;
@@ -251,7 +253,13 @@ internal sealed partial class SessionManager : ISessionManager
                 }
 
                 _tickleTimer = _tickleTimerFactory.Create(_sessionApi, OnTickleFailureAsync);
-                await _tickleTimer.StartAsync(cancellationToken);
+
+                // SES-2 (PVR-12): the keepalive loop's lifetime is the session's, NOT the initializing
+                // caller's. Tie it to _disposeCts — not the consumer's cancellationToken — so a caller
+                // that cancels/disposes its token after init (e.g. a bounded startup CTS) does not
+                // silently stop keepalive and rot the session. Only DisposeAsync (which cancels
+                // _disposeCts and awaits StopAsync) ends the loop.
+                await _tickleTimer.StartAsync(_disposeCts.Token);
 
                 ScheduleProactiveRefresh();
 
@@ -503,8 +511,9 @@ internal sealed partial class SessionManager : ISessionManager
         // already stopped. The just-started timer has no callback in-flight, so this stops promptly
         // (no deadlock), and it runs before _semaphore/_disposeCts are disposed, so it cannot throw
         // ObjectDisposedException. This must NOT replace the pre-barrier stop: a tickle-callback
-        // reauth (on the tickle token, not _disposeCts) can hold the semaphore, so the pre-barrier
-        // stop is still needed to drain it and let the WaitAsync above proceed.
+        // reauth can hold the semaphore, so the pre-barrier stop is still needed to AWAIT the tickle
+        // background task to completion (draining that reauth — now cancelled via the SES-2 tickle
+        // token's link to _disposeCts) and let the WaitAsync above proceed.
         if (_tickleTimer != null)
         {
             await _tickleTimer.StopAsync();

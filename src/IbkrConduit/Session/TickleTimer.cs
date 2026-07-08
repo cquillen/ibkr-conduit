@@ -157,6 +157,9 @@ internal sealed partial class TickleTimer : ITickleTimer
     [LoggerMessage(Level = LogLevel.Warning, Message = "Tickle-succeeded notification threw")]
     private partial void LogTickleNotificationFailed(Exception exception);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Re-authentication triggered by the tickle loop failed — keepalive continues at the failure cadence and will retry on the next tickle")]
+    private partial void LogReauthCallbackFailed(Exception exception);
+
     private void UpdateSessionHealthState(TickleAuthStatus? authStatus)
     {
         if (authStatus is null)
@@ -169,6 +172,31 @@ internal sealed partial class TickleTimer : ITickleTimer
             connected: authStatus.Connected,
             competing: authStatus.Competing,
             established: authStatus.Established);
+    }
+
+    /// <summary>
+    /// Invokes the re-auth failure callback, absorbing any non-cancellation exception it throws.
+    /// SES-1 (PVR-12): the tickle loop's 401 branch awaits this callback from inside a <c>catch</c>,
+    /// so a reauth attempt that throws — a transient blip during recovery — would otherwise escape the
+    /// enclosing catch and permanently kill the keepalive loop, rotting the session on a single failure.
+    /// Cancellation (shutdown) still propagates so the loop terminates cleanly; every other exception is
+    /// logged and swallowed so the loop keeps ticking at the failure cadence and retries on the next cycle.
+    /// </summary>
+    private async Task InvokeReauthCallbackAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _onFailure(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Shutdown — let the loop terminate.
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogReauthCallbackFailed(ex);
+        }
     }
 
     private async Task RunAsync(CancellationToken cancellationToken)
@@ -205,7 +233,7 @@ internal sealed partial class TickleTimer : ITickleTimer
                         new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
                     _lastTickleSucceeded = false;
                     LogSessionNotAuthenticated();
-                    await _onFailure(cancellationToken);
+                    await InvokeReauthCallbackAsync(cancellationToken);
                 }
                 else
                 {
@@ -256,7 +284,7 @@ internal sealed partial class TickleTimer : ITickleTimer
                     _consecutiveTransportFailures = 0;
                     _sessionHealthState.SetFailed("Tickle returned HTTP 401 — session no longer authenticated");
                     LogTickleUnauthorized();
-                    await _onFailure(cancellationToken);
+                    await InvokeReauthCallbackAsync(cancellationToken);
                 }
                 else
                 {
