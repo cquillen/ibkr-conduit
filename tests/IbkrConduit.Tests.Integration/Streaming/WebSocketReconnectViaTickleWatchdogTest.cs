@@ -44,6 +44,7 @@ namespace IbkrConduit.Tests.Integration.Streaming;
 /// scaffolding the integration harness does not provide.
 /// </para>
 /// </remarks>
+[Collection("Slow real-timer")]
 public class WebSocketReconnectViaTickleWatchdogTest : IAsyncLifetime, IDisposable
 {
     private TestHarness _harness = null!;

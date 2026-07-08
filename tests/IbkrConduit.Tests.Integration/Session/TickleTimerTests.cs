@@ -11,6 +11,7 @@ namespace IbkrConduit.Tests.Integration.Session;
 /// Tagged as "Slow" — excluded from CI via --filter-not-trait "Category=Slow".
 /// Run explicitly: dotnet test -- --filter-trait "Category=Slow"
 /// </summary>
+[Collection("Slow real-timer")]
 public class TickleTimerTests : IAsyncLifetime, IDisposable
 {
     private TestHarness _harness = null!;
