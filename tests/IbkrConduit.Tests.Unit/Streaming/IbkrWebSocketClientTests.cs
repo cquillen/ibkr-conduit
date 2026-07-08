@@ -147,13 +147,13 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
-    public async Task MessagePump_RoutesMessagesByTopicPrefix()
+    public async Task MessagePump_RoutesMessagesByFullTopicIdentity()
     {
         await using var client = CreateClient();
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (reader, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+265598+{\"fields\":[\"31\"]}", "smd", "umd+265598+{}",
+            "smd+265598+{\"fields\":[\"31\"]}", "smd+265598", "umd+265598+{}",
             TestContext.Current.CancellationToken);
 
         _adapter.EnqueueServerMessage("""{"topic":"smd+265598","31":"150.25"}""");
@@ -166,13 +166,139 @@ public class IbkrWebSocketClientTests
     }
 
     [Fact]
+    public async Task SubscribeTopicAsync_TwoDifferentTargets_EachReceivesOnlyItsOwnFrames()
+    {
+        // ADR-0005 / PRB-1.1/1.2: two subscriptions registered under different full topic identities
+        // (smd+100, smd+200) each receive only their own target's frames — never the other's.
+        var ct = TestContext.Current.CancellationToken;
+        await using var client = CreateClient();
+        await client.ConnectAsync(ct);
+
+        var (readerA, _) = await client.SubscribeTopicAsync("smd+100+{}", "smd+100", null, ct);
+        var (readerB, _) = await client.SubscribeTopicAsync("smd+200+{}", "smd+200", null, ct);
+
+        _adapter.EnqueueServerMessage("""{"topic":"smd+100","31":"a"}""");
+        _adapter.EnqueueServerMessage("""{"topic":"smd+200","31":"b"}""");
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var a = await readerA.ReadAsync(cts.Token);
+        var b = await readerB.ReadAsync(cts.Token);
+
+        a.GetProperty("topic").GetString().ShouldBe("smd+100");
+        b.GetProperty("topic").GetString().ShouldBe("smd+200");
+        readerA.TryRead(out _).ShouldBeFalse("subscription A must not receive conid 200's frame");
+        readerB.TryRead(out _).ShouldBeFalse("subscription B must not receive conid 100's frame");
+    }
+
+    [Fact]
+    public async Task SubscribeTopicAsync_SameTarget_BothSubscribersReceiveEveryFrame()
+    {
+        // ADR-0005 §3: two subscriptions for the same full topic identity fan out — each receives
+        // every frame, consistent with the cancel refcounting.
+        var ct = TestContext.Current.CancellationToken;
+        await using var client = CreateClient();
+        await client.ConnectAsync(ct);
+
+        var (readerA, _) = await client.SubscribeTopicAsync("smd+100+{\"fields\":[\"31\"]}", "smd+100", "umd+100+{}", ct);
+        var (readerB, _) = await client.SubscribeTopicAsync("smd+100+{\"fields\":[\"84\"]}", "smd+100", "umd+100+{}", ct);
+
+        _adapter.EnqueueServerMessage("""{"topic":"smd+100","31":"z"}""");
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var a = await readerA.ReadAsync(cts.Token);
+        var b = await readerB.ReadAsync(cts.Token);
+
+        a.GetProperty("topic").GetString().ShouldBe("smd+100");
+        b.GetProperty("topic").GetString().ShouldBe("smd+100");
+    }
+
+    [Fact]
+    public async Task ProcessMessage_TargetQualifiedFrameWithNoSubscription_DropsUnmatchedAndDeliversToNoOne()
+    {
+        // ADR-0005 §4: a target-qualified frame whose full topic matches no live subscription drops
+        // observably (cause=unmatched) and reaches no same-prefix subscriber.
+        var ct = TestContext.Current.CancellationToken;
+        const string tenantId = "ws-unmatched-tenant";
+        using var drops = new MeterDropCapture(tenantId);
+        var tenant = new TenantContext(tenantId);
+
+        await using var client = new IbkrWebSocketClient(
+            _sessionApi,
+            _sessionManager,
+            _credentials,
+            _notifier,
+            NullLogger<IbkrWebSocketClient>.Instance,
+            () => _adapter,
+            heartbeatIntervalSeconds: 30,
+            streamingBufferSize: 16,
+            tenant: tenant,
+            metrics: new StreamingMetrics(tenant),
+            timeProvider: null);
+
+        await client.ConnectAsync(ct);
+
+        var (reader, _) = await client.SubscribeTopicAsync("smd+100+{}", "smd+100", null, ct);
+        await _adapter.WaitForReceiveAsync(ct);
+
+        // An unmatched conid first, then the subscription's own frame.
+        _adapter.EnqueueServerMessage("""{"topic":"smd+999","31":"x"}""");
+        _adapter.EnqueueServerMessage("""{"topic":"smd+100","31":"y"}""");
+        await _adapter.WaitForReceiveAsync(ct);
+        await _adapter.WaitForReceiveAsync(ct);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var msg = await reader.ReadAsync(cts.Token);
+        msg.GetProperty("topic").GetString().ShouldBe("smd+100");
+        reader.TryRead(out _).ShouldBeFalse("the unmatched conid frame must not be delivered to the subscription");
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!drops.Drops.Contains(("smd", "unmatched")) && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+        drops.Drops.ShouldContain(("smd", "unmatched"));
+    }
+
+    [Fact]
+    public async Task ProcessMessage_MultipleUnmatchedFramesSamePrefix_LogsWarningOnce()
+    {
+        // ADR-0005 §4: the first unmatched frame per prefix per connection logs a Warning; subsequent
+        // unmatched frames on that prefix are counted, not logged (log-throttle, anti-flood).
+        var ct = TestContext.Current.CancellationToken;
+        var logger = new CapturingLogger();
+        await using var client = CreateClient(logger: logger);
+        await client.ConnectAsync(ct);
+
+        await client.SubscribeTopicAsync("smd+100+{}", "smd+100", null, ct);
+        await _adapter.WaitForReceiveAsync(ct);
+
+        _adapter.EnqueueServerMessage("""{"topic":"smd+998","31":"a"}""");
+        _adapter.EnqueueServerMessage("""{"topic":"smd+999","31":"b"}""");
+        await _adapter.WaitForReceiveAsync(ct);
+        await _adapter.WaitForReceiveAsync(ct);
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!logger.Messages.Any(m => m.Level == LogLevel.Warning
+            && m.Formatted.Contains("unmatched", StringComparison.Ordinal)) && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        logger.Messages
+            .Count(m => m.Level == LogLevel.Warning
+                && m.Formatted.Contains("unmatched", StringComparison.Ordinal)
+                && m.Formatted.Contains("smd", StringComparison.Ordinal))
+            .ShouldBe(1);
+    }
+
+    [Fact]
     public async Task MessagePump_IgnoresUnknownTopics()
     {
         await using var client = CreateClient();
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (reader, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+123+{}", "smd", null,
+            "smd+123+{}", "smd+123", null,
             TestContext.Current.CancellationToken);
 
         // Send a message with an unknown topic -- should not crash
@@ -195,7 +321,7 @@ public class IbkrWebSocketClientTests
 
         var subscribeMsg = "smd+265598+{\"fields\":[\"31\"]}";
         var (_, unsubscribe) = await client.SubscribeTopicAsync(
-            subscribeMsg, "smd", "umd+265598+{}",
+            subscribeMsg, "smd+265598", "umd+265598+{}",
             TestContext.Current.CancellationToken);
 
         _adapter.SentMessages.ShouldContain(subscribeMsg);
@@ -209,7 +335,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (_, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+123+{}", "smd", null,
+            "smd+123+{}", "smd+123", null,
             TestContext.Current.CancellationToken);
 
         _adapter.SentMessages.ShouldContain("smd+123+{}");
@@ -225,7 +351,7 @@ public class IbkrWebSocketClientTests
 
         var sub1 = "smd+100+{}";
         var sub2 = "sor+{}";
-        var (_, unsub1) = await client.SubscribeTopicAsync(sub1, "smd", null,
+        var (_, unsub1) = await client.SubscribeTopicAsync(sub1, "smd+100", null,
             TestContext.Current.CancellationToken);
         var (_, unsub2) = await client.SubscribeTopicAsync(sub2, "sor", "uor+{}",
             TestContext.Current.CancellationToken);
@@ -340,7 +466,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (reader, _) = await client.SubscribeTopicAsync(
-            "smd+123+{}", "smd", null,
+            "smd+123+{}", "smd+123", null,
             TestContext.Current.CancellationToken);
 
         await client.DisposeAsync();
@@ -358,7 +484,7 @@ public class IbkrWebSocketClientTests
         await client.DisposeAsync();
 
         await Should.ThrowAsync<ObjectDisposedException>(
-            () => client.SubscribeTopicAsync("smd+123+{}", "smd", null, ct));
+            () => client.SubscribeTopicAsync("smd+123+{}", "smd+123", null, ct));
     }
 
     [Fact]
@@ -368,7 +494,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (reader, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+265598+{\"fields\":[\"31\"]}", "smd", null,
+            "smd+265598+{\"fields\":[\"31\"]}", "smd+265598", null,
             TestContext.Current.CancellationToken);
 
         _adapter.EnqueueServerMessage("not json");
@@ -388,7 +514,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (reader, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+123+{}", "smd", null,
+            "smd+123+{}", "smd+123", null,
             TestContext.Current.CancellationToken);
 
         _adapter.EnqueueServerMessage("""{"topic":"tic"}""");
@@ -533,7 +659,7 @@ public class IbkrWebSocketClientTests
         var ct = TestContext.Current.CancellationToken;
 
         var (reader, _) = await client.SubscribeTopicAsync(
-            "smd+265598+{}", "smd", null, ct);
+            "smd+265598+{}", "smd+265598", null, ct);
 
         // Drain the startup signal: the pump started and called ReceiveAsync once already.
         await _adapter.WaitForReceiveAsync(ct);
@@ -574,7 +700,7 @@ public class IbkrWebSocketClientTests
         await using var client = CreateClient();
         await client.ConnectAsync(TestContext.Current.CancellationToken);
         await client.SubscribeTopicAsync(
-            "smd+265598+{}", "smd", null, TestContext.Current.CancellationToken);
+            "smd+265598+{}", "smd+265598", null, TestContext.Current.CancellationToken);
 
         // Reset the adapter's send tracking by counting messages sent so far.
         var sentBeforeReconnect = _adapter.SentMessages.Count;
@@ -600,7 +726,7 @@ public class IbkrWebSocketClientTests
 
         // Do NOT call ConnectAsync first.
         await client.SubscribeTopicAsync(
-            "smd+265598+{}", "smd", null, TestContext.Current.CancellationToken);
+            "smd+265598+{}", "smd+265598", null, TestContext.Current.CancellationToken);
 
         _adapter.ConnectCallCount.ShouldBe(0);
         _adapter.SentMessages.ShouldNotContain("smd+265598+{}");
@@ -612,7 +738,7 @@ public class IbkrWebSocketClientTests
         await using var client = CreateClient();
 
         await client.SubscribeTopicAsync(
-            "smd+265598+{}", "smd", null, TestContext.Current.CancellationToken);
+            "smd+265598+{}", "smd+265598", null, TestContext.Current.CancellationToken);
         _adapter.SentMessages.ShouldNotContain("smd+265598+{}");
 
         await client.ConnectAsync(TestContext.Current.CancellationToken);
@@ -746,7 +872,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (_, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+265598+{\"fields\":[\"31\"]}", "smd", null,
+            "smd+265598+{\"fields\":[\"31\"]}", "smd+265598", null,
             TestContext.Current.CancellationToken);
 
         logger.Messages.ShouldContain(m =>
@@ -795,7 +921,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (_, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+265598+{\"fields\":[\"31\"]}", "smd", null,
+            "smd+265598+{\"fields\":[\"31\"]}", "smd+265598", null,
             TestContext.Current.CancellationToken);
 
         logger.Messages.ShouldNotContain(m =>
@@ -987,7 +1113,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (_, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+265598+{\"fields\":[\"31\"]}", "smd", "umd+265598+{}",
+            "smd+265598+{\"fields\":[\"31\"]}", "smd+265598", "umd+265598+{}",
             TestContext.Current.CancellationToken);
 
         await unsubscribe(TestContext.Current.CancellationToken);
@@ -1002,7 +1128,7 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (_, unsubscribe) = await client.SubscribeTopicAsync(
-            "smd+1+{}", "smd", cancelMessage: null,
+            "smd+1+{}", "smd+1", cancelMessage: null,
             TestContext.Current.CancellationToken);
         while (_adapter.SentMessages.TryDequeue(out _)) { }
 
@@ -1019,9 +1145,9 @@ public class IbkrWebSocketClientTests
 
         // Two subscriptions for the SAME conid -> same cancel message.
         var (_, unsub1) = await client.SubscribeTopicAsync(
-            "smd+7+{\"fields\":[\"31\"]}", "smd", "umd+7+{}", TestContext.Current.CancellationToken);
+            "smd+7+{\"fields\":[\"31\"]}", "smd+7", "umd+7+{}", TestContext.Current.CancellationToken);
         var (_, unsub2) = await client.SubscribeTopicAsync(
-            "smd+7+{\"fields\":[\"84\"]}", "smd", "umd+7+{}", TestContext.Current.CancellationToken);
+            "smd+7+{\"fields\":[\"84\"]}", "smd+7", "umd+7+{}", TestContext.Current.CancellationToken);
         while (_adapter.SentMessages.TryDequeue(out _)) { }
 
         await unsub1(TestContext.Current.CancellationToken);
@@ -1081,9 +1207,9 @@ public class IbkrWebSocketClientTests
         await client.ConnectAsync(TestContext.Current.CancellationToken);
 
         var (_, unsub7) = await client.SubscribeTopicAsync(
-            "smd+7+{\"fields\":[\"31\"]}", "smd", "umd+7+{}", TestContext.Current.CancellationToken);
+            "smd+7+{\"fields\":[\"31\"]}", "smd+7", "umd+7+{}", TestContext.Current.CancellationToken);
         var (_, unsub8) = await client.SubscribeTopicAsync(
-            "smd+8+{\"fields\":[\"31\"]}", "smd", "umd+8+{}", TestContext.Current.CancellationToken);
+            "smd+8+{\"fields\":[\"31\"]}", "smd+8", "umd+8+{}", TestContext.Current.CancellationToken);
         while (_adapter.SentMessages.TryDequeue(out _)) { }
 
         await unsub7(TestContext.Current.CancellationToken);
@@ -1150,7 +1276,7 @@ public class IbkrWebSocketClientTests
 
         await client.ConnectAsync(ct);
 
-        var (reader, _) = await client.SubscribeTopicAsync("smd+265598+{}", "smd", null, ct);
+        var (reader, _) = await client.SubscribeTopicAsync("smd+265598+{}", "smd+265598", null, ct);
 
         // Drain the startup signal: the pump started and called ReceiveAsync once already.
         await _adapter.WaitForReceiveAsync(ct);
@@ -1370,7 +1496,7 @@ public class IbkrWebSocketClientTests
                 start.Wait(ct);
                 try
                 {
-                    var (r, _) = await client.SubscribeTopicAsync("smd+1+{}", "smd", null, ct);
+                    var (r, _) = await client.SubscribeTopicAsync("smd+1+{}", "smd+1", null, ct);
                     reader = r;
                 }
                 catch (ObjectDisposedException)
@@ -1573,7 +1699,7 @@ public class IbkrWebSocketClientTests
         // it runs synchronously up to _connectLock.WaitAsync, then parks — deterministic. It must NOT
         // register mid-reconnect (which would let replay and its own send both fire the topic).
         const string subscribeMessage = "smd+265598+{}";
-        var subscribeTask = client.SubscribeTopicAsync(subscribeMessage, "smd", null, ct);
+        var subscribeTask = client.SubscribeTopicAsync(subscribeMessage, "smd+265598", null, ct);
 
         subscribeTask.IsCompleted.ShouldBeFalse(
             "the subscribe must block on the connect lock during an in-flight reconnect");

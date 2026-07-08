@@ -23,7 +23,7 @@ public class StreamingOperationsTests
         await ops.MarketDataAsync(265598, new[] { "31", "84", "86" }, TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("smd+265598+{\"fields\":[\"31\",\"84\",\"86\"]}");
-        wsClient.LastTopicPrefix.ShouldBe("smd");
+        wsClient.LastRoutingKey.ShouldBe("smd+265598");
         wsClient.LastCancelMessage.ShouldBe("umd+265598+{}");
     }
 
@@ -35,7 +35,7 @@ public class StreamingOperationsTests
         await ops.OrderUpdatesAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("sor+{}");
-        wsClient.LastTopicPrefix.ShouldBe("sor");
+        wsClient.LastRoutingKey.ShouldBe("sor");
         wsClient.LastCancelMessage.ShouldBe("uor+{}");
     }
 
@@ -47,7 +47,7 @@ public class StreamingOperationsTests
         await ops.OrderUpdatesAsync(days: 3, cancellationToken: TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("sor+{\"days\":3}");
-        wsClient.LastTopicPrefix.ShouldBe("sor");
+        wsClient.LastRoutingKey.ShouldBe("sor");
         wsClient.LastCancelMessage.ShouldBe("uor+{}");
     }
 
@@ -59,7 +59,7 @@ public class StreamingOperationsTests
         await ops.TradeExecutionsAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("str+{}");
-        wsClient.LastTopicPrefix.ShouldBe("str");
+        wsClient.LastRoutingKey.ShouldBe("str");
         wsClient.LastCancelMessage.ShouldBe("utr");
     }
 
@@ -71,7 +71,7 @@ public class StreamingOperationsTests
         await ops.TradeExecutionsAsync(realtimeUpdatesOnly: true, cancellationToken: TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("str+{\"realtimeUpdatesOnly\":true}");
-        wsClient.LastTopicPrefix.ShouldBe("str");
+        wsClient.LastRoutingKey.ShouldBe("str");
         wsClient.LastCancelMessage.ShouldBe("utr");
     }
 
@@ -83,7 +83,7 @@ public class StreamingOperationsTests
         await ops.TradeExecutionsAsync(realtimeUpdatesOnly: false, cancellationToken: TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("str+{\"realtimeUpdatesOnly\":false}");
-        wsClient.LastTopicPrefix.ShouldBe("str");
+        wsClient.LastRoutingKey.ShouldBe("str");
         wsClient.LastCancelMessage.ShouldBe("utr");
     }
 
@@ -95,7 +95,7 @@ public class StreamingOperationsTests
         await ops.TradeExecutionsAsync(days: 3, cancellationToken: TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("str+{\"days\":3}");
-        wsClient.LastTopicPrefix.ShouldBe("str");
+        wsClient.LastRoutingKey.ShouldBe("str");
         wsClient.LastCancelMessage.ShouldBe("utr");
     }
 
@@ -107,7 +107,7 @@ public class StreamingOperationsTests
         await ops.TradeExecutionsAsync(realtimeUpdatesOnly: true, days: 3, cancellationToken: TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("str+{\"realtimeUpdatesOnly\":true,\"days\":3}");
-        wsClient.LastTopicPrefix.ShouldBe("str");
+        wsClient.LastRoutingKey.ShouldBe("str");
         wsClient.LastCancelMessage.ShouldBe("utr");
     }
 
@@ -437,7 +437,7 @@ public class StreamingOperationsTests
         await ops.ProfitAndLossAsync(TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("spl+{}");
-        wsClient.LastTopicPrefix.ShouldBe("spl");
+        wsClient.LastRoutingKey.ShouldBe("spl");
         wsClient.LastCancelMessage.ShouldBe("upl+{}");
     }
 
@@ -449,7 +449,7 @@ public class StreamingOperationsTests
         await ops.AccountSummaryAsync("DU1234567", cancellationToken: TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("ssd+DU1234567+{}");
-        wsClient.LastTopicPrefix.ShouldBe("ssd");
+        wsClient.LastRoutingKey.ShouldBe("ssd+DU1234567");
         wsClient.LastCancelMessage.ShouldBe("usd+DU1234567+{}");
     }
 
@@ -487,7 +487,7 @@ public class StreamingOperationsTests
         await ops.AccountLedgerAsync("DU1234567", cancellationToken: TestContext.Current.CancellationToken);
 
         wsClient.LastSubscribeMessage.ShouldBe("sld+DU1234567+{}");
-        wsClient.LastTopicPrefix.ShouldBe("sld");
+        wsClient.LastRoutingKey.ShouldBe("sld+DU1234567");
         wsClient.LastCancelMessage.ShouldBe("uld+DU1234567+{}");
     }
 
@@ -982,6 +982,81 @@ public class StreamingOperationsTests
         Should.Throw<InvalidOperationException>(() => sub.Stream.Subscribe(new TestObserver<ConnectionEvent>()));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task MarketDataAsync_NonPositiveConid_ThrowsArgumentExceptionBeforeSubscribing(int conid)
+    {
+        // PRB-1.3: the conid target segment is validated at the facade before any subscribe reaches
+        // the wire — a non-positive conid is rejected, and no subscribe message is built.
+        var (ops, wsClient) = CreateOperations();
+
+        await Should.ThrowAsync<ArgumentException>(() =>
+            ops.MarketDataAsync(conid, new[] { "31" }, TestContext.Current.CancellationToken));
+
+        wsClient.LastSubscribeMessage.ShouldBeNull("validation must reject before any subscribe is sent.");
+    }
+
+    [Theory]
+    [InlineData("DU12+34")]
+    [InlineData("DU12 34")]
+    [InlineData("DU12\t34")]
+    [InlineData("")]
+    public async Task AccountSummaryAsync_MalformedAccountId_ThrowsArgumentExceptionBeforeSubscribing(string accountId)
+    {
+        // PRB-1.3: an account target segment containing '+', whitespace, or empty is rejected at the
+        // facade before any subscribe is sent — a malformed target cannot corrupt the wire topic.
+        var (ops, wsClient) = CreateOperations();
+
+        await Should.ThrowAsync<ArgumentException>(() =>
+            ops.AccountSummaryAsync(accountId, cancellationToken: TestContext.Current.CancellationToken));
+
+        wsClient.LastSubscribeMessage.ShouldBeNull("validation must reject before any subscribe is sent.");
+    }
+
+    [Theory]
+    [InlineData("DU12+34")]
+    [InlineData("DU12 34")]
+    [InlineData("")]
+    public async Task AccountLedgerAsync_MalformedAccountId_ThrowsArgumentExceptionBeforeSubscribing(string accountId)
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await Should.ThrowAsync<ArgumentException>(() =>
+            ops.AccountLedgerAsync(accountId, cancellationToken: TestContext.Current.CancellationToken));
+
+        wsClient.LastSubscribeMessage.ShouldBeNull("validation must reject before any subscribe is sent.");
+    }
+
+    [Fact]
+    public async Task MarketDataAsync_FieldContainingQuote_EscapesIntoValidJsonArgs()
+    {
+        // PRB-1.3: consumer-supplied field strings are serializer-escaped, not raw-interpolated — a
+        // field containing a quote produces valid JSON on the wire rather than a broken subscribe.
+        var (ops, wsClient) = CreateOperations();
+
+        await ops.MarketDataAsync(265598, new[] { "a\"b" }, TestContext.Current.CancellationToken);
+
+        var message = wsClient.LastSubscribeMessage.ShouldNotBeNull();
+        var argsJson = message[message.IndexOf('{', StringComparison.Ordinal)..];
+        Should.NotThrow(() => JsonDocument.Parse(argsJson),
+            "field values must be JSON-escaped so the subscribe args are always valid JSON.");
+    }
+
+    [Fact]
+    public async Task AccountSummaryAsync_KeyContainingQuote_EscapesIntoValidJsonArgs()
+    {
+        var (ops, wsClient) = CreateOperations();
+
+        await ops.AccountSummaryAsync("DU1234567", keys: new[] { "bad\"key" },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        var message = wsClient.LastSubscribeMessage.ShouldNotBeNull();
+        var argsJson = message[message.IndexOf('{', StringComparison.Ordinal)..];
+        Should.NotThrow(() => JsonDocument.Parse(argsJson),
+            "key values must be JSON-escaped so the subscribe args are always valid JSON.");
+    }
+
     private static (StreamingOperations Operations, FakeWebSocketClient Client) CreateOperations()
     {
         var wsClient = new FakeWebSocketClient();
@@ -1024,7 +1099,7 @@ public class StreamingOperationsTests
     internal sealed class FakeWebSocketClient : IIbkrWebSocketClient
     {
         public string? LastSubscribeMessage { get; private set; }
-        public string? LastTopicPrefix { get; private set; }
+        public string? LastRoutingKey { get; private set; }
         public string? LastCancelMessage { get; private set; }
         public Channel<JsonElement> Channel { get; } = System.Threading.Channels.Channel.CreateUnbounded<JsonElement>();
 
@@ -1042,12 +1117,12 @@ public class StreamingOperationsTests
 
         public Task<(ChannelReader<JsonElement> Reader, Func<CancellationToken, ValueTask> Unsubscribe)> SubscribeTopicAsync(
             string subscribeMessage,
-            string topicPrefix,
+            string routingKey,
             string? cancelMessage,
             CancellationToken cancellationToken)
         {
             LastSubscribeMessage = subscribeMessage;
-            LastTopicPrefix = topicPrefix;
+            LastRoutingKey = routingKey;
             LastCancelMessage = cancelMessage;
             return Task.FromResult<(ChannelReader<JsonElement>, Func<CancellationToken, ValueTask>)>(
                 (Channel.Reader, _ => ValueTask.CompletedTask));

@@ -93,11 +93,14 @@ internal sealed class StreamingOperations : IStreamingOperations
     /// <inheritdoc />
     public async Task<IIbkrSubscription<MarketDataTick>> MarketDataAsync(int conid, string[] fields, CancellationToken cancellationToken = default)
     {
-        var fieldsJson = string.Join(",", fields.Select(f => $"\"{f}\""));
-        var subscribeMessage = $"smd+{conid}+{{\"fields\":[{fieldsJson}]}}";
+        ValidateConid(conid);
+        var subscribeMessage = $"smd+{conid}+{BuildFieldsArgs(fields)}";
         var cancelMessage = $"umd+{conid}+{{}}";
 
-        var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "smd", cancelMessage, cancellationToken);
+        // ADR-0005: register under the full wire-topic identity so this subscription receives only
+        // conid's own ticks, never another conid's (PRB-1.1/1.2).
+        var routingKey = $"smd+{conid}";
+        var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, routingKey, cancelMessage, cancellationToken);
 
         return new IbkrSubscription<MarketDataTick>(new ChannelObservable<MarketDataTick>(reader, MarketDataTickMapper.Map, CreateTopicLogger("smd"), _metrics, "smd"), unsubscribe);
     }
@@ -179,10 +182,14 @@ internal sealed class StreamingOperations : IStreamingOperations
         string[]? fields = null,
         CancellationToken cancellationToken = default)
     {
+        ValidateTargetSegment(accountId, nameof(accountId));
         var subscribeMessage = $"ssd+{accountId}+{BuildKeysFieldsArgs(keys, fields)}";
         var cancelMessage = $"usd+{accountId}+{{}}";
 
-        var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "ssd", cancelMessage, cancellationToken);
+        // ADR-0005: register under the full wire-topic identity so this subscription receives only
+        // accountId's own summary rows, never another account's (PRB-3.1).
+        var routingKey = $"ssd+{accountId}";
+        var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, routingKey, cancelMessage, cancellationToken);
 
         // Per-row mapper isolation (WIR-1): a single malformed summary row is skipped and counted+logged
         // through the drop taxonomy, so the frame's other rows still deliver. A monetary row that omits
@@ -204,10 +211,14 @@ internal sealed class StreamingOperations : IStreamingOperations
         string[]? fields = null,
         CancellationToken cancellationToken = default)
     {
+        ValidateTargetSegment(accountId, nameof(accountId));
         var subscribeMessage = $"sld+{accountId}+{BuildKeysFieldsArgs(keys, fields)}";
         var cancelMessage = $"uld+{accountId}+{{}}";
 
-        var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sld", cancelMessage, cancellationToken);
+        // ADR-0005: register under the full wire-topic identity so this subscription receives only
+        // accountId's own ledger rows, never another account's (PRB-3.1).
+        var routingKey = $"sld+{accountId}";
+        var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, routingKey, cancelMessage, cancellationToken);
 
         // Per-row mapper isolation (WIR-1): a single malformed ledger row is skipped and counted+logged
         // through the drop taxonomy, so the frame's other currencies still deliver. A substantive row
@@ -225,16 +236,64 @@ internal sealed class StreamingOperations : IStreamingOperations
 
     private static string BuildKeysFieldsArgs(string[]? keys, string[]? fields)
     {
+        // Serializer-escape each array so consumer-supplied key/field strings never reach the wire
+        // raw-interpolated (PRB-1.3); a value containing '"' or '\' produces valid JSON, not a broken
+        // subscribe message.
         var parts = new List<string>();
         if (keys is { Length: > 0 })
         {
-            parts.Add($"\"keys\":[{string.Join(",", keys.Select(k => $"\"{k}\""))}]");
+            parts.Add($"\"keys\":{JsonSerializer.Serialize(keys)}");
         }
         if (fields is { Length: > 0 })
         {
-            parts.Add($"\"fields\":[{string.Join(",", fields.Select(f => $"\"{f}\""))}]");
+            parts.Add($"\"fields\":{JsonSerializer.Serialize(fields)}");
         }
         return $"{{{string.Join(",", parts)}}}";
+    }
+
+    /// <summary>
+    /// Builds a market-data subscribe args object (<c>{"fields":[…]}</c>) with the field array
+    /// serializer-escaped so consumer-supplied field strings never reach the wire raw-interpolated
+    /// (PRB-1.3).
+    /// </summary>
+    private static string BuildFieldsArgs(string[] fields) =>
+        $"{{\"fields\":{JsonSerializer.Serialize(fields)}}}";
+
+    /// <summary>
+    /// Guards a numeric contract-id target segment: a conid must be a positive integer. A non-positive
+    /// value is rejected at the facade before any subscribe reaches the wire (PRB-1.3).
+    /// </summary>
+    private static void ValidateConid(int conid)
+    {
+        if (conid <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(conid), conid, "Contract id (conid) must be a positive integer.");
+        }
+    }
+
+    /// <summary>
+    /// Guards a consumer-supplied topic-target segment (an account id): it must be non-empty and must
+    /// not contain <c>+</c> (the wire topic segment separator) or any whitespace, so a malformed target
+    /// cannot corrupt the subscribe topic or bleed into another topic's routing (PRB-1.3 / ADR-0005).
+    /// Validation runs before any subscribe message is built or sent.
+    /// </summary>
+    private static void ValidateTargetSegment(string value, string paramName)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            throw new ArgumentException("Streaming topic target segment must not be empty.", paramName);
+        }
+        if (value.Contains('+', StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Streaming topic target segment must not contain '+'.", paramName);
+        }
+        foreach (var ch in value)
+        {
+            if (char.IsWhiteSpace(ch))
+            {
+                throw new ArgumentException("Streaming topic target segment must not contain whitespace.", paramName);
+            }
+        }
     }
 
     private IbkrSubscription<T> CreateUnsolicitedSubscription<T>(string topicPrefix, Func<JsonElement, T> mapper)

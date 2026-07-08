@@ -27,7 +27,14 @@ internal interface IIbkrWebSocketClient : IAsyncDisposable
     /// Subscribes to a WebSocket topic and returns a channel reader for receiving messages.
     /// </summary>
     /// <param name="subscribeMessage">The subscribe message to send on the WebSocket.</param>
-    /// <param name="topicPrefix">The topic prefix for routing.</param>
+    /// <param name="routingKey">
+    /// The routing key this subscription registers and dispatches under (ADR-0005). For a
+    /// target-qualified topic pass the <b>full wire-topic identity</b> — the prefix plus its target
+    /// segment (e.g. <c>smd+265598</c>, <c>ssd+DU1234567</c>) — so a frame reaches only its own
+    /// target's subscribers. For a target-less or unsolicited topic pass the bare prefix
+    /// (e.g. <c>sor</c>, <c>spl</c>). The bare topic prefix (everything up to the first <c>+</c>) is
+    /// derived from this key to tag metrics and connection-event topic lists.
+    /// </param>
     /// <param name="cancelMessage">
     /// The IBKR unsubscribe message to send when the last subscription for this cancel
     /// message is torn down, or <see langword="null"/> for local-teardown-only topics
@@ -49,7 +56,7 @@ internal interface IIbkrWebSocketClient : IAsyncDisposable
     /// </remarks>
     Task<(ChannelReader<JsonElement> Reader, Func<CancellationToken, ValueTask> Unsubscribe)> SubscribeTopicAsync(
         string subscribeMessage,
-        string topicPrefix,
+        string routingKey,
         string? cancelMessage,
         CancellationToken cancellationToken);
 

@@ -65,6 +65,13 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private readonly HashSet<string> _loggedOverflowTopics = [];
     private readonly object _overflowLogLock = new();
 
+    // Log-throttle state for unmatched target-qualified drops (ADR-0005): the first unmatched frame
+    // on a topic prefix per connection logs a Warning; subsequent unmatched frames on that prefix are
+    // counted (not logged) until the next reconnect clears the set — the same anti-flood discipline
+    // the overflow throttle uses, so a server streaming a stale per-target topic cannot flood the log.
+    private readonly HashSet<string> _loggedUnmatchedTopics = [];
+    private readonly object _unmatchedLogLock = new();
+
     // Per-tenant Meter that owns the connection_state gauge. It shares the public meter name so
     // consumers subscribing to "IbkrConduit" still see the gauge, but is instance-scoped and
     // disposed with this client — so add/remove churn accumulates no stale gauges pinning disposed
@@ -227,7 +234,12 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// plus an asynchronous unsubscribe delegate.
     /// </summary>
     /// <param name="subscribeMessage">The subscribe message to send on the WebSocket.</param>
-    /// <param name="topicPrefix">The topic prefix for routing (e.g., "smd", "sor").</param>
+    /// <param name="routingKey">
+    /// The routing key this subscription registers and dispatches under (ADR-0005): the full
+    /// wire-topic identity for a target-qualified topic (e.g. <c>smd+265598</c>, <c>ssd+DU1234567</c>)
+    /// so a frame reaches only its own target's subscribers, or the bare prefix for a target-less
+    /// topic (e.g. <c>sor</c>, <c>spl</c>). The bare prefix is derived from it for metrics.
+    /// </param>
     /// <param name="cancelMessage">
     /// The IBKR unsubscribe message to send when the last subscription for this cancel
     /// message is torn down, or <see langword="null"/> for local-teardown-only topics.
@@ -252,15 +264,21 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// </remarks>
     public async Task<(ChannelReader<JsonElement> Reader, Func<CancellationToken, ValueTask> Unsubscribe)> SubscribeTopicAsync(
         string subscribeMessage,
-        string topicPrefix,
+        string routingKey,
         string? cancelMessage,
         CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        // ADR-0005: a target-qualified subscription registers under its full wire-topic identity
+        // (routingKey, e.g. smd+265598) so ProcessMessage delivers a frame only to its own target's
+        // subscribers. The bare prefix is derived for metrics/connection-event topic lists, which must
+        // stay bounded (one entry per topic type, not per conid/account).
+        var topicPrefix = ExtractTopicPrefix(routingKey);
+
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Subscribe");
         activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
-        activity?.SetTag(LogFields.Topic, topicPrefix);
+        activity?.SetTag(LogFields.Topic, routingKey);
 
         var channel = Channel.CreateBounded<JsonElement>(
             new BoundedChannelOptions(_streamingBufferSize)
@@ -270,8 +288,8 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             },
             itemDropped: _ => OnFrameDropped(topicPrefix));
 
-        var entry = new TopicSubscription(topicPrefix, subscribeMessage, cancelMessage, channel.Writer);
-        var writers = _subscribers.GetOrAdd(topicPrefix, _ => []);
+        var entry = new TopicSubscription(routingKey, topicPrefix, subscribeMessage, cancelMessage, channel.Writer);
+        var writers = _subscribers.GetOrAdd(routingKey, _ => []);
 
         // CON-3: register and send under _connectLock so a subscribe cannot race a reconnect's
         // replay — the replay snapshot (taken under this lock in ConnectCoreAsync) and this direct
@@ -648,11 +666,15 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         LogConnected();
 
-        // A new socket is a new connection: reset the per-connection overflow log throttle so the
-        // first eviction on each topic logs again after a reconnect.
+        // A new socket is a new connection: reset the per-connection log throttles so the first
+        // overflow eviction and first unmatched drop on each topic log again after a reconnect.
         lock (_overflowLogLock)
         {
             _loggedOverflowTopics.Clear();
+        }
+        lock (_unmatchedLogLock)
+        {
+            _loggedUnmatchedTopics.Clear();
         }
 
         StartHeartbeat(epoch);
@@ -830,24 +852,98 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             return;
         }
 
-        // Extract prefix: "smd+265598" -> "smd", "sor" -> "sor"
+        // Extract prefix: "smd+265598" -> "smd", "sor" -> "sor". A '+' marks a target-qualified topic.
         var plusIndex = topic.IndexOf('+');
         var prefix = plusIndex >= 0 ? topic[..plusIndex] : topic;
+        var isTargetQualified = plusIndex >= 0;
 
         _messagesReceived.Add(1,
             new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
             new KeyValuePair<string, object?>(LogFields.Topic, prefix));
 
-        if (_subscribers.TryGetValue(prefix, out var writers))
+        // ADR-0005 full-topic-identity routing: dispatch by the frame's full wire topic first. A
+        // target-qualified subscription (smd+265598, ssd+DU…) registers under its full identity, so a
+        // frame reaches exactly its own target's subscribers — never another target sharing the prefix.
+        if (_subscribers.TryGetValue(topic, out var exactWriters) && TryDispatch(exactWriters, root))
         {
-            lock (writers)
-            {
-                foreach (var writer in writers)
-                {
-                    writer.TryWrite(root);
-                }
-            }
+            return;
         }
+
+        // Prefix fallback for target-less/unsolicited topics (sor, spl, str, sts, system, act, …),
+        // which register under the bare prefix and never carry a target segment. Guarded by
+        // isTargetQualified because a target-less frame's topic already equals its prefix (handled
+        // above): this only serves the case where a target-qualified frame's prefix was itself
+        // registered as a prefix-scoped subscription. Target-qualified topics (smd/ssd/sld) never
+        // register a bare prefix, so this never cross-delivers between two targets of the same prefix.
+        if (isTargetQualified && _subscribers.TryGetValue(prefix, out var prefixWriters) && TryDispatch(prefixWriters, root))
+        {
+            return;
+        }
+
+        // ADR-0005 §4: a target-qualified frame that matched no live subscription (a late frame after
+        // unsubscribe, or a server-initiated per-target stream) is dropped observably rather than
+        // cross-delivered or silently discarded. A target-less frame with no subscriber stays a silent
+        // no-op — an unsolicited topic the consumer simply never registered for.
+        if (isTargetQualified)
+        {
+            OnUnmatchedFrame(prefix, topic);
+        }
+    }
+
+    /// <summary>
+    /// Writes <paramref name="root"/> to every writer registered under a routing key. Returns
+    /// <see langword="true"/> only when at least one writer was present: an empty list — every
+    /// subscriber gone but the key not yet reaped — counts as no match, so a target-qualified frame
+    /// arriving after the last unsubscribe is dropped observably rather than treated as delivered.
+    /// </summary>
+    private static bool TryDispatch(List<ChannelWriter<JsonElement>> writers, JsonElement root)
+    {
+        lock (writers)
+        {
+            if (writers.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (var writer in writers)
+            {
+                writer.TryWrite(root);
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Records a target-qualified frame whose full wire-topic identity matched no live subscription
+    /// (ADR-0005 §4): increments the drop counter under <see cref="StreamingMetrics.UnmatchedCause"/>
+    /// tagged with the topic prefix, and logs a Warning on the first unmatched frame for this prefix
+    /// since the current connection was established. Never cross-delivered, never silent.
+    /// </summary>
+    private void OnUnmatchedFrame(string prefix, string topic)
+    {
+        _metrics.RecordDrop(prefix, StreamingMetrics.UnmatchedCause);
+
+        bool firstForPrefix;
+        lock (_unmatchedLogLock)
+        {
+            firstForPrefix = _loggedUnmatchedTopics.Add(prefix);
+        }
+        if (firstForPrefix)
+        {
+            LogUnmatchedFrameDropped(prefix, topic);
+        }
+    }
+
+    /// <summary>
+    /// Derives the bare topic prefix from a routing key: everything up to the first <c>+</c>
+    /// (<c>smd+265598</c> → <c>smd</c>, <c>sor</c> → <c>sor</c>). The prefix — not the full,
+    /// unbounded-cardinality routing key — tags metrics and populates connection-event topic lists.
+    /// </summary>
+    private static string ExtractTopicPrefix(string routingKey)
+    {
+        var plusIndex = routingKey.IndexOf('+');
+        return plusIndex >= 0 ? routingKey[..plusIndex] : routingKey;
     }
 
     /// <summary>
@@ -1060,7 +1156,7 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         {
             _subscriptions.Remove(entry);
 
-            if (_subscribers.TryGetValue(entry.TopicPrefix, out var writers))
+            if (_subscribers.TryGetValue(entry.RoutingKey, out var writers))
             {
                 lock (writers)
                 {
@@ -1142,7 +1238,11 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     [LoggerMessage(Level = LogLevel.Warning, Message = "Dropping oldest {Topic} frame under buffer overflow (a stalled consumer); further {Topic} overflow drops are counted, not logged, until reconnect")]
     private partial void LogFrameOverflowDropped(string topic);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Dropping unmatched {Prefix} frame (topic {Topic}) — no live subscription for its full topic identity; further unmatched {Prefix} frames are counted, not logged, until reconnect")]
+    private partial void LogUnmatchedFrameDropped(string prefix, string topic);
+
     private sealed record TopicSubscription(
+        string RoutingKey,
         string TopicPrefix,
         string SubscribeMessage,
         string? CancelMessage,
