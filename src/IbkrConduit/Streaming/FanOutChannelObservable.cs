@@ -75,6 +75,15 @@ internal sealed class FanOutChannelObservable<T> : SingleObserverChannelObservab
 
                     foreach (var item in items)
                     {
+                        // Gate each item of this already-materialized frame on cancellation so a
+                        // dispose that fires while the observer is parked on one item stops delivery
+                        // of the remaining items of the same frame to the disposed observer — the
+                        // per-frame check above only guards against reading the *next* frame (STR-2).
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            break;
+                        }
+
                         try
                         {
                             observer.OnNext(item);

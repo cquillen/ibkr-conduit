@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Channels;
@@ -93,6 +94,87 @@ public class SingleObserverSlotRaceTests
 
         await secondGotAll.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
         secondReceived.ShouldBe(new[] { 2, 3, 4 });
+    }
+
+    [Fact]
+    public async Task Dispose_WhilePumpParkedMidMultiItemFrame_StopsDeliveringRemainingItemsOfThatFrame()
+    {
+        // FanOutChannelObservable materializes N>1 items per frame and delivers them via an inner
+        // loop. The per-frame cancellation check only guards reading the NEXT frame; without a
+        // per-item gate, a dispose that fires while the observer is parked on item 1 of a multi-item
+        // frame would still drain items 2..N of that same already-fetched frame to the disposed
+        // observer (the STR-2 failure mode, bounded to one frame). This pins that per-item gate: on
+        // sor/spl fan-out topics the remaining items of the in-flight frame must NOT be delivered
+        // after dispose, and a fresh resubscribe starts clean.
+        var ct = TestContext.Current.CancellationToken;
+        var channel = Channel.CreateUnbounded<JsonElement>();
+        var observable = new FanOutChannelObservable<int>(
+            channel.Reader,
+            frame => frame.GetProperty("args").EnumerateArray().Select(e => e.GetInt32()),
+            NullLogger.Instance, Metrics(), _topic);
+
+        var firstEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirst = new SemaphoreSlim(0, 1);
+        var firstReceived = new List<int>();
+
+        var first = observable.Subscribe(new SlotObserver<int>(onNext: v =>
+        {
+            lock (firstReceived)
+            {
+                firstReceived.Add(v);
+            }
+            if (v == 10)
+            {
+                firstEntered.TrySetResult();
+                releaseFirst.Wait(ct);
+            }
+        }));
+
+        // A single frame mapping to FOUR items; the observer parks on the first (10).
+        await channel.Writer.WriteAsync(
+            JsonDocument.Parse("""{"args":[10,20,30,40]}""").RootElement, ct);
+
+        await firstEntered.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+        // Dispose on a background thread: it cancels then must block on the pump join.
+        var disposeReturned = Task.Run(() => first.Dispose(), ct);
+
+        // The pump is parked in OnNext on item 1, so Dispose must NOT have returned yet.
+        await Task.Delay(150, ct);
+        disposeReturned.IsCompleted.ShouldBeFalse("Dispose must block until the pump exits");
+
+        // Let the parked OnNext return; the pump then observes cancellation per item and exits
+        // WITHOUT draining items 2..N of the same frame to the disposed observer.
+        releaseFirst.Release();
+        await disposeReturned.WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+        // Give any (erroneous) further deliveries a chance to land before asserting.
+        await Task.Delay(100, ct);
+
+        int deliveredToFirst;
+        lock (firstReceived)
+        {
+            deliveredToFirst = firstReceived.Count;
+        }
+        deliveredToFirst.ShouldBe(1, "only the in-flight item was delivered; the remaining items of the same frame were not drained to the disposed observer");
+
+        // The slot is free (pump exited): resubscribe succeeds and receives a fresh frame cleanly.
+        var secondReceived = new List<int>();
+        var secondGotAll = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var second = observable.Subscribe(new SlotObserver<int>(onNext: v =>
+        {
+            secondReceived.Add(v);
+            if (secondReceived.Count == 2)
+            {
+                secondGotAll.TrySetResult();
+            }
+        }));
+
+        await channel.Writer.WriteAsync(
+            JsonDocument.Parse("""{"args":[50,60]}""").RootElement, ct);
+
+        await secondGotAll.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        secondReceived.ShouldBe(new[] { 50, 60 });
     }
 
     [Fact]
