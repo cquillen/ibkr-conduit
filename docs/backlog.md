@@ -374,7 +374,7 @@ Findings WIR-2, TEN-2 (medium, CONFIRMED): the VCR-10 validation net still diffs
 **Done when:** a drifted field on a nested/wrapped row raises the validation signal, and strict mode passes string-returning endpoints while still failing truly unmapped ones.
 
 #### PVR-20 — Active-probe health evidence flow
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #264 · **Stream:** PVR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Finding PRB-4.2 (medium, CONFIRMED): `CollectActiveSessionHealthAsync` returns the server-reported authenticated/competing/fail verdict only to its immediate caller and never feeds `SessionHealthState` — probe evidence is less durable than tickle/`sts`/ssodh evidence, contrary to ADR-0004's evidence model (recorded — cite, don't re-decide). **`fix:`.**
