@@ -314,7 +314,7 @@ Findings ERR-1 (high, CONFIRMED), SES-3 (medium, CONFIRMED): on the 401-reauth-r
 **TDD notes:** red tests = WireMock 401-then-200-error-body scenario asserting hidden-error classification on the retry leg; cancellation-mid-reauth case per SES-3.
 
 #### PVR-12 — Tickle-loop resilience & lifetime
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #262 · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** trivial-skip
 Findings SES-1, SES-2 (both high, CONFIRMED): a reauth failure thrown from the tickle loop's 401-branch `await _onFailure(...)` escapes the enclosing catch and kills the keepalive loop permanently — one transient blip during recovery rots the session (SES-1, a VCR-06/SES-2 residual); and the loop's lifetime CTS is linked to whichever caller's token happened to initialize the session, so that caller cancelling/disposing later silently stops keepalive (SES-2). Repairs within the recorded §7 lifecycle contract — no new contract. **`fix:`.**
