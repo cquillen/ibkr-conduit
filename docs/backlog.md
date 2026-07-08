@@ -299,7 +299,7 @@ Findings RST-1 (medium, PLAUSIBLE), RST-3 (medium, PLAUSIBLE), RST-6 (low, UNVER
 **TDD notes:** red tests = synthetic statements per RST-1/RST-3 suggested regression tests (unparseable amounts, non-US timezone suffixes, absent attributes) + a wall-clock timeout test with slow stubbed polls.
 
 #### PVR-10 — 📦 Error-taxonomy completeness wave 2
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #277 · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** trivial-skip
 Findings ERR-2 (medium, CONFIRMED), ERR-3, ERR-4, ERR-5 (low, CONFIRMED): `ValidateFlexTokenAsync` misclassifies transient transport failures as token errors and its 1012/1013/1015 mapping is bypassed under `ThrowOnApiError`; Flex send-retry exhaustion hardcodes `IsRetryable=false` for codes the library itself classifies transient; the order-endpoint 200-hidden-error subtype contradicts the XML docs (D7); `default(Result<T>)` yields `IsSuccess=false` with a null `Error` (NRE downstream). Implements design doc §9.9 + §6.6 (D7, operator-decided): order-mutating 200-with-error remaps to `IbkrOrderRejectedError`; uninitialized `Result<T>` member access throws `InvalidOperationException`. **Breaking-behavioral — `feat!:`.**
