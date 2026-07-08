@@ -330,7 +330,7 @@ Findings CON-1 (high, CONFIRMED), AUT-3, AUT-4 (low, CONFIRMED): `SessionManager
 **TDD notes:** deterministic race tests with test gates (VCR-08 pattern) for dispose-vs-reauth; version-dedupe unit tests for AUT-3.
 
 #### PVR-14 — Question-suppression robustness in init/reauth
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #268 · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** trivial-skip
 Findings PRB-2.1, PRB-2.2 (medium, PLAUSIBLE), PRB-2.3 (low, CONFIRMED): a non-2xx from `POST /iserver/questions/suppress` escapes `EnsureInitializedAsync`/`ReauthenticateAsync` as a raw `Refit.ApiException` — unclassified, and failing an otherwise-successful authentication; the returned `SuppressResponse` is discarded unverified against the pinned `"submitted"` (wire fixture + all live sources agree on the lowercase form — `docs/ibkr-doc-evidence/2026-07-07-order-reply-confirmation-suppression.md`); and a suppress-aborted reauth skips the lifecycle notification even though the server session was re-established (PRB-2.3). Classify per the existing taxonomy, verify/log the suppress result, and notify once ssodh/init succeeds. Lane: after PVR-13 (shared `SessionManager`). Empirics: the success shape is pinned by the committed live-capture fixture `Fixtures/Session/POST-suppress.json` (`{"status":"submitted"}`); ApiCapture's edge entries additionally pin 500-on-empty-ids and 200-on-invalid-id. **`fix:`.**

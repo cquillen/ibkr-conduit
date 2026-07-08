@@ -13,6 +13,7 @@ using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
 using IbkrConduit.Health;
 using IbkrConduit.Session;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Refit;
@@ -115,11 +116,12 @@ public class SessionManagerTests
     }
 
     [Fact]
-    public async Task EnsureInitializedAsync_SuppressWrappedTransportFault_ThrowsOriginalHttpRequestException()
+    public async Task EnsureInitializedAsync_SuppressWrappedTransportFault_DoesNotFailAuthAndIsObservable()
     {
-        // Refit 11 wraps the raw Task<T> /suppress call's transport fault in
-        // ApiRequestException. EnsureInitializedAsync must surface the original
-        // HttpRequestException — not the wrapper, and not a credential exception.
+        // PVR-14 / PRB-2.1: question suppression is best-effort convenience, not the auth itself.
+        // Refit 11 wraps the raw Task<T> /suppress call's transport fault in ApiRequestException.
+        // A suppress transport fault must NOT fail an otherwise-successful init — the session is
+        // authenticated — but it must be observable: classified into the library taxonomy and logged.
         var deps = CreateDependencies();
         deps.Options = new IbkrClientOptions
         {
@@ -127,11 +129,148 @@ public class SessionManagerTests
             SuppressMessageIds = new List<string> { "o163" },
         };
 
-        var request = new HttpRequestMessage(
+        using var request = new HttpRequestMessage(
             HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/questions/suppress");
         var inner = new HttpRequestException("connection refused");
         deps.SessionApi.SuppressException = new ApiRequestException(
             request, HttpMethod.Post, new RefitSettings(), inner);
+
+        var logger = new CapturingLogger<SessionManager>();
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            logger,
+            new TenantContext("test"));
+
+        // Does not throw — init completes and the tickle timer is started (session is up).
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        deps.SessionApi.SuppressCallCount.ShouldBe(1);
+        deps.TickleTimerFactory.CreatedTimer!.Started.ShouldBeTrue();
+
+        // Observable: a Warning carrying the classified taxonomy exception (transient for a transport fault).
+        logger.Entries.ShouldContain(e =>
+            e.Level == LogLevel.Warning && e.Exception is IbkrTransientException);
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_SuppressReturnsServerError_DoesNotFailAuthAndLogsTransient()
+    {
+        // PVR-14 / PRB-2.1: a non-2xx suppress response surfaces as Refit's ApiException (a sibling
+        // of ApiRequestException, so the old ApiRequestException-only catch never matched it). A 5xx
+        // must be classified transient, logged, and must NOT fail the authenticated session.
+        var deps = CreateDependencies();
+        deps.Options = new IbkrClientOptions
+        {
+            Compete = true,
+            SuppressMessageIds = new List<string> { "o163" },
+        };
+        deps.SessionApi.SuppressException = await CreateSuppressApiException(HttpStatusCode.InternalServerError);
+
+        var logger = new CapturingLogger<SessionManager>();
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            logger,
+            new TenantContext("test"));
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        deps.TickleTimerFactory.CreatedTimer!.Started.ShouldBeTrue();
+        logger.Entries.ShouldContain(e =>
+            e.Level == LogLevel.Warning && e.Exception is IbkrTransientException);
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_SuppressReturnsBadRequest_DoesNotFailAuthAndLogsConfiguration()
+    {
+        // PVR-14 / PRB-2.1: a suppress 4xx (e.g. an unsupported message ID or a >51-entry list) is a
+        // configuration problem — classify it IbkrConfigurationException, log it, but do not fail the
+        // authenticated session.
+        var deps = CreateDependencies();
+        deps.Options = new IbkrClientOptions
+        {
+            Compete = true,
+            SuppressMessageIds = new List<string> { "o163" },
+        };
+        deps.SessionApi.SuppressException = await CreateSuppressApiException(HttpStatusCode.BadRequest);
+
+        var logger = new CapturingLogger<SessionManager>();
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            logger,
+            new TenantContext("test"));
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        deps.TickleTimerFactory.CreatedTimer!.Started.ShouldBeTrue();
+        logger.Entries.ShouldContain(e =>
+            e.Level == LogLevel.Warning && e.Exception is IbkrConfigurationException);
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_SuppressStatusNotSubmitted_DoesNotFailAuthAndIsObservable()
+    {
+        // PVR-14 / PRB-2.2: a 200 suppress body that is not the spec-pinned "submitted" (e.g. a hidden
+        // error shape deserializing to Status=null, or a 200-on-invalid-id acknowledgement) is a failed
+        // suppression. It must be observed (logged), not silently accepted, but must not fail the session.
+        var deps = CreateDependencies();
+        deps.Options = new IbkrClientOptions
+        {
+            Compete = true,
+            SuppressMessageIds = new List<string> { "o163" },
+        };
+        deps.SessionApi.SuppressResult = new SuppressResponse(Status: null);
+
+        var logger = new CapturingLogger<SessionManager>();
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            logger,
+            new TenantContext("test"));
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        deps.TickleTimerFactory.CreatedTimer!.Started.ShouldBeTrue();
+        logger.Entries.ShouldContain(e => e.Level == LogLevel.Warning);
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_SuppressCancelled_PropagatesCancellation()
+    {
+        // PVR-14: best-effort suppression must never swallow caller cancellation / shutdown — a cancel
+        // that trips during the in-flight suppress call unwinds the whole init.
+        var deps = CreateDependencies();
+        deps.Options = new IbkrClientOptions
+        {
+            Compete = true,
+            SuppressMessageIds = new List<string> { "o163" },
+        };
+
+        using var cts = new CancellationTokenSource();
+        deps.SessionApi.SuppressGate = ct =>
+        {
+            cts.Cancel();
+            ct.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        };
 
         await using var manager = new SessionManager(
             deps.TokenProvider,
@@ -143,9 +282,8 @@ public class SessionManagerTests
             NullLogger<SessionManager>.Instance,
             new TenantContext("test"));
 
-        var ex = await Should.ThrowAsync<HttpRequestException>(
-            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
-        ex.ShouldBeSameAs(inner);
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => manager.EnsureInitializedAsync(cts.Token));
     }
 
     [Fact]
@@ -580,6 +718,76 @@ public class SessionManagerTests
         await manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
 
         deps.Notifier.NotifyCallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_SuppressFails_StillNotifiesLifecycle()
+    {
+        // PVR-14 / PRB-2.3: in a re-auth the LST is rotated and ssodh/init re-establishes the server
+        // session BEFORE the best-effort suppress step. A suppress failure there must NOT mask the
+        // successful re-auth from the lifecycle notifier — the WebSocket client relies on that
+        // notification to reconnect after an LST rotation. The notification must still fire once.
+        var deps = CreateDependencies();
+        deps.Options = new IbkrClientOptions
+        {
+            Compete = true,
+            SuppressMessageIds = new List<string> { "o163" },
+        };
+
+        var logger = new CapturingLogger<SessionManager>();
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            logger,
+            new TenantContext("test"));
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        // The re-auth's suppress POST fails (5xx) after ssodh/init has already re-established the session.
+        deps.SessionApi.SuppressException = await CreateSuppressApiException(HttpStatusCode.InternalServerError);
+
+        await manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
+
+        deps.Notifier.NotifyCallCount.ShouldBe(1);
+        logger.Entries.ShouldContain(e =>
+            e.Level == LogLevel.Warning && e.Exception is IbkrTransientException);
+    }
+
+    [Fact]
+    public async Task ReauthenticateAsync_SuppressStatusNotSubmitted_StillNotifiesOnce()
+    {
+        // PVR-14 / PRB-2.2 + PRB-2.3: a 200-but-not-"submitted" suppress body on re-auth is observed
+        // but does not mask the lifecycle notification, and does not double-notify.
+        var deps = CreateDependencies();
+        deps.Options = new IbkrClientOptions
+        {
+            Compete = true,
+            SuppressMessageIds = new List<string> { "o163" },
+        };
+
+        var logger = new CapturingLogger<SessionManager>();
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            logger,
+            new TenantContext("test"));
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        deps.SessionApi.SuppressResult = new SuppressResponse(Status: "system error");
+
+        await manager.ReauthenticateAsync(TestContext.Current.CancellationToken);
+
+        deps.Notifier.NotifyCallCount.ShouldBe(1);
+        logger.Entries.ShouldContain(e => e.Level == LogLevel.Warning);
     }
 
     [Fact]
@@ -1574,6 +1782,18 @@ public class SessionManagerTests
 
     private static TestDependencies CreateDependencies() => new();
 
+    /// <summary>
+    /// Builds a Refit <see cref="ApiException"/> for the given status code, exactly as Refit surfaces a
+    /// non-success HTTP response from the raw <c>Task&lt;SuppressResponse&gt;</c> /suppress method.
+    /// </summary>
+    private static async Task<ApiException> CreateSuppressApiException(HttpStatusCode statusCode)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/questions/suppress");
+        using var response = new HttpResponseMessage(statusCode);
+        return await ApiException.Create(request, HttpMethod.Post, response, new RefitSettings());
+    }
+
     private class TestDependencies
     {
         public FakeSessionTokenProvider TokenProvider { get; set; } = new();
@@ -1761,6 +1981,21 @@ public class SessionManagerTests
         public Exception? SuppressException { get; set; }
 
         /// <summary>
+        /// If set, SuppressQuestionsAsync returns this response instead of the default
+        /// <c>{"status":"submitted"}</c> body. Lets a test drive the non-"submitted"
+        /// verification path (PRB-2.2), e.g. a 200-on-invalid-id acknowledgement or a
+        /// hidden-error shape that deserializes to <c>Status = null</c>.
+        /// </summary>
+        public SuppressResponse? SuppressResult { get; set; }
+
+        /// <summary>
+        /// If set, awaited inside <see cref="SuppressQuestionsAsync"/> before the response/exception.
+        /// Lets a test trip caller cancellation while the suppress call is in flight (PRB-2.1's
+        /// cancellation-propagation guard).
+        /// </summary>
+        public Func<CancellationToken, Task>? SuppressGate { get; set; }
+
+        /// <summary>
         /// If set, invoked at the start of <see cref="InitializeBrokerageSessionAsync"/>
         /// before <see cref="InitException"/> is thrown. Lets a test simulate caller
         /// cancellation occurring during the in-flight init call.
@@ -1814,16 +2049,22 @@ public class SessionManagerTests
                 Iserver: new TickleIserverStatus(
                     AuthStatus: new TickleAuthStatus(Authenticated: true, Competing: false, Connected: true, Established: true, Message: null, Mac: null, ServerInfo: null, HardwareInfo: null))));
 
-        public Task<SuppressResponse> SuppressQuestionsAsync(SuppressRequest request, CancellationToken cancellationToken = default)
+        public async Task<SuppressResponse> SuppressQuestionsAsync(SuppressRequest request, CancellationToken cancellationToken = default)
         {
             SuppressCallCount++;
             LastSuppressRequest = request;
+
+            if (SuppressGate != null)
+            {
+                await SuppressGate(cancellationToken);
+            }
+
             if (SuppressException != null)
             {
                 throw SuppressException;
             }
 
-            return Task.FromResult(new SuppressResponse(Status: "submitted"));
+            return SuppressResult ?? new SuppressResponse(Status: "submitted");
         }
 
         public Task<LogoutResponse> LogoutAsync(CancellationToken cancellationToken = default)
@@ -1843,5 +2084,36 @@ public class SessionManagerTests
         public Task<AuthStatusResponse> GetAuthStatusAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new AuthStatusResponse(true, false, true, true, null, null, null, null, null, null));
 
+    }
+
+    /// <summary>
+    /// Minimal <see cref="Microsoft.Extensions.Logging.ILogger{T}"/> that records every entry, so a
+    /// test can assert an observable, classified log signal (PVR-14: a failed suppression must be
+    /// observable even though it does not fail the authenticated session).
+    /// </summary>
+    internal sealed class CapturingLogger<T> : Microsoft.Extensions.Logging.ILogger<T>
+    {
+        public List<(Microsoft.Extensions.Logging.LogLevel Level, string Message, Exception? Exception)> Entries { get; } = new();
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            Microsoft.Extensions.Logging.LogLevel logLevel,
+            Microsoft.Extensions.Logging.EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, formatter(state, exception), exception));
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+
+            public void Dispose()
+            {
+            }
+        }
     }
 }

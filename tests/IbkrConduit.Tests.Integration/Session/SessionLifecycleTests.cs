@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Errors;
 using IbkrConduit.Health;
@@ -254,6 +256,159 @@ public class SessionLifecycleTests : IAsyncDisposable
 
         tracker.LastSuccessfulCall.ShouldNotBeNull(
             "a successful tickle should record liveness via the session-pipeline LastSuccessfulCallHandler");
+    }
+
+    /// <summary>
+    /// PVR-14 / PRB-2.1: question suppression is best-effort. A non-2xx (500) suppress response during
+    /// initialization — through the full DI stack — must NOT fail an otherwise-successful authenticated
+    /// call; the suppress step is attempted and its failure is swallowed (observably, via the logger).
+    /// </summary>
+    [Fact]
+    public async Task SuppressReturnsServerError_DuringInit_DoesNotFailAuthenticatedCall()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        _harness = await TestHarness.CreateAsync(
+            configureOptions: opts => opts.SuppressMessageIds = new List<string> { "o163", "o451" });
+
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/iserver/questions/suppress").UsingPost())
+            .RespondWith(Response.Create().WithStatusCode(500).WithBody("Internal Server Error"));
+
+        _harness.StubAuthenticatedGet(
+            "/v1/api/portfolio/accounts",
+            FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts"));
+
+        var result = await _harness.Client.Portfolio.GetAccountsAsync(ct);
+        result.Value.ShouldNotBeEmpty();
+
+        // The suppress step was actually attempted, and its 500 did not abort the authenticated session.
+        _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/questions/suppress").UsingPost())
+            .Count.ShouldBeGreaterThanOrEqualTo(1, "the best-effort suppress step should have been attempted");
+    }
+
+    /// <summary>
+    /// PVR-14 / PRB-2.2: a 2xx suppress body that is not the pinned "submitted" (here a hidden-error
+    /// shape) is a failed suppression, but — as best-effort convenience — must not fail the authenticated
+    /// call through the DI stack. (The observability of the mismatch is unit-pinned on the log signal.)
+    /// </summary>
+    [Fact]
+    public async Task SuppressReturns200NonSubmitted_DuringInit_DoesNotFailAuthenticatedCall()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        _harness = await TestHarness.CreateAsync(
+            configureOptions: opts => opts.SuppressMessageIds = new List<string> { "o163" });
+
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/iserver/questions/suppress").UsingPost())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBody("""{"error":"system error"}"""));
+
+        _harness.StubAuthenticatedGet(
+            "/v1/api/portfolio/accounts",
+            FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts"));
+
+        var result = await _harness.Client.Portfolio.GetAccountsAsync(ct);
+        result.Value.ShouldNotBeEmpty();
+    }
+
+    /// <summary>
+    /// PVR-14 / PRB-2.3: when a suppress POST fails (500) during a re-auth, ssodh/init has already
+    /// re-established the server session — so the lifecycle notification (which the WebSocket client uses
+    /// to reconnect after an LST rotation) must STILL fire. A suppress failure must not mask a successful
+    /// re-auth from the notifier. Driven end-to-end via a 401 → re-auth → 200 recovery.
+    /// </summary>
+    [Fact]
+    public async Task SuppressFailsDuringReauth_LifecycleNotifierStillFires()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        _harness = await TestHarness.CreateAsync(
+            configureOptions: opts => opts.SuppressMessageIds = new List<string> { "o163" });
+
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/iserver/questions/suppress").UsingPost())
+            .RespondWith(Response.Create().WithStatusCode(500).WithBody("Internal Server Error"));
+
+        var notifier = _harness.GetRequiredService<ISessionLifecycleNotifier>();
+        var notifyCount = 0;
+        using var subscription = notifier.Subscribe(_ =>
+        {
+            Interlocked.Increment(ref notifyCount);
+            return Task.CompletedTask;
+        });
+
+        // First GET 401s → TokenRefreshHandler drives ReauthenticateAsync → retry succeeds.
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/portfolio/accounts").UsingGet())
+            .InScenario("reauth-notify")
+            .WillSetStateTo("recovered")
+            .RespondWith(Response.Create().WithStatusCode(401).WithBody("Unauthorized"));
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/portfolio/accounts").UsingGet())
+            .InScenario("reauth-notify")
+            .WhenStateIs("recovered")
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts")));
+
+        var result = await _harness.Client.Portfolio.GetAccountsAsync(ct);
+        result.Value.ShouldNotBeEmpty();
+
+        notifyCount.ShouldBeGreaterThanOrEqualTo(1,
+            "a suppress failure during re-auth must not mask the successful re-auth from the lifecycle notifier");
+    }
+
+    /// <summary>
+    /// PVR-14 regression: the happy path ({"status":"submitted"}) still works end-to-end, and a single
+    /// 401-driven re-auth notifies the lifecycle exactly once — no double-notify.
+    /// </summary>
+    [Fact]
+    public async Task SuppressSubmitted_HappyPath_NotifiesExactlyOnceOnReauth()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        _harness = await TestHarness.CreateAsync(
+            configureOptions: opts =>
+            {
+                opts.SuppressMessageIds = new List<string> { "o163" };
+                opts.TickleIntervalSeconds = 300; // avoid a tickle-driven re-auth racing the assertion
+            });
+
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/iserver/questions/suppress").UsingPost())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBody("""{"status":"submitted"}"""));
+
+        var notifier = _harness.GetRequiredService<ISessionLifecycleNotifier>();
+        var notifyCount = 0;
+        using var subscription = notifier.Subscribe(_ =>
+        {
+            Interlocked.Increment(ref notifyCount);
+            return Task.CompletedTask;
+        });
+
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/portfolio/accounts").UsingGet())
+            .InScenario("reauth-once")
+            .WillSetStateTo("recovered")
+            .RespondWith(Response.Create().WithStatusCode(401).WithBody("Unauthorized"));
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/portfolio/accounts").UsingGet())
+            .InScenario("reauth-once")
+            .WhenStateIs("recovered")
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-portfolio-accounts")));
+
+        var result = await _harness.Client.Portfolio.GetAccountsAsync(ct);
+        result.Value.ShouldNotBeEmpty();
+
+        notifyCount.ShouldBe(1, "exactly one re-auth occurred, so the lifecycle should be notified exactly once");
     }
 
     /// <inheritdoc />
