@@ -57,6 +57,20 @@ public class IbkrClientOptionsCloneTests
     }
 
     [Fact]
+    public void ConfirmationTimeout_DefaultsToThirtySeconds()
+    {
+        new IbkrClientOptions().ConfirmationTimeout.ShouldBe(System.TimeSpan.FromSeconds(30));
+    }
+
+    [Fact]
+    public void Clone_CopiesConfirmationTimeout()
+    {
+        var original = new IbkrClientOptions { ConfirmationTimeout = System.TimeSpan.FromSeconds(12) };
+
+        original.Clone().ConfirmationTimeout.ShouldBe(System.TimeSpan.FromSeconds(12));
+    }
+
+    [Fact]
     public void Clone_CopiesConfigureHealthStatusHook()
     {
         var original = new IbkrClientOptions

@@ -260,6 +260,14 @@ public static class ServiceCollectionExtensions
                 "FlexPollTimeout must be greater than zero.");
         }
 
+        if (options.ConfirmationTimeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                "IbkrClientOptions.ConfirmationTimeout",
+                options.ConfirmationTimeout,
+                "ConfirmationTimeout must be greater than zero.");
+        }
+
         if (options.BaseUrl is not null && !Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _))
         {
             throw new ArgumentException(

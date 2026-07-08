@@ -269,7 +269,7 @@ Finding ORD-4 (medium, CONFIRMED): `OrderRequest` documents `TRAIL`/`TRAILLMT` (
 **TDD notes:** red tests = wire-model serialization pins (trailingAmt/trailingType present for TRAIL, omitted when null) + fail-fast validation cases; WireMock fixture derived from the probe capture.
 
 #### PVR-06 — 📦 Question/reply confirmation-window contract
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #272 · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-pvr-06-confirmation-window.md
 Findings ORD-3 (medium, CONFIRMED), ORD-1 (medium, PLAUSIBLE): implements [ADR-0006](adr/0006-order-confirmation-window.md) + §9.10 **as revised on the 2026-07-07 probe evidence** (the invalidated order went live after its reply 503'd — "refusal → re-place" double-places; see stream Evidence): the confirmation round is **serialized in-process** (per-account lock held from confirmation-returning placement until reply/dismiss/timeout, new `ConfirmationTimeout` option), a failed reply on an invalidated confirmation classifies as an **ambiguous order outcome** (ADR-0003 family — reconcile before resubmitting), and every 2xx reply shape classifies (ORD-1). Lane: after PVR-18 (shared `OrderOperations`). **Breaking-behavioral — `feat!:`.**

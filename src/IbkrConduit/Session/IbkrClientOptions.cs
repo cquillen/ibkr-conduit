@@ -109,6 +109,22 @@ public class IbkrClientOptions
     public bool ThrowOnApiError { get; set; }
 
     /// <summary>
+    /// How long the per-account order lock is retained for a pending order confirmation round before
+    /// it is released and the abandoned order's outcome is treated as ambiguous (ADR-0006, design doc
+    /// §9.10). A placement that returns an <see cref="Orders.OrderConfirmationRequired"/> retains the
+    /// account lock until the round resolves — a reply, a dismiss, or this timeout — so overlapping
+    /// same-account confirmation windows cannot occur in-process and a consumer that never replies
+    /// cannot wedge the account's order flow. Must be greater than zero. Default is 30 seconds.
+    /// <para>
+    /// <b>Consumer obligation:</b> reply to a confirmation promptly. A slow decision delays subsequent
+    /// same-account placements up to this timeout; for automated throughput, suppress questions via
+    /// <see cref="SuppressMessageIds"/> instead. If the timeout elapses, that order's outcome is
+    /// ambiguous — reconcile via live-order/trade queries before resubmitting.
+    /// </para>
+    /// </summary>
+    public TimeSpan ConfirmationTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// Optional hook to configure the health-status staleness and warning thresholds
     /// (design doc §7.7, PVR-07). Invoked once at registration <em>after</em> the defaults
     /// have been derived from <see cref="TickleIntervalSeconds"/> — the staleness window
@@ -175,6 +191,7 @@ public class IbkrClientOptions
         ProactiveRefreshMargin = ProactiveRefreshMargin,
         StrictResponseValidation = StrictResponseValidation,
         ThrowOnApiError = ThrowOnApiError,
+        ConfirmationTimeout = ConfirmationTimeout,
         FlexPollTimeout = FlexPollTimeout,
         FlexQueries = FlexQueries.Clone(),
         SkipLogoutOnDispose = SkipLogoutOnDispose,

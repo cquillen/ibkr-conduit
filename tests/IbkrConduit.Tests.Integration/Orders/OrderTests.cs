@@ -1150,6 +1150,40 @@ public class OrderTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task Reply_503_ReturnsAmbiguousError_ThroughPipeline()
+    {
+        // ORD-3 / ADR-0006 §9.10 (breaking-behavioral): a 503 on the reply endpoint is an *invalidated
+        // confirmation* — the order may still have gone live (2026-07-07 probe) — so the full pipeline
+        // must surface an ambiguous outcome with reconcile guidance, never a generic/transient
+        // IbkrApiError(503). Body is the probe body verbatim (no invalidation marker; contextual
+        // recognition = reply endpoint + 503).
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/reply/*")
+                .UsingPost())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(503)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"error":"Service Unavailable","statusCode":503}"""));
+
+        var result = await _harness.Client.Orders.ReplyAsync(
+            "test-reply-id-001", true, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var ambiguous = result.Error.ShouldBeOfType<IbkrAmbiguousOrderError>();
+        ambiguous.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+        ambiguous.Message.ShouldContain("Reconcile");
+
+        // The reply POST is sent exactly once — a 503 is never retried (that could double-place).
+        _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/reply/*").UsingPost())
+            .Count.ShouldBe(1, "a 503 on the reply POST must not be retried");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
     public async Task Reply_HiddenError200_ReturnsClassifiedRefusal()
     {
         // AMB-3: the reply 2xx path routes through hidden-error detection like every other order path,

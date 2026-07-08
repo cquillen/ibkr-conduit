@@ -138,15 +138,33 @@ public class OrderOperationsAmbiguityTests
     }
 
     [Fact]
-    public async Task ReplyAsync_Non2xx_ReturnsClassifiedFailure()
+    public async Task ReplyAsync_Non2xxNon503_ReturnsClassifiedApiError()
     {
-        _fakeApi.ReplyStatus = HttpStatusCode.ServiceUnavailable;
+        // A non-2xx reply that is NOT a 503 stays a generic classified IbkrApiError — only the reply
+        // endpoint's 503 (an invalidated confirmation) reclassifies to ambiguous (ADR-0006 §9.10).
+        _fakeApi.ReplyStatus = HttpStatusCode.InternalServerError;
         _fakeApi.ReplyBody = """{"error":"timeout"}""";
 
         var result = await _sut.ReplyAsync("reply-1", true, TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeFalse();
-        result.Error.ShouldBeOfType<IbkrApiError>().StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+        result.Error.ShouldBeOfType<IbkrApiError>().StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+    }
+
+    [Fact]
+    public async Task ReplyAsync_503_ReturnsAmbiguousOrderError()
+    {
+        // ADR-0006 §9.10 (breaking-behavioral): a 503 on the reply endpoint is an invalidated
+        // confirmation — the order may still have gone live — so it surfaces as an ambiguous outcome,
+        // NOT a generic/transient IbkrApiError(503) a consumer might blindly retry.
+        _fakeApi.ReplyStatus = HttpStatusCode.ServiceUnavailable;
+        _fakeApi.ReplyBody = """{"error":"Service Unavailable","statusCode":503}""";
+
+        var result = await _sut.ReplyAsync("reply-1", true, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<IbkrAmbiguousOrderError>()
+            .StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using IbkrConduit.Errors;
 using IbkrConduit.Orders;
+using IbkrConduit.Session;
 using OneOf;
 
 namespace IbkrConduit.Client;
@@ -12,6 +13,17 @@ public interface IOrderOperations
     /// <summary>
     /// Places an order for the specified account. Returns either a confirmed submission
     /// or a confirmation-required response that the caller must handle via <see cref="ReplyAsync"/>.
+    /// <para>
+    /// <b>Serialized confirmation round (ADR-0006, §9.10):</b> when this returns an
+    /// <see cref="OrderConfirmationRequired"/>, the library retains the per-account order lock until the
+    /// round resolves — your <see cref="ReplyAsync"/> (confirm or reject), a dismiss, or the
+    /// <see cref="IbkrClientOptions.ConfirmationTimeout"/>. A concurrent second placement on the
+    /// <em>same</em> account waits until then, so overlapping same-account confirmation windows (which
+    /// upstream would silently invalidate, and can double-place) cannot occur in-process. Reply promptly;
+    /// if the timeout elapses, the abandoned order's outcome is ambiguous — reconcile before resubmitting.
+    /// Different accounts are never serialized against each other. Do not assume a question always
+    /// arrives — issuance is non-deterministic upstream.
+    /// </para>
     /// </summary>
     Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> PlaceOrderAsync(
         string accountId, OrderRequest order, CancellationToken cancellationToken = default);
@@ -100,6 +112,17 @@ public interface IOrderOperations
     /// <summary>
     /// Replies to an order confirmation question. Returns either a confirmed submission
     /// or another confirmation-required response (IBKR can chain confirmations).
+    /// <para>
+    /// Resolves the serialized confirmation round the matching <see cref="PlaceOrderAsync"/> /
+    /// <see cref="ModifyOrderAsync"/> opened (ADR-0006, §9.10): a chained question keeps the per-account
+    /// lock held until the chain ends; any other outcome releases it. Two money-boundary guarantees on
+    /// the reply outcome: a <b>503</b> from the reply endpoint is an <em>invalidated confirmation</em> —
+    /// the order may still have gone live — so it surfaces as an <see cref="IbkrAmbiguousOrderError"/>
+    /// (reconcile via <see cref="GetLiveOrdersAsync"/>/<see cref="GetTradesAsync"/> before resubmitting;
+    /// never re-place, which can double-submit), not a generic/transient 503; and <b>every 2xx reply
+    /// shape classifies</b> — an empty, whitespace, or non-JSON body surfaces as a classified error
+    /// carrying the raw body, never an uncaught exception.
+    /// </para>
     /// </summary>
     Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> ReplyAsync(
         string replyId, bool confirmed, CancellationToken cancellationToken = default);

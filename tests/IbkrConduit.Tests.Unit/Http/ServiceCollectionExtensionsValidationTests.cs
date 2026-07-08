@@ -211,6 +211,38 @@ public class ServiceCollectionExtensionsValidationTests
         ex.ParamName.ShouldBe("IbkrClientOptions.FlexPollTimeout");
     }
 
+    [Fact]
+    public void AddIbkrClient_ZeroConfirmationTimeout_ThrowsArgumentOutOfRangeException()
+    {
+        var services = new ServiceCollection();
+        var creds = CreateTestCredentials();
+
+        var ex = Should.Throw<ArgumentOutOfRangeException>(
+            () => services.AddIbkrClient(opts =>
+            {
+                opts.Credentials = creds;
+                opts.ConfirmationTimeout = TimeSpan.Zero;
+            }));
+
+        ex.ParamName.ShouldBe("IbkrClientOptions.ConfirmationTimeout");
+    }
+
+    [Fact]
+    public void AddIbkrClient_NegativeConfirmationTimeout_ThrowsArgumentOutOfRangeException()
+    {
+        var services = new ServiceCollection();
+        var creds = CreateTestCredentials();
+
+        var ex = Should.Throw<ArgumentOutOfRangeException>(
+            () => services.AddIbkrClient(opts =>
+            {
+                opts.Credentials = creds;
+                opts.ConfirmationTimeout = TimeSpan.FromSeconds(-1);
+            }));
+
+        ex.ParamName.ShouldBe("IbkrClientOptions.ConfirmationTimeout");
+    }
+
     [Theory]
     [InlineData("not-a-uri")]
     [InlineData("relative/path")]
