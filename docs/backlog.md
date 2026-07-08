@@ -229,7 +229,7 @@ Follow-up to VCR-11, drafted+groomed 2026-07-07 during the PVR re-groom (operato
 </details>
 
 #### PVR-01 — 📦 Subscription-scoped streaming topic routing
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #275 · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-pvr-01-subscription-scoped-routing.md
 Findings PRB-1.1, PRB-1.2, PRB-3.1 (all high, CONFIRMED) + PRB-1.3 (low): solicited per-target subscriptions register under bare topic prefixes (`smd`/`ssd`/`sld`, `StreamingOperations.cs`) and `ProcessMessage` routes by prefix only, so two concurrent subscriptions for **different** conids/accounts each receive both targets' frames — silently wrong market/account data unless the consumer knows to filter, which nothing in the public surface states. Additionally, consumer-supplied conid/accountId/fields are interpolated into subscribe messages unescaped and unvalidated (PRB-1.3). Implements [ADR-0005](adr/0005-subscription-scoped-streaming-delivery.md) (D1): full-topic-identity routing for target-qualified topics, prefix for target-less/unsolicited, observable unmatched-frame drops, facade input validation. **Breaking-behavioral — `feat!:`.**
