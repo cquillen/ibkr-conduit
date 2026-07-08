@@ -1,0 +1,41 @@
+{
+  "Request": {
+    "Path": "/v1/api/forecast/contract/market?underlyingConid=999999999",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": {
+      "market_name": "Sparse Market",
+      "exchange": "FORECASTX",
+      "symbol": "SP",
+      "logo_category": "g0",
+      "exclude_historical_data": false,
+      "payout": "",
+      "contracts": [
+        {
+          "conid": 722489372,
+          "side": "Y",
+          "expiration": "20270127",
+          "strike": 1234567890.123456789,
+          "strike_label": "Precise",
+          "expiry_label": "January 27, 2027",
+          "underlying_conid": 999999999,
+          "time_specifier": "2027.1.28"
+        },
+        {
+          "conid": 722489376,
+          "side": "N",
+          "expiration": "20270127",
+          "strike_label": "Omitted",
+          "expiry_label": "January 27, 2027",
+          "underlying_conid": 999999999,
+          "time_specifier": "2027.1.28"
+        }
+      ]
+    }
+  }
+}

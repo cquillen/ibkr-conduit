@@ -237,7 +237,7 @@ Findings PRB-1.1, PRB-1.2, PRB-3.1 (all high, CONFIRMED) + PRB-1.3 (low): solici
 **TDD notes:** red tests per the spec test plan (mock-WS cross-target isolation, unmatched-frame counter via MeterListener, input validation).
 
 #### PVR-02 — 📦 Presence-preserving REST money DTOs — portfolio, account summary, event contracts
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #271 · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-07-pvr-02-rest-money-dto-retrofit.md
 Findings WIR-3 (high, PLAUSIBLE), WIR-4 (medium, CONFIRMED): `Position`/`LedgerEntry` money+quantity fields and the sixteen `AccountSummaryOverview`/`AccountSummaryCashBalance` money fields (plus event-contract strike/payout) erase presence (absent → 0) and/or are typed `double` — outside VCR-01's retrofit scope. Both halves are now recorded: nullability per ADR-0001 + §6.5 ("Streaming and REST alike"), and the `double`→`decimal` retype per the §6.5 money-numeric rule (D2). WIR-3's sparse-row trigger is unpinned upstream — handled as safe-under-both (see stream Evidence); no story dependency. **Breaking — `feat!:`.**

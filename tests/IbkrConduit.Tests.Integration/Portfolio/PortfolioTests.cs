@@ -172,6 +172,30 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task GetPositions_SparseRow_MoneyFieldsSurfacePresenceAndPrecision()
+    {
+        // Synthetic sparse row (§6.5, ADR-0001; WIR-3's REST sparse-row trigger is unpinned upstream —
+        // safe-under-both): mktPrice is an empty string, mktValue and unrealizedPnl are omitted, and
+        // avgCost carries a 19-significant-digit value a double would corrupt.
+        _harness.StubAuthenticatedGet(
+            "/v1/api/portfolio/U1234567/positions/7",
+            FixtureLoader.LoadBody("Portfolio", "GET-portfolio-positions-sparse"));
+
+        var positions = (await _harness.Client.Portfolio.GetPositionsAsync(
+            "U1234567", 7, cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        positions.ShouldNotBeEmpty();
+        var pos = positions[0];
+        pos.MarketPrice.ShouldBeNull();
+        pos.MarketValue.ShouldBeNull();
+        pos.UnrealizedPnl.ShouldBeNull();
+        pos.Quantity.ShouldBe(3.0m);
+        pos.AverageCost.ShouldBe(1234567890.123456789m);
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
     public async Task GetAccountSummary_ReturnsAllEntryFields()
     {
         _harness.StubAuthenticatedGet(

@@ -155,20 +155,25 @@ public record DynamicAccountSearchResult(
     [property: JsonPropertyName("allocationId")] string? AllocationId = null);
 
 /// <summary>
-/// A cash balance entry within an account summary overview.
+/// A cash balance entry within an account summary overview. Money fields are <c>decimal?</c> and
+/// nullable-as-presence (§6.5, ADR-0001): <see langword="null"/> means the value was absent from
+/// (or not parseable in) this response — never a fabricated <c>0</c>.
 /// </summary>
 /// <param name="Currency">The currency code (e.g., "USD").</param>
-/// <param name="Balance">The current cash balance in this currency.</param>
-/// <param name="SettledCash">The settled cash amount in this currency.</param>
+/// <param name="Balance">The current cash balance in this currency, or <see langword="null"/> when absent (§6.5).</param>
+/// <param name="SettledCash">The settled cash amount in this currency, or <see langword="null"/> when absent (§6.5).</param>
 [ExcludeFromCodeCoverage]
 public record AccountSummaryCashBalance(
     [property: JsonPropertyName("currency")] string? Currency = null,
-    [property: JsonPropertyName("balance")] double? Balance = null,
-    [property: JsonPropertyName("settledCash")] double? SettledCash = null);
+    [property: JsonPropertyName("balance")] decimal? Balance = null,
+    [property: JsonPropertyName("settledCash")] decimal? SettledCash = null);
 
 /// <summary>
 /// Response from GET /iserver/account/{accountId}/summary.
 /// Provides a high-level overview of account balances, margins, and buying power.
+/// Every money field is <c>decimal?</c> and nullable-as-presence (§6.5, ADR-0001):
+/// <see langword="null"/> means the value was absent from (or not parseable in) this response —
+/// never a fabricated <c>0</c>.
 /// </summary>
 /// <param name="AccountType">The type of account.</param>
 /// <param name="Status">The account status.</param>
@@ -191,20 +196,20 @@ public record AccountSummaryCashBalance(
 public record AccountSummaryOverview(
     [property: JsonPropertyName("accountType")] string? AccountType = null,
     [property: JsonPropertyName("status")] string? Status = null,
-    [property: JsonPropertyName("balance")] double? Balance = null,
-    [property: JsonPropertyName("SMA")] double? Sma = null,
-    [property: JsonPropertyName("buyingPower")] double? BuyingPower = null,
-    [property: JsonPropertyName("availableFunds")] double? AvailableFunds = null,
-    [property: JsonPropertyName("excessLiquidity")] double? ExcessLiquidity = null,
-    [property: JsonPropertyName("netLiquidationValue")] double? NetLiquidationValue = null,
-    [property: JsonPropertyName("equityWithLoanValue")] double? EquityWithLoanValue = null,
-    [property: JsonPropertyName("regTLoan")] double? RegTLoan = null,
-    [property: JsonPropertyName("securitiesGVP")] double? SecuritiesGvp = null,
-    [property: JsonPropertyName("totalCashValue")] double? TotalCashValue = null,
-    [property: JsonPropertyName("accruedInterest")] double? AccruedInterest = null,
-    [property: JsonPropertyName("regTMargin")] double? RegTMargin = null,
-    [property: JsonPropertyName("initialMargin")] double? InitialMargin = null,
-    [property: JsonPropertyName("maintenanceMargin")] double? MaintenanceMargin = null,
+    [property: JsonPropertyName("balance")] decimal? Balance = null,
+    [property: JsonPropertyName("SMA")] decimal? Sma = null,
+    [property: JsonPropertyName("buyingPower")] decimal? BuyingPower = null,
+    [property: JsonPropertyName("availableFunds")] decimal? AvailableFunds = null,
+    [property: JsonPropertyName("excessLiquidity")] decimal? ExcessLiquidity = null,
+    [property: JsonPropertyName("netLiquidationValue")] decimal? NetLiquidationValue = null,
+    [property: JsonPropertyName("equityWithLoanValue")] decimal? EquityWithLoanValue = null,
+    [property: JsonPropertyName("regTLoan")] decimal? RegTLoan = null,
+    [property: JsonPropertyName("securitiesGVP")] decimal? SecuritiesGvp = null,
+    [property: JsonPropertyName("totalCashValue")] decimal? TotalCashValue = null,
+    [property: JsonPropertyName("accruedInterest")] decimal? AccruedInterest = null,
+    [property: JsonPropertyName("regTMargin")] decimal? RegTMargin = null,
+    [property: JsonPropertyName("initialMargin")] decimal? InitialMargin = null,
+    [property: JsonPropertyName("maintenanceMargin")] decimal? MaintenanceMargin = null,
     [property: JsonPropertyName("cashBalances")] List<AccountSummaryCashBalance>? CashBalances = null)
 {
     /// <summary>

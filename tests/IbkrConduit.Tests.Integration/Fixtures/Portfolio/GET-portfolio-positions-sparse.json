@@ -1,0 +1,15 @@
+{
+  "Request": { "Path": "/v1/api/portfolio/U1234567/positions/7", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "acctId": "U1234567", "conid": 320227571, "contractDesc": "QQQ",
+        "position": 3.0, "mktPrice": "", "avgCost": 1234567890.123456789,
+        "avgPrice": 584.31333335, "realizedPnl": 0.0, "currency": "USD",
+        "assetClass": "STK", "undConid": 0, "model": ""
+      }
+    ]
+  }
+}

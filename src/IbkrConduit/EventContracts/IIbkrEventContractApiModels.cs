@@ -69,7 +69,7 @@ public record EventContractCategoryMarket(
 /// <param name="Symbol">The market symbol.</param>
 /// <param name="LogoCategory">The logo category identifier.</param>
 /// <param name="ExcludeHistoricalData">Whether historical data is excluded.</param>
-/// <param name="Payout">The payout amount per contract.</param>
+/// <param name="Payout">The payout amount per contract, or <see langword="null"/> when absent from (or not parseable in) the response (§6.5, ADR-0001).</param>
 /// <param name="Contracts">The list of contracts in this market.</param>
 [ExcludeFromCodeCoverage]
 public record EventContractMarketResponse(
@@ -78,7 +78,7 @@ public record EventContractMarketResponse(
     [property: JsonPropertyName("symbol")] string Symbol,
     [property: JsonPropertyName("logo_category")] string LogoCategory,
     [property: JsonPropertyName("exclude_historical_data")] bool ExcludeHistoricalData,
-    [property: JsonPropertyName("payout")] double Payout,
+    [property: JsonPropertyName("payout")] decimal? Payout,
     [property: JsonPropertyName("contracts")] List<EventContract> Contracts)
 {
     /// <summary>
@@ -94,7 +94,7 @@ public record EventContractMarketResponse(
 /// <param name="Conid">The contract identifier.</param>
 /// <param name="Side">The contract side ("Y" for Yes, "N" for No).</param>
 /// <param name="Expiration">The expiration date (e.g., "20270127").</param>
-/// <param name="Strike">The strike price.</param>
+/// <param name="Strike">The strike price, or <see langword="null"/> when absent from (or not parseable in) the response (§6.5, ADR-0001).</param>
 /// <param name="StrikeLabel">Human-readable strike label (e.g., "Above 3.125%").</param>
 /// <param name="ExpiryLabel">Human-readable expiry label (e.g., "January 27, 2027").</param>
 /// <param name="UnderlyingConid">The underlying contract identifier.</param>
@@ -104,7 +104,7 @@ public record EventContract(
     [property: JsonPropertyName("conid")] int Conid,
     [property: JsonPropertyName("side")] string Side,
     [property: JsonPropertyName("expiration")] string Expiration,
-    [property: JsonPropertyName("strike")] double Strike,
+    [property: JsonPropertyName("strike")] decimal? Strike,
     [property: JsonPropertyName("strike_label")] string StrikeLabel,
     [property: JsonPropertyName("expiry_label")] string ExpiryLabel,
     [property: JsonPropertyName("underlying_conid")] int UnderlyingConid,
@@ -168,7 +168,7 @@ public record EventContractRulesResponse(
 /// <param name="Question">The contract question text.</param>
 /// <param name="Side">The contract side ("Y" or "N").</param>
 /// <param name="StrikeLabel">Human-readable strike label.</param>
-/// <param name="Strike">The strike price.</param>
+/// <param name="Strike">The strike price, or <see langword="null"/> when absent from (or not parseable in) the response (§6.5, ADR-0001).</param>
 /// <param name="Exchange">The exchange (e.g., "FORECASTX").</param>
 /// <param name="Expiration">The expiration date (e.g., "20270127").</param>
 /// <param name="Symbol">The market symbol.</param>
@@ -177,7 +177,7 @@ public record EventContractRulesResponse(
 /// <param name="MeasuredPeriod">The measurement period label.</param>
 /// <param name="MarketName">The market display name.</param>
 /// <param name="UnderlyingConid">The underlying contract identifier.</param>
-/// <param name="PayoutAmount">The payout amount per contract.</param>
+/// <param name="PayoutAmount">The payout amount per contract, or <see langword="null"/> when absent from (or not parseable in) the response (§6.5, ADR-0001).</param>
 /// <param name="ProductConid">The product contract identifier.</param>
 /// <param name="IsRestricted">Whether the contract is restricted.</param>
 [ExcludeFromCodeCoverage]
@@ -187,7 +187,7 @@ public record EventContractDetailsResponse(
     [property: JsonPropertyName("question")] string Question,
     [property: JsonPropertyName("side")] string Side,
     [property: JsonPropertyName("strike_label")] string StrikeLabel,
-    [property: JsonPropertyName("strike")] double Strike,
+    [property: JsonPropertyName("strike")] decimal? Strike,
     [property: JsonPropertyName("exchange")] string Exchange,
     [property: JsonPropertyName("expiration")] string Expiration,
     [property: JsonPropertyName("symbol")] string Symbol,
@@ -196,7 +196,7 @@ public record EventContractDetailsResponse(
     [property: JsonPropertyName("measured_period")] string MeasuredPeriod,
     [property: JsonPropertyName("market_name")] string MarketName,
     [property: JsonPropertyName("underlying_conid")] int UnderlyingConid,
-    [property: JsonPropertyName("payout")] double PayoutAmount,
+    [property: JsonPropertyName("payout")] decimal? PayoutAmount,
     [property: JsonPropertyName("product_conid")] int ProductConid,
     [property: JsonPropertyName("is_restricted")] bool IsRestricted)
 {
