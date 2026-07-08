@@ -98,7 +98,11 @@ internal partial class LiveSessionTokenClient : ILiveSessionTokenClient
         if (!OAuthCrypto.ValidateLiveSessionToken(lstBytes, credentials.ConsumerKey, signatureHex))
         {
             LogLstValidationFailed();
-            throw new CryptographicException(
+            // AUT-4: throw the dedicated validation type (not a bare CryptographicException whose
+            // "signature" wording would be misclassified as an RSA signing failure). The classifier
+            // recognises this type and names ConsumerKey / EncryptionPrivateKey / DhPrime — the fields
+            // that actually derive and validate the token — not SignaturePrivateKey.
+            throw new LiveSessionTokenValidationException(
                 "Live Session Token validation failed: computed signature does not match server's signature.");
         }
 

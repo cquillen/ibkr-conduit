@@ -140,8 +140,14 @@ public class LiveSessionTokenClientTests : IClassFixture<RsaKeyFixture>
         var factory = new FakeHttpClientFactory(handler, new Uri("https://api.ibkr.com/v1/api/"));
         var client = new LiveSessionTokenClient(factory, "test-lst", NullLogger<LiveSessionTokenClient>.Instance);
 
-        await Should.ThrowAsync<CryptographicException>(
+        // AUT-4: an LST-validation mismatch throws the dedicated LiveSessionTokenValidationException
+        // (a CryptographicException subtype) so the error classifier can name the credential fields
+        // actually implicated (ConsumerKey / EncryptionPrivateKey / DhPrime) rather than the signing
+        // key. The word "signature" in a plain CryptographicException message would otherwise be
+        // misclassified as an RSA signing failure.
+        var ex = await Should.ThrowAsync<LiveSessionTokenValidationException>(
             () => client.GetLiveSessionTokenAsync(creds, CancellationToken.None));
+        ex.ShouldBeAssignableTo<CryptographicException>();
     }
 
     [Fact]

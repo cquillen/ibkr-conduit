@@ -93,6 +93,39 @@ public class SessionTokenProviderTests
     }
 
     [Fact]
+    public async Task RefreshAsync_ConcurrentWithLazyAcquisition_PerformsSingleHandshake()
+    {
+        // AUT-3: the refresh dedupe must count a lazy acquisition completed while the refresh was
+        // waiting on the semaphore. The lazy path (GetLiveSessionTokenAsync) advances the version
+        // counter on a fresh handshake, so a RefreshAsync that snapshotted the version *before* the
+        // lazy acquisition sees the change and reuses the freshly-acquired token instead of running
+        // a redundant second handshake (double ssodh/init).
+        var lazyToken = new LiveSessionToken(new byte[] { 0x01 }, DateTimeOffset.UtcNow.AddHours(24));
+        var refreshToken = new LiveSessionToken(new byte[] { 0x02 }, DateTimeOffset.UtcNow.AddHours(48));
+        var client = new GatingLstClient(lazyToken, refreshToken);
+        var provider = new SessionTokenProvider(CreateTestCredentials(), client);
+
+        // Start the lazy acquisition; it grabs the semaphore and blocks inside the gated handshake.
+        var lazyTask = provider.GetLiveSessionTokenAsync(CancellationToken.None);
+        await client.FirstCallEntered.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // Now start the refresh. It synchronously snapshots the version (still 0, the lazy handshake
+        // has not completed) and then blocks on the semaphore the lazy call holds.
+        var refreshTask = provider.RefreshAsync(CancellationToken.None);
+
+        // Release the lazy handshake: it completes call #1, caches, bumps the version, and releases
+        // the semaphore. The refresh then acquires it, sees the version moved, and reuses the token.
+        client.ReleaseFirstCall();
+
+        var lazy = await lazyTask;
+        var refreshed = await refreshTask;
+
+        client.CallCount.ShouldBe(1, "the refresh must reuse the lazy acquisition's fresh token, not re-handshake");
+        lazy.ShouldBe(lazyToken);
+        refreshed.ShouldBe(lazyToken);
+    }
+
+    [Fact]
     public async Task GetLiveSessionTokenAsync_ConcurrentCalls_OnlyAcquiresOnce()
     {
         var expectedToken = new LiveSessionToken(
@@ -154,6 +187,41 @@ public class SessionTokenProviderTests
             }
 
             return Task.FromResult(_last);
+        }
+    }
+
+    /// <summary>
+    /// Returns a preset sequence of tokens, one per call, and gates the *first* call on a manual
+    /// signal so a test can deterministically interleave a lazy acquisition with a concurrent
+    /// refresh (AUT-3). The first caller signals <see cref="FirstCallEntered"/> on entry and blocks
+    /// until <see cref="ReleaseFirstCall"/> is invoked.
+    /// </summary>
+    private sealed class GatingLstClient : ILiveSessionTokenClient
+    {
+        private readonly LiveSessionToken[] _tokens;
+        private readonly TaskCompletionSource _firstCallEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseFirstCall = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _callCount;
+
+        public GatingLstClient(params LiveSessionToken[] tokens) => _tokens = tokens;
+
+        public int CallCount => Volatile.Read(ref _callCount);
+
+        public Task FirstCallEntered => _firstCallEntered.Task;
+
+        public void ReleaseFirstCall() => _releaseFirstCall.TrySetResult();
+
+        public async Task<LiveSessionToken> GetLiveSessionTokenAsync(
+            IbkrOAuthCredentials credentials, CancellationToken cancellationToken)
+        {
+            var call = Interlocked.Increment(ref _callCount);
+            if (call == 1)
+            {
+                _firstCallEntered.TrySetResult();
+                await _releaseFirstCall.Task.WaitAsync(cancellationToken);
+            }
+
+            return _tokens[Math.Min(call - 1, _tokens.Length - 1)];
         }
     }
 

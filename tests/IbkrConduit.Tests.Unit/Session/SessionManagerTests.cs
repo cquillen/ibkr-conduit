@@ -1241,6 +1241,82 @@ public class SessionManagerTests
             "The immediate proactive refresh must re-initialize the session.");
     }
 
+    [Fact]
+    public async Task DisposeAsync_DuringInFlightProactiveReauth_CancelsAndDrainsReauth_NoLeakedLoop()
+    {
+        // CON-1: dispose racing an in-flight re-auth must cancel _disposeCts FIRST — so the re-auth
+        // (running on the dispose token via the proactive-refresh loop) unwinds — and must AWAIT the
+        // background loops to completion so nothing leaks past dispose. Under the pre-fix ordering,
+        // dispose never cancelled the dispose token and never awaited RunProactiveRefreshAsync, so the
+        // in-flight re-auth stayed blocked, later touched the disposed semaphore (ObjectDisposedException),
+        // and the proactive-refresh loop leaked — the root cause of the intermittent tickle-watchdog hang.
+        var fakeTime = new FakeTimeProvider();
+        var deps = CreateDependencies();
+        deps.TokenProvider = new FakeSessionTokenProvider(fakeTime)
+        {
+            TokenLifetime = TimeSpan.FromSeconds(10),      // initial token → refresh due in 2s
+            RefreshTokenLifetime = TimeSpan.FromHours(1),  // refreshed token long-lived
+        };
+        deps.Options.ProactiveRefreshMargin = TimeSpan.FromSeconds(8); // timeUntilRefresh = 2s
+
+        var reachedGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var inFlightReauthWasCancelled = false;
+
+        // Gate the re-auth's ssodh/init (the 2nd init) in-flight until dispose cancels its token.
+        deps.SessionApi.InitGate = async (callNumber, ct) =>
+        {
+            if (callNumber < 2)
+            {
+                return;
+            }
+
+            reachedGate.TrySetResult();
+            try
+            {
+                await releaseGate.Task.WaitAsync(ct);
+            }
+            catch (OperationCanceledException)
+            {
+                inFlightReauthWasCancelled = true;
+                throw;
+            }
+        };
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"),
+            fakeTime);
+
+        try
+        {
+            await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+            // Fire the proactive refresh — it runs ReauthenticateAsync on the dispose token and
+            // blocks inside the gated ssodh/init.
+            fakeTime.Advance(TimeSpan.FromSeconds(2));
+            await reachedGate.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+            // Dispose while the re-auth is in-flight. Must complete promptly (bounded) and drain it.
+            await manager.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+            inFlightReauthWasCancelled.ShouldBeTrue(
+                "dispose must cancel _disposeCts first (unwinding the in-flight re-auth) and await the "
+                + "proactive-refresh loop, so no background reauth/tickle loop leaks past DisposeAsync.");
+        }
+        finally
+        {
+            // Release the gate so any residual wait unblocks for clean test teardown.
+            releaseGate.TrySetResult();
+        }
+    }
+
     // ---- ADR-0004: competing-session truth & health evidence (VCR-07) ----
 
     [Fact]
@@ -1571,7 +1647,15 @@ public class SessionManagerTests
         /// <summary>Completes when <see cref="InitCallCount"/> reaches 2 (first re-auth).</summary>
         public Task SecondInitTask => _secondInitTcs.Task;
 
-        public Task<SsodhInitResponse> InitializeBrokerageSessionAsync(SsodhInitRequest request, CancellationToken cancellationToken = default)
+        /// <summary>
+        /// If set, awaited inside <see cref="InitializeBrokerageSessionAsync"/> before the response is
+        /// returned, receiving the current call number and the call's <see cref="CancellationToken"/>.
+        /// Lets a test hold a re-auth's ssodh/init call in-flight (blocked) so dispose can be observed
+        /// racing against it (CON-1). Default null → no gating.
+        /// </summary>
+        public Func<int, CancellationToken, Task>? InitGate { get; set; }
+
+        public async Task<SsodhInitResponse> InitializeBrokerageSessionAsync(SsodhInitRequest request, CancellationToken cancellationToken = default)
         {
             InitCallCount++;
             LastInitRequest = request;
@@ -1587,12 +1671,17 @@ public class SessionManagerTests
                 throw InitException;
             }
 
-            if (InitResponse != null)
+            if (InitGate != null)
             {
-                return Task.FromResult(InitResponse);
+                await InitGate(InitCallCount, cancellationToken);
             }
 
-            return Task.FromResult(new SsodhInitResponse(Authenticated: true, Connected: true, Competing: false, Established: true, Message: null, Mac: null, ServerInfo: null, HardwareInfo: null));
+            if (InitResponse != null)
+            {
+                return InitResponse;
+            }
+
+            return new SsodhInitResponse(Authenticated: true, Connected: true, Competing: false, Established: true, Message: null, Mac: null, ServerInfo: null, HardwareInfo: null);
         }
 
         public Task<TickleResponse> TickleAsync(CancellationToken cancellationToken = default) =>
