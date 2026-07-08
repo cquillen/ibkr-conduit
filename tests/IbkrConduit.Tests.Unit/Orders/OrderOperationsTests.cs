@@ -514,9 +514,13 @@ public class OrderOperationsTests
     public async Task GetLiveOrdersAsync_WithFilters_IssuesExactlyOneForceFollowUp()
     {
         // GAP1-2 / §10.6: a filtered call is followed by exactly one force=true follow-up (no filters).
+        // PVR-18: the follow-up is a background-tracked task — dispose drains it, then we assert.
         _fakeApi.LiveOrdersResponse = new OrdersResponse([], Snapshot: false);
 
         await _sut.GetLiveOrdersAsync([OrderStatusFilter.Cancelled], cancellationToken: TestContext.Current.CancellationToken);
+
+        // DisposeAsync awaits the pending background follow-up, making the call sequence deterministic.
+        await _sut.DisposeAsync();
 
         _fakeApi.LiveOrdersCalls.Count.ShouldBe(2);
         _fakeApi.LiveOrdersCalls[0].Filters.ShouldBe(new[] { OrderStatusFilter.Cancelled });
@@ -531,21 +535,53 @@ public class OrderOperationsTests
         _fakeApi.LiveOrdersResponse = new OrdersResponse([], Snapshot: true);
 
         await _sut.GetLiveOrdersAsync(cancellationToken: TestContext.Current.CancellationToken);
+        await _sut.DisposeAsync();
 
         _fakeApi.LiveOrdersCalls.Count.ShouldBe(1);
         _fakeApi.LiveOrdersCalls[0].Force.ShouldBeNull();
     }
 
     [Fact]
-    public async Task GetLiveOrdersAsync_FilteredAndAlreadyForced_IssuesNoFollowUp()
+    public async Task GetLiveOrdersAsync_FilteredAndAlreadyForced_StillIssuesForceFollowUp()
     {
-        // The caller's own force=true already clears the cache — no additional follow-up.
+        // PVR-18 (ORD-5): the old filters+force exemption is DROPPED — single-call sufficiency is
+        // unpinned in every doc tier, so §10.6's defensive posture applies even when the caller already
+        // passed force=true. The library still issues its own force-clear follow-up (no filters).
         _fakeApi.LiveOrdersResponse = new OrdersResponse([], Snapshot: false);
 
         await _sut.GetLiveOrdersAsync([OrderStatusFilter.Cancelled], force: true, cancellationToken: TestContext.Current.CancellationToken);
+        await _sut.DisposeAsync();
 
-        _fakeApi.LiveOrdersCalls.Count.ShouldBe(1);
+        _fakeApi.LiveOrdersCalls.Count.ShouldBe(2);
+        _fakeApi.LiveOrdersCalls[0].Filters.ShouldBe(new[] { OrderStatusFilter.Cancelled });
         _fakeApi.LiveOrdersCalls[0].Force.ShouldBe(true);
+        _fakeApi.LiveOrdersCalls[1].Filters.ShouldBeNull();
+        _fakeApi.LiveOrdersCalls[1].Force.ShouldBe(true);
+    }
+
+    [Fact]
+    public async Task GetLiveOrdersAsync_Filtered_ReturnsWithoutAwaitingFollowUp()
+    {
+        // PVR-18 (ORD-2): the filtered call must return WITHOUT waiting on the follow-up. Gate the
+        // force=true follow-up so it cannot complete; the filtered call must still return (if it awaited
+        // the follow-up inline it would deadlock on the held gate). Then release + dispose to drain.
+        _fakeApi.LiveOrdersResponse = new OrdersResponse([], Snapshot: false);
+        var gate = new TaskCompletionSource();
+        _fakeApi.ForceFollowUpGate = gate;
+
+        var callTask = _sut.GetLiveOrdersAsync(
+            [OrderStatusFilter.Cancelled], cancellationToken: TestContext.Current.CancellationToken);
+
+        var winner = await Task.WhenAny(
+            callTask, Task.Delay(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        winner.ShouldBe(callTask, "the filtered call must return without awaiting the gated follow-up");
+
+        var snapshot = (await callTask).Value;
+        snapshot.Orders.ShouldBeEmpty();
+
+        // Release the gate and drain the background follow-up via disposal — clean teardown, no leak.
+        gate.SetResult();
+        await _sut.DisposeAsync();
     }
 
     [Fact]
@@ -570,6 +606,12 @@ public class OrderOperationsTests
         public CancelOrderResponse? CancelResponse { get; set; }
         public OrdersResponse LiveOrdersResponse { get; set; } = new(null);
         public List<(OrderStatusFilter[]? Filters, bool? Force)> LiveOrdersCalls { get; } = new();
+
+        /// <summary>
+        /// When set, a <c>force=true</c> call awaits this gate before returning — lets a test hold the
+        /// §10.6 follow-up open to prove the filtered caller returns without awaiting it (PVR-18).
+        /// </summary>
+        public TaskCompletionSource? ForceFollowUpGate { get; set; }
         public List<Trade>? TradesResponse { get; set; }
         public WhatIfResponse? WhatIfResponse { get; set; }
         public OrderStatus? OrderStatusResponse { get; set; }
@@ -613,10 +655,15 @@ public class OrderOperationsTests
         public Task<IApiResponse<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, string? extOperator = null, bool? manualIndicator = null, long? manualCancelTime = null, CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(CancelResponse!));
 
-        public Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(OrderStatusFilter[]? filters = null, bool? force = null, CancellationToken cancellationToken = default)
+        public async Task<IApiResponse<OrdersResponse>> GetLiveOrdersAsync(OrderStatusFilter[]? filters = null, bool? force = null, CancellationToken cancellationToken = default)
         {
             LiveOrdersCalls.Add((filters, force));
-            return Task.FromResult(FakeApiResponse.Success(LiveOrdersResponse));
+            if (force == true && ForceFollowUpGate is { } gate)
+            {
+                await gate.Task.WaitAsync(cancellationToken);
+            }
+
+            return FakeApiResponse.Success(LiveOrdersResponse);
         }
 
         public Task<IApiResponse<List<Trade>>> GetTradesAsync(int? days = null, CancellationToken cancellationToken = default) =>
