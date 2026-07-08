@@ -33,7 +33,54 @@ public class OAuthCredentialsFactoryFromFileTests
         creds.ConsumerKey.ShouldBe("TESTCONS9");
         creds.AccessToken.ShouldBe("mytoken");
         creds.EncryptedAccessTokenSecret.ShouldBe("mysecret");
-        creds.TenantId.ShouldBe("TESTCONS9");
+        // AUT-5: tenant label defaults to the literal "default" — never the consumer key.
+        creds.TenantId.ShouldBe("default");
+        creds.TenantId.ShouldNotBe("TESTCONS9");
+    }
+
+    [Fact]
+    public void FromJson_TenantIdField_UsedAsTenant()
+    {
+        using var sigKey = RSA.Create(2048);
+        using var encKey = RSA.Create(2048);
+
+        var json = JsonSerializer.Serialize(new
+        {
+            consumerKey = "TESTCONS9",
+            accessToken = "mytoken",
+            accessTokenSecret = "mysecret",
+            signaturePrivateKey = sigKey.ExportRSAPrivateKeyPem(),
+            encryptionPrivateKey = encKey.ExportRSAPrivateKeyPem(),
+            dhPrime = "11",
+            tenantId = "file-tenant",
+        });
+
+        using var creds = OAuthCredentialsFactory.FromJson(json);
+
+        creds.TenantId.ShouldBe("file-tenant");
+    }
+
+    [Fact]
+    public void FromJson_ExplicitParameter_OverridesFieldAndDefault()
+    {
+        using var sigKey = RSA.Create(2048);
+        using var encKey = RSA.Create(2048);
+
+        var json = JsonSerializer.Serialize(new
+        {
+            consumerKey = "TESTCONS9",
+            accessToken = "mytoken",
+            accessTokenSecret = "mysecret",
+            signaturePrivateKey = sigKey.ExportRSAPrivateKeyPem(),
+            encryptionPrivateKey = encKey.ExportRSAPrivateKeyPem(),
+            dhPrime = "11",
+            tenantId = "file-tenant",
+        });
+
+        using var creds = OAuthCredentialsFactory.FromJson(json, tenantId: "explicit-tenant");
+
+        // Explicit parameter wins over the credential-file field.
+        creds.TenantId.ShouldBe("explicit-tenant");
     }
 
     [Fact]
@@ -81,7 +128,9 @@ public class OAuthCredentialsFactoryFromFileTests
             creds.ConsumerKey.ShouldBe("TESTCONS9");
             creds.AccessToken.ShouldBe("mytoken");
             creds.EncryptedAccessTokenSecret.ShouldBe("mysecret");
-            creds.TenantId.ShouldBe("TESTCONS9");
+            // AUT-5: tenant label defaults to the literal "default" — never the consumer key.
+            creds.TenantId.ShouldBe("default");
+            creds.TenantId.ShouldNotBe("TESTCONS9");
 
             // Verify the loaded signature key can sign and verify
             var data = System.Text.Encoding.UTF8.GetBytes("test-payload");
