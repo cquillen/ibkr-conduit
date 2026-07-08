@@ -977,6 +977,7 @@ The pre-flight requirement (first request returns no data) applies to the REST s
 - Reconnect/gap transitions are consumer-observable (connection-lifecycle events with replayed topics) so consumers can trigger REST reconciliation deterministically.
 - `IIbkrSubscription<T>.Stream` is **single-observer**: a second concurrent `Subscribe` throws `InvalidOperationException`.
 - **Delivery is subscription-scoped** ([ADR-0005](adr/0005-subscription-scoped-streaming-delivery.md)): target-qualified topics (`smd+{conid}`, `ssd`/`sld`+account) route by **full wire-topic identity** — a subscription receives exactly its target's frames, and an unmatched target-qualified frame drops observably (distinct cause) rather than cross-delivering. Target-less (`sor`/`spl`/`str`) and unsolicited topics route by prefix; same-target duplicates fan out. The facade validates and escapes consumer-supplied subscribe inputs before they reach the wire.
+- A subscribe call serializes behind an in-flight reconnect to guarantee its wire message is sent exactly once per connection, so it can block for the reconnect's duration; callers needing a bound should pass a `CancellationToken` with a deadline.
 
 ---
 

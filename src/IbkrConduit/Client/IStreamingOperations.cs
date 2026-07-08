@@ -74,6 +74,13 @@ public interface IStreamingOperations
     /// <summary>
     /// Subscribes to real-time market data for the specified contract.
     /// </summary>
+    /// <remarks>
+    /// <b>May block on an in-flight reconnect:</b> if a reconnect is currently in progress, this
+    /// call waits for it to finish before sending the subscribe message, guaranteeing the
+    /// subscription is sent exactly once per connection. A reconnect can take tens of seconds
+    /// under a degraded network; pass a <paramref name="cancellationToken"/> with a deadline if
+    /// the call must be bounded.
+    /// </remarks>
     /// <param name="conid">Contract identifier.</param>
     /// <param name="fields">Array of field IDs (use <see cref="MarketData.MarketDataFields"/> constants).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -89,6 +96,13 @@ public interface IStreamingOperations
     /// after a <em>filtered</em> <see cref="IOrderOperations.GetLiveOrdersAsync"/> call until a
     /// <c>force=true</c> follow-up clears the cached behavior. This library issues that follow-up
     /// automatically after any filtered call, so subscribing here still delivers order details.
+    /// <para>
+    /// <b>May block on an in-flight reconnect:</b> if a reconnect is currently in progress, this
+    /// call waits for it to finish before sending the subscribe message, guaranteeing the
+    /// subscription is sent exactly once per connection. A reconnect can take tens of seconds
+    /// under a degraded network; pass a <paramref name="cancellationToken"/> with a deadline if
+    /// the call must be bounded.
+    /// </para>
     /// </remarks>
     /// <param name="days">Optional number of days of order history to include.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -102,6 +116,13 @@ public interface IStreamingOperations
     /// true; the same replay occurs after any reconnect, so consumers should dedupe on
     /// <see cref="TradeExecution.ExecutionId"/>.
     /// </summary>
+    /// <remarks>
+    /// <b>May block on an in-flight reconnect:</b> if a reconnect is currently in progress, this
+    /// call waits for it to finish before sending the subscribe message, guaranteeing the
+    /// subscription is sent exactly once per connection. A reconnect can take tens of seconds
+    /// under a degraded network; pass a <paramref name="cancellationToken"/> with a deadline if
+    /// the call must be bounded.
+    /// </remarks>
     /// <param name="realtimeUpdatesOnly">When true, suppress historical executions and stream new fills only. Omitted from the wire message when null (IBKR default: false).</param>
     /// <param name="days">Days of historical executions to include on subscribe. Omitted from the wire message when null (IBKR default: 1).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -115,6 +136,13 @@ public interface IStreamingOperations
     /// Subscribes to real-time profit and loss updates. A single WebSocket frame may carry
     /// P&amp;L for several accounts; each account is emitted as a separate item.
     /// </summary>
+    /// <remarks>
+    /// <b>May block on an in-flight reconnect:</b> if a reconnect is currently in progress, this
+    /// call waits for it to finish before sending the subscribe message, guaranteeing the
+    /// subscription is sent exactly once per connection. A reconnect can take tens of seconds
+    /// under a degraded network; pass a <paramref name="cancellationToken"/> with a deadline if
+    /// the call must be bounded.
+    /// </remarks>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that resolves to a subscription handle whose <see cref="IIbkrSubscription{T}.Stream"/> emits P&amp;L updates.</returns>
     Task<IIbkrSubscription<PnlUpdate>> ProfitAndLossAsync(CancellationToken cancellationToken = default);
@@ -122,6 +150,13 @@ public interface IStreamingOperations
     /// <summary>
     /// Subscribes to real-time account summary updates for the specified account.
     /// </summary>
+    /// <remarks>
+    /// <b>May block on an in-flight reconnect:</b> if a reconnect is currently in progress, this
+    /// call waits for it to finish before sending the subscribe message, guaranteeing the
+    /// subscription is sent exactly once per connection. A reconnect can take tens of seconds
+    /// under a degraded network; pass a <paramref name="cancellationToken"/> with a deadline if
+    /// the call must be bounded.
+    /// </remarks>
     /// <param name="accountId">The account whose summary data to stream (required).</param>
     /// <param name="keys">Optional filter keys to limit the summary rows returned, e.g. "AccruedCash-S", "ExcessLiquidity-S".</param>
     /// <param name="fields">Optional field filter to limit the columns returned, e.g. "currency", "monetaryValue".</param>
@@ -136,6 +171,13 @@ public interface IStreamingOperations
     /// <summary>
     /// Subscribes to real-time account ledger updates for the specified account.
     /// </summary>
+    /// <remarks>
+    /// <b>May block on an in-flight reconnect:</b> if a reconnect is currently in progress, this
+    /// call waits for it to finish before sending the subscribe message, guaranteeing the
+    /// subscription is sent exactly once per connection. A reconnect can take tens of seconds
+    /// under a degraded network; pass a <paramref name="cancellationToken"/> with a deadline if
+    /// the call must be bounded.
+    /// </remarks>
     /// <param name="accountId">The account whose ledger data to stream (required).</param>
     /// <param name="keys">Optional filter keys to limit the ledger currencies returned, e.g. "LedgerListUSD", "LedgerListBASE".</param>
     /// <param name="fields">Optional field filter to limit the columns returned, e.g. "cashBalance", "exchangeRate".</param>

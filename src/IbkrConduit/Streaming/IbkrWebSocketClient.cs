@@ -242,6 +242,13 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// message is sent until the connection is open. The returned channel reader is
     /// usable immediately; messages will start flowing once <see cref="ConnectAsync"/>
     /// completes.
+    /// <para>
+    /// <b>May block on an in-flight reconnect:</b> registration and send happen under
+    /// <c>_connectLock</c> (CON-3) so a subscribe cannot race a reconnect's replay — this
+    /// serializes a subscribe call behind any in-progress reconnect, which can take tens of
+    /// seconds under a degraded network. Callers needing a bound should pass a
+    /// <paramref name="cancellationToken"/> with a deadline.
+    /// </para>
     /// </remarks>
     public async Task<(ChannelReader<JsonElement> Reader, Func<CancellationToken, ValueTask> Unsubscribe)> SubscribeTopicAsync(
         string subscribeMessage,
@@ -996,14 +1003,16 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             return;
         }
 
+        // Capture the generation before the open-state check: a concurrent reconnect bumping the
+        // epoch between the two would otherwise let this trigger observe the already-current
+        // (post-recovery) epoch, so the STR-5 stale-trigger guard wouldn't fire and a
+        // freshly-recovered connection could be torn down.
+        var observedEpoch = Volatile.Read(ref _connectionEpoch);
+
         if (_webSocket is { State: WebSocketState.Open })
         {
             return;
         }
-
-        // Capture the generation we observed as not-open. If a newer connect establishes a healthy
-        // socket before this reconnect runs under the lock, the trigger is stale and no-ops (STR-5).
-        var observedEpoch = Volatile.Read(ref _connectionEpoch);
 
         LogTickleWatchdogTriggeringReconnect();
         try
