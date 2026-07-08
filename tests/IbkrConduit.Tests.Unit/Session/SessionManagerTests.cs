@@ -1317,6 +1317,82 @@ public class SessionManagerTests
         }
     }
 
+    [Fact]
+    public async Task DisposeAsync_DuringInFlightFirstInit_LeavesNoLiveTickleTimer()
+    {
+        // PVR-13 review: dispose racing an in-flight FIRST ssodh/init must not leave a live tickle
+        // loop. EnsureInitializedAsync creates+starts the tickle timer AFTER its ssodh/init await,
+        // on a CTS linked to the CONSUMER's token (not _disposeCts). DisposeAsync stops the tickle
+        // timer BEFORE its semaphore barrier — but while a first init is still gated, that timer is
+        // still null, so the pre-barrier stop is a no-op. Under the pre-fix code the gated init then
+        // wakes, starts a NEW tickle timer, and dispose tears down without stopping it: a leaked
+        // tickle loop that, on first tickle failure, calls ReauthenticateAsync -> WaitAsync on the
+        // DISPOSED semaphore -> ObjectDisposedException, retried forever. The fix adds (a) a
+        // ShuttingDown guard in EnsureInitializedAsync just before it starts the timer and (b) a
+        // second post-barrier StopAsync in DisposeAsync. Either way, no started-but-unstopped tickle
+        // timer may survive dispose.
+        var deps = CreateDependencies();
+
+        var reachedGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // Gate the FIRST ssodh/init (call #1) in-flight. It runs on the consumer's token — NOT the
+        // dispose token — so it stays blocked until the test releases it, exactly reproducing the
+        // "dispose parks on the semaphore while the first init still holds it (timer still null)"
+        // interleaving.
+        deps.SessionApi.InitGate = async (callNumber, _) =>
+        {
+            if (callNumber != 1)
+            {
+                return;
+            }
+
+            reachedGate.TrySetResult();
+            await releaseGate.Task;
+        };
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        try
+        {
+            // First init acquires the semaphore and blocks inside the gated ssodh/init (timer still null).
+            var initTask = manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+            await reachedGate.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+            // DisposeAsync runs its synchronous prefix (sets ShuttingDown + _disposed, cancels
+            // _disposeCts, skips the still-null pre-barrier stop) and parks on the semaphore barrier
+            // before this call returns — no await precedes the semaphore wait.
+            var disposeTask = manager.DisposeAsync();
+
+            // Release the gated first init: it wakes still holding the semaphore and reaches the point
+            // where it would start a NEW tickle timer; then dispose acquires the semaphore and finishes.
+            releaseGate.TrySetResult();
+
+            await initTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+            await disposeTask.AsTask().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+            // No tickle timer may be left started-but-not-stopped after dispose — that is the leaked
+            // live tickle loop. (Post-fix the ShuttingDown guard means the racing init never starts one;
+            // pre-fix it starts one and dispose never stops it.)
+            deps.TickleTimerFactory.CreatedTimers
+                .Where(t => t.Started && !t.Stopped)
+                .ShouldBeEmpty("dispose racing an in-flight first init must leave no live tickle timer.");
+        }
+        finally
+        {
+            // Unblock any residual wait so a failed interleaving cannot hang teardown.
+            releaseGate.TrySetResult();
+        }
+    }
+
     // ---- ADR-0004: competing-session truth & health evidence (VCR-07) ----
 
     [Fact]

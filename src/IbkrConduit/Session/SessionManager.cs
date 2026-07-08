@@ -227,6 +227,19 @@ internal sealed partial class SessionManager : ISessionManager
                     competing: initResponse.Competing,
                     established: initResponse.Established);
 
+                // CON-1: if dispose began while this init was awaiting ssodh/init, do NOT start a
+                // tickle timer. DisposeAsync sets _state = ShuttingDown (and _disposed) and cancels
+                // _disposeCts before parking on the semaphore barrier; the timer created below is
+                // linked to the CONSUMER's token, not _disposeCts, so a timer started now would
+                // outlive dispose as a leaked tickle loop. Mirrors the ShuttingDown short-circuit in
+                // ReauthenticateAsync. This narrows the window; DisposeAsync's post-barrier StopAsync
+                // is the airtight backstop for the residual race where this check passes just before
+                // dispose flips the state.
+                if (_disposed || _state == SessionState.ShuttingDown)
+                {
+                    return;
+                }
+
                 // Stop any prior tickle timer before creating a new one. A failed reauth leaves the
                 // old timer running (reauth intentionally does not stop it — deadlock hazard); re-init
                 // must tear it down here so a failed-reauth→re-init cycle cannot leak a second live
@@ -481,6 +494,21 @@ internal sealed partial class SessionManager : ISessionManager
         // the semaphore unwinds promptly and releases it — this acquisition cannot deadlock against it.
         CancelProactiveRefresh();
         await _semaphore.WaitAsync(CancellationToken.None);
+
+        // CON-1: a FIRST init that raced this dispose could have created and started a NEW tickle
+        // timer AFTER the pre-barrier stop above ran (which was a no-op because _tickleTimer was
+        // still null while that init was mid-flight). Now that the semaphore is held, no init/reauth
+        // is inside its critical section, so _tickleTimer references whatever a racing init started;
+        // stop it. Idempotent and null-safe — a no-op when nothing new was started or the timer is
+        // already stopped. The just-started timer has no callback in-flight, so this stops promptly
+        // (no deadlock), and it runs before _semaphore/_disposeCts are disposed, so it cannot throw
+        // ObjectDisposedException. This must NOT replace the pre-barrier stop: a tickle-callback
+        // reauth (on the tickle token, not _disposeCts) can hold the semaphore, so the pre-barrier
+        // stop is still needed to drain it and let the WaitAsync above proceed.
+        if (_tickleTimer != null)
+        {
+            await _tickleTimer.StopAsync();
+        }
 
         Task? proactiveRefreshTask;
         lock (_proactiveRefreshLock)
