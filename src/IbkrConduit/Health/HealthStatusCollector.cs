@@ -114,6 +114,17 @@ internal sealed class HealthStatusCollector : IHealthStatusCollector
             throw; // unreachable unless InnerException is null
         }
 
+        // PRB-4.2/ADR-0004/PVR-20: an active probe's server-reported verdict must be as durable as
+        // tickle/reauth evidence — feed it into SessionHealthState via the same full-overwrite
+        // Update() path SessionManager uses (docs/adr/0004-competing-session-truth-and-health-evidence.md),
+        // not just return it to the immediate caller.
+        _sessionHealthState.Update(
+            authenticated: authStatus.Authenticated,
+            connected: authStatus.Connected,
+            competing: authStatus.Competing,
+            established: authStatus.Established,
+            failReason: authStatus.Fail);
+
         return new BrokerageSessionHealth(
             Authenticated: authStatus.Authenticated,
             Connected: authStatus.Connected,

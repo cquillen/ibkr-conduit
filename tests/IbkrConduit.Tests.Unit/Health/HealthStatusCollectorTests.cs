@@ -164,6 +164,82 @@ public class HealthStatusCollectorTests
     }
 
     [Fact]
+    public async Task GetHealthStatusAsync_ActiveProbe_CompetingObserved_UpdatesSessionHealthState()
+    {
+        // PRB-4.2/ADR-0004/PVR-20: an active probe observing a competing session must feed
+        // SessionHealthState with the same durability as tickle evidence, not just return the
+        // verdict to the immediate caller.
+        _tokenProvider.CurrentTokenExpiry.Returns(DateTimeOffset.UtcNow.AddHours(1));
+        _wsClient.IsConnected.Returns(false);
+        _wsClient.ActiveSubscriptionCount.Returns(0);
+
+        _sessionApi.GetAuthStatusAsync(Arg.Any<CancellationToken>())
+            .Returns(new AuthStatusResponse(true, true, true, true, null, null, null, null, null, null));
+
+        SetLastCallToNow();
+
+        var collector = CreateCollector();
+        await collector.GetHealthStatusAsync(
+            activeProbe: true, cancellationToken: TestContext.Current.CancellationToken);
+
+        var snapshot = _sessionHealthState.GetSnapshot();
+        snapshot.Competing.ShouldBeTrue();
+        snapshot.Authenticated.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task GetHealthStatusAsync_ActiveProbe_FailedObserved_UpdatesSessionHealthState()
+    {
+        // PRB-4.2/ADR-0004/PVR-20: an active probe observing a failed/unauthenticated session must
+        // feed SessionHealthState the same way a failed tickle/reauth does.
+        _tokenProvider.CurrentTokenExpiry.Returns(DateTimeOffset.UtcNow.AddHours(1));
+        _wsClient.IsConnected.Returns(false);
+        _wsClient.ActiveSubscriptionCount.Returns(0);
+
+        _sessionApi.GetAuthStatusAsync(Arg.Any<CancellationToken>())
+            .Returns(new AuthStatusResponse(false, false, false, false, "Not authenticated", null, null, null, null, null));
+
+        SetLastCallToNow();
+
+        var collector = CreateCollector();
+        await collector.GetHealthStatusAsync(
+            activeProbe: true, cancellationToken: TestContext.Current.CancellationToken);
+
+        var snapshot = _sessionHealthState.GetSnapshot();
+        snapshot.Authenticated.ShouldBeFalse();
+        snapshot.FailReason.ShouldBe("Not authenticated");
+    }
+
+    [Fact]
+    public async Task GetHealthStatusAsync_ActiveProbe_HealthyObserved_UpdatesSessionHealthStateSameAsTickle()
+    {
+        // PRB-4.2/ADR-0004/PVR-20: a healthy active-probe verdict must feed SessionHealthState with
+        // the same durability as a healthy tickle/reauth response — a full overwrite of stale
+        // evidence, not a partial/sticky update.
+        _tokenProvider.CurrentTokenExpiry.Returns(DateTimeOffset.UtcNow.AddHours(1));
+        _wsClient.IsConnected.Returns(false);
+        _wsClient.ActiveSubscriptionCount.Returns(0);
+
+        _sessionHealthState.SetFailed("stale evidence");
+
+        _sessionApi.GetAuthStatusAsync(Arg.Any<CancellationToken>())
+            .Returns(new AuthStatusResponse(true, false, true, true, null, null, null, null, null, null));
+
+        SetLastCallToNow();
+
+        var collector = CreateCollector();
+        await collector.GetHealthStatusAsync(
+            activeProbe: true, cancellationToken: TestContext.Current.CancellationToken);
+
+        var snapshot = _sessionHealthState.GetSnapshot();
+        snapshot.Authenticated.ShouldBeTrue();
+        snapshot.Connected.ShouldBeTrue();
+        snapshot.Established.ShouldBeTrue();
+        snapshot.Competing.ShouldBeFalse();
+        snapshot.FailReason.ShouldBeNull();
+    }
+
+    [Fact]
     public async Task GetHealthStatusAsync_SessionCompeting_ReturnsDegraded()
     {
         _tokenProvider.CurrentTokenExpiry.Returns(DateTimeOffset.UtcNow.AddHours(1));
