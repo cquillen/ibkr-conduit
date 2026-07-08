@@ -38,6 +38,61 @@ public class OAuthCredentialsFactoryTests : IClassFixture<RsaKeyFixture>
     }
 
     [Fact]
+    public void ToString_NeverExposesTokenOrConsumerKeyMaterial()
+    {
+        var prime = BigInteger.Parse("023", System.Globalization.NumberStyles.HexNumber);
+
+        // Distinctive synthetic sentinels — clearly not real credentials.
+        const string consumerKeySentinel = "CONSUMERKEY_SENTINEL_9x";
+        const string accessTokenSentinel = "ACCESSTOKEN_SENTINEL_9x";
+        const string secretSentinel = "ENCRYPTEDSECRET_SENTINEL_9x";
+
+        var creds = new IbkrOAuthCredentials(
+            TenantId: "tenant-visible",
+            ConsumerKey: consumerKeySentinel,
+            AccessToken: accessTokenSentinel,
+            EncryptedAccessTokenSecret: secretSentinel,
+            SignaturePrivateKey: _fixture.SignatureKey,
+            EncryptionPrivateKey: _fixture.EncryptionKey,
+            DhPrime: prime);
+
+        var rendered = creds.ToString();
+
+        rendered.ShouldNotContain(consumerKeySentinel);
+        rendered.ShouldNotContain(accessTokenSentinel);
+        rendered.ShouldNotContain(secretSentinel);
+        // A redacted, still-identifiable form is returned.
+        rendered.ShouldContain(nameof(IbkrOAuthCredentials));
+        rendered.ShouldContain("redacted");
+    }
+
+    [Fact]
+    public void StringInterpolation_NeverExposesTokenOrConsumerKeyMaterial()
+    {
+        var prime = BigInteger.Parse("023", System.Globalization.NumberStyles.HexNumber);
+
+        const string consumerKeySentinel = "CONSUMERKEY_INTERP_9x";
+        const string accessTokenSentinel = "ACCESSTOKEN_INTERP_9x";
+        const string secretSentinel = "ENCRYPTEDSECRET_INTERP_9x";
+
+        var creds = new IbkrOAuthCredentials(
+            TenantId: "tenant-visible",
+            ConsumerKey: consumerKeySentinel,
+            AccessToken: accessTokenSentinel,
+            EncryptedAccessTokenSecret: secretSentinel,
+            SignaturePrivateKey: _fixture.SignatureKey,
+            EncryptionPrivateKey: _fixture.EncryptionKey,
+            DhPrime: prime);
+
+        // Interpolation and the record's default log rendering go through ToString().
+        var interpolated = $"credentials={creds}";
+
+        interpolated.ShouldNotContain(consumerKeySentinel);
+        interpolated.ShouldNotContain(accessTokenSentinel);
+        interpolated.ShouldNotContain(secretSentinel);
+    }
+
+    [Fact]
     public void Dispose_ShouldDisposeRsaKeys()
     {
         var signatureKey = RSA.Create(2048);
@@ -82,7 +137,9 @@ public class OAuthCredentialsFactoryTests : IClassFixture<RsaKeyFixture>
             creds.ConsumerKey.ShouldBe("TESTCONS9");
             creds.AccessToken.ShouldBe("mytoken");
             creds.EncryptedAccessTokenSecret.ShouldBe("c2VjcmV0");
-            creds.TenantId.ShouldBe("TESTCONS9");
+            // AUT-5: tenant label defaults to the literal "default" — never the consumer key.
+            creds.TenantId.ShouldBe("default");
+            creds.TenantId.ShouldNotBe("TESTCONS9");
             creds.DhPrime.ShouldBe(new BigInteger(0x17));
         }
         finally
@@ -121,6 +178,44 @@ public class OAuthCredentialsFactoryTests : IClassFixture<RsaKeyFixture>
             using var creds = OAuthCredentialsFactory.FromEnvironment();
 
             creds.TenantId.ShouldBe("custom-tenant");
+        }
+        finally
+        {
+            foreach (var key in vars.Keys)
+            {
+                Environment.SetEnvironmentVariable(key, null);
+            }
+        }
+    }
+
+    [Fact]
+    public void FromEnvironment_ExplicitTenantIdParameter_OverridesEnvVarAndDefault()
+    {
+        var sigPem = _fixture.SignatureKey.ExportRSAPrivateKeyPem();
+        var encPem = _fixture.EncryptionKey.ExportRSAPrivateKeyPem();
+
+        var vars = new Dictionary<string, string>
+        {
+            ["IBKR_CONSUMER_KEY"] = "TESTCONS9",
+            ["IBKR_ACCESS_TOKEN"] = "mytoken",
+            ["IBKR_ACCESS_TOKEN_SECRET"] = "c2VjcmV0",
+            ["IBKR_SIGNATURE_KEY"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(sigPem)),
+            ["IBKR_ENCRYPTION_KEY"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(encPem)),
+            ["IBKR_DH_PRIME"] = "17",
+            ["IBKR_TENANT_ID"] = "env-tenant",
+        };
+
+        try
+        {
+            foreach (var (key, value) in vars)
+            {
+                Environment.SetEnvironmentVariable(key, value);
+            }
+
+            using var creds = OAuthCredentialsFactory.FromEnvironment(tenantId: "explicit-tenant");
+
+            // Explicit parameter wins over both the env var and the "default" fallback.
+            creds.TenantId.ShouldBe("explicit-tenant");
         }
         finally
         {

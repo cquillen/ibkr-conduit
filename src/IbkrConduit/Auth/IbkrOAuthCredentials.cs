@@ -26,6 +26,19 @@ public record IbkrOAuthCredentials(
     BigInteger DhPrime) : IDisposable
 {
     /// <summary>
+    /// Redacted rendering (sealed): the compiler-generated record <c>ToString</c> would print
+    /// every member — including <see cref="AccessToken"/> and <see cref="EncryptedAccessTokenSecret"/> —
+    /// one log line or interpolation away from a credential leak (AUT-2; design doc §15.2). This
+    /// override renders only the non-secret <see cref="TenantId"/> label and marks every credential
+    /// field as redacted. Sealed so a derived record can never restore the leaky default.
+    /// </summary>
+    /// <returns>A redacted string that exposes no token, secret, key, or consumer-key material.</returns>
+    public sealed override string ToString() =>
+        $"{nameof(IbkrOAuthCredentials)} {{ TenantId = {TenantId}, ConsumerKey = [redacted], "
+        + "AccessToken = [redacted], EncryptedAccessTokenSecret = [redacted], "
+        + "SignaturePrivateKey = [redacted], EncryptionPrivateKey = [redacted], DhPrime = [redacted] }}";
+
+    /// <summary>
     /// Disposes both RSA key objects.
     /// </summary>
     public void Dispose()
