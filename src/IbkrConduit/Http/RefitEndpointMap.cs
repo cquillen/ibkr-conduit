@@ -112,10 +112,12 @@ internal sealed class RefitEndpointMap
         {
             var apiResponseInner = innerType.GetGenericArguments()[0];
 
-            // IApiResponse<string> -- raw string response, skip
+            // IApiResponse<string> -- raw string response. Record it as a known-raw sentinel (not a
+            // null/absent entry) so strict validation can distinguish "declared but deliberately not
+            // schema-validated" from a genuinely unmapped endpoint.
             if (apiResponseInner == typeof(string))
             {
-                return null;
+                return EndpointDtoInfo.KnownRaw;
             }
 
             innerType = apiResponseInner;
@@ -152,6 +154,12 @@ internal sealed class RefitEndpointMap
             return null;
         }
 
+        // Plain string body (raw) -- deliberately not schema-validated; record as known-raw.
+        if (innerType == typeof(string))
+        {
+            return EndpointDtoInfo.KnownRaw;
+        }
+
         // Plain T
         return new EndpointDtoInfo(innerType, IsCollection: false, IsDictionary: false);
     }
@@ -178,4 +186,15 @@ internal sealed class RefitEndpointMap
 internal sealed record EndpointDtoInfo(
     Type DtoType,
     bool IsCollection,
-    bool IsDictionary);
+    bool IsDictionary,
+    bool IsKnownRaw = false)
+{
+    /// <summary>
+    /// Sentinel for an endpoint that is declared in a registered Refit interface but whose body is
+    /// deliberately not schema-validated (a raw <c>string</c> response). Distinct from a truly
+    /// unmapped endpoint (no entry at all): strict mode passes a known-raw endpoint while still
+    /// failing a genuine mapping gap.
+    /// </summary>
+    public static EndpointDtoInfo KnownRaw { get; } =
+        new(typeof(string), IsCollection: false, IsDictionary: false, IsKnownRaw: true);
+}

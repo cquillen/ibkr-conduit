@@ -17,12 +17,36 @@ internal static class DtoFieldMap
     /// Extracts field metadata for the specified DTO type. Results are cached.
     /// </summary>
     public static DtoFieldInfo Extract(Type dtoType) =>
-        _cache.GetOrAdd(dtoType, ExtractCore);
+        _cache.TryGetValue(dtoType, out var cached)
+            ? cached
+            : ExtractWithCycleGuard(dtoType, [dtoType]);
 
-    private static DtoFieldInfo ExtractCore(Type dtoType)
+    /// <summary>
+    /// Cache-checking extraction step carrying the set of types currently on the recursion path.
+    /// The path-scoped <paramref name="visiting"/> set breaks type cycles (direct or transitive,
+    /// e.g. A → List&lt;B&gt; → B → A) that would otherwise recurse unboundedly: a type already
+    /// being expanded on the current path is treated as already mapped and not re-descended — its
+    /// own fields are validated where it was first encountered; only the back-edge is skipped.
+    /// A cycle guard is preferred over a depth cap so legitimately deep finite graphs still map fully.
+    /// </summary>
+    private static DtoFieldInfo ExtractWithCycleGuard(Type dtoType, HashSet<Type> visiting)
+    {
+        if (_cache.TryGetValue(dtoType, out var cached))
+        {
+            return cached;
+        }
+
+        // GetOrAdd(key, value) rather than GetOrAdd(key, factory): if two threads race, both
+        // compute an equivalent map and the first one in wins — same semantics the factory
+        // overload had (its factory could also run more than once).
+        return _cache.GetOrAdd(dtoType, ExtractCore(dtoType, visiting));
+    }
+
+    private static DtoFieldInfo ExtractCore(Type dtoType, HashSet<Type> visiting)
     {
         var fields = new Dictionary<string, bool>(); // jsonName -> isOptional
         var nestedMaps = new Dictionary<string, DtoFieldInfo>();
+        var nestedCollectionMaps = new Dictionary<string, DtoFieldInfo>();
         var hasExtensionData = false;
 
         // Check properties (covers both class-style { get; init; } and positional record generated properties)
@@ -44,15 +68,29 @@ internal static class DtoFieldMap
             var isOptional = IsOptionalType(prop.PropertyType) || HasDefaultValue(dtoType, jsonName);
             fields[jsonName] = isOptional;
 
-            // Check if this property is a nested DTO type (has its own JsonPropertyName fields)
+            // Check if this property is a nested DTO type (has its own JsonPropertyName fields).
+            // visiting.Add returning false means the type is already on the current recursion
+            // path (immediate self-reference included) — skip the back-edge instead of recursing.
             var elementType = GetNestedDtoType(prop.PropertyType);
-            if (elementType is not null && elementType != dtoType)
+            if (elementType is not null && visiting.Add(elementType))
             {
-                nestedMaps[jsonName] = Extract(elementType);
+                nestedMaps[jsonName] = ExtractWithCycleGuard(elementType, visiting);
+                visiting.Remove(elementType);
+            }
+
+            // WIR-2/TEN-2: a List<T>-typed property whose element is itself a DTO (a wrapper's row
+            // list, e.g. OrdersResponse.Orders) is recorded so the validator can descend into every
+            // row element — previously such properties were never descended. Same cycle guard as
+            // above: a row element type already on the path is not re-descended.
+            var collectionElementType = GetNestedCollectionElementDtoType(prop.PropertyType);
+            if (collectionElementType is not null && visiting.Add(collectionElementType))
+            {
+                nestedCollectionMaps[jsonName] = ExtractWithCycleGuard(collectionElementType, visiting);
+                visiting.Remove(collectionElementType);
             }
         }
 
-        return new DtoFieldInfo(fields, hasExtensionData, nestedMaps);
+        return new DtoFieldInfo(fields, hasExtensionData, nestedMaps, nestedCollectionMaps);
     }
 
     private static bool IsOptionalType(Type type)
@@ -176,6 +214,43 @@ internal static class DtoFieldMap
 
         return hasJsonProps ? underlying : null;
     }
+
+    /// <summary>
+    /// If <paramref name="type"/> is a collection (array or a common generic list/collection
+    /// interface) whose element type is itself a DTO, returns that element type — otherwise null.
+    /// Collections of primitives/strings and dictionaries return null (nothing to descend into).
+    /// </summary>
+    private static Type? GetNestedCollectionElementDtoType(Type type)
+    {
+        var underlying = Nullable.GetUnderlyingType(type) ?? type;
+
+        Type? elementType = null;
+        if (underlying.IsArray)
+        {
+            elementType = underlying.GetElementType();
+        }
+        else if (underlying.IsGenericType)
+        {
+            var genDef = underlying.GetGenericTypeDefinition();
+            if (genDef == typeof(List<>) || genDef == typeof(IReadOnlyList<>) ||
+                genDef == typeof(IList<>) || genDef == typeof(ICollection<>) ||
+                genDef == typeof(IReadOnlyCollection<>) || genDef == typeof(IEnumerable<>))
+            {
+                elementType = underlying.GetGenericArguments()[0];
+            }
+        }
+
+        if (elementType is null)
+        {
+            return null;
+        }
+
+        // Only descend into collections whose element is itself a DTO (has JsonPropertyName fields).
+        var hasJsonProps = elementType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Any(p => p.GetCustomAttribute<JsonPropertyNameAttribute>() is not null);
+
+        return hasJsonProps ? elementType : null;
+    }
 }
 
 /// <summary>
@@ -191,8 +266,14 @@ internal sealed class DtoFieldInfo
     /// <summary>Whether the DTO has a <see cref="JsonExtensionDataAttribute"/> property.</summary>
     public bool HasExtensionData { get; }
 
-    /// <summary>Nested DTO field maps keyed by the parent field's JSON name.</summary>
+    /// <summary>Nested DTO field maps for scalar object properties, keyed by the parent field's JSON name.</summary>
     public IReadOnlyDictionary<string, DtoFieldInfo> NestedMaps { get; }
+
+    /// <summary>
+    /// Nested DTO field maps for <c>List&lt;T&gt;</c>-typed (collection) row properties, keyed by the
+    /// parent field's JSON name. The validator descends into every element of these collections.
+    /// </summary>
+    public IReadOnlyDictionary<string, DtoFieldInfo> NestedCollectionMaps { get; }
 
     /// <summary>
     /// Creates a new <see cref="DtoFieldInfo"/>.
@@ -200,12 +281,14 @@ internal sealed class DtoFieldInfo
     public DtoFieldInfo(
         Dictionary<string, bool> fields,
         bool hasExtensionData,
-        Dictionary<string, DtoFieldInfo> nestedMaps)
+        Dictionary<string, DtoFieldInfo> nestedMaps,
+        Dictionary<string, DtoFieldInfo> nestedCollectionMaps)
     {
         _fields = fields;
         FieldNames = fields.Keys.ToList().AsReadOnly();
         HasExtensionData = hasExtensionData;
         NestedMaps = nestedMaps;
+        NestedCollectionMaps = nestedCollectionMaps;
     }
 
     /// <summary>

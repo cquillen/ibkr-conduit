@@ -367,7 +367,7 @@ Findings ORD-2 (medium, CONFIRMED), ORD-5 (low, PLAUSIBLE): the VCR-05 auto forc
 **TDD notes:** red tests = WireMock call-sequence assertions (immediate return + exactly-one deferred force call) and a dispose-with-pending-follow-up case.
 
 #### PVR-19 — Schema-validation net descent & strict-mode parity
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #259 · **Stream:** PVR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Findings WIR-2, TEN-2 (medium, CONFIRMED): the VCR-10 validation net still diffs only top-level DTO fields — wrapper-shaped endpoints' row elements are never validated (nested maps exist but are not recursed; `List<T>`-typed properties are not descended); and strict mode treats known string-returning endpoints as violations because `RefitEndpointMap` deliberately omits them (needs a known-raw sentinel, not a null entry). Grooming evidence: the 2026-07-07 probes observed `POST /iserver/reply/{id}` logged at fail level as unmapped — the reply endpoint must land in the map (or the sentinel) as part of this story. **`fix:`.**

@@ -60,6 +60,14 @@ internal sealed partial class ResponseSchemaValidationHandler : DelegatingHandle
             return response;
         }
 
+        // Known-raw endpoints (raw string bodies) are declared but deliberately not schema-validated.
+        // Pass them through untouched — including in strict mode — instead of treating them as an
+        // unmapped violation (WIR-2/TEN-2: e.g. POST /iserver/reply/{id} was logged unmapped).
+        if (dtoInfo.IsKnownRaw)
+        {
+            return response;
+        }
+
         var originalContent = response.Content;
         var contentType = originalContent?.Headers.ContentType;
 
@@ -96,7 +104,7 @@ internal sealed partial class ResponseSchemaValidationHandler : DelegatingHandle
 
     private void ValidateResponseBody(string body, string path, EndpointDtoInfo dtoInfo)
     {
-        var fieldMap = DtoFieldMap.Extract(dtoInfo.DtoType);
+        var fieldInfo = DtoFieldMap.Extract(dtoInfo.DtoType);
         JsonElement jsonElement;
 
         try
@@ -108,48 +116,20 @@ internal sealed partial class ResponseSchemaValidationHandler : DelegatingHandle
             return;
         }
 
-        var knownFields = new HashSet<string>(fieldMap.FieldNames, StringComparer.Ordinal);
-
         // WIR-5 (1): validate EVERY element of a collection body, not just element[0] — a field
         // missing/renamed on a later element (e.g. price on trade #5 of a trades list) is invisible
-        // if only the first element is checked. Endpoint payloads are bounded (live-orders caps at
-        // 1000), so full-collection validation is safe. Extra/missing findings are unioned across all
-        // elements and reported once so a drift on N elements is one signal, not N.
+        // if only the first element is checked. WIR-2/TEN-2: additionally descend into a wrapper
+        // DTO's nested object properties and every element of its List<T> row properties, so drift on
+        // a nested/wrapped row is caught too — not just the wrapper's top-level fields. Endpoint
+        // payloads are bounded (live-orders caps at 1000), so full descent is safe. Extra/missing
+        // findings are unioned across the whole object graph and reported once so a drift on N
+        // elements is one signal, not N.
         var extraFields = new HashSet<string>(StringComparer.Ordinal);
         var missingFields = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var element in EnumerateValidationTargets(jsonElement, dtoInfo))
         {
-            if (element.ValueKind != JsonValueKind.Object)
-            {
-                continue;
-            }
-
-            var responseFields = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var prop in element.EnumerateObject())
-            {
-                responseFields.Add(prop.Name);
-            }
-
-            // Extra fields: in response but not in the DTO. WIR-5 (2): run this even when the DTO has
-            // [JsonExtensionData] — an extension-data DTO silently absorbs a renamed field into its
-            // AdditionalData bag, so without this diff a rename is invisible in that direction.
-            foreach (var field in responseFields)
-            {
-                if (!knownFields.Contains(field))
-                {
-                    extraFields.Add(field);
-                }
-            }
-
-            // Missing fields: on the DTO but not in the response (only required, non-optional fields).
-            foreach (var field in fieldMap.FieldNames)
-            {
-                if (!responseFields.Contains(field) && !fieldMap.IsOptional(field))
-                {
-                    missingFields.Add(field);
-                }
-            }
+            ValidateElement(element, fieldInfo, extraFields, missingFields);
         }
 
         if (extraFields.Count == 0 && missingFields.Count == 0)
@@ -165,6 +145,71 @@ internal sealed partial class ResponseSchemaValidationHandler : DelegatingHandle
 
         LogSchemaMismatch(path, dtoInfo.DtoType.Name,
             string.Join(", ", extraFields), string.Join(", ", missingFields));
+    }
+
+    /// <summary>
+    /// Diffs one JSON object against a DTO field map (extra + missing fields), then recurses into the
+    /// DTO's nested object properties and every element of its <c>List&lt;T&gt;</c> row properties.
+    /// Findings accumulate into the shared sets so an entire wrapper graph produces one signal.
+    /// Non-object elements (arrays, nulls, scalars) are skipped.
+    /// </summary>
+    private static void ValidateElement(
+        JsonElement element, DtoFieldInfo fieldInfo,
+        HashSet<string> extraFields, HashSet<string> missingFields)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        var knownFields = new HashSet<string>(fieldInfo.FieldNames, StringComparer.Ordinal);
+        var responseFields = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var prop in element.EnumerateObject())
+        {
+            responseFields.Add(prop.Name);
+        }
+
+        // Extra fields: in response but not in the DTO. WIR-5 (2): run this even when the DTO has
+        // [JsonExtensionData] — an extension-data DTO silently absorbs a renamed field into its
+        // AdditionalData bag, so without this diff a rename is invisible in that direction.
+        foreach (var field in responseFields)
+        {
+            if (!knownFields.Contains(field))
+            {
+                extraFields.Add(field);
+            }
+        }
+
+        // Missing fields: on the DTO but not in the response (only required, non-optional fields).
+        foreach (var field in fieldInfo.FieldNames)
+        {
+            if (!responseFields.Contains(field) && !fieldInfo.IsOptional(field))
+            {
+                missingFields.Add(field);
+            }
+        }
+
+        // WIR-2: descend into nested object properties — these maps were computed but never recursed.
+        foreach (var (jsonName, nestedInfo) in fieldInfo.NestedMaps)
+        {
+            if (element.TryGetProperty(jsonName, out var nested))
+            {
+                ValidateElement(nested, nestedInfo, extraFields, missingFields);
+            }
+        }
+
+        // WIR-2: descend into List<T> row properties, validating every element — these were never
+        // descended before, so a drifted field on a wrapped row was invisible.
+        foreach (var (jsonName, elementInfo) in fieldInfo.NestedCollectionMaps)
+        {
+            if (element.TryGetProperty(jsonName, out var array) && array.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in array.EnumerateArray())
+                {
+                    ValidateElement(item, elementInfo, extraFields, missingFields);
+                }
+            }
+        }
     }
 
     /// <summary>

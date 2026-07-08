@@ -50,6 +50,30 @@ public class DtoFieldMapTests
         public int? PropB { get; init; }
     }
 
+    // --- Cyclic test DTOs ---
+    // Transitive (mutual) type cycles that the old immediate-self-reference guard
+    // (elementType != dtoType) did not cover: extraction must terminate, not recurse unboundedly.
+
+    [ExcludeFromCodeCoverage]
+    public record CycleWrapper(
+        [property: JsonPropertyName("wrapper_id")] string WrapperId,
+        [property: JsonPropertyName("rows")] List<CycleRow>? Rows);
+
+    [ExcludeFromCodeCoverage]
+    public record CycleRow(
+        [property: JsonPropertyName("row_id")] string RowId,
+        [property: JsonPropertyName("parent")] CycleWrapper? Parent);
+
+    [ExcludeFromCodeCoverage]
+    public record ScalarCycleA(
+        [property: JsonPropertyName("a_id")] string AId,
+        [property: JsonPropertyName("b")] ScalarCycleB? B);
+
+    [ExcludeFromCodeCoverage]
+    public record ScalarCycleB(
+        [property: JsonPropertyName("b_id")] string BId,
+        [property: JsonPropertyName("a")] ScalarCycleA? A);
+
     // --- Tests ---
 
     [Fact]
@@ -123,5 +147,34 @@ public class DtoFieldMapTests
         var result2 = DtoFieldMap.Extract(typeof(SimpleDto));
 
         ReferenceEquals(result1, result2).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Extract_CollectionRowCycle_ReturnsAndDoesNotFollowBackEdge()
+    {
+        // Wrapper -> List<Row> -> Row.parent -> Wrapper: a transitive cycle through a collection
+        // row element. Before the path-scoped cycle guard this recursed unboundedly (stack overflow).
+        var result = DtoFieldMap.Extract(typeof(CycleWrapper));
+
+        result.FieldNames.ShouldBe(new[] { "wrapper_id", "rows" }, ignoreOrder: true);
+        result.NestedCollectionMaps.ShouldContainKey("rows");
+        var rowMap = result.NestedCollectionMaps["rows"];
+        rowMap.FieldNames.ShouldBe(new[] { "row_id", "parent" }, ignoreOrder: true);
+        // The back-edge to the wrapper already on the extraction path is not followed — the
+        // wrapper's own fields are validated where it was first encountered (the top level).
+        rowMap.NestedMaps.ShouldNotContainKey("parent");
+    }
+
+    [Fact]
+    public void Extract_MutualScalarCycle_ReturnsAndDoesNotFollowBackEdge()
+    {
+        // A -> B -> A through scalar object properties: the old guard only stopped IMMEDIATE
+        // self-reference, so this mutual cycle recursed unboundedly before the fix.
+        var result = DtoFieldMap.Extract(typeof(ScalarCycleA));
+
+        result.NestedMaps.ShouldContainKey("b");
+        var bMap = result.NestedMaps["b"];
+        bMap.FieldNames.ShouldBe(new[] { "b_id", "a" }, ignoreOrder: true);
+        bMap.NestedMaps.ShouldNotContainKey("a");
     }
 }
