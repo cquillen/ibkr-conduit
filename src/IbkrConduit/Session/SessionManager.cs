@@ -203,21 +203,10 @@ internal sealed partial class SessionManager : ISessionManager
                     throw BuildUnauthenticatedInitError(initResponse);
                 }
 
-                if (_options.SuppressMessageIds.Count > 0)
-                {
-                    try
-                    {
-                        await _sessionApi.SuppressQuestionsAsync(
-                            new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
-                    }
-                    catch (ApiRequestException ex)
-                    {
-                        // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
-                        // exception type (transport/timeout/cancellation) they did under Refit 10.
-                        ex.RethrowOriginal();
-                        throw; // unreachable unless InnerException is null
-                    }
-                }
+                // §7.5 (PVR-14): question suppression is best-effort convenience layered on top of an
+                // already-authenticated session, not the authentication itself. A suppress failure is
+                // classified + logged (observable) but must NOT fail this otherwise-successful init.
+                await ApplyQuestionSuppressionAsync(cancellationToken);
 
                 // GAP3-2/ADR-0004: health is fed from the server response, never a literal — a
                 // competing:true reported here is not laundered into competing:false.
@@ -403,21 +392,11 @@ internal sealed partial class SessionManager : ISessionManager
                     throw BuildUnauthenticatedInitError(initResponse);
                 }
 
-                if (_options.SuppressMessageIds.Count > 0)
-                {
-                    try
-                    {
-                        await _sessionApi.SuppressQuestionsAsync(
-                            new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
-                    }
-                    catch (ApiRequestException ex)
-                    {
-                        // Refit 11 wraps the original SendAsync exception; re-throw it so callers observe the same
-                        // exception type (transport/timeout/cancellation) they did under Refit 10.
-                        ex.RethrowOriginal();
-                        throw; // unreachable unless InnerException is null
-                    }
-                }
+                // §7.5 (PVR-14 / PRB-2.3): ssodh/init has already re-established the server session at
+                // this point. Suppression is best-effort — a failure here is classified + logged but must
+                // NOT abort the re-auth, so the lifecycle notification below still fires for this LST
+                // rotation (a suppress failure must not mask a successful re-auth from the notifier).
+                await ApplyQuestionSuppressionAsync(cancellationToken);
 
                 // GAP3-2/ADR-0004: fed from the server response, never a literal competing:false —
                 // a competing verdict a tickle just recorded is only cleared by a server response
@@ -595,11 +574,101 @@ internal sealed partial class SessionManager : ISessionManager
     [LoggerMessage(Level = LogLevel.Error, Message = "Proactive refresh failed")]
     private partial void LogProactiveRefreshFailed(Exception exception);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Question suppression failed — proceeding without it; the session remains authenticated but suppressed prompts may resurface as order-confirmation questions")]
+    private partial void LogQuestionSuppressionFailed(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Question suppression returned an unexpected status '{Status}' (expected 'submitted') — suppression may not be applied for this session")]
+    private partial void LogQuestionSuppressionNotConfirmed(string? status);
+
     private Task OnTickleFailureAsync(CancellationToken cancellationToken)
     {
         LogTickleFailure();
         return ReauthenticateAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Applies question suppression (design doc §7.5) as a <b>best-effort</b> step after a successful
+    /// ssodh/init. Suppression is convenience layered on an already-authenticated session — never the
+    /// authentication itself — so a failure is classified into the library taxonomy and logged
+    /// (observable) but never propagates to fail an otherwise-successful init/re-auth, and never masks
+    /// the lifecycle notification (PVR-14 / PRB-2.1, PRB-2.2, PRB-2.3). The only exception that escapes
+    /// is caller cancellation / shutdown, which must unwind the whole operation.
+    /// </summary>
+    private async Task ApplyQuestionSuppressionAsync(CancellationToken cancellationToken)
+    {
+        if (_options.SuppressMessageIds.Count == 0)
+        {
+            return;
+        }
+
+        SuppressResponse response;
+        try
+        {
+            response = await _sessionApi.SuppressQuestionsAsync(
+                new SuppressRequest(_options.SuppressMessageIds), cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Caller cancellation / shutdown must unwind the whole init/re-auth — never swallowed.
+            throw;
+        }
+        catch (ApiRequestException ex)
+        {
+            // Refit 11 wraps a transport fault (or caller cancellation) for a raw Task<T> call in
+            // ApiRequestException. Propagate caller cancellation; otherwise the transport fault is
+            // best-effort and observable — classify the wrapped original and log, but do not fail auth.
+            ex.RethrowIfWrappedCancellation(cancellationToken);
+            LogQuestionSuppressionFailed(ClassifySuppressFailure(ex.InnerException ?? ex));
+            return;
+        }
+        catch (Exception ex)
+        {
+            // A non-2xx suppress response surfaces as Refit's ApiException — a sibling of
+            // ApiRequestException under ApiExceptionBase, so it is NOT caught above. Classify it (and
+            // any other unexpected failure) into the taxonomy and log; suppression is best-effort.
+            LogQuestionSuppressionFailed(ClassifySuppressFailure(ex));
+            return;
+        }
+
+        // Verify the pinned success shape ({"status":"submitted"}). A 2xx body that is not "submitted"
+        // (a hidden-error shape deserializing to Status=null, or a 200-on-invalid-id acknowledgement) is
+        // a failed suppression — observe it rather than silently accepting it (PRB-2.2).
+        if (!string.Equals(response.Status, "submitted", StringComparison.Ordinal))
+        {
+            LogQuestionSuppressionNotConfirmed(response.Status);
+        }
+    }
+
+    /// <summary>
+    /// Classifies a question-suppression failure into the same library taxonomy every other session
+    /// call uses (PRB-2.1): a Refit <see cref="ApiException"/> 5xx/429 → <see cref="IbkrTransientException"/>,
+    /// a 4xx → <see cref="IbkrConfigurationException"/> pointing at <see cref="IbkrClientOptions.SuppressMessageIds"/>,
+    /// and any transport/other failure → <see cref="WrapCredentialException"/> (transient for network faults).
+    /// The result is logged, not thrown — suppression is best-effort.
+    /// </summary>
+    private static Exception ClassifySuppressFailure(Exception ex) =>
+        ex switch
+        {
+            ApiException { StatusCode: HttpStatusCode.TooManyRequests } ae =>
+                new IbkrTransientException(
+                    "Question suppression was rate-limited (HTTP 429) — suppression not applied for this session; retry expected",
+                    ae),
+
+            ApiException ae when (int)ae.StatusCode >= 500 =>
+                new IbkrTransientException(
+                    $"Question suppression returned a transient server error (HTTP {(int)ae.StatusCode}) — suppression not applied for this session; retry expected",
+                    ae),
+
+            ApiException ae =>
+                new IbkrConfigurationException(
+                    $"Question suppression was rejected (HTTP {(int)ae.StatusCode}) — verify SuppressMessageIds contains supported message IDs (IBKR caps the list at 51 entries)",
+                    nameof(IbkrClientOptions.SuppressMessageIds),
+                    ae),
+
+            ApiRequestException are => WrapCredentialException(are.InnerException ?? are),
+
+            _ => WrapCredentialException(ex),
+        };
 
     /// <summary>
     /// Feeds the failed-auth server verdict into health state and builds the session error that
