@@ -25,6 +25,13 @@ internal sealed class StreamingMetrics
     /// <summary>Cause tag value for a frame lost because the consumer's observer threw.</summary>
     public const string ObserverCause = "observer";
 
+    /// <summary>
+    /// Cause tag value for a target-qualified frame dropped because its full wire-topic identity
+    /// matched no live subscription (ADR-0005): never cross-delivered to another target sharing the
+    /// prefix, counted here instead of silently discarded.
+    /// </summary>
+    public const string UnmatchedCause = "unmatched";
+
     private static readonly Counter<long> _framesDropped =
         IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.streaming.frames.dropped");
 
@@ -43,7 +50,7 @@ internal sealed class StreamingMetrics
     /// topic prefix, and the cause.
     /// </summary>
     /// <param name="topic">The wire topic prefix the dropped frame belonged to (e.g. <c>str</c>, <c>sor</c>).</param>
-    /// <param name="cause">Why the frame was dropped: <see cref="OverflowCause"/>, <see cref="MapperCause"/>, or <see cref="ObserverCause"/>.</param>
+    /// <param name="cause">Why the frame was dropped: <see cref="OverflowCause"/>, <see cref="MapperCause"/>, <see cref="ObserverCause"/>, or <see cref="UnmatchedCause"/>.</param>
     public void RecordDrop(string topic, string cause) =>
         _framesDropped.Add(
             1,
