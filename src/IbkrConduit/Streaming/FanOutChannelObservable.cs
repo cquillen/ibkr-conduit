@@ -50,39 +50,49 @@ internal sealed class FanOutChannelObservable<T> : SingleObserverChannelObservab
     {
         try
         {
-            await foreach (var frame in _reader.ReadAllAsync(cancellationToken))
+            while (await _reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                List<T> items;
-                try
+                // Check cancellation before each TryRead so a disposed subscription stops draining
+                // without consuming a frame it will not deliver — leaving buffered frames intact for
+                // a subsequent Subscribe rather than dropping them to a dead observer (STR-2).
+                while (!cancellationToken.IsCancellationRequested && _reader.TryRead(out var frame))
                 {
-                    // Materialize before delivery so a mapper failure is distinguishable from an
-                    // observer failure below. Per-element mapper isolation (FIL-2) is VCR-03's scope;
-                    // here a mapper throw drops the whole frame, counted and logged as cause=mapper.
-                    items = _mapper(frame).ToList();
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _metrics.RecordDrop(_topic, StreamingMetrics.MapperCause);
-                    _logger.LogDroppedFrame(_topic, ex.Message, ex);
-                    continue;
-                }
-
-                foreach (var item in items)
-                {
+                    List<T> items;
                     try
                     {
-                        observer.OnNext(item);
+                        // Materialize before delivery so a mapper failure is distinguishable from an
+                        // observer failure below. Per-element mapper isolation (FIL-2) is VCR-03's
+                        // scope; here a mapper throw drops the whole frame, counted and logged as
+                        // cause=mapper.
+                        items = _mapper(frame).ToList();
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is not OperationCanceledException)
                     {
-                        // Consumer OnNext fault (including OperationCanceledException): count, log
-                        // distinctly, surface via OnError, and stop pumping.
-                        _metrics.RecordDrop(_topic, StreamingMetrics.ObserverCause);
-                        _logger.LogObserverError(_topic, ex.Message, ex);
-                        observer.OnError(ex);
-                        return;
+                        _metrics.RecordDrop(_topic, StreamingMetrics.MapperCause);
+                        _logger.LogDroppedFrame(_topic, ex.Message, ex);
+                        continue;
+                    }
+
+                    foreach (var item in items)
+                    {
+                        try
+                        {
+                            observer.OnNext(item);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Consumer OnNext fault (including OperationCanceledException): count,
+                            // log distinctly, surface via OnError, and stop pumping.
+                            _metrics.RecordDrop(_topic, StreamingMetrics.ObserverCause);
+                            _logger.LogObserverError(_topic, ex.Message, ex);
+                            observer.OnError(ex);
+                            return;
+                        }
                     }
                 }
+
+                // Cancellation observed mid-drain (e.g. during a blocking OnNext): terminate.
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             observer.OnCompleted();
