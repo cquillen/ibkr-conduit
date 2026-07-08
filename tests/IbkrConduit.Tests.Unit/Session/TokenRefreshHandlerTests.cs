@@ -451,10 +451,125 @@ public class TokenRefreshHandlerTests
         callCount.ShouldBe(2, "the idempotent live-orders GET still replays");
     }
 
+    // --- ERR-1: retry-leg captured-body plumbing (response.RequestMessage identity) ---
+
+    [Fact]
+    public async Task SendAsync_401RetryLeg_ResponseRequestMessageIsOriginalRequest()
+    {
+        // ERR-1: after a 401 replay, the returned response's RequestMessage must be the ORIGINAL
+        // request, not the internal clone. ResponseBodyCaptureHandler (outer to this handler) stashes
+        // the retried body on the original request's Options; ResultFactory.GetCapturedBody reads
+        // response.RequestMessage.Options — so unless the retry response points back at the original
+        // request, hidden-error detection is silently disabled on the retry leg.
+        var sessionManager = new FakeSessionManager();
+        var callCount = 0;
+        var innerHandler = new FakeInnerHandler(_ =>
+        {
+            callCount++;
+            return callCount == 1
+                ? new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                : new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{}", Encoding.UTF8, "application/json"),
+                };
+        });
+
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
+        {
+            InnerHandler = innerHandler,
+        };
+        using var invoker = new HttpMessageInvoker(handler);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get, "https://api.ibkr.com/v1/api/portfolio/accounts");
+
+        var response = await invoker.SendAsync(request, TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        callCount.ShouldBe(2, "the idempotent GET replays after re-auth");
+        response.RequestMessage.ShouldBeSameAs(request,
+            "the retry response must carry the original request so its captured body is discoverable");
+    }
+
+    // --- SES-3: caller cancellation during re-auth must surface as cancellation ---
+
+    [Fact]
+    public async Task SendAsync_ConsumerCancelsDuringReauth_PropagatesOperationCanceled()
+    {
+        // SES-3: a non-order request whose caller-token cancels while ReauthenticateAsync is in flight
+        // must surface OperationCanceledException — not a laundered IbkrApiException(IbkrSessionError),
+        // which a consumer would misread as a definitive session-loss and trip a spurious recovery saga.
+        using var cts = new CancellationTokenSource();
+        var sessionManager = new FakeSessionManager
+        {
+            OnReauth = cts.Cancel,
+            ThrowOnReauth = new OperationCanceledException(),
+        };
+        var innerHandler = new FakeInnerHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
+        {
+            InnerHandler = innerHandler,
+        };
+        using var invoker = new HttpMessageInvoker(handler);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get, "https://api.ibkr.com/v1/api/portfolio/accounts");
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            invoker.SendAsync(request, cts.Token));
+        sessionManager.ReauthCallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task SendAsync_OrderPost401_ConsumerCancelsDuringReauth_StillMarksAmbiguous()
+    {
+        // SES-3 x ADR-0003: for an order-mutating POST, a caller-cancelled re-auth does NOT preempt the
+        // ambiguous outcome — the order was sent and its result is genuinely unknown, so the marker must
+        // still be set (cancellation must not become the reported outcome and hide the reconcile signal).
+        using var cts = new CancellationTokenSource();
+        var sessionManager = new FakeSessionManager
+        {
+            OnReauth = cts.Cancel,
+            ThrowOnReauth = new OperationCanceledException(),
+        };
+        var callCount = 0;
+        var innerHandler = new FakeInnerHandler(_ =>
+        {
+            callCount++;
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        });
+
+        var handler = new TokenRefreshHandler(sessionManager, new SessionHealthState(), NullLogger<TokenRefreshHandler>.Instance)
+        {
+            InnerHandler = innerHandler,
+        };
+        using var invoker = new HttpMessageInvoker(handler);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/account/DU1234567/orders")
+        {
+            Content = new StringContent("""{"orders":[]}"""),
+        };
+
+        var response = await invoker.SendAsync(request, cts.Token);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        callCount.ShouldBe(1, "no replay for an order-mutating POST, even on a cancelled re-auth");
+        request.Options.TryGetValue(
+            new HttpRequestOptionsKey<AmbiguousOrderOutcome>(AmbiguousOrderOutcome.OptionKey),
+            out var outcome).ShouldBeTrue("the ambiguous marker must survive a caller-cancelled re-auth");
+        outcome!.ReauthSucceeded.ShouldBeFalse("re-auth was cancelled, so the marker records a failed re-auth");
+    }
+
     private class FakeSessionManager : ISessionManager
     {
         public int ReauthCallCount { get; private set; }
         public Exception? ThrowOnReauth { get; init; }
+
+        /// <summary>
+        /// Optional hook run at the start of <see cref="ReauthenticateAsync"/>, before any throw —
+        /// used to simulate the caller's own token cancelling mid-reauth (cancel a CTS here, then set
+        /// <see cref="ThrowOnReauth"/> to an <see cref="OperationCanceledException"/>).
+        /// </summary>
+        public Action? OnReauth { get; init; }
 
         public Task EnsureInitializedAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
@@ -462,6 +577,7 @@ public class TokenRefreshHandlerTests
         public Task ReauthenticateAsync(CancellationToken cancellationToken)
         {
             ReauthCallCount++;
+            OnReauth?.Invoke();
             if (ThrowOnReauth != null)
             {
                 throw ThrowOnReauth;
