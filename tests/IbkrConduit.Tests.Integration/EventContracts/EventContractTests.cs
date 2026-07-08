@@ -64,7 +64,7 @@ public class EventContractTests : IAsyncLifetime, IDisposable
         result.Symbol.ShouldBe("FF");
         result.LogoCategory.ShouldBe("g13834");
         result.ExcludeHistoricalData.ShouldBeFalse();
-        result.Payout.ShouldBe(1.0);
+        result.Payout.ShouldBe(1.0m);
         result.Contracts.ShouldNotBeNull();
         result.Contracts.Count.ShouldBe(2);
 
@@ -72,13 +72,34 @@ public class EventContractTests : IAsyncLifetime, IDisposable
         yesContract.Conid.ShouldBe(722489372);
         yesContract.Side.ShouldBe("Y");
         yesContract.Expiration.ShouldBe("20270127");
-        yesContract.Strike.ShouldBe(3.125);
+        yesContract.Strike.ShouldBe(3.125m);
         yesContract.StrikeLabel.ShouldBe("Above 3.125%");
         yesContract.ExpiryLabel.ShouldBe("January 27, 2027");
         yesContract.UnderlyingConid.ShouldBe(658663572);
         yesContract.TimeSpecifier.ShouldBe("2027.1.28");
 
         _harness.VerifyUserAgentOnAllRequests();
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetMarket_SparseFields_SurfacePresenceAndPrecision()
+    {
+        // §6.5/ADR-0001: market payout is an empty string (→ null); the first contract's strike carries
+        // a 19-significant-digit value a double would corrupt; the second contract omits strike (→ null).
+        _harness.StubAuthenticatedGet(
+            "/v1/api/forecast/contract/market",
+            FixtureLoader.LoadBody("EventContracts", "GET-market-sparse"));
+
+        var result = (await _harness.Client.EventContracts.GetMarketAsync(
+            999999999, cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        result.ShouldNotBeNull();
+        result.Payout.ShouldBeNull();
+        result.Contracts.Count.ShouldBe(2);
+        result.Contracts[0].Strike.ShouldBe(1234567890.123456789m);
+        result.Contracts[1].Strike.ShouldBeNull();
+
         _harness.VerifyHandshakeOccurred();
     }
 
@@ -123,14 +144,14 @@ public class EventContractTests : IAsyncLifetime, IDisposable
         result.Question.ShouldContain("US Fed Funds Target Rate");
         result.Side.ShouldBe("Y");
         result.StrikeLabel.ShouldBe("Above 3.125%");
-        result.Strike.ShouldBe(3.125);
+        result.Strike.ShouldBe(3.125m);
         result.Exchange.ShouldBe("FORECASTX");
         result.Expiration.ShouldBe("20270127");
         result.Symbol.ShouldBe("FF");
         result.Category.ShouldBe("g1003");
         result.MarketName.ShouldBe("US Fed Funds Target Rate");
         result.UnderlyingConid.ShouldBe(658663572);
-        result.PayoutAmount.ShouldBe(1.0);
+        result.PayoutAmount.ShouldBe(1.0m);
         result.ProductConid.ShouldBe(658663579);
         result.IsRestricted.ShouldBeFalse();
 

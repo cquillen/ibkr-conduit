@@ -149,13 +149,13 @@ public sealed record AccountParent
 /// <param name="AccountId">The account identifier.</param>
 /// <param name="Conid">The contract identifier.</param>
 /// <param name="ContractDescription">Human-readable contract description.</param>
-/// <param name="Quantity">The position quantity.</param>
-/// <param name="MarketPrice">Current market price.</param>
-/// <param name="MarketValue">Current market value.</param>
-/// <param name="AverageCost">Average cost basis.</param>
-/// <param name="AveragePrice">Average price per share.</param>
-/// <param name="RealizedPnl">Realized profit and loss.</param>
-/// <param name="UnrealizedPnl">Unrealized profit and loss.</param>
+/// <param name="Quantity">The position quantity, or <see langword="null"/> when absent from (or not parseable in) this row (§6.5).</param>
+/// <param name="MarketPrice">Current market price, or <see langword="null"/> when absent from (or not parseable in) this row (§6.5).</param>
+/// <param name="MarketValue">Current market value, or <see langword="null"/> when absent from (or not parseable in) this row (§6.5).</param>
+/// <param name="AverageCost">Average cost basis, or <see langword="null"/> when absent from (or not parseable in) this row (§6.5).</param>
+/// <param name="AveragePrice">Average price per share, or <see langword="null"/> when absent from (or not parseable in) this row (§6.5).</param>
+/// <param name="RealizedPnl">Realized profit and loss, or <see langword="null"/> when absent from (or not parseable in) this row (§6.5).</param>
+/// <param name="UnrealizedPnl">Unrealized profit and loss, or <see langword="null"/> when absent from (or not parseable in) this row (§6.5).</param>
 /// <param name="Currency">The currency code.</param>
 /// <param name="Name">The instrument name.</param>
 /// <param name="AssetClass">The asset class (e.g., "STK", "OPT").</param>
@@ -174,13 +174,13 @@ public record Position(
     [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     long Conid,
     [property: JsonPropertyName("contractDesc")] string ContractDescription,
-    [property: JsonPropertyName("position")] decimal Quantity,
-    [property: JsonPropertyName("mktPrice")] decimal MarketPrice,
-    [property: JsonPropertyName("mktValue")] decimal MarketValue,
-    [property: JsonPropertyName("avgCost")] decimal AverageCost,
-    [property: JsonPropertyName("avgPrice")] decimal AveragePrice,
-    [property: JsonPropertyName("realizedPnl")] decimal RealizedPnl,
-    [property: JsonPropertyName("unrealizedPnl")] decimal UnrealizedPnl,
+    [property: JsonPropertyName("position")] decimal? Quantity,
+    [property: JsonPropertyName("mktPrice")] decimal? MarketPrice,
+    [property: JsonPropertyName("mktValue")] decimal? MarketValue,
+    [property: JsonPropertyName("avgCost")] decimal? AverageCost,
+    [property: JsonPropertyName("avgPrice")] decimal? AveragePrice,
+    [property: JsonPropertyName("realizedPnl")] decimal? RealizedPnl,
+    [property: JsonPropertyName("unrealizedPnl")] decimal? UnrealizedPnl,
     [property: JsonPropertyName("currency")] string Currency,
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("assetClass")] string AssetClass,
@@ -230,6 +230,10 @@ public record AccountSummaryEntry(
 /// Represents a ledger entry for a currency in the account.
 /// Keys in the parent dictionary are currency codes like "USD", "EUR", "BASE".
 /// Generated from recorded API response — 30 fields matching actual wire format.
+/// Every money/balance field is <c>decimal?</c> and nullable-as-presence (§6.5, ADR-0001):
+/// <see langword="null"/> means the value was absent from (or not parseable in) this row — never a
+/// fabricated <c>0</c>. Non-money counters (<see cref="SessionId"/>, <see cref="Timestamp"/>,
+/// <see cref="Severity"/>, <see cref="EndOfBundle"/>) remain non-nullable.
 /// </summary>
 /// <param name="CommodityMarketValue">Market value of commodity positions.</param>
 /// <param name="FutureMarketValue">Market value of futures positions.</param>
@@ -264,37 +268,37 @@ public record AccountSummaryEntry(
 /// <param name="CryptocurrencyValue">Cryptocurrency position value.</param>
 [ExcludeFromCodeCoverage]
 public record LedgerEntry(
-    [property: JsonPropertyName("commoditymarketvalue")] decimal CommodityMarketValue,
-    [property: JsonPropertyName("futuremarketvalue")] decimal FutureMarketValue,
-    [property: JsonPropertyName("settledcash")] decimal SettledCash,
-    [property: JsonPropertyName("exchangerate")] decimal ExchangeRate,
+    [property: JsonPropertyName("commoditymarketvalue")] decimal? CommodityMarketValue,
+    [property: JsonPropertyName("futuremarketvalue")] decimal? FutureMarketValue,
+    [property: JsonPropertyName("settledcash")] decimal? SettledCash,
+    [property: JsonPropertyName("exchangerate")] decimal? ExchangeRate,
     [property: JsonPropertyName("sessionid")] int SessionId,
-    [property: JsonPropertyName("cashbalance")] decimal CashBalance,
-    [property: JsonPropertyName("corporatebondsmarketvalue")] decimal CorporateBondsMarketValue,
-    [property: JsonPropertyName("warrantsmarketvalue")] decimal WarrantsMarketValue,
-    [property: JsonPropertyName("netliquidationvalue")] decimal NetLiquidationValue,
-    [property: JsonPropertyName("interest")] decimal Interest,
-    [property: JsonPropertyName("unrealizedpnl")] decimal UnrealizedPnl,
-    [property: JsonPropertyName("stockmarketvalue")] decimal StockMarketValue,
-    [property: JsonPropertyName("moneyfunds")] decimal MoneyFunds,
+    [property: JsonPropertyName("cashbalance")] decimal? CashBalance,
+    [property: JsonPropertyName("corporatebondsmarketvalue")] decimal? CorporateBondsMarketValue,
+    [property: JsonPropertyName("warrantsmarketvalue")] decimal? WarrantsMarketValue,
+    [property: JsonPropertyName("netliquidationvalue")] decimal? NetLiquidationValue,
+    [property: JsonPropertyName("interest")] decimal? Interest,
+    [property: JsonPropertyName("unrealizedpnl")] decimal? UnrealizedPnl,
+    [property: JsonPropertyName("stockmarketvalue")] decimal? StockMarketValue,
+    [property: JsonPropertyName("moneyfunds")] decimal? MoneyFunds,
     [property: JsonPropertyName("currency")] string? Currency,
-    [property: JsonPropertyName("realizedpnl")] decimal RealizedPnl,
-    [property: JsonPropertyName("funds")] decimal Funds,
+    [property: JsonPropertyName("realizedpnl")] decimal? RealizedPnl,
+    [property: JsonPropertyName("funds")] decimal? Funds,
     [property: JsonPropertyName("acctcode")] string? AcctCode,
-    [property: JsonPropertyName("issueroptionsmarketvalue")] decimal IssuerOptionsMarketValue,
+    [property: JsonPropertyName("issueroptionsmarketvalue")] decimal? IssuerOptionsMarketValue,
     [property: JsonPropertyName("key")] string? Key,
     [property: JsonPropertyName("timestamp")] long Timestamp,
     [property: JsonPropertyName("severity")] int Severity,
-    [property: JsonPropertyName("stockoptionmarketvalue")] decimal StockOptionMarketValue,
-    [property: JsonPropertyName("futuresonlypnl")] decimal FuturesOnlyPnl,
-    [property: JsonPropertyName("tbondsmarketvalue")] decimal TBondsMarketValue,
-    [property: JsonPropertyName("futureoptionmarketvalue")] decimal FutureOptionMarketValue,
-    [property: JsonPropertyName("cashbalancefxsegment")] decimal CashBalanceFxSegment,
+    [property: JsonPropertyName("stockoptionmarketvalue")] decimal? StockOptionMarketValue,
+    [property: JsonPropertyName("futuresonlypnl")] decimal? FuturesOnlyPnl,
+    [property: JsonPropertyName("tbondsmarketvalue")] decimal? TBondsMarketValue,
+    [property: JsonPropertyName("futureoptionmarketvalue")] decimal? FutureOptionMarketValue,
+    [property: JsonPropertyName("cashbalancefxsegment")] decimal? CashBalanceFxSegment,
     [property: JsonPropertyName("secondkey")] string? SecondKey,
-    [property: JsonPropertyName("tbillsmarketvalue")] decimal TBillsMarketValue,
+    [property: JsonPropertyName("tbillsmarketvalue")] decimal? TBillsMarketValue,
     [property: JsonPropertyName("endofbundle")] int EndOfBundle,
-    [property: JsonPropertyName("dividends")] decimal Dividends,
-    [property: JsonPropertyName("cryptocurrencyvalue")] decimal CryptocurrencyValue)
+    [property: JsonPropertyName("dividends")] decimal? Dividends,
+    [property: JsonPropertyName("cryptocurrencyvalue")] decimal? CryptocurrencyValue)
 {
     /// <summary>
     /// Additional undocumented fields from the API response.

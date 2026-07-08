@@ -1,0 +1,23 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/account/U7654321/summary",
+    "Methods": ["GET"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "accountType": "",
+      "status": "",
+      "buyingPower": "",
+      "netLiquidationValue": 1234567890.123456789,
+      "cashBalances": [
+        {
+          "currency": "USD",
+          "balance": 1234567890.123456789,
+          "settledCash": ""
+        }
+      ]
+    }
+  }
+}

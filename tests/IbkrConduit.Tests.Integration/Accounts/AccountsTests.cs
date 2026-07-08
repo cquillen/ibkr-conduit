@@ -311,22 +311,45 @@ public class AccountsTests : IAsyncLifetime, IDisposable
         var result = (await _harness.Client.Accounts.GetAccountSummaryAsync(
             "U1234567", TestContext.Current.CancellationToken)).Value;
 
-        result.Balance.ShouldBe(994831.0);
-        result.BuyingPower.ShouldBe(3979324.0);
-        result.NetLiquidationValue.ShouldBe(1005254.0);
-        result.EquityWithLoanValue.ShouldBe(1002485.0);
-        result.TotalCashValue.ShouldBe(971870.0);
-        result.InitialMargin.ShouldBe(7654.0);
-        result.MaintenanceMargin.ShouldBe(7654.0);
-        result.SecuritiesGvp.ShouldBe(30615.0);
-        result.Sma.ShouldBe(989946.0);
+        result.Balance.ShouldBe(994831.0m);
+        result.BuyingPower.ShouldBe(3979324.0m);
+        result.NetLiquidationValue.ShouldBe(1005254.0m);
+        result.EquityWithLoanValue.ShouldBe(1002485.0m);
+        result.TotalCashValue.ShouldBe(971870.0m);
+        result.InitialMargin.ShouldBe(7654.0m);
+        result.MaintenanceMargin.ShouldBe(7654.0m);
+        result.SecuritiesGvp.ShouldBe(30615.0m);
+        result.Sma.ShouldBe(989946.0m);
         result.CashBalances.ShouldNotBeNull();
         result.CashBalances!.Count.ShouldBe(1);
         result.CashBalances[0].Currency.ShouldBe("USD");
-        result.CashBalances[0].Balance.ShouldBe(971870.0);
-        result.CashBalances[0].SettledCash.ShouldBe(971870.0);
+        result.CashBalances[0].Balance.ShouldBe(971870.0m);
+        result.CashBalances[0].SettledCash.ShouldBe(971870.0m);
 
         _harness.VerifyUserAgentOnAllRequests();
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetAccountSummary_SparseFields_SurfacePresenceAndPrecision()
+    {
+        // §6.5/ADR-0001: balance omitted → null, buyingPower empty string → null, netLiquidationValue
+        // and the cash balance carry a 19-significant-digit value a double would corrupt; settledCash "".
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/U7654321/summary",
+            FixtureLoader.LoadBody("Accounts", "GET-account-summary-sparse"));
+
+        var result = (await _harness.Client.Accounts.GetAccountSummaryAsync(
+            "U7654321", TestContext.Current.CancellationToken)).Value;
+
+        result.Balance.ShouldBeNull();
+        result.BuyingPower.ShouldBeNull();
+        result.InitialMargin.ShouldBeNull();
+        result.NetLiquidationValue.ShouldBe(1234567890.123456789m);
+        result.CashBalances.ShouldNotBeNull();
+        result.CashBalances![0].Balance.ShouldBe(1234567890.123456789m);
+        result.CashBalances[0].SettledCash.ShouldBeNull();
+
         _harness.VerifyHandshakeOccurred();
     }
 
@@ -359,7 +382,7 @@ public class AccountsTests : IAsyncLifetime, IDisposable
         var result = (await _harness.Client.Accounts.GetAccountSummaryAsync(
             "U1234567", TestContext.Current.CancellationToken)).Value;
 
-        result.NetLiquidationValue.ShouldBe(1005254.0);
+        result.NetLiquidationValue.ShouldBe(1005254.0m);
 
         _harness.VerifyReauthenticationOccurred();
     }
