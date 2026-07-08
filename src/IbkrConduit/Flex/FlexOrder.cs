@@ -51,23 +51,23 @@ public record FlexOrder
     /// <summary>Buy/Sell side.</summary>
     public string BuySell { get; init; } = string.Empty;
 
-    /// <summary>Total quantity for the order.</summary>
-    public decimal Quantity { get; init; }
+    /// <summary>Total quantity for the order. Null when absent or unparseable (§11.10).</summary>
+    public decimal? Quantity { get; init; }
 
-    /// <summary>Average price for the order.</summary>
-    public decimal Price { get; init; }
+    /// <summary>Average price for the order. Null when absent or unparseable (§11.10).</summary>
+    public decimal? Price { get; init; }
 
-    /// <summary>Total amount.</summary>
-    public decimal Amount { get; init; }
+    /// <summary>Total amount. Null when absent or unparseable (§11.10).</summary>
+    public decimal? Amount { get; init; }
 
-    /// <summary>Total proceeds.</summary>
-    public decimal Proceeds { get; init; }
+    /// <summary>Total proceeds. Null when absent or unparseable (§11.10).</summary>
+    public decimal? Proceeds { get; init; }
 
-    /// <summary>Net cash impact.</summary>
-    public decimal NetCash { get; init; }
+    /// <summary>Net cash impact. Null when absent or unparseable (§11.10).</summary>
+    public decimal? NetCash { get; init; }
 
-    /// <summary>Total commission.</summary>
-    public decimal Commission { get; init; }
+    /// <summary>Total commission. Null when absent or unparseable (§11.10).</summary>
+    public decimal? Commission { get; init; }
 
     /// <summary>Order type.</summary>
     public string OrderType { get; init; } = string.Empty;

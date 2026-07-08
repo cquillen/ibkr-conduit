@@ -516,6 +516,54 @@ public class FlexOperationsPollingTests
     }
 
     [Fact]
+    public async Task PollForStatementAsync_SlowHttpRoundTrips_BoundedByWallClockDeadline()
+    {
+        // RST-6 (§11.10): the poll timeout must bound WALL-CLOCK elapsed time — HTTP round-trip
+        // + limiter + inter-poll delays — not merely the loop's own Task.Delay budget. Here each
+        // GetStatement round-trip "takes" longer than the entire timeout on the wall clock
+        // (simulated by advancing the fake clock inside the handler). A single round-trip already
+        // blows the 2s budget, so a wall-clock-bounded loop stops after exactly one poll. The
+        // pre-fix loop (which counts only its own delays, which these round-trips never consume)
+        // keeps polling — the pump below drives it to a terminating-but-wrong 2-poll result.
+        var fakeTime = new FakeTimeProvider();
+        var handler = new TimeAdvancingFakeHttpHandler(
+            fakeTime,
+            sendRequestResponse: _successSendRequest,
+            pollResponse: _inProgressResponse,
+            advancePerPoll: TimeSpan.FromSeconds(5));
+        var ops = CreateOperations(
+            handler,
+            new IbkrClientOptions { FlexPollTimeout = TimeSpan.FromSeconds(2) },
+            fakeTime);
+
+        var resultTask = ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+        await PumpFakeTimeUntilComplete(fakeTime, resultTask);
+        var result = await resultTask;
+
+        result.IsSuccess.ShouldBeFalse();
+        var err = result.Error.ShouldBeOfType<IbkrFlexError>();
+        err.ErrorCode.ShouldBe(0);
+        err.IsRetryable.ShouldBeTrue();
+        err.Message.ShouldContain("did not complete");
+        // One 5s HTTP round-trip already exceeded the 2s wall-clock budget → exactly one poll.
+        handler.PollCallCount.ShouldBe(1);
+    }
+
+    // Advances the fake clock in fixed steps until the operation completes, yielding so any
+    // Task.Delay continuations run. Bounded so a genuine hang (never-completing loop) fails the
+    // test deterministically instead of spinning forever.
+    private static async Task PumpFakeTimeUntilComplete(FakeTimeProvider fakeTime, Task task)
+    {
+        for (var i = 0; i < 10_000 && !task.IsCompleted; i++)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+
+        task.IsCompleted.ShouldBeTrue("operation did not complete under the fake-time pump");
+    }
+
+    [Fact]
     public void ApplyJitter_ProducesNonDeterministicDelays()
     {
         var results = new HashSet<int>();
@@ -575,6 +623,53 @@ public class FlexOperationsPollingTests
 
         public HttpClient CreateClient(string name) =>
             new(_handler, disposeHandler: false);
+    }
+
+    // Handler that advances a FakeTimeProvider on each GetStatement poll to simulate a slow HTTP
+    // round-trip consuming wall-clock time. Call 0 is the SendRequest (no advance); subsequent
+    // calls are GetStatement polls (advance + in-progress response).
+    private sealed class TimeAdvancingFakeHttpHandler : HttpMessageHandler
+    {
+        private readonly FakeTimeProvider _time;
+        private readonly string _sendRequestResponse;
+        private readonly string _pollResponse;
+        private readonly TimeSpan _advancePerPoll;
+        private int _callCount;
+
+        public int PollCallCount { get; private set; }
+
+        public TimeAdvancingFakeHttpHandler(
+            FakeTimeProvider time, string sendRequestResponse, string pollResponse, TimeSpan advancePerPoll)
+        {
+            _time = time;
+            _sendRequestResponse = sendRequestResponse;
+            _pollResponse = pollResponse;
+            _advancePerPoll = advancePerPoll;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var index = Interlocked.Increment(ref _callCount) - 1;
+
+            string body;
+            if (index == 0)
+            {
+                body = _sendRequestResponse;
+            }
+            else
+            {
+                PollCallCount++;
+                _time.Advance(_advancePerPoll);
+                body = _pollResponse;
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/xml"),
+            });
+        }
     }
 
     private sealed class SequentialFakeHttpHandler : HttpMessageHandler

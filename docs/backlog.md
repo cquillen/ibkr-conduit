@@ -291,7 +291,7 @@ Findings AUT-2 (medium, CONFIRMED), AUT-5 (low, CONFIRMED): `IbkrOAuthCredential
 **Done when:** rendering the credentials object exposes no token material, and the tenant label defaults to `"default"` with an explicit `tenantId` override through both factory paths.
 
 #### PVR-09 — 📦 Flex statement data fidelity
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #276 · **Stream:** PVR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Findings RST-1 (medium, PLAUSIBLE), RST-3 (medium, PLAUSIBLE), RST-6 (low, UNVERIFIED): `AttrDecimal` silently coerces any unparseable money attribute to `0m` (authoritative-looking zeros on Amount/Price/Proceeds/NetCash/Commission/Quantity/FxRateToBase); `ParseFlexDateTime` guesses offsets from an 8-abbreviation US table (wrong-or-null for CET/BST/HKT/…); `PollForStatementAsync` bounds only its own inter-poll delays, not HTTP round-trip + limiter time (RST-6 — **CONFIRMED by grooming code trace**, `FlexOperations.cs:333`). Implements design doc §11.10 (D4): nullable money + observable parse-failure signal with raw text preserved; raw timestamp strings, no offset guessing; wall-clock poll bound. The design is format-agnostic (operator-decided: loop-ready without a live format pin — no Flex query is configured on the paper account); pinning the wire formats against a real statement is the **named follow-on** in the stream Evidence. **Breaking — `feat!:`** (Flex DTO money fields become nullable).

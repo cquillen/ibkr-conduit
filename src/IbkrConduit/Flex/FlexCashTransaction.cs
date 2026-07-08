@@ -15,8 +15,9 @@ public record FlexCashTransaction
     /// <summary>Transaction currency.</summary>
     public string Currency { get; init; } = string.Empty;
 
-    /// <summary>FX rate to base currency.</summary>
-    public decimal FxRateToBase { get; init; }
+    /// <summary>FX rate to base currency. Null when the wire attribute is absent or unparseable
+    /// (never a fabricated 0 — see §11.10); the raw text remains available via <see cref="RawElement"/>.</summary>
+    public decimal? FxRateToBase { get; init; }
 
     /// <summary>Asset category.</summary>
     public string AssetCategory { get; init; } = string.Empty;
@@ -39,8 +40,9 @@ public record FlexCashTransaction
     /// <summary>Report date.</summary>
     public DateOnly? ReportDate { get; init; }
 
-    /// <summary>Transaction amount.</summary>
-    public decimal Amount { get; init; }
+    /// <summary>Transaction amount. Null when the wire attribute is absent or unparseable
+    /// (never a fabricated 0 — see §11.10); the raw text remains available via <see cref="RawElement"/>.</summary>
+    public decimal? Amount { get; init; }
 
     /// <summary>Transaction type (e.g. "Deposits/Withdrawals", "Broker Interest Received").</summary>
     public string Type { get; init; } = string.Empty;

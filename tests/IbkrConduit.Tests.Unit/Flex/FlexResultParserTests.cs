@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Xml.Linq;
 using IbkrConduit.Flex;
 using Shouldly;
@@ -110,14 +112,19 @@ public class FlexResultParserTests
         result.Value.Second.ShouldBe(37);
     }
 
-    [Fact]
-    public void ParseFlexDateTime_EdtFormat_ReturnsDateTimeOffset()
+    [Theory]
+    [InlineData("2026-04-09;21:23:54 EDT")] // US abbreviations are no longer offset-guessed either (RST-3)
+    [InlineData("2026-04-09;21:23:54 EST")]
+    [InlineData("2026-04-09;21:23:54 CET")]
+    [InlineData("2026-04-09;20:00:00 BST")]
+    [InlineData("2026-04-09;08:00:00 HKT")]
+    public void ParseFlexDateTime_TimezoneAbbreviation_ReturnsNullWithoutOffsetGuess(string raw)
     {
-        var result = FlexResultParser.ParseFlexDateTime("2026-04-09;21:23:54 EDT");
-        result.ShouldNotBeNull();
-        result!.Value.Year.ShouldBe(2026);
-        result.Value.Month.ShouldBe(4);
-        result.Value.Day.ShouldBe(9);
+        // PVR-09 / RST-3 (§11.10 D4): the parser never guesses UTC offsets from timezone
+        // abbreviations. A best-effort parse of an abbreviation-suffixed timestamp yields null
+        // (rather than a fabricated, possibly-wrong offset); callers recover the raw wire string
+        // from the DTO's RawElement — see ParseTradeConfirmations_TimezoneAbbreviationTimestamp_*.
+        FlexResultParser.ParseFlexDateTime(raw).ShouldBeNull();
     }
 
     [Theory]
@@ -138,7 +145,8 @@ public class FlexResultParserTests
 
         result.CashTransactions.Count.ShouldBe(1);
         var tx = result.CashTransactions[0];
-        tx.Amount.ShouldBe(0m);
+        // PVR-09 (§11.10): an absent money attribute is null, never a fabricated 0.
+        tx.Amount.ShouldBeNull();
         tx.AccountId.ShouldBe(string.Empty);
         tx.Conid.ShouldBeNull();
         tx.DateTime.ShouldBeNull();
@@ -249,5 +257,165 @@ public class FlexResultParserTests
         result.TradeConfirmations[0].Symbol.ShouldBe("SPY");
         result.SymbolSummaries.ShouldBeEmpty();
         result.Orders.ShouldBeEmpty();
+    }
+
+    // ---- PVR-09 / RST-1: nullable money + observable parse-failure signal + raw text ----
+
+    [Fact]
+    public void ParseTradeConfirmations_UnparseableMoneyAttributes_YieldNullAndRaiseSignalWithRawText()
+    {
+        var failures = new List<(string Field, string Raw)>();
+        var doc = XDocument.Parse("""
+            <FlexQueryResponse queryName="X" type="TCF">
+              <FlexStatements>
+                <FlexStatement accountId="U1">
+                  <TradeConfirms>
+                    <TradeConfirm accountId="U1" symbol="SPY" buySell="BUY"
+                      quantity="abc" price="not-a-number" amount="N/A"
+                      proceeds="--" netCash="oops" commission="?" />
+                  </TradeConfirms>
+                </FlexStatement>
+              </FlexStatements>
+            </FlexQueryResponse>
+            """);
+
+        var result = FlexResultParser.ParseTradeConfirmations(
+            doc, (field, raw) => failures.Add((field, raw)));
+
+        var tc = result.TradeConfirmations.ShouldHaveSingleItem();
+
+        // Unparseable-but-present money → null, never a fabricated 0.
+        tc.Quantity.ShouldBeNull();
+        tc.Price.ShouldBeNull();
+        tc.Amount.ShouldBeNull();
+        tc.Proceeds.ShouldBeNull();
+        tc.NetCash.ShouldBeNull();
+        tc.Commission.ShouldBeNull();
+
+        // Observable parse-failure signal fires once per unparseable money field.
+        failures.Select(f => f.Field).ShouldBe(
+            new[] { "quantity", "price", "amount", "proceeds", "netCash", "commission" },
+            ignoreOrder: true);
+
+        // Raw wire text preserved — both on the signal and recoverable from RawElement,
+        // so a bad value is distinguishable from a genuine 0 (0m) or an absent value (null).
+        failures.Single(f => f.Field == "amount").Raw.ShouldBe("N/A");
+        tc.RawElement!.Attribute("price")!.Value.ShouldBe("not-a-number");
+    }
+
+    [Fact]
+    public void ParseTradeConfirmations_GenuineZeroAndAbsentMoney_AreDistinctFromUnparseable()
+    {
+        var failures = new List<(string Field, string Raw)>();
+        var doc = XDocument.Parse("""
+            <FlexQueryResponse queryName="X" type="TCF">
+              <FlexStatements>
+                <FlexStatement accountId="U1">
+                  <TradeConfirms>
+                    <TradeConfirm accountId="U1" symbol="SPY" commission="0" />
+                  </TradeConfirms>
+                </FlexStatement>
+              </FlexStatements>
+            </FlexQueryResponse>
+            """);
+
+        var result = FlexResultParser.ParseTradeConfirmations(
+            doc, (field, raw) => failures.Add((field, raw)));
+
+        var tc = result.TradeConfirmations.ShouldHaveSingleItem();
+
+        // Genuine zero → parsed value 0m (present, parseable), no signal.
+        tc.Commission.ShouldBe(0m);
+        // Absent → null, no signal, and no raw attribute to recover.
+        tc.Amount.ShouldBeNull();
+        tc.RawElement!.Attribute("amount").ShouldBeNull();
+        // Neither a genuine 0 nor an absent value raises a parse-failure signal.
+        failures.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void ParseCashTransactions_UnparseableAmountAndFxRate_YieldNullAndRaiseSignal()
+    {
+        var failures = new List<(string Field, string Raw)>();
+        var doc = XDocument.Parse("""
+            <FlexQueryResponse queryName="X" type="AF">
+              <FlexStatements>
+                <FlexStatement accountId="U1">
+                  <CashTransactions>
+                    <CashTransaction accountId="U1" amount="abc" fxRateToBase="xyz" />
+                  </CashTransactions>
+                </FlexStatement>
+              </FlexStatements>
+            </FlexQueryResponse>
+            """);
+
+        var result = FlexResultParser.ParseCashTransactions(
+            doc, (field, raw) => failures.Add((field, raw)));
+
+        var ct = result.CashTransactions.ShouldHaveSingleItem();
+
+        ct.Amount.ShouldBeNull();
+        ct.FxRateToBase.ShouldBeNull();
+        failures.ShouldContain(("amount", "abc"));
+        failures.ShouldContain(("fxRateToBase", "xyz"));
+        ct.RawElement!.Attribute("amount")!.Value.ShouldBe("abc");
+    }
+
+    [Fact]
+    public void ParseTradeConfirmations_EmptyMoneyAttribute_YieldNullWithoutSignal()
+    {
+        // A present-but-empty attribute (the empty-money wire convention) is null, not a
+        // parse failure — it must not raise a false parse-failure signal (ADR-0001 / §11.10).
+        var failures = new List<(string Field, string Raw)>();
+        var doc = XDocument.Parse("""
+            <FlexQueryResponse queryName="X" type="TCF">
+              <FlexStatements>
+                <FlexStatement accountId="U1">
+                  <TradeConfirms>
+                    <TradeConfirm accountId="U1" symbol="SPY" price="" amount="" />
+                  </TradeConfirms>
+                </FlexStatement>
+              </FlexStatements>
+            </FlexQueryResponse>
+            """);
+
+        var result = FlexResultParser.ParseTradeConfirmations(
+            doc, (field, raw) => failures.Add((field, raw)));
+
+        var tc = result.TradeConfirmations.ShouldHaveSingleItem();
+        tc.Price.ShouldBeNull();
+        tc.Amount.ShouldBeNull();
+        failures.ShouldBeEmpty();
+    }
+
+    // ---- PVR-09 / RST-3: raw timestamp preservation, no offset guessing ----
+
+    [Fact]
+    public void ParseTradeConfirmations_TimezoneAbbreviationTimestamp_PreservesRawStringNoOffsetGuess()
+    {
+        var doc = XDocument.Parse("""
+            <FlexQueryResponse queryName="X" type="TCF">
+              <FlexStatements>
+                <FlexStatement accountId="U1">
+                  <TradeConfirms>
+                    <TradeConfirm accountId="U1" symbol="VOD"
+                      dateTime="2026-04-09;21:23:54 CET" orderTime="2026-04-09;20:00:00 BST" />
+                  </TradeConfirms>
+                </FlexStatement>
+              </FlexStatements>
+            </FlexQueryResponse>
+            """);
+
+        var result = FlexResultParser.ParseTradeConfirmations(doc);
+        var tc = result.TradeConfirmations.ShouldHaveSingleItem();
+
+        // Best-effort parse yields null rather than a fabricated (wrong) offset for a
+        // non-US abbreviation the parser cannot resolve...
+        tc.DateTime.ShouldBeNull();
+        tc.OrderTime.ShouldBeNull();
+
+        // ...but the raw wire string is preserved and recoverable, so the timestamp is not lost.
+        tc.RawElement!.Attribute("dateTime")!.Value.ShouldBe("2026-04-09;21:23:54 CET");
+        tc.RawElement!.Attribute("orderTime")!.Value.ShouldBe("2026-04-09;20:00:00 BST");
     }
 }

@@ -9,10 +9,16 @@ namespace IbkrConduit.Flex;
 internal static class FlexResultParser
 {
     /// <summary>Parses a Cash Transactions Flex query response.</summary>
-    public static CashTransactionsFlexResult ParseCashTransactions(XDocument doc)
+    /// <param name="doc">The raw Flex query XML.</param>
+    /// <param name="onMoneyParseFailure">Optional sink invoked as <c>(fieldName, rawValue)</c> for every
+    /// present-but-unparseable money/quantity attribute (§11.10). The value is surfaced as <c>null</c>
+    /// regardless; this signal makes the parse failure observable without altering the DTO.</param>
+    public static CashTransactionsFlexResult ParseCashTransactions(
+        XDocument doc, Action<string, string>? onMoneyParseFailure = null)
     {
         var (from, to) = GetDateRange(doc);
-        var items = doc.Descendants("CashTransaction").Select(ParseCashTransaction).ToList();
+        var items = doc.Descendants("CashTransaction")
+            .Select(el => ParseCashTransaction(el, onMoneyParseFailure)).ToList();
         return new CashTransactionsFlexResult(
             GetQueryName(doc),
             GetGeneratedAt(doc),
@@ -23,12 +29,20 @@ internal static class FlexResultParser
     }
 
     /// <summary>Parses a Trade Confirmations Flex query response.</summary>
-    public static TradeConfirmationsFlexResult ParseTradeConfirmations(XDocument doc)
+    /// <param name="doc">The raw Flex query XML.</param>
+    /// <param name="onMoneyParseFailure">Optional sink invoked as <c>(fieldName, rawValue)</c> for every
+    /// present-but-unparseable money/quantity attribute (§11.10). The value is surfaced as <c>null</c>
+    /// regardless; this signal makes the parse failure observable without altering the DTO.</param>
+    public static TradeConfirmationsFlexResult ParseTradeConfirmations(
+        XDocument doc, Action<string, string>? onMoneyParseFailure = null)
     {
         var (from, to) = GetDateRange(doc);
-        var trades = doc.Descendants("TradeConfirm").Select(ParseTradeConfirmation).ToList();
-        var summaries = doc.Descendants("SymbolSummary").Select(ParseSymbolSummary).ToList();
-        var orders = doc.Descendants("Order").Select(ParseOrder).ToList();
+        var trades = doc.Descendants("TradeConfirm")
+            .Select(el => ParseTradeConfirmation(el, onMoneyParseFailure)).ToList();
+        var summaries = doc.Descendants("SymbolSummary")
+            .Select(el => ParseSymbolSummary(el, onMoneyParseFailure)).ToList();
+        var orders = doc.Descendants("Order")
+            .Select(el => ParseOrder(el, onMoneyParseFailure)).ToList();
         return new TradeConfirmationsFlexResult(
             GetQueryName(doc),
             GetGeneratedAt(doc),
@@ -92,11 +106,11 @@ internal static class FlexResultParser
                 el))
             .ToList();
 
-    private static FlexCashTransaction ParseCashTransaction(XElement el) => new()
+    private static FlexCashTransaction ParseCashTransaction(XElement el, Action<string, string>? onParseFailure) => new()
     {
         AccountId = Attr(el, "accountId"),
         Currency = Attr(el, "currency"),
-        FxRateToBase = AttrDecimal(el, "fxRateToBase"),
+        FxRateToBase = AttrNullableDecimal(el, "fxRateToBase", onParseFailure),
         AssetCategory = Attr(el, "assetCategory"),
         Symbol = Attr(el, "symbol"),
         Description = Attr(el, "description"),
@@ -104,7 +118,7 @@ internal static class FlexResultParser
         DateTime = ParseFlexDateTime(el.Attribute("dateTime")?.Value),
         SettleDate = ParseFlexDate(el.Attribute("settleDate")?.Value),
         ReportDate = ParseFlexDate(el.Attribute("reportDate")?.Value),
-        Amount = AttrDecimal(el, "amount"),
+        Amount = AttrNullableDecimal(el, "amount", onParseFailure),
         Type = Attr(el, "type"),
         TransactionId = Attr(el, "transactionID"),
         Code = Attr(el, "code"),
@@ -112,7 +126,7 @@ internal static class FlexResultParser
         RawElement = el,
     };
 
-    private static FlexTradeConfirmation ParseTradeConfirmation(XElement el) => new()
+    private static FlexTradeConfirmation ParseTradeConfirmation(XElement el, Action<string, string>? onParseFailure) => new()
     {
         AccountId = Attr(el, "accountId"),
         Currency = Attr(el, "currency"),
@@ -131,19 +145,19 @@ internal static class FlexResultParser
         DateTime = ParseFlexDateTime(el.Attribute("dateTime")?.Value),
         Exchange = Attr(el, "exchange"),
         BuySell = Attr(el, "buySell"),
-        Quantity = AttrDecimal(el, "quantity"),
-        Price = AttrDecimal(el, "price"),
-        Amount = AttrDecimal(el, "amount"),
-        Proceeds = AttrDecimal(el, "proceeds"),
-        NetCash = AttrDecimal(el, "netCash"),
-        Commission = AttrDecimal(el, "commission"),
+        Quantity = AttrNullableDecimal(el, "quantity", onParseFailure),
+        Price = AttrNullableDecimal(el, "price", onParseFailure),
+        Amount = AttrNullableDecimal(el, "amount", onParseFailure),
+        Proceeds = AttrNullableDecimal(el, "proceeds", onParseFailure),
+        NetCash = AttrNullableDecimal(el, "netCash", onParseFailure),
+        Commission = AttrNullableDecimal(el, "commission", onParseFailure),
         CommissionCurrency = Attr(el, "commissionCurrency"),
         OrderType = Attr(el, "orderType"),
         LevelOfDetail = Attr(el, "levelOfDetail"),
         RawElement = el,
     };
 
-    private static FlexSymbolSummary ParseSymbolSummary(XElement el) => new()
+    private static FlexSymbolSummary ParseSymbolSummary(XElement el, Action<string, string>? onParseFailure) => new()
     {
         AccountId = Attr(el, "accountId"),
         Currency = Attr(el, "currency"),
@@ -157,17 +171,17 @@ internal static class FlexResultParser
         SettleDate = ParseFlexDate(el.Attribute("settleDate")?.Value),
         ReportDate = ParseFlexDate(el.Attribute("reportDate")?.Value),
         BuySell = Attr(el, "buySell"),
-        Quantity = AttrDecimal(el, "quantity"),
-        Price = AttrDecimal(el, "price"),
-        Amount = AttrDecimal(el, "amount"),
-        Proceeds = AttrDecimal(el, "proceeds"),
-        NetCash = AttrDecimal(el, "netCash"),
-        Commission = AttrDecimal(el, "commission"),
+        Quantity = AttrNullableDecimal(el, "quantity", onParseFailure),
+        Price = AttrNullableDecimal(el, "price", onParseFailure),
+        Amount = AttrNullableDecimal(el, "amount", onParseFailure),
+        Proceeds = AttrNullableDecimal(el, "proceeds", onParseFailure),
+        NetCash = AttrNullableDecimal(el, "netCash", onParseFailure),
+        Commission = AttrNullableDecimal(el, "commission", onParseFailure),
         LevelOfDetail = Attr(el, "levelOfDetail"),
         RawElement = el,
     };
 
-    private static FlexOrder ParseOrder(XElement el) => new()
+    private static FlexOrder ParseOrder(XElement el, Action<string, string>? onParseFailure) => new()
     {
         AccountId = Attr(el, "accountId"),
         Currency = Attr(el, "currency"),
@@ -183,12 +197,12 @@ internal static class FlexResultParser
         ReportDate = ParseFlexDate(el.Attribute("reportDate")?.Value),
         Exchange = Attr(el, "exchange"),
         BuySell = Attr(el, "buySell"),
-        Quantity = AttrDecimal(el, "quantity"),
-        Price = AttrDecimal(el, "price"),
-        Amount = AttrDecimal(el, "amount"),
-        Proceeds = AttrDecimal(el, "proceeds"),
-        NetCash = AttrDecimal(el, "netCash"),
-        Commission = AttrDecimal(el, "commission"),
+        Quantity = AttrNullableDecimal(el, "quantity", onParseFailure),
+        Price = AttrNullableDecimal(el, "price", onParseFailure),
+        Amount = AttrNullableDecimal(el, "amount", onParseFailure),
+        Proceeds = AttrNullableDecimal(el, "proceeds", onParseFailure),
+        NetCash = AttrNullableDecimal(el, "netCash", onParseFailure),
+        Commission = AttrNullableDecimal(el, "commission", onParseFailure),
         OrderType = Attr(el, "orderType"),
         LevelOfDetail = Attr(el, "levelOfDetail"),
         RawElement = el,
@@ -212,7 +226,15 @@ internal static class FlexResultParser
         return null;
     }
 
-    /// <summary>Parses a Flex datetime attribute. Accepts yyyyMMdd;HHmmss or yyyy-MM-dd;HH:mm:ss TZ.</summary>
+    /// <summary>
+    /// Best-effort parse of a Flex datetime attribute (§11.10, RST-3). Accepts the compact
+    /// <c>yyyyMMdd;HHmmss</c> form, a bare <c>yyyyMMdd</c> date, and ISO-ish forms carrying an
+    /// explicit numeric UTC offset. A timestamp that carries only a timezone <em>abbreviation</em>
+    /// (e.g. <c>EDT</c>, <c>CET</c>, <c>BST</c>, <c>HKT</c>) returns <see langword="null"/>: the
+    /// parser never guesses a UTC offset from an abbreviation, so it never fabricates a
+    /// wrong-or-inconsistent offset. Callers recover the raw wire string from the row's
+    /// <c>RawElement</c>, so a null parse is never a silent data loss.
+    /// </summary>
     internal static DateTimeOffset? ParseFlexDateTime(string? value)
     {
         if (string.IsNullOrEmpty(value))
@@ -228,36 +250,14 @@ internal static class FlexResultParser
         {
             return dt;
         }
-        // Formats like "2026-04-09;21:23:54 EDT" — replace ; with space and let the general parser handle it.
+        // Forms like "2026-04-09;21:23:54-04:00" — normalize the ';' separator and let the general
+        // parser handle an explicit numeric offset. Timezone abbreviations are deliberately NOT
+        // mapped to an offset (RST-3): if the general parser can't resolve it, the result is null
+        // and the raw string is preserved on the caller's RawElement.
         var normalized = value.Replace(";", " ");
         if (DateTimeOffset.TryParse(normalized, CultureInfo.InvariantCulture, DateTimeStyles.None, out dt))
         {
             return dt;
-        }
-        // .NET on non-Windows platforms does not recognize US tz abbreviations like EDT/EST.
-        // Strip a trailing abbreviation and apply a known offset manually.
-        var lastSpace = normalized.LastIndexOf(' ');
-        if (lastSpace > 0)
-        {
-            var tz = normalized[(lastSpace + 1)..];
-            var timestamp = normalized[..lastSpace];
-            var offset = tz switch
-            {
-                "EDT" => TimeSpan.FromHours(-4),
-                "EST" => TimeSpan.FromHours(-5),
-                "CDT" => TimeSpan.FromHours(-5),
-                "CST" => TimeSpan.FromHours(-6),
-                "MDT" => TimeSpan.FromHours(-6),
-                "MST" => TimeSpan.FromHours(-7),
-                "PDT" => TimeSpan.FromHours(-7),
-                "PST" => TimeSpan.FromHours(-8),
-                "UTC" or "GMT" => TimeSpan.Zero,
-                _ => (TimeSpan?)null,
-            };
-            if (offset is not null && DateTime.TryParse(timestamp, CultureInfo.InvariantCulture, DateTimeStyles.None, out var naive))
-            {
-                return new DateTimeOffset(DateTime.SpecifyKind(naive, DateTimeKind.Unspecified), offset.Value);
-            }
         }
         return null;
     }
@@ -268,6 +268,26 @@ internal static class FlexResultParser
     private static int? AttrNullableInt(XElement el, string name) =>
         int.TryParse(el.Attribute(name)?.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) ? i : null;
 
-    private static decimal AttrDecimal(XElement el, string name) =>
-        decimal.TryParse(el.Attribute(name)?.Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : 0m;
+    /// <summary>
+    /// Parses a money/quantity attribute with wire fidelity (§11.10, RST-1). An absent or
+    /// present-but-empty attribute yields <see langword="null"/> silently (the empty-money wire
+    /// convention). A present, non-empty value that does not parse also yields <see langword="null"/>
+    /// — never a fabricated <c>0</c> — and additionally invokes <paramref name="onParseFailure"/>
+    /// with the field name and the raw wire text so the failure is observable. The raw text also
+    /// remains recoverable from the row's <c>RawElement</c>.
+    /// </summary>
+    private static decimal? AttrNullableDecimal(XElement el, string name, Action<string, string>? onParseFailure)
+    {
+        var raw = el.Attribute(name)?.Value;
+        if (string.IsNullOrEmpty(raw))
+        {
+            return null;
+        }
+        if (decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var d))
+        {
+            return d;
+        }
+        onParseFailure?.Invoke(name, raw);
+        return null;
+    }
 }

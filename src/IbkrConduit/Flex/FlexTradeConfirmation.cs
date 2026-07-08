@@ -60,23 +60,23 @@ public record FlexTradeConfirmation
     /// <summary>Buy/Sell side.</summary>
     public string BuySell { get; init; } = string.Empty;
 
-    /// <summary>Executed quantity.</summary>
-    public decimal Quantity { get; init; }
+    /// <summary>Executed quantity. Null when absent or unparseable (never a fabricated 0 — §11.10).</summary>
+    public decimal? Quantity { get; init; }
 
-    /// <summary>Execution price.</summary>
-    public decimal Price { get; init; }
+    /// <summary>Execution price. Null when absent or unparseable (never a fabricated 0 — §11.10).</summary>
+    public decimal? Price { get; init; }
 
-    /// <summary>Trade amount.</summary>
-    public decimal Amount { get; init; }
+    /// <summary>Trade amount. Null when absent or unparseable (never a fabricated 0 — §11.10).</summary>
+    public decimal? Amount { get; init; }
 
-    /// <summary>Trade proceeds.</summary>
-    public decimal Proceeds { get; init; }
+    /// <summary>Trade proceeds. Null when absent or unparseable (never a fabricated 0 — §11.10).</summary>
+    public decimal? Proceeds { get; init; }
 
-    /// <summary>Net cash impact.</summary>
-    public decimal NetCash { get; init; }
+    /// <summary>Net cash impact. Null when absent or unparseable (never a fabricated 0 — §11.10).</summary>
+    public decimal? NetCash { get; init; }
 
-    /// <summary>Commission amount.</summary>
-    public decimal Commission { get; init; }
+    /// <summary>Commission amount. Null when absent or unparseable (never a fabricated 0 — §11.10).</summary>
+    public decimal? Commission { get; init; }
 
     /// <summary>Commission currency.</summary>
     public string CommissionCurrency { get; init; } = string.Empty;

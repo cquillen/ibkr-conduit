@@ -39,6 +39,12 @@ internal sealed partial class FlexOperations : IFlexOperations
     private static readonly Counter<long> _errorCount =
         IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.flex.error.count");
 
+    // PVR-09 / RST-1: a present-but-unparseable Flex money/quantity attribute is surfaced as null;
+    // this counter (tagged with tenant + wire field name) makes that parse failure observable rather
+    // than a silent fabricated zero.
+    private static readonly Counter<long> _moneyParseFailureCount =
+        IbkrConduitDiagnostics.Meter.CreateCounter<long>("ibkr.conduit.flex.money.parse_failures");
+
     private static readonly Histogram<int> _pollAttempts =
         IbkrConduitDiagnostics.Meter.CreateHistogram<int>(
             "ibkr.conduit.flex.poll.attempts", "attempts",
@@ -87,7 +93,7 @@ internal sealed partial class FlexOperations : IFlexOperations
                 "(Reports → Flex Queries), then set the numeric query ID in AddIbkrClient options.");
 
         var docResult = await ExecuteInternalAsync(queryId, fromDate: null, toDate: null, cancellationToken);
-        var result = docResult.Map(FlexResultParser.ParseCashTransactions);
+        var result = docResult.Map(doc => FlexResultParser.ParseCashTransactions(doc, RecordMoneyParseFailure));
         return WithThrowSetting(result);
     }
 
@@ -105,7 +111,7 @@ internal sealed partial class FlexOperations : IFlexOperations
         var fromStr = fromDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
         var toStr = toDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
         var docResult = await ExecuteInternalAsync(queryId, fromStr, toStr, cancellationToken);
-        var result = docResult.Map(FlexResultParser.ParseTradeConfirmations);
+        var result = docResult.Map(doc => FlexResultParser.ParseTradeConfirmations(doc, RecordMoneyParseFailure));
         return WithThrowSetting(result);
     }
 
@@ -236,6 +242,20 @@ internal sealed partial class FlexOperations : IFlexOperations
     private Result<T> WithThrowSetting<T>(Result<T> result) =>
         _options.ThrowOnApiError ? result.EnsureSuccess() : result;
 
+    /// <summary>
+    /// PVR-09 / RST-1 parse-failure sink threaded into <see cref="FlexResultParser"/>. Records the
+    /// present-but-unparseable Flex money/quantity attribute as an observable signal — a
+    /// tenant-and-field-tagged counter plus a warning log carrying the raw wire text — while the
+    /// mapped value is surfaced as null (never a fabricated zero).
+    /// </summary>
+    private void RecordMoneyParseFailure(string field, string rawValue)
+    {
+        _moneyParseFailureCount.Add(1,
+            new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+            new KeyValuePair<string, object?>("field", field));
+        LogMoneyParseFailure(field, rawValue);
+    }
+
     private static Result<string> ExtractReferenceCode(XDocument doc, string queryId)
     {
         var requestPath = $"flex/SendRequest?q={queryId}";
@@ -266,13 +286,16 @@ internal sealed partial class FlexOperations : IFlexOperations
         string referenceCode, CancellationToken cancellationToken)
     {
         var requestPath = $"flex/GetStatement?q={referenceCode}";
-        var maxWaitMs = (int)_options.FlexPollTimeout.TotalMilliseconds;
-        var totalWaited = 0;
+        var timeout = _options.FlexPollTimeout;
+        // PVR-09 / RST-6: bound the loop by WALL-CLOCK elapsed time — HTTP round-trip + rate-limiter
+        // + inter-poll delays — not merely the sum of the loop's own Task.Delay budget. A slow
+        // GetStatement round-trip now counts against the deadline instead of being ignored.
+        var startTimestamp = _timeProvider.GetTimestamp();
         var attempt = 0;
         var lastErrorCode = 0;
         var lastErrorMessage = "(none)";
 
-        while (totalWaited < maxWaitMs)
+        while (_timeProvider.GetElapsedTime(startTimestamp) < timeout)
         {
             attempt++;
             _pollCount.Add(1,
@@ -290,7 +313,8 @@ internal sealed partial class FlexOperations : IFlexOperations
             if (classification == FlexResponseClass.Success)
             {
                 _lastPollAttemptCount = attempt;
-                LogGetStatementCompleted(totalWaited);
+                var completedMs = (int)_timeProvider.GetElapsedTime(startTimestamp).TotalMilliseconds;
+                LogGetStatementCompleted(completedMs);
                 return fetchResult;
             }
 
@@ -321,16 +345,19 @@ internal sealed partial class FlexOperations : IFlexOperations
                     ? _pollDelaysMs[attempt - 1]
                     : 5000;
 
-            var remaining = maxWaitMs - totalWaited;
-            if (remaining <= 0)
+            // Cap the delay against the remaining wall-clock budget, and skip it entirely once the
+            // wall clock (including the round-trip we just spent) has already reached the deadline.
+            var elapsed = _timeProvider.GetElapsedTime(startTimestamp);
+            var remaining = timeout - elapsed;
+            if (remaining <= TimeSpan.Zero)
             {
                 break;
             }
 
-            var actualDelay = Math.Min(ApplyJitter(delayMs), remaining);
-            LogTransientResponse(attempt, errorCode, lastErrorMessage, actualDelay, totalWaited);
+            var actualDelay = Math.Min(ApplyJitter(delayMs), (int)remaining.TotalMilliseconds);
+            var elapsedMs = (int)elapsed.TotalMilliseconds;
+            LogTransientResponse(attempt, errorCode, lastErrorMessage, actualDelay, elapsedMs);
             await Task.Delay(TimeSpan.FromMilliseconds(actualDelay), _timeProvider, cancellationToken);
-            totalWaited += actualDelay;
         }
 
         _lastPollAttemptCount = attempt;
@@ -452,4 +479,9 @@ internal sealed partial class FlexOperations : IFlexOperations
         Level = LogLevel.Debug,
         Message = "Flex SendRequest attempt #{Attempt} returned transient error {ErrorCode}: {ErrorMessage}")]
     private partial void LogTransientSendResponse(int attempt, int errorCode, string errorMessage);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Flex money attribute '{Field}' had unparseable value '{RawValue}' — surfaced as null (raw text preserved on the row's RawElement)")]
+    private partial void LogMoneyParseFailure(string field, string rawValue);
 }
