@@ -97,6 +97,18 @@ internal sealed partial class TokenRefreshHandler : DelegatingHandler
         {
             await _sessionManager.ReauthenticateAsync(cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested && !isOrderMutatingPost)
+        {
+            // SES-3: the consumer's own token cancelled while re-auth was in flight. Surface the
+            // cancellation truthfully instead of laundering it into an IbkrSessionError below — a
+            // consumer's session-loss trichotomy reads that (especially IsCompeting) as a definitive
+            // failure and could fire a spurious recovery/halt saga off its own timeout. Order-mutating
+            // POSTs are deliberately excluded (the && guard): their outcome stays genuinely ambiguous
+            // even under cancellation, so they fall through to the ADR-0003 gate below rather than
+            // rethrowing here.
+            response.Dispose();
+            throw;
+        }
         catch (Exception ex)
         {
             LogReauthFailed(ex, requestPath);
@@ -153,6 +165,16 @@ internal sealed partial class TokenRefreshHandler : DelegatingHandler
         response.Dispose();
 
         var retryResponse = await base.SendAsync(retryRequest, cancellationToken);
+
+        // ERR-1: point the retry response back at the ORIGINAL request. The bottom HttpClientHandler
+        // sets retryResponse.RequestMessage to the clone (which this method disposes on exit via the
+        // `using` above), whereas ResponseBodyCaptureHandler — sitting OUTSIDE this handler — stashes the
+        // retried body on the original request's Options. Any reader that keys off the raw response's
+        // RequestMessage.Options (e.g. ResultFactory.GetCapturedBody / GetAmbiguousOrderOutcome on a
+        // non-Refit path) would otherwise miss the stash on the retry leg and skip hidden-error
+        // detection, and would dereference a disposed clone. Reassigning keeps the captured body
+        // discoverable and the reference live.
+        retryResponse.RequestMessage = request;
 
         // If retry also returns 401, this is likely IBKR returning 401 for a
         // non-auth reason (e.g., invalid account ID). Return the response as-is
