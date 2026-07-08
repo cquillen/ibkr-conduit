@@ -284,7 +284,7 @@ Findings RST-4, TEN-3 (medium, CONFIRMED): `HealthStatusOptions` is registered a
 **Done when:** health staleness thresholds are configurable with tickle-interval-derived defaults, and non-positive values for the three unvalidated options fail fast at registration on both facade paths.
 
 #### PVR-08 — 📦 Credential hygiene & tenant identity
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #274 · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** trivial-skip
 Findings AUT-2 (medium, CONFIRMED), AUT-5 (low, CONFIRMED): `IbkrOAuthCredentials` is a public positional record with no `ToString` override — the compiler-generated form prints `AccessToken`/`EncryptedAccessTokenSecret`, one log/exception interpolation away from a credential leak (`.claude/rules/security.md`); and `OAuthCredentialsFactory` defaults `TenantId` to the raw `ConsumerKey`, spreading the consumer key into logs/metrics as a tenant label. Redact via a sealed `ToString` override; add the `tenantId` field/parameter per the recorded surface line (design doc §15.2, D6, operator-decided: the default tenant label is the literal `"default"` — never the consumer key; the manager path always supplies its own). **Breaking-behavioral — `feat!:`** (telemetry label default changes; `tenantId` field/parameter is additive).
