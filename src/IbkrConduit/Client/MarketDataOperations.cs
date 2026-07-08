@@ -46,6 +46,8 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     private readonly Dictionary<string, object> _logScope;
     private readonly MemoryCache _preflightCache;
     private readonly TimeProvider _timeProvider;
+    private readonly IDisposable _notifierSubscription;
+    private volatile bool _disposed;
 
     /// <summary>
     /// Creates a new <see cref="MarketDataOperations"/> instance.
@@ -54,12 +56,19 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     /// <param name="options">Client options for pre-flight cache duration.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="tenant">Per-provider tenant identity used to tag telemetry.</param>
+    /// <param name="notifier">
+    /// Session lifecycle notifier. Subscribed so the pre-flight cache is invalidated on
+    /// re-auth (PVR-23/RST-5) — the server-side pre-flight state is not observable, so a
+    /// re-auth inside <see cref="IbkrClientOptions.PreflightCacheDuration"/> is treated as
+    /// unsafe-to-assume-still-preflighted and the cache is cleared unconditionally.
+    /// </param>
     /// <param name="timeProvider">Time provider for delay abstraction; defaults to <see cref="TimeProvider.System"/>.</param>
     public MarketDataOperations(
         IIbkrMarketDataApi api,
         IbkrClientOptions options,
         ILogger<MarketDataOperations> logger,
         TenantContext tenant,
+        ISessionLifecycleNotifier notifier,
         TimeProvider? timeProvider = null)
     {
         _api = api;
@@ -71,6 +80,7 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
         // MemoryCache doesn't support global default expiration — it's set per-entry
         // in GetSnapshotAsync using _options.PreflightCacheDuration
         _preflightCache = new MemoryCache(new MemoryCacheOptions());
+        _notifierSubscription = notifier.Subscribe(OnSessionLifecycleNotifiedAsync);
     }
 
     /// <inheritdoc />
@@ -234,12 +244,33 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
     }
 
     /// <summary>
-    /// Disposes the pre-flight memory cache.
+    /// Disposes the session-lifecycle subscription and the pre-flight memory cache.
     /// </summary>
     public void Dispose()
     {
+        _disposed = true;
+        _notifierSubscription.Dispose();
         _preflightCache.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Clears the pre-flight cache on a session-lifecycle notification (re-auth). The
+    /// server-side pre-flight-reset behavior across re-auth is not observable on demand
+    /// (PVR-23/RST-5), so this is rule-settled as safe-under-both: clear regardless of
+    /// whether the re-auth actually reset pre-flight state, so the next snapshot per conid
+    /// re-preflights instead of trusting a marker that may no longer hold.
+    /// </summary>
+    private Task OnSessionLifecycleNotifiedAsync(CancellationToken cancellationToken)
+    {
+        if (_disposed)
+        {
+            return Task.CompletedTask;
+        }
+
+        _preflightCache.Clear();
+        LogPreflightCacheClearedOnReauth();
+        return Task.CompletedTask;
     }
 
     private static List<MarketDataSnapshot> MapSnapshots(List<MarketDataSnapshotRaw> rawSnapshots) =>
@@ -351,6 +382,9 @@ internal partial class MarketDataOperations : IMarketDataOperations, IDisposable
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Pre-flight needed for conids: {Conids}. Waiting {DelayMs}ms before retry.")]
     private partial void LogPreflightRetry(string conids, int delayMs);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Session lifecycle notification received; clearing market-data pre-flight cache so conids re-preflight.")]
+    private partial void LogPreflightCacheClearedOnReauth();
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Regulatory snapshot requested for conid {Conid}. This incurs a $0.01 USD fee per request.")]
     private partial void LogRegulatorySnapshotWarning(int conid);

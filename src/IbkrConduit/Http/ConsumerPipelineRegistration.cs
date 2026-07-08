@@ -64,6 +64,7 @@ internal static class ConsumerPipelineRegistration
                 clientOptions,
                 sp.GetRequiredService<ILogger<MarketDataOperations>>(),
                 sp.GetRequiredService<TenantContext>(),
+                sp.GetRequiredService<ISessionLifecycleNotifier>(),
                 TimeProvider.System));
         services.AddSingleton<IAccountOperations, AccountOperations>();
         services.AddSingleton<IAlertOperations, AlertOperations>();

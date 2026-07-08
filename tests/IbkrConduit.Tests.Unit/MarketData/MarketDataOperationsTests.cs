@@ -18,6 +18,7 @@ namespace IbkrConduit.Tests.Unit.MarketData;
 public class MarketDataOperationsTests : IDisposable
 {
     private readonly FakeMarketDataApi _fakeApi = new();
+    private readonly FakeLifecycleNotifier _notifier = new();
     private readonly MarketDataOperations _sut;
 
     public MarketDataOperationsTests()
@@ -27,6 +28,7 @@ public class MarketDataOperationsTests : IDisposable
             new IbkrClientOptions(),
             NullLogger<MarketDataOperations>.Instance,
             new TenantContext("test"),
+            _notifier,
             TimeProvider.System);
     }
 
@@ -114,6 +116,7 @@ public class MarketDataOperationsTests : IDisposable
             new IbkrClientOptions(),
             NullLogger<MarketDataOperations>.Instance,
             new TenantContext("test"),
+            _notifier,
             fakeTime);
 
         // First call: no Fields — triggers preflight (HasFieldData returns false).
@@ -147,6 +150,115 @@ public class MarketDataOperationsTests : IDisposable
         _fakeApi.SnapshotCallCount.ShouldBe(2, "should have called API twice: first + preflight retry");
     }
 
+    [Fact]
+    public async Task GetSnapshotAsync_AfterSessionLifecycleNotification_RePreflightsPreviouslyCachedConid()
+    {
+        // PVR-23 (RST-5): a session re-auth inside the preflight-cache window can leave the
+        // server-side preflight state reset, so the next snapshot's first call comes back
+        // field-less again. Without cache invalidation on re-auth, the cached conid marker
+        // would suppress the retry and the field-less row would be treated as fresh.
+        var fakeTime = new FakeTimeProvider();
+        using var sut = new MarketDataOperations(
+            _fakeApi,
+            new IbkrClientOptions(),
+            NullLogger<MarketDataOperations>.Instance,
+            new TenantContext("test"),
+            _notifier,
+            fakeTime);
+
+        _fakeApi.SnapshotResponseQueue = new Queue<List<MarketDataSnapshotRaw>>(
+        [
+            NoFieldsSnapshot(265598), // call 1: first round, no data -> preflight needed
+            FieldsSnapshot(265598), // call 2: retry succeeds, conid cached
+            NoFieldsSnapshot(265598), // call 3: post-reauth first round, no data again
+            FieldsSnapshot(265598), // call 4: cache was cleared, so retry fires again
+        ]);
+
+        var firstTask = sut.GetSnapshotAsync([265598], ["31"], TestContext.Current.CancellationToken);
+        fakeTime.Advance(TimeSpan.FromMilliseconds(500));
+        var firstResult = await firstTask;
+
+        firstResult.IsSuccess.ShouldBeTrue();
+        _fakeApi.SnapshotCallCount.ShouldBe(2, "initial preflight round: first call + retry");
+
+        await _notifier.NotifyAsync(TestContext.Current.CancellationToken);
+
+        var secondTask = sut.GetSnapshotAsync([265598], ["31"], TestContext.Current.CancellationToken);
+        fakeTime.Advance(TimeSpan.FromMilliseconds(500));
+        var secondResult = await secondTask;
+
+        secondResult.IsSuccess.ShouldBeTrue();
+        _fakeApi.SnapshotCallCount.ShouldBe(4,
+            "re-auth notification must clear the preflight cache so the conid re-preflights instead of being skipped as cached");
+    }
+
+    [Fact]
+    public async Task GetSnapshotAsync_WithinCacheDurationWithoutNotification_SkipsPreflightForCachedConid()
+    {
+        // No regression: absent a lifecycle notification, a previously-preflighted conid stays
+        // cached for the full PreflightCacheDuration and a second snapshot does not re-trigger
+        // the preflight-delay retry round, even if that call's first response is field-less.
+        var fakeTime = new FakeTimeProvider();
+        using var sut = new MarketDataOperations(
+            _fakeApi,
+            new IbkrClientOptions(),
+            NullLogger<MarketDataOperations>.Instance,
+            new TenantContext("test"),
+            _notifier,
+            fakeTime);
+
+        _fakeApi.SnapshotResponseQueue = new Queue<List<MarketDataSnapshotRaw>>(
+        [
+            NoFieldsSnapshot(265598), // call 1: first round, no data -> preflight needed
+            FieldsSnapshot(265598), // call 2: retry succeeds, conid cached
+            NoFieldsSnapshot(265598), // call 3: second snapshot's first round, still cached
+        ]);
+
+        var firstTask = sut.GetSnapshotAsync([265598], ["31"], TestContext.Current.CancellationToken);
+        fakeTime.Advance(TimeSpan.FromMilliseconds(500));
+        await firstTask;
+
+        var secondResult = await sut.GetSnapshotAsync([265598], ["31"], TestContext.Current.CancellationToken);
+
+        secondResult.IsSuccess.ShouldBeTrue();
+        _fakeApi.SnapshotCallCount.ShouldBe(3, "cached conid should skip the preflight retry round entirely");
+    }
+
+    [Fact]
+    public void Dispose_DisposesSessionLifecycleSubscription()
+    {
+        var notifier = new FakeLifecycleNotifier();
+        var sut = new MarketDataOperations(
+            _fakeApi,
+            new IbkrClientOptions(),
+            NullLogger<MarketDataOperations>.Instance,
+            new TenantContext("test"),
+            notifier,
+            TimeProvider.System);
+
+        notifier.SubscriptionDisposed.ShouldBeFalse();
+
+        sut.Dispose();
+
+        notifier.SubscriptionDisposed.ShouldBeTrue();
+    }
+
+    private static List<MarketDataSnapshotRaw> NoFieldsSnapshot(int conid) =>
+    [
+        new MarketDataSnapshotRaw(conid, null, null, null, null),
+    ];
+
+    private static List<MarketDataSnapshotRaw> FieldsSnapshot(int conid) =>
+    [
+        new MarketDataSnapshotRaw(conid, null, 1702334859712L, null, null)
+        {
+            Fields = new Dictionary<string, JsonElement>
+            {
+                ["31"] = JsonDocument.Parse("\"150.25\"").RootElement,
+            },
+        },
+    ];
+
     public void Dispose()
     {
         _sut.Dispose();
@@ -164,12 +276,26 @@ public class MarketDataOperationsTests : IDisposable
         public HmdsScannerResponse? HmdsScannerResponseValue { get; set; }
         public List<MarketDataSnapshotRaw>? SnapshotFirstResponse { get; set; }
         public List<MarketDataSnapshotRaw>? SnapshotRetryResponse { get; set; }
+
+        /// <summary>
+        /// When set, drives the response sequence directly (one entry dequeued per call),
+        /// taking priority over <see cref="SnapshotFirstResponse"/>/<see cref="SnapshotRetryResponse"/>.
+        /// Lets tests script call sequences longer than a single preflight round.
+        /// </summary>
+        public Queue<List<MarketDataSnapshotRaw>>? SnapshotResponseQueue { get; set; }
+
         public int SnapshotCallCount => _snapshotCallCount;
 
         public Task<IApiResponse<List<MarketDataSnapshotRaw>>> GetSnapshotAsync(
             string conids, string fields, CancellationToken cancellationToken = default)
         {
             var callNumber = Interlocked.Increment(ref _snapshotCallCount);
+
+            if (SnapshotResponseQueue is { Count: > 0 })
+            {
+                return Task.FromResult(FakeApiResponse.Success(SnapshotResponseQueue.Dequeue()));
+            }
+
             var response = callNumber == 1
                 ? SnapshotFirstResponse ?? []
                 : callNumber == 2
@@ -208,5 +334,46 @@ public class MarketDataOperationsTests : IDisposable
         public Task<IApiResponse<HmdsScannerResponse>> RunHmdsScannerAsync(
             HmdsScannerRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult(FakeApiResponse.Success(HmdsScannerResponseValue!));
+    }
+
+    /// <summary>
+    /// Minimal fake mirroring the subscribe/notify/dispose contract of
+    /// <see cref="ISessionLifecycleNotifier"/> without the real implementation's locking —
+    /// tests here are single-threaded and only need to drive one "session refreshed" callback.
+    /// </summary>
+    private sealed class FakeLifecycleNotifier : ISessionLifecycleNotifier
+    {
+        private readonly List<Func<CancellationToken, Task>> _subscribers = [];
+
+        public bool SubscriptionDisposed { get; private set; }
+
+        public IDisposable Subscribe(Func<CancellationToken, Task> onSessionRefreshed)
+        {
+            _subscribers.Add(onSessionRefreshed);
+            return new CallbackDisposable(() =>
+            {
+                _subscribers.Remove(onSessionRefreshed);
+                SubscriptionDisposed = true;
+            });
+        }
+
+        public async Task NotifyAsync(CancellationToken cancellationToken)
+        {
+            foreach (var subscriber in _subscribers.ToArray())
+            {
+                await subscriber(cancellationToken);
+            }
+        }
+
+        public IDisposable SubscribeTickleSucceeded(Func<CancellationToken, Task> onTickleSucceeded) =>
+            new CallbackDisposable(() => { });
+
+        public Task NotifyTickleSucceededAsync(CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        private sealed class CallbackDisposable(Action onDispose) : IDisposable
+        {
+            public void Dispose() => onDispose();
+        }
     }
 }
