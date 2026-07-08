@@ -1276,6 +1276,125 @@ public class IbkrWebSocketClientTests
         count.ShouldBe(0, "a disposed WebSocket client's connection_state gauge stops reporting (FIL-7).");
     }
 
+    [Fact]
+    public async Task ConnectCoreAsync_ConnectThrows_DisposesCreatedAdapter()
+    {
+        // STR-6: a failed ws.ConnectAsync must dispose the factory-created adapter before
+        // rethrowing, so a WS-only outage that retries per tickle does not drip undisposed
+        // adapters.
+        await using var client = CreateClient();
+        _adapter.FailOnConnect = true;
+
+        await Should.ThrowAsync<System.Net.WebSockets.WebSocketException>(
+            () => client.ConnectAsync(TestContext.Current.CancellationToken));
+
+        _adapter.DisposeCallCount.ShouldBeGreaterThanOrEqualTo(1);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_WhileReconnectInFlight_CompletesCleanly_NoZombieOrReplay()
+    {
+        // STR-3: dispose during an in-flight reconnect must acquire _connectLock (so the
+        // semaphore is never disposed under a live reconnect), abort the reconnect via the
+        // _disposeCts-linked token, clear _subscriptions so a straggler replays nothing, and
+        // never throw — leaving no zombie socket and no re-sent subscribe.
+        var ct = TestContext.Current.CancellationToken;
+        var fakeTime = new FakeTimeProvider();
+        var client = CreateClient(fakeTime);
+        await client.ConnectAsync(ct);
+
+        await client.SubscribeTopicAsync("sor+{}", "sor", "uor+{}", ct);
+        var sorSentBefore = _adapter.SentMessages.Count(m => m == "sor+{}");
+
+        // Park the reconnect's connect (holding _connectLock) via a one-shot gate.
+        var gate = _adapter.InstallConnectGate();
+
+        var reconnectTask = Task.Run(() => _notifier.TriggerRefreshAsync(ct), ct);
+
+        // Advance the fake clock past the reconnect delay until the gated connect is entered.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!gate.Entered.Task.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromMilliseconds(500));
+            await Task.Yield();
+        }
+
+        gate.Entered.Task.IsCompleted.ShouldBeTrue(
+            "the reconnect should be parked inside ConnectAsync holding the connect lock");
+
+        // Dispose while the reconnect holds _connectLock. DisposeAsync cancels the linked
+        // token (aborting the gated connect), then acquires the lock and completes — without
+        // releasing the gate (cancellation alone must free the reconnect).
+        var disposeTask = client.DisposeAsync().AsTask();
+
+        await Should.NotThrowAsync(async () => await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), ct));
+        await reconnectTask.WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+        client.ActiveSubscriptionCount.ShouldBe(0);
+        _adapter.State.ShouldNotBe(System.Net.WebSockets.WebSocketState.Open);
+        _adapter.SentMessages.Count(m => m == "sor+{}").ShouldBe(
+            sorSentBefore, "a straggler reconnect must not replay subscriptions after dispose");
+    }
+
+    [Fact]
+    public async Task SubscribeRacingDispose_NeverLeavesLiveWriter_NorThrowsOutOfDispose()
+    {
+        // CON-2: a subscribe that races tenant teardown must either throw ObjectDisposedException
+        // or return a reader the dispose sweep completes — never a live, never-completing writer
+        // feeding a pump that never terminates.
+        var ct = TestContext.Current.CancellationToken;
+
+        for (var iteration = 0; iteration < 150; iteration++)
+        {
+            var adapter = new FakeWebSocketAdapter();
+            var tenant = new TenantContext($"con2-{iteration}");
+            var client = new IbkrWebSocketClient(
+                _sessionApi,
+                _sessionManager,
+                _credentials,
+                _notifier,
+                NullLogger<IbkrWebSocketClient>.Instance,
+                () => adapter,
+                heartbeatIntervalSeconds: 30,
+                streamingBufferSize: 16,
+                tenant,
+                new StreamingMetrics(tenant));
+            await client.ConnectAsync(ct);
+
+            using var start = new ManualResetEventSlim(false);
+            ChannelReader<JsonElement>? reader = null;
+            var subscribeThrew = false;
+
+            var subscribeTask = Task.Run(async () =>
+            {
+                start.Wait(ct);
+                try
+                {
+                    var (r, _) = await client.SubscribeTopicAsync("smd+1+{}", "smd", null, ct);
+                    reader = r;
+                }
+                catch (ObjectDisposedException)
+                {
+                    subscribeThrew = true;
+                }
+            }, ct);
+
+            var disposeTask = Task.Run(async () =>
+            {
+                start.Wait(ct);
+                await client.DisposeAsync();
+            }, ct);
+
+            start.Set();
+            await Task.WhenAll(subscribeTask, disposeTask).WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+            if (!subscribeThrew && reader is not null)
+            {
+                await reader.Completion.WaitAsync(TimeSpan.FromSeconds(2), ct);
+            }
+        }
+    }
+
     private static async Task<ConnectionEvent> ReadEventAsync(ChannelReader<ConnectionEvent> reader, CancellationToken cancellationToken)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

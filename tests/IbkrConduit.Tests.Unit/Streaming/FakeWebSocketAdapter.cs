@@ -22,6 +22,9 @@ internal sealed class FakeWebSocketAdapter : IWebSocketAdapter
     private WebSocketState _state = WebSocketState.None;
     private bool _failOnConnect;
     private int _sendCount;
+    private int _connectCallCount;
+    private int _disposeCallCount;
+    private ConnectGate? _connectGate;
 
     public WebSocketState State => _state;
 
@@ -35,16 +38,34 @@ internal sealed class FakeWebSocketAdapter : IWebSocketAdapter
 
     public int? FailSendAfterCount { get; set; }
 
-    public int ConnectCallCount { get; private set; }
+    public int ConnectCallCount => Volatile.Read(ref _connectCallCount);
+
+    /// <summary>Number of times <see cref="DisposeAsync"/> has been invoked (STR-6 leak assertions).</summary>
+    public int DisposeCallCount => Volatile.Read(ref _disposeCallCount);
 
     public bool FailOnConnect
     {
         set => _failOnConnect = value;
     }
 
-    public Task ConnectAsync(Uri uri, CancellationToken cancellationToken)
+    /// <summary>
+    /// Installs a one-shot gate that parks the next <see cref="ConnectAsync"/> call after it has
+    /// entered (holding the client's <c>_connectLock</c>) until the returned gate is released or the
+    /// call's cancellation token fires. Used to pin the dispose-vs-in-flight-reconnect race (STR-3).
+    /// </summary>
+    public ConnectGate InstallConnectGate() => _connectGate = new ConnectGate();
+
+    public async Task ConnectAsync(Uri uri, CancellationToken cancellationToken)
     {
-        ConnectCallCount++;
+        Interlocked.Increment(ref _connectCallCount);
+
+        var gate = _connectGate;
+        if (gate is not null)
+        {
+            _connectGate = null; // one-shot
+            gate.Entered.TrySetResult();
+            await gate.Release.Task.WaitAsync(cancellationToken);
+        }
 
         if (_failOnConnect)
         {
@@ -53,7 +74,6 @@ internal sealed class FakeWebSocketAdapter : IWebSocketAdapter
 
         ConnectedUri = uri;
         _state = WebSocketState.Open;
-        return Task.CompletedTask;
     }
 
     public Task SendAsync(ReadOnlyMemory<byte> buffer, WebSocketMessageType messageType,
@@ -129,7 +149,19 @@ internal sealed class FakeWebSocketAdapter : IWebSocketAdapter
 
     public ValueTask DisposeAsync()
     {
+        Interlocked.Increment(ref _disposeCallCount);
         _state = WebSocketState.Closed;
         return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// A one-shot gate for <see cref="ConnectAsync"/>: <see cref="Entered"/> completes when the
+    /// gated connect begins; the connect then awaits <see cref="Release"/> (or observes cancellation).
+    /// </summary>
+    internal sealed class ConnectGate
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 }

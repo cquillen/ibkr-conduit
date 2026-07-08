@@ -23,19 +23,28 @@ internal sealed class ConnectionEventObservable : SingleObserverChannelObservabl
     {
         try
         {
-            await foreach (var connectionEvent in _reader.ReadAllAsync(cancellationToken))
+            while (await _reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                try
+                // Check cancellation before each TryRead so a disposed subscription stops draining
+                // without consuming an event it will not deliver — leaving buffered events intact for
+                // a subsequent Subscribe rather than dropping them to a dead observer (STR-2).
+                while (!cancellationToken.IsCancellationRequested && _reader.TryRead(out var connectionEvent))
                 {
-                    observer.OnNext(connectionEvent);
+                    try
+                    {
+                        observer.OnNext(connectionEvent);
+                    }
+                    catch (Exception ex)
+                    {
+                        // A consumer OnNext fault (including an OperationCanceledException) is an
+                        // error, not a graceful completion: surface it and stop.
+                        observer.OnError(ex);
+                        return;
+                    }
                 }
-                catch (Exception ex)
-                {
-                    // A consumer OnNext fault (including an OperationCanceledException) is an error,
-                    // not a graceful completion: surface it and stop.
-                    observer.OnError(ex);
-                    return;
-                }
+
+                // Cancellation observed mid-drain (e.g. during a blocking OnNext): terminate.
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             observer.OnCompleted();

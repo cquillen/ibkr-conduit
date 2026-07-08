@@ -50,36 +50,45 @@ internal sealed class ChannelObservable<T> : SingleObserverChannelObservable<T>
     {
         try
         {
-            await foreach (var item in _reader.ReadAllAsync(cancellationToken))
+            while (await _reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                T mapped;
-                try
+                // Check cancellation before each TryRead so a disposed subscription stops draining
+                // without consuming a frame it will not deliver — leaving buffered frames intact for
+                // a subsequent Subscribe rather than dropping them to a dead observer (STR-2).
+                while (!cancellationToken.IsCancellationRequested && _reader.TryRead(out var item))
                 {
-                    mapped = _mapper(item);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    // Malformed/unexpected wire shape on this frame — count it and skip, keeping
-                    // the rest of the stream alive.
-                    _metrics.RecordDrop(_topic, StreamingMetrics.MapperCause);
-                    _logger.LogDroppedFrame(_topic, ex.Message, ex);
-                    continue;
+                    T mapped;
+                    try
+                    {
+                        mapped = _mapper(item);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        // Malformed/unexpected wire shape on this frame — count it and skip, keeping
+                        // the rest of the stream alive.
+                        _metrics.RecordDrop(_topic, StreamingMetrics.MapperCause);
+                        _logger.LogDroppedFrame(_topic, ex.Message, ex);
+                        continue;
+                    }
+
+                    try
+                    {
+                        observer.OnNext(mapped);
+                    }
+                    catch (Exception ex)
+                    {
+                        // The consumer's OnNext threw. Per the Rx contract this is an error, not a
+                        // wire problem: count it, log it distinctly, and surface it via OnError
+                        // (never OnCompleted — even for an OperationCanceledException). Then stop.
+                        _metrics.RecordDrop(_topic, StreamingMetrics.ObserverCause);
+                        _logger.LogObserverError(_topic, ex.Message, ex);
+                        observer.OnError(ex);
+                        return;
+                    }
                 }
 
-                try
-                {
-                    observer.OnNext(mapped);
-                }
-                catch (Exception ex)
-                {
-                    // The consumer's OnNext threw. Per the Rx contract this is an error, not a wire
-                    // problem: count it, log it distinctly, and surface it via OnError (never
-                    // OnCompleted — even for an OperationCanceledException). Then stop pumping.
-                    _metrics.RecordDrop(_topic, StreamingMetrics.ObserverCause);
-                    _logger.LogObserverError(_topic, ex.Message, ex);
-                    observer.OnError(ex);
-                    return;
-                }
+                // Cancellation observed mid-drain (e.g. during a blocking OnNext): terminate.
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             observer.OnCompleted();

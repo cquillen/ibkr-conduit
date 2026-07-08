@@ -87,6 +87,13 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     private volatile bool _disposed;
 
     /// <summary>
+    /// Idempotency gate for <see cref="DisposeAsync"/>: the first caller runs teardown, later
+    /// callers no-op. Distinct from <see cref="_disposed"/>, which is the observable state flag set
+    /// under <see cref="_connectLock"/> during teardown (STR-3).
+    /// </summary>
+    private int _disposeStarted;
+
+    /// <summary>
     /// Creates a new <see cref="IbkrWebSocketClient"/>.
     /// </summary>
     /// <param name="sessionApi">Session API for tickle calls.</param>
@@ -251,6 +258,21 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                 writers.Add(channel.Writer);
             }
             _subscriptions.Add(entry);
+
+            // CON-2: a DisposeAsync that set _disposed and swept the registries between the entry
+            // guard above and this add would never complete this writer, leaving a pump that never
+            // terminates. Re-check under the same lock DisposeAsync's sweep takes; if disposed, roll
+            // the registration back and fail rather than leak a never-completed writer.
+            if (_disposed)
+            {
+                _subscriptions.Remove(entry);
+                lock (writers)
+                {
+                    writers.Remove(channel.Writer);
+                }
+                channel.Writer.TryComplete();
+                throw new ObjectDisposedException(GetType().FullName);
+            }
         }
 
         // Only send the subscribe message immediately if the WebSocket is
@@ -278,9 +300,24 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             itemDropped: _ => OnFrameDropped(topicPrefix));
 
         var writers = _subscribers.GetOrAdd(topicPrefix, _ => []);
-        lock (writers)
+        lock (_subscriptionLock)
         {
-            writers.Add(channel.Writer);
+            lock (writers)
+            {
+                writers.Add(channel.Writer);
+            }
+
+            // CON-2: mirror SubscribeTopicAsync — roll back and fail if a concurrent dispose swept
+            // the registries after the entry guard, rather than leak a never-completed writer.
+            if (_disposed)
+            {
+                lock (writers)
+                {
+                    writers.Remove(channel.Writer);
+                }
+                channel.Writer.TryComplete();
+                throw new ObjectDisposedException(GetType().FullName);
+            }
         }
 
         return (channel.Reader, _ =>
@@ -310,6 +347,15 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         lock (_connectionEventLock)
         {
             _connectionEventWriters.Add(channel.Writer);
+
+            // CON-2: roll back and fail if a concurrent dispose swept the connection-event writers
+            // after the entry guard, rather than leak a never-completed writer.
+            if (_disposed)
+            {
+                _connectionEventWriters.Remove(channel.Writer);
+                channel.Writer.TryComplete();
+                throw new ObjectDisposedException(GetType().FullName);
+            }
         }
 
         return (channel.Reader, _ =>
@@ -386,12 +432,11 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        if (_disposed)
+        // Idempotent: only the first caller runs teardown.
+        if (Interlocked.Exchange(ref _disposeStarted, 1) != 0)
         {
             return;
         }
-
-        _disposed = true;
 
         _notifierSubscription?.Dispose();
         _notifierSubscription = null;
@@ -399,22 +444,50 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         _tickleWatchdogSubscription?.Dispose();
         _tickleWatchdogSubscription = null;
 
+        // Signal in-flight connect/reconnect work (linked to _disposeCts regardless of the caller's
+        // token) to abort, so the current holder of _connectLock releases promptly and the
+        // untokened WaitAsync below cannot deadlock (STR-3).
         await _disposeCts.CancelAsync();
-        await DisconnectAsync();
 
-        // Complete all channel writers
-        foreach (var kvp in _subscribers)
+        // Serialize teardown with any in-flight connect/reconnect by acquiring _connectLock (without
+        // the now-cancelled dispose token). This guarantees we never dispose the semaphore under a
+        // live reconnect, never run DisconnectAsync concurrently with the reconnect's own, and — by
+        // setting _disposed and clearing _subscriptions here — that a straggler reconnect that
+        // slips in later finds the client disposed and nothing to replay (STR-3).
+        await _connectLock.WaitAsync();
+        try
         {
-            lock (kvp.Value)
+            _disposed = true;
+            await DisconnectAsync();
+
+            lock (_subscriptionLock)
             {
-                foreach (var writer in kvp.Value)
-                {
-                    writer.TryComplete();
-                }
+                _subscriptions.Clear();
             }
         }
+        finally
+        {
+            _connectLock.Release();
+        }
 
-        _subscribers.Clear();
+        // Complete all channel writers. Under _subscriptionLock so a subscribe racing this sweep
+        // (CON-2) is serialized: it either added its writer before this sweep (completed here) or
+        // observes _disposed under the lock and rolls back — never a live writer left behind.
+        lock (_subscriptionLock)
+        {
+            foreach (var kvp in _subscribers)
+            {
+                lock (kvp.Value)
+                {
+                    foreach (var writer in kvp.Value)
+                    {
+                        writer.TryComplete();
+                    }
+                }
+            }
+
+            _subscribers.Clear();
+        }
 
         // Complete connection-event subscriber channels so their observables complete.
         lock (_connectionEventLock)
@@ -436,6 +509,13 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
     private async Task ConnectCoreAsync(CancellationToken cancellationToken)
     {
+        // Re-check under _connectLock (held by the caller): never open a socket on a disposed
+        // client, even if a straggler reconnect reached here after teardown began (STR-3).
+        if (_disposed)
+        {
+            return;
+        }
+
         if (_webSocket != null && _webSocket.State == WebSocketState.Open)
         {
             return;
@@ -463,13 +543,25 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         var uri = new Uri($"{_resolvedWebSocketBaseUrl}?oauth_token={_credentials.AccessToken}");
         var ws = _webSocketFactory();
-        ws.SetRequestHeader("Cookie", $"api={tickleResponse.Session}");
-        ws.SetRequestHeader("User-Agent", "ClientPortalGW/1");
+        try
+        {
+            ws.SetRequestHeader("Cookie", $"api={tickleResponse.Session}");
+            ws.SetRequestHeader("User-Agent", "ClientPortalGW/1");
 
-        // Use system proxy if configured (e.g., HTTPS_PROXY environment variable)
-        ws.Proxy = System.Net.WebRequest.DefaultWebProxy;
+            // Use system proxy if configured (e.g., HTTPS_PROXY environment variable)
+            ws.Proxy = System.Net.WebRequest.DefaultWebProxy;
 
-        await ws.ConnectAsync(uri, cancellationToken);
+            await ws.ConnectAsync(uri, cancellationToken);
+        }
+        catch
+        {
+            // STR-6: the factory-created adapter is only owned by _webSocket once assigned below;
+            // if header/proxy setup or the connect throws (or cancels), dispose it here so a
+            // WS-only outage retrying per tickle does not drip undisposed adapters.
+            await ws.DisposeAsync();
+            throw;
+        }
+
         _webSocket = ws;
 
         LogConnected();
@@ -683,40 +775,92 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
             return;
         }
 
-        await _connectLock.WaitAsync(cancellationToken);
+        // Link every reconnect to _disposeCts regardless of the caller's token (notifier callbacks
+        // pass external tokens): DisposeAsync's cancel then aborts an in-flight reconnect no matter
+        // who triggered it, so a straggler cannot resubscribe after dispose (STR-3).
+        CancellationTokenSource linkedCts;
         try
         {
-            using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Reconnect");
-            activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
-            activity?.SetTag(LogFields.Trigger, reason);
+            linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+        }
+        catch (ObjectDisposedException)
+        {
+            return; // client already disposed; _disposeCts gone
+        }
 
-            _reconnectCount.Add(1,
-                new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
-                new KeyValuePair<string, object?>(LogFields.Trigger, reason));
-            LogReconnecting();
-
-            // Mark the start of the coverage gap so consumers can begin REST reconciliation
-            // immediately instead of inferring an outage from staleness (finding FIL-4).
-            PublishConnectionEvent(new ConnectionDisconnected(_timeProvider.GetUtcNow(), reason));
-
-            await DisconnectAsync();
+        try
+        {
+            var linkedToken = linkedCts.Token;
 
             try
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(_reconnectDelayMs), _timeProvider, cancellationToken);
-                await ConnectCoreAsync(cancellationToken);
-
-                // Mark the end of the gap, listing the topics whose subscriptions were replayed.
-                PublishConnectionEvent(new ConnectionReconnected(_timeProvider.GetUtcNow(), GetReplayedTopics()));
+                await _connectLock.WaitAsync(linkedToken);
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
             {
-                LogReconnectError(ex);
+                return; // disposing or caller cancelled before we acquired the lock
+            }
+            catch (ObjectDisposedException)
+            {
+                return; // semaphore disposed by DisposeAsync — the client is gone
+            }
+
+            try
+            {
+                // Re-check under the lock: a straggler that queued on the lock while DisposeAsync
+                // held it finds the client disposed and does nothing (STR-3).
+                if (_disposed)
+                {
+                    return;
+                }
+
+                using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.WebSocket.Reconnect");
+                activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
+                activity?.SetTag(LogFields.Trigger, reason);
+
+                _reconnectCount.Add(1,
+                    new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId),
+                    new KeyValuePair<string, object?>(LogFields.Trigger, reason));
+                LogReconnecting();
+
+                // Mark the start of the coverage gap so consumers can begin REST reconciliation
+                // immediately instead of inferring an outage from staleness (finding FIL-4).
+                PublishConnectionEvent(new ConnectionDisconnected(_timeProvider.GetUtcNow(), reason));
+
+                await DisconnectAsync();
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(_reconnectDelayMs), _timeProvider, linkedToken);
+                    await ConnectCoreAsync(linkedToken);
+
+                    // Mark the end of the gap, listing the topics whose subscriptions were replayed.
+                    PublishConnectionEvent(new ConnectionReconnected(_timeProvider.GetUtcNow(), GetReplayedTopics()));
+                }
+                catch (OperationCanceledException)
+                {
+                    // Cancelled by dispose (or the caller) mid-reconnect — not an error.
+                }
+                catch (Exception ex)
+                {
+                    LogReconnectError(ex);
+                }
+            }
+            finally
+            {
+                try
+                {
+                    _connectLock.Release();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Semaphore disposed by a dispose that raced our critical section — safe to ignore.
+                }
             }
         }
         finally
         {
-            _connectLock.Release();
+            linkedCts.Dispose();
         }
     }
 
