@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using IbkrConduit.Diagnostics;
+using IbkrConduit.Errors;
 using IbkrConduit.Health;
 using IbkrConduit.Session;
 using Microsoft.Extensions.Logging;
@@ -266,6 +267,60 @@ public class TickleTimerTests
             "A 401 tickle must invoke the reauth failure callback.");
         healthState.Authenticated.ShouldBeFalse(
             "A 401 tickle must mark the session unauthenticated in health state.");
+    }
+
+    [Fact]
+    public async Task RunAsync_ReauthCallbackThrowsIn401Branch_LoopKeepsTickingAtFailureCadence()
+    {
+        // SES-1 (PVR-12): the 401 branch awaits the reauth callback (_onFailure). A reauth failure
+        // thrown from there — a transient blip during recovery — must NOT escape and permanently kill
+        // the keepalive loop; one failed reauth would then rot the session forever. The loop must
+        // catch the throw, log it, and keep ticking at the failure cadence so the next cycle retries
+        // reauth. Under the pre-fix code the throw escaped the enclosing catch and faulted RunAsync,
+        // so the callback fired exactly once and the loop died.
+        var apiException = await CreateTickleApiException(HttpStatusCode.Unauthorized);
+        var sessionApi = new FakeSessionApi { TickleException = apiException };
+        var fakeTime = new FakeTimeProvider();
+
+        var failureCallbackCount = 0;
+        Func<CancellationToken, Task> onFailure = _ =>
+        {
+            Interlocked.Increment(ref failureCallbackCount);
+            // Simulate a reauth attempt failing (as WrapCredentialException surfaces a transient blip).
+            throw new IbkrTransientException("simulated reauth failure during recovery");
+        };
+
+        var notifier = new SessionLifecycleNotifier(NullLogger<SessionLifecycleNotifier>.Instance);
+        var timer = new TickleTimer(
+            sessionApi,
+            onFailure,
+            new SessionHealthState(),
+            NullLogger<TickleTimer>.Instance,
+            notifier,
+            new TenantContext("test"),
+            healthyIntervalSeconds: 1,
+            failureIntervalSeconds: 1,
+            fakeTime);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await timer.StartAsync(cts.Token);
+
+        // Pump the clock. Each 401 tickle re-invokes the throwing reauth callback. A living loop keeps
+        // re-invoking it every failure interval; a dead loop (pre-fix) stops after the first throw.
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (failureCallbackCount < 3 && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+
+        await timer.StopAsync();
+
+        failureCallbackCount.ShouldBeGreaterThanOrEqualTo(3,
+            "A reauth failure thrown from the 401 branch must not kill the keepalive loop — the loop must "
+            + "keep ticking at the failure cadence and retry reauth on each cycle.");
+        sessionApi.TickleCallCount.ShouldBeGreaterThanOrEqualTo(3,
+            "The tickle loop must keep contacting the server after a thrown reauth failure.");
     }
 
     [Fact]
