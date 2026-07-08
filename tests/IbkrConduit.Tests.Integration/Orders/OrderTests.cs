@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -385,8 +387,10 @@ public class OrderTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task GetLiveOrders_Filtered_IssuesExactlyOneForceFollowUp()
     {
-        // GAP1-2 / §10.6: after a *filtered* call the library issues exactly one force=true follow-up
-        // (no filters) through the same pipeline, so a later sor subscription still gets order details.
+        // GAP1-2 / §10.6 (PVR-18): after a *filtered* call the library issues exactly one force=true
+        // follow-up (no filters) through the same pipeline, so a later sor subscription still gets
+        // order details. The follow-up now runs as a BACKGROUND-tracked task — the filtered call
+        // returns first and the follow-up lands shortly after, so we wait for it before asserting.
         // The filtered call returns the fake-empty unprimed shape; force=true returns the blank array.
         _harness.Server.Given(
             Request.Create().WithPath("/v1/api/iserver/account/orders")
@@ -414,17 +418,176 @@ public class OrderTests : IAsyncLifetime, IDisposable
         snapshot.IsSnapshot.ShouldBeFalse();
         snapshot.Orders.ShouldBeEmpty();
 
-        // Exactly one force=true follow-up was issued (lowercase, per the documented wire format).
-        _harness.Server.FindLogEntries(
-            Request.Create().WithPath("/v1/api/iserver/account/orders")
-                .WithParam("force", "true").UsingGet())
-            .Count.ShouldBe(1, "a filtered call must trigger exactly one force=true follow-up");
+        // The follow-up is background-tracked — wait for it to land, then assert exactly one.
+        await WaitUntilAsync(
+            () => CountForceClearFollowUps() == 1,
+            TimeSpan.FromSeconds(10));
+
+        CountForceClearFollowUps().ShouldBe(1, "a filtered call must trigger exactly one force=true follow-up");
 
         // And exactly one filtered call reached the server (the follow-up carries no filters).
         _harness.Server.FindLogEntries(
             Request.Create().WithPath("/v1/api/iserver/account/orders")
                 .WithParam("filters", "cancelled").UsingGet())
             .Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetLiveOrders_Filtered_ReturnsBeforeForceFollowUpCompletes()
+    {
+        // ORD-2 (PVR-18): the §10.6 force-clear follow-up must NOT be awaited inline — the already-
+        // computed filtered result returns without paying the follow-up's latency. The force=true
+        // follow-up is delayed server-side well beyond the filtered call's own (undelayed) latency;
+        // the filtered call must return long before that delay could elapse. If the follow-up were
+        // awaited inline, the caller would block for the full delay (RED).
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/iserver/account/orders")
+                .WithParam("filters", "cancelled").UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "GET-live-orders-unprimed-empty")));
+
+        var followUpDelay = TimeSpan.FromSeconds(5);
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/iserver/account/orders")
+                .WithParam("force", "true").UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "GET-live-orders-force-cleared"))
+                    .WithDelay(followUpDelay));
+
+        var sw = Stopwatch.StartNew();
+        var snapshot = (await _harness.Client.Orders.GetLiveOrdersAsync(
+            new[] { OrderStatusFilter.Cancelled },
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
+        sw.Stop();
+
+        snapshot.Orders.ShouldBeEmpty();
+        sw.Elapsed.ShouldBeLessThan(
+            TimeSpan.FromSeconds(2),
+            "the filtered call must return without waiting on the 5s-delayed force-clear follow-up");
+    }
+
+    [Fact]
+    public async Task GetLiveOrders_FilteredWithForce_StillIssuesExactlyOneForceFollowUp()
+    {
+        // ORD-5 (PVR-18): the old filters+force exemption is DROPPED. §10.6's defensive posture means
+        // the library always issues the force-clear follow-up after ANY filtered call — even when the
+        // caller already passed force=true (single-call sufficiency is unpinned in every doc tier). The
+        // follow-up is the force=true call that carries NO filters, distinct from the caller's own
+        // filters+force call.
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/iserver/account/orders")
+                .WithParam("force", "true").UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "GET-live-orders-force-cleared")));
+
+        await _harness.Client.Orders.GetLiveOrdersAsync(
+            new[] { OrderStatusFilter.Cancelled },
+            force: true,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        // The background follow-up (force=true, no filters) must still fire exactly once.
+        await WaitUntilAsync(
+            () => CountForceClearFollowUps() == 1,
+            TimeSpan.FromSeconds(10));
+
+        CountForceClearFollowUps().ShouldBe(1,
+            "filters+force must STILL trigger exactly one force-clear follow-up (dropped ORD-5 exemption)");
+    }
+
+    [Fact]
+    public async Task GetLiveOrders_DisposeWithPendingFollowUp_CompletesPromptlyAndCleanly()
+    {
+        // ORD-2 (PVR-18): a background follow-up still in flight at dispose must be cancelled/awaited
+        // cleanly — dispose must not block on the follow-up's full latency, and must surface no
+        // unobserved exception. Uses its own harness so the shared one is unaffected.
+        var harness = await TestHarness.CreateAsync();
+        var disposed = false;
+        try
+        {
+            harness.Server.Given(
+                Request.Create().WithPath("/v1/api/iserver/account/orders")
+                    .WithParam("filters", "cancelled").UsingGet())
+                .RespondWith(
+                    Response.Create()
+                        .WithStatusCode(200)
+                        .WithHeader("Content-Type", "application/json")
+                        .WithBody(FixtureLoader.LoadBody("Orders", "GET-live-orders-unprimed-empty")));
+
+            // The force-clear follow-up hangs server-side far longer than the dispose budget, so it is
+            // guaranteed still pending at dispose — dispose must cancel it, not wait it out.
+            harness.Server.Given(
+                Request.Create().WithPath("/v1/api/iserver/account/orders")
+                    .WithParam("force", "true").UsingGet())
+                .RespondWith(
+                    Response.Create()
+                        .WithStatusCode(200)
+                        .WithHeader("Content-Type", "application/json")
+                        .WithBody(FixtureLoader.LoadBody("Orders", "GET-live-orders-force-cleared"))
+                        .WithDelay(TimeSpan.FromSeconds(30)));
+
+            var snapshot = (await harness.Client.Orders.GetLiveOrdersAsync(
+                new[] { OrderStatusFilter.Cancelled },
+                cancellationToken: TestContext.Current.CancellationToken)).Value;
+            snapshot.Orders.ShouldBeEmpty();
+
+            var sw = Stopwatch.StartNew();
+            disposed = true;
+            await harness.DisposeAsync();
+            sw.Stop();
+
+            sw.Elapsed.ShouldBeLessThan(
+                TimeSpan.FromSeconds(15),
+                "dispose must cancel the pending force-clear follow-up, not await its full 30s server delay");
+        }
+        finally
+        {
+            if (!disposed)
+            {
+                await harness.DisposeAsync();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Counts the §10.6 force-clear follow-ups the server received: a live-orders GET carrying
+    /// <c>force=true</c> but NO <c>filters</c> param. This distinguishes the library-issued follow-up
+    /// from a caller's own filters+force call (which also carries <c>force=true</c>).
+    /// </summary>
+    private int CountForceClearFollowUps() =>
+        _harness.Server.LogEntries.Count(e =>
+            e.RequestMessage.Path == "/v1/api/iserver/account/orders"
+            && e.RequestMessage.Query is { } query
+            && query.TryGetValue("force", out var force) && force.Contains("true")
+            && !query.ContainsKey("filters"));
+
+    /// <summary>
+    /// Polls <paramref name="condition"/> until it holds or <paramref name="timeout"/> elapses,
+    /// throwing on timeout. Used to await a background-tracked effect (the §10.6 follow-up) that lands
+    /// asynchronously after the filtered call returns.
+    /// </summary>
+    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(20));
+        }
+
+        throw new TimeoutException("Condition was not met within the allotted timeout.");
     }
 
     [Fact]

@@ -17,7 +17,7 @@ namespace IbkrConduit.Client;
 /// Order management operations with caller-controlled question/reply handling.
 /// Uses per-account semaphore serialization to prevent concurrent order submissions.
 /// </summary>
-internal partial class OrderOperations : IOrderOperations
+internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
 {
     private static readonly Histogram<double> _submissionDuration =
         IbkrConduitDiagnostics.Meter.CreateHistogram<double>("ibkr.conduit.order.submission.duration", "ms");
@@ -37,6 +37,26 @@ internal partial class OrderOperations : IOrderOperations
     private readonly TenantContext _tenant;
     private readonly Dictionary<string, object> _logScope;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _accountLocks = new();
+
+    /// <summary>
+    /// Cancels in-flight §10.6 force-clear follow-ups on disposal so a blocked follow-up unwinds
+    /// promptly rather than holding up teardown. Scoped to this operations instance — never a caller's
+    /// token — because the follow-up outlives the filtered call that spawned it (PVR-18, ORD-2).
+    /// </summary>
+    private readonly CancellationTokenSource _followUpCts = new();
+
+    /// <summary>Guards <see cref="_followUpTasks"/> and <see cref="_disposed"/>.</summary>
+    private readonly object _followUpLock = new();
+
+    /// <summary>
+    /// Tracks the background force-clear follow-up tasks so <see cref="DisposeAsync"/> can await or
+    /// cancel every one — no fire-and-forget task outlives the operations instance, no exception goes
+    /// unobserved. Completed tasks self-remove via a continuation.
+    /// </summary>
+    private readonly HashSet<Task> _followUpTasks = new();
+
+    /// <summary>Set once disposal begins; blocks new follow-ups from being spawned. Guarded by <see cref="_followUpLock"/>.</summary>
+    private bool _disposed;
 
     /// <summary>
     /// Creates a new <see cref="OrderOperations"/> instance.
@@ -262,23 +282,74 @@ internal partial class OrderOperations : IOrderOperations
 
         // GAP1-2 / §10.6: a *filtered* live-orders call suppresses `sor` order-detail frames until a
         // force=true follow-up clears IBKR's cached filter behavior. The library owns the quirk: issue
-        // that follow-up here (unless the caller already forced), so a later OrderUpdatesAsync still
-        // delivers order details. The follow-up's result is discarded and its failures are logged — the
-        // consumer's filtered result is authoritative and unaffected. Skipped when force==true because
-        // the caller's own call already clears the cache.
-        if (filtered && force != true)
+        // that follow-up so a later OrderUpdatesAsync still delivers order details. The follow-up's
+        // result is discarded and its failures are logged — the consumer's filtered result is
+        // authoritative and unaffected.
+        //
+        // PVR-18 (ORD-2): the follow-up runs as a BACKGROUND-tracked task, NOT awaited here — the
+        // already-computed filtered result returns immediately instead of paying up to a rate-limiter
+        // window of latency. It still travels the normal endpoint rate limiter (§8 wait-not-fail) via
+        // the same Refit client; it is just decoupled from the caller's result.
+        //
+        // PVR-18 (ORD-5): the old filters+force exemption is DROPPED. Single-call sufficiency is
+        // unpinned in every doc tier (§10.6), so §10.6's defensive posture applies to EVERY filtered
+        // call — always follow up, even when the caller already passed force=true.
+        if (filtered)
         {
-            await IssueForceClearFollowUpAsync(cancellationToken);
+            StartForceClearFollowUp();
         }
 
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
     /// <summary>
+    /// Starts the §10.6 force-clear follow-up as a background-tracked task (PVR-18). The filtered caller
+    /// returns immediately; the follow-up runs on its own through the normal endpoint rate limiter, is
+    /// logged on failure, and is tracked so <see cref="DisposeAsync"/> awaits or cancels it. Uses the
+    /// operations-scoped dispose token — never the caller's — since the caller's request has already
+    /// returned and its token may be torn down.
+    /// </summary>
+    private void StartForceClearFollowUp()
+    {
+        lock (_followUpLock)
+        {
+            // Disposal has begun — do not spawn new background work that would outlive teardown.
+            if (_disposed)
+            {
+                return;
+            }
+
+            // Capture the token under the lock (where _disposed is false, so _followUpCts is live);
+            // DisposeAsync disposes the source only after awaiting every tracked task, so the token
+            // stays valid for the task's lifetime.
+            var token = _followUpCts.Token;
+            var task = Task.Run(() => IssueForceClearFollowUpAsync(token));
+            _followUpTasks.Add(task);
+
+            // Self-clean the tracking set on completion so a long-lived instance does not accumulate
+            // finished tasks; runs synchronously on the completing thread.
+            _ = task.ContinueWith(
+                RemoveTrackedFollowUp,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+        }
+    }
+
+    private void RemoveTrackedFollowUp(Task task)
+    {
+        lock (_followUpLock)
+        {
+            _followUpTasks.Remove(task);
+        }
+    }
+
+    /// <summary>
     /// Issues the §10.6 <c>force=true</c> follow-up that clears IBKR's cached filter behavior after a
     /// filtered live-orders call, so a subsequent <c>sor</c> subscription still receives order details.
     /// Best-effort: IBKR returns a blank array by design, so the response is discarded; a transport
-    /// failure is logged, never surfaced to the caller (cancellation propagates).
+    /// failure is logged. Cancellation (disposal) is expected and swallowed quietly so teardown stays
+    /// clean and no exception goes unobserved.
     /// </summary>
     private async Task IssueForceClearFollowUpAsync(CancellationToken cancellationToken)
     {
@@ -287,10 +358,46 @@ internal partial class OrderOperations : IOrderOperations
             LogForceClearFollowUp();
             _ = await _orderApi.GetLiveOrdersAsync(null, true, cancellationToken);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception) when (cancellationToken.IsCancellationRequested)
+        {
+            // Disposal cancelled the in-flight follow-up (Refit may wrap the cancellation) — expected
+            // on teardown, nothing to surface.
+        }
+        catch (Exception ex)
         {
             LogForceClearFollowUpFailed(ex);
         }
+    }
+
+    /// <summary>
+    /// Cancels and awaits any in-flight §10.6 force-clear follow-up so no background task outlives the
+    /// operations instance and no exception goes unobserved (PVR-18, ORD-2). Idempotent — the container
+    /// owns this singleton and disposes it on provider teardown.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        List<Task> pending;
+        lock (_followUpLock)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            pending = new List<Task>(_followUpTasks);
+        }
+
+        // Signal cancellation so an in-flight follow-up's HTTP call unwinds promptly rather than
+        // blocking teardown for its full latency.
+        await _followUpCts.CancelAsync();
+
+        // Await every tracked follow-up. Each swallows its own outcome (cancellation or logged
+        // failure), so Task.WhenAll completes without faulting and teardown stays clean.
+        await Task.WhenAll(pending);
+
+        _followUpCts.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     /// <inheritdoc />

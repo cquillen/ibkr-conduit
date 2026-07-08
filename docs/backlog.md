@@ -359,7 +359,7 @@ Finding AUT-1 (high, PLAUSIBLE): the OAuth signature is computed over `Uri.ToStr
 **Done when:** ~~(post-probe) the signed base string matches the form IBKR verifies~~ — satisfied by the recorded probe refutation (this entry).
 
 #### PVR-18 — Filtered live-orders follow-up latency & sufficiency
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #270 · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** trivial-skip
 Findings ORD-2 (medium, CONFIRMED), ORD-5 (low, PLAUSIBLE): the VCR-05 auto force-clear follow-up is awaited inline behind the endpoint rate limiter *before* the already-computed result is returned — adding up to a limiter-window of latency to every filtered `GetLiveOrdersAsync`; and the follow-up-skip when the caller passes filters+`force=true` together assumes single-call sufficiency no doc tier pins (the live DOC-03 prose prescribes a **follow-up** call while its own example combines both, unexplained — `docs/ibkr-doc-evidence/2026-07-07-live-orders-filters-force.md`). Operator-decided 2026-07-07: the follow-up runs as a **background-tracked task** through the normal rate limiters (§8 wait-not-fail intact), logged on failure, awaited/cancelled on dispose. ORD-5 is rule-settled by §10.6's defensive posture (the `sor`-suppression effect is documented-not-observable-on-demand): **drop the filters+`force` exemption — always issue the follow-up after any filtered call**, safe under both answers. Lane: before PVR-06 (shared `OrderOperations`). **`fix:`.**
