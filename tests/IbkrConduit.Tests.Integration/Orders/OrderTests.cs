@@ -1186,8 +1186,8 @@ public class OrderTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task Reply_HiddenError200_ReturnsClassifiedRefusal()
     {
-        // AMB-3: the reply 2xx path routes through hidden-error detection like every other order path,
-        // so a 200 {"error":"…"} reject surfaces the reject text instead of throwing.
+        // AMB-3 / ERR-4: the reply 2xx path routes through order-mutating hidden-error detection, so a
+        // 200 {"error":"…"} reject surfaces as the order-rejection subtype carrying the reject text.
         _harness.StubAuthenticatedPost(
             "/v1/api/iserver/reply/*",
             """{"error":"We cannot accept an order at the limit price you selected."}""");
@@ -1196,7 +1196,40 @@ public class OrderTests : IAsyncLifetime, IDisposable
             "test-reply-id-001", true, TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeFalse();
-        result.Error.Message.ShouldContain("cannot accept an order");
+        result.Error.ShouldBeOfType<IbkrOrderRejectedError>()
+            .RejectionMessage.ShouldContain("cannot accept an order");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task PlaceOrder_BareObjectError200_ReturnsOrderRejected()
+    {
+        // ERR-4 / §9.9 (breaking-behavioral): a bare-object 200-with-error on the place endpoint (an
+        // order-mutating POST) classifies as the order-rejection subtype, NOT the generic hidden-error
+        // subtype. Exercises the pre-deserialized overload's order-mutating path end-to-end with a real
+        // captured raw body.
+        _harness.StubAuthenticatedPost(
+            "/v1/api/iserver/account/*/orders",
+            """{"error":"Order could not be submitted: price out of range."}""");
+
+        var order = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "LMT",
+            Price = 1.00m,
+            Tif = "GTC",
+        };
+
+        var result = await _harness.Client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var rejected = result.Error.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldContain("price out of range");
+        rejected.RawBody.ShouldContain("price out of range");
 
         _harness.VerifyHandshakeOccurred();
     }

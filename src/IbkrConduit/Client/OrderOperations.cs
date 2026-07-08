@@ -115,7 +115,8 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             var payload = new OrdersPayload([ToWireModel(order)]);
             var response = await _orderApi.PlaceOrderAsync(accountId, payload, cancellationToken);
             var requestPath = response.RequestMessage?.RequestUri?.AbsolutePath;
-            var apiResult = ResultFactory.FromResponse(response, requestPath);
+            // ERR-4 / §9.9: place is order-mutating — a 200-with-error classifies as IbkrOrderRejectedError.
+            var apiResult = ResultFactory.FromResponse(response, requestPath, orderMutating: true);
             if (!apiResult.IsSuccess)
             {
                 var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(apiResult.Error);
@@ -174,7 +175,8 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             var payload = new OrdersPayload(orders.Select(ToWireModel).ToList());
             var response = await _orderApi.PlaceOrderAsync(accountId, payload, cancellationToken);
             var requestPath = response.RequestMessage?.RequestUri?.AbsolutePath;
-            var apiResult = ResultFactory.FromResponse(response, requestPath);
+            // ERR-4 / §9.9: a grouped placement is order-mutating too.
+            var apiResult = ResultFactory.FromResponse(response, requestPath, orderMutating: true);
             if (!apiResult.IsSuccess)
             {
                 var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(apiResult.Error);
@@ -489,7 +491,8 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             var payload = new OrdersPayload([ToWireModel(order)]);
             var response = await _orderApi.ModifyOrderAsync(accountId, orderId, payload, cancellationToken);
             var requestPath = response.RequestMessage?.RequestUri?.AbsolutePath;
-            var apiResult = ResultFactory.FromResponse(response, requestPath);
+            // ERR-4 / §9.9: modify is order-mutating — a 200-with-error classifies as IbkrOrderRejectedError.
+            var apiResult = ResultFactory.FromResponse(response, requestPath, orderMutating: true);
             if (!apiResult.IsSuccess)
             {
                 var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(apiResult.Error);
@@ -583,7 +586,8 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         // AMB-3: route the reply through the same classification every other order path uses —
         // ThrowOnSendFailure, the ADR-0003 ambiguous 401 gate, non-2xx error parsing, and bare-object
         // hidden-error detection. The identity parser yields the raw body; the parsed shapes classify below.
-        var bodyResult = ResultFactory.FromResponse(replyApiResponse, static body => body, requestPath);
+        // ERR-4 / §9.9: reply is order-mutating — a bare-object 200-with-error classifies as an order rejection.
+        var bodyResult = ResultFactory.FromResponse(replyApiResponse, static body => body, requestPath, orderMutating: true);
         if (!bodyResult.IsSuccess)
         {
             return Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(bodyResult.Error);

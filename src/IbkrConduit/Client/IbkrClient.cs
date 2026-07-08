@@ -175,14 +175,39 @@ internal partial class IbkrClient : IIbkrClient
 
     private async Task ValidateFlexTokenAsync(string queryId, CancellationToken cancellationToken)
     {
-        var result = await Flex.ExecuteQueryAsync(queryId, cancellationToken);
-
-        if (result.IsSuccess)
+        // ERR-2: classify the validation outcome from the structured error under BOTH throw settings.
+        // With ThrowOnApiError=false, ExecuteQueryAsync returns a failed Result; with =true it throws
+        // IbkrApiException(error) via EnsureSuccess. Extract the error identically either way so the
+        // 1012/1013/1015 token mapping and the transport-vs-token classification always apply — the
+        // mapping is no longer bypassed when ThrowOnApiError is enabled.
+        IbkrError error;
+        try
         {
-            return;
+            var result = await Flex.ExecuteQueryAsync(queryId, cancellationToken);
+            if (result.IsSuccess)
+            {
+                return;
+            }
+
+            error = result.Error;
+        }
+        catch (IbkrApiException ex)
+        {
+            error = ex.Error;
         }
 
-        if (result.Error is IbkrFlexError flexError)
+        ClassifyFlexValidationError(error);
+    }
+
+    /// <summary>
+    /// Classifies a Flex validation failure (ERR-2): a 1012/1013/1015 token error maps to an actionable
+    /// <see cref="IbkrConfigurationException"/>; any other Flex query error is logged and treated as
+    /// non-fatal (the token itself appears valid); and a non-Flex error is a transient TRANSPORT failure
+    /// surfaced truthfully as <see cref="IbkrTransientException"/> — never recast as a token/config problem.
+    /// </summary>
+    private void ClassifyFlexValidationError(IbkrError error)
+    {
+        if (error is IbkrFlexError flexError)
         {
             if (flexError.ErrorCode is 1015)
             {
@@ -209,9 +234,11 @@ internal partial class IbkrClient : IIbkrClient
             return;
         }
 
-        throw new IbkrConfigurationException(
-            $"Could not reach the Flex Web Service — check network connectivity. Error: {result.Error.Message}",
-            "FlexToken");
+        // ERR-2: a non-Flex error is a transport-level failure reaching the Flex Web Service — classify it
+        // truthfully as transient (wait-and-retry), NOT a FlexToken configuration problem.
+        throw new IbkrTransientException(
+            "Could not reach the Flex Web Service to validate the token — this is a transient transport " +
+            $"failure, not a token problem. Retry. Error: {error.Message}");
     }
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Flex validation skipped — Flex token is configured but no query IDs set in FlexQueries")]

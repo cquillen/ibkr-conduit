@@ -83,6 +83,38 @@ public class ResultFactoryTests
     }
 
     [Fact]
+    public void FromResponse_OrderMutating200WithErrorBody_ReturnsOrderRejectedError()
+    {
+        // ERR-4 / §9.9: a 200-with-error on an order-mutating endpoint classifies as the order-rejection
+        // subtype, NOT the generic hidden-error subtype (the request path is known to be an order endpoint).
+        var response = CreateStringApiResponse(HttpStatusCode.OK, """{"error":"We cannot accept an order at the limit price you selected."}""");
+        var result = ResultFactory.FromResponse(response, body => body, "/v1/api/iserver/reply/abc", orderMutating: true);
+        result.IsSuccess.ShouldBeFalse();
+        var rejected = result.Error.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldContain("cannot accept an order");
+    }
+
+    [Fact]
+    public void FromResponse_OrderMutating200WithSuccessFalse_ReturnsOrderRejectedError()
+    {
+        // ERR-4 / §9.9: the success:false shape on an order-mutating endpoint is also an order rejection.
+        var response = CreateStringApiResponse(HttpStatusCode.OK, """{"success":false,"failure_list":"order refused"}""");
+        var result = ResultFactory.FromResponse(response, body => body, "/v1/api/iserver/account/DU1/orders", orderMutating: true);
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<IbkrOrderRejectedError>().RejectionMessage.ShouldBe("order refused");
+    }
+
+    [Fact]
+    public void FromResponse_NonOrder200WithErrorBody_StillReturnsHiddenError()
+    {
+        // ERR-4 / §9.9: the generic hidden-error subtype is preserved for NON-order surfaces (default).
+        var response = CreateStringApiResponse(HttpStatusCode.OK, """{"error":"something went wrong"}""");
+        var result = ResultFactory.FromResponse(response, body => body, "/v1/api/iserver/account/DU1/alerts");
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<IbkrHiddenError>();
+    }
+
+    [Fact]
     public void FromResponse_CustomParser_Success_UsesParser()
     {
         var rawResponse = CreateStringApiResponse(HttpStatusCode.OK, """{"order_id":"123"}""");

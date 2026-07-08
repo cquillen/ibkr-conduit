@@ -199,7 +199,11 @@ internal sealed partial class FlexOperations : IFlexOperations
             return Result<XDocument>.Failure(new IbkrFlexError(
                 ErrorCode: lastSendError?.ErrorCode ?? 0,
                 CodeDescription: lastSendError?.CodeDescription,
-                IsRetryable: false,
+                // ERR-3: a transient code whose send retries are exhausted stays classified transient
+                // (IsRetryable=true) — never a hardcoded false the library would contradict itself with.
+                // lastSendError is only ever set for a RETRYABLE flex error (permanent codes return
+                // immediately above), so its presence means the exhausted condition is still retryable.
+                IsRetryable: lastSendError is not null,
                 Message: errorMessage,
                 RawBody: lastSendError?.RawBody,
                 RequestPath: $"flex/SendRequest?q={queryId}"));
