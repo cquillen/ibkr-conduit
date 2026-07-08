@@ -85,16 +85,23 @@ public record IbkrHiddenError(
     : IbkrError(HttpStatusCode.OK, Message, RawBody, RequestPath);
 
 /// <summary>
-/// Ambiguous order outcome — an order-mutating POST (place, modify, or reply) received a 401 and was
-/// deliberately <b>not</b> replayed (ADR-0003, design doc §9.9). The request was transmitted; whether
-/// IBKR processed it is unknown. The library never silently re-sends an order-mutating POST after a
-/// 401, because a replay could double-submit a live order.
+/// Ambiguous order outcome — an order-mutating request was transmitted but whether IBKR processed it is
+/// unknown, so the library never silently re-sends it (a replay could double-submit a live order). This
+/// is produced for two situations:
+/// <list type="bullet">
+///   <item>an order-mutating POST (place, modify, or reply) received a <b>401</b> and was deliberately
+///     <b>not</b> replayed (ADR-0003, design doc §9.9); or</item>
+///   <item>a <b>reply</b> to a confirmation returned a <b>503</b> (an invalidated confirmation window —
+///     ADR-0006, design doc §9.10): a live probe observed the invalidated order go live <i>after</i> its
+///     reply 503'd, so this is ambiguous, not a definitive refusal.</item>
+/// </list>
 /// <para>
-/// <b>Consumer obligation:</b> treat this as "sent — outcome unknown" (never as a definitive refusal).
-/// Reconcile via <c>GetLiveOrdersAsync</c> / <c>GetTradesAsync</c> (matching on your <c>cOID</c>) before
-/// resubmitting. <c>StatusCode</c> is the status of the original response (401);
-/// <c>RequestPath</c> is the order endpoint; <see cref="ReauthSucceeded"/> reports whether
-/// the re-authentication triggered by the 401 succeeded.
+/// <b>Consumer obligation:</b> treat this as "sent — outcome unknown" (never as a definitive refusal, and
+/// never re-place). Reconcile via <c>GetLiveOrdersAsync</c> / <c>GetTradesAsync</c> (matching on your
+/// <c>cOID</c>) before resubmitting. <c>StatusCode</c> is the status of the original response — <c>401</c>
+/// for the replay-gate case, <c>503</c> for the invalidated-reply case; <c>RequestPath</c> is the order
+/// endpoint. <see cref="ReauthSucceeded"/> reports whether the re-authentication triggered by a 401
+/// succeeded; it is <c>false</c> and <b>not applicable</b> when no 401/reauth was involved (the 503 case).
 /// </para>
 /// </summary>
 [ExcludeFromCodeCoverage]
