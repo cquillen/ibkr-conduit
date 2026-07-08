@@ -153,7 +153,24 @@ public sealed record AccountSummaryRow(
     [property: JsonPropertyName("currency")] string? Currency,
     [property: JsonPropertyName("monetaryValue")] decimal? MonetaryValue,
     [property: JsonPropertyName("severity")] int? Severity,
-    [property: JsonPropertyName("timestamp")] long? Timestamp);
+    [property: JsonPropertyName("timestamp")] long? Timestamp)
+{
+    /// <summary>
+    /// A non-monetary account summary value returned when the key does not pertain to pricing/balance
+    /// (e.g. <c>{"key":"Cushion","value":"1"}</c>). Kept as the raw wire string. Null on a monetary
+    /// row, where the value lives in <see cref="MonetaryValue"/> instead (PRB-3.3, design §12.5).
+    /// </summary>
+    [JsonPropertyName("value")]
+    public string? Value { get; init; }
+
+    /// <summary>
+    /// Additional account summary row fields not mapped to a known property — the overflow bag that
+    /// mirrors its <c>sld</c> sibling <see cref="AccountLedgerRow.AdditionalData"/> so a wire-shape
+    /// addition survives instead of being dropped (design §12.5).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
 
 /// <summary>
 /// A real-time account ledger update from the WebSocket sld topic. The frame carries no

@@ -112,11 +112,16 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sor", cancelMessage, cancellationToken);
 
-        // A status-bearing sor frame that omits a required money field raises the WIR-5 census signal
-        // through the same reporter the drop taxonomy uses (separate counter — the order is delivered).
+        // Per-element mapper isolation (WIR-1): a single malformed order is skipped and counted+logged
+        // through the drop taxonomy, so the frame's remaining orders are still delivered. A
+        // status-bearing sor frame that omits a required money field also raises the WIR-5 census
+        // signal through the same reporter (separate counter — the order is delivered, not dropped).
         var sorLogger = CreateTopicLogger("sor");
         var mapOrders = (JsonElement frame) =>
-            OrderUpdateMapper.MapMany(frame, field => RecordMissingMoneyField(sorLogger, "sor", field));
+            OrderUpdateMapper.MapMany(
+                frame,
+                ex => RecordMapperDrop(sorLogger, "sor", ex),
+                field => RecordMissingMoneyField(sorLogger, "sor", field));
 
         return new IbkrSubscription<OrderUpdate>(new FanOutChannelObservable<OrderUpdate>(reader, mapOrders, sorLogger, _metrics, "sor"), unsubscribe);
     }
@@ -158,7 +163,13 @@ internal sealed class StreamingOperations : IStreamingOperations
     {
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync("spl+{}", "spl", "upl+{}", cancellationToken);
 
-        return new IbkrSubscription<PnlUpdate>(new FanOutChannelObservable<PnlUpdate>(reader, PnlUpdateMapper.MapMany, CreateTopicLogger("spl"), _metrics, "spl"), unsubscribe);
+        // Per-element mapper isolation (PRB-3.2): a single malformed per-account entry is skipped and
+        // counted+logged through the drop taxonomy, so the frame's other accounts are still delivered.
+        var splLogger = CreateTopicLogger("spl");
+        var mapPnl = (JsonElement frame) =>
+            PnlUpdateMapper.MapMany(frame, ex => RecordMapperDrop(splLogger, "spl", ex));
+
+        return new IbkrSubscription<PnlUpdate>(new FanOutChannelObservable<PnlUpdate>(reader, mapPnl, splLogger, _metrics, "spl"), unsubscribe);
     }
 
     /// <inheritdoc />
@@ -173,7 +184,17 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "ssd", cancelMessage, cancellationToken);
 
-        return new IbkrSubscription<AccountSummaryUpdate>(new ChannelObservable<AccountSummaryUpdate>(reader, AccountSummaryUpdateMapper.Map, CreateTopicLogger("ssd"), _metrics, "ssd"), unsubscribe);
+        // Per-row mapper isolation (WIR-1): a single malformed summary row is skipped and counted+logged
+        // through the drop taxonomy, so the frame's other rows still deliver. A monetary row that omits
+        // monetaryValue also raises the WIR-5 census signal (separate counter — the frame is delivered).
+        var ssdLogger = CreateTopicLogger("ssd");
+        var mapSummary = (JsonElement frame) =>
+            AccountSummaryUpdateMapper.Map(
+                frame,
+                ex => RecordMapperDrop(ssdLogger, "ssd", ex),
+                field => RecordMissingMoneyField(ssdLogger, "ssd", field));
+
+        return new IbkrSubscription<AccountSummaryUpdate>(new ChannelObservable<AccountSummaryUpdate>(reader, mapSummary, ssdLogger, _metrics, "ssd"), unsubscribe);
     }
 
     /// <inheritdoc />
@@ -188,7 +209,18 @@ internal sealed class StreamingOperations : IStreamingOperations
 
         var (reader, unsubscribe) = await _webSocketClient.SubscribeTopicAsync(subscribeMessage, "sld", cancelMessage, cancellationToken);
 
-        return new IbkrSubscription<AccountLedgerUpdate>(new ChannelObservable<AccountLedgerUpdate>(reader, AccountLedgerUpdateMapper.Map, CreateTopicLogger("sld"), _metrics, "sld"), unsubscribe);
+        // Per-row mapper isolation (WIR-1): a single malformed ledger row is skipped and counted+logged
+        // through the drop taxonomy, so the frame's other currencies still deliver. A substantive row
+        // that omits netLiquidationValue also raises the WIR-5 census signal (separate counter — the
+        // frame is delivered).
+        var sldLogger = CreateTopicLogger("sld");
+        var mapLedger = (JsonElement frame) =>
+            AccountLedgerUpdateMapper.Map(
+                frame,
+                ex => RecordMapperDrop(sldLogger, "sld", ex),
+                field => RecordMissingMoneyField(sldLogger, "sld", field));
+
+        return new IbkrSubscription<AccountLedgerUpdate>(new ChannelObservable<AccountLedgerUpdate>(reader, mapLedger, sldLogger, _metrics, "sld"), unsubscribe);
     }
 
     private static string BuildKeysFieldsArgs(string[]? keys, string[]? fields)

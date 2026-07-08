@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using IbkrConduit.Streaming;
@@ -82,5 +84,43 @@ public class PnlUpdateMapperTests
         var pnl = PnlUpdateMapper.MapMany(frame).Single();
 
         pnl.AccountId.ShouldBe("DU123");
+    }
+
+    [Fact]
+    public void MapMany_OneMalformedEntry_YieldsRemainingUpdates()
+    {
+        // PRB-3.2: one malformed per-account entry must not discard the frame's other accounts.
+        // Per-element isolation deserializes each account entry independently (mirrors VCR-03 for str).
+        var frame = JsonDocument.Parse(
+            """
+            {"topic":"spl","args":{
+              "DU1.Core":{"dpl":1.0},
+              "DU2.Core":{"dpl":"garbage-object-value"},
+              "DU3.Core":{"dpl":3.0}
+            }}
+            """).RootElement;
+
+        var updates = PnlUpdateMapper.MapMany(frame).ToList();
+
+        updates.Select(u => u.AccountId).ShouldBe(["DU1", "DU3"]);
+    }
+
+    [Fact]
+    public void MapMany_OneMalformedEntry_ReportsExactlyOneDropToCallback()
+    {
+        var frame = JsonDocument.Parse(
+            """
+            {"topic":"spl","args":{
+              "DU1.Core":{"dpl":1.0},
+              "DU2.Core":{"dpl":"garbage-object-value"},
+              "DU3.Core":{"dpl":3.0}
+            }}
+            """).RootElement;
+
+        var dropped = new List<Exception>();
+        var updates = PnlUpdateMapper.MapMany(frame, dropped.Add).ToList();
+
+        updates.Count.ShouldBe(2);
+        dropped.Count.ShouldBe(1);
     }
 }

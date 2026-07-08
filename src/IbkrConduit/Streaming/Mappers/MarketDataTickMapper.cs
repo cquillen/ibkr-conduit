@@ -10,14 +10,15 @@ internal static class MarketDataTickMapper
         var conid = 0;
         long? updated = null;
         var fields = new Dictionary<string, string>();
+        Dictionary<string, JsonElement>? additional = null;
 
         // Extract conid from the topic string: "smd+265598" -> 265598
-        if (element.TryGetProperty("topic", out var topicProp))
+        if (element.TryGetProperty("topic", out var topicProp) && topicProp.ValueKind == JsonValueKind.String)
         {
             var topic = topicProp.GetString();
             if (topic != null)
             {
-                var plusIndex = topic.IndexOf('+');
+                var plusIndex = topic.IndexOf('+', StringComparison.Ordinal);
                 if (plusIndex >= 0 && int.TryParse(topic[(plusIndex + 1)..], out var parsedConid))
                 {
                     conid = parsedConid;
@@ -25,29 +26,37 @@ internal static class MarketDataTickMapper
             }
         }
 
-        // Also try conid property directly
+        // Also try the conid property directly. IBKR type-drifts numeric-ish fields to quoted strings
+        // (WIR-5), so tolerate either a JSON number or a string rather than throwing on GetInt32.
         if (conid == 0 && element.TryGetProperty("conid", out var conidProp))
         {
-            conid = conidProp.GetInt32();
+            conid = ReadInt32(conidProp) ?? 0;
         }
 
+        // _updated is likewise string-tolerant (WIR-5) so a quoted timestamp never throws.
         if (element.TryGetProperty("_updated", out var updatedProp))
         {
-            updated = updatedProp.GetInt64();
+            updated = ReadInt64(updatedProp);
         }
 
-        // Extract numeric field keys into the Fields dictionary
         foreach (var prop in element.EnumerateObject())
         {
-            if (prop.Name == "topic" || prop.Name == "conid" || prop.Name == "_updated")
+            if (prop.Name is "topic" or "conid" or "_updated")
             {
                 continue;
             }
 
-            // Numeric keys are market data field IDs
             if (int.TryParse(prop.Name, out _))
             {
+                // Numeric keys are market data field IDs.
                 fields[prop.Name] = prop.Value.ToString();
+            }
+            else
+            {
+                // Non-numeric unmapped keys (e.g. conidEx, server_id) survive in the overflow bag
+                // rather than being silently discarded (WIR-5). Clone detaches the value from the
+                // frame's backing document so it stays valid after the document is released.
+                (additional ??= [])[prop.Name] = prop.Value.Clone();
             }
         }
 
@@ -56,6 +65,25 @@ internal static class MarketDataTickMapper
             Conid = conid,
             Updated = updated,
             Fields = fields.Count > 0 ? fields : null,
+            AdditionalData = additional,
         };
     }
+
+    /// <summary>Reads an <see cref="int"/> from a number or a quoted-string JSON value, or null when neither parses.</summary>
+    private static int? ReadInt32(JsonElement element) =>
+        element.ValueKind switch
+        {
+            JsonValueKind.Number when element.TryGetInt32(out var n) => n,
+            JsonValueKind.String when int.TryParse(element.GetString(), out var n) => n,
+            _ => null,
+        };
+
+    /// <summary>Reads a <see cref="long"/> from a number or a quoted-string JSON value, or null when neither parses.</summary>
+    private static long? ReadInt64(JsonElement element) =>
+        element.ValueKind switch
+        {
+            JsonValueKind.Number when element.TryGetInt64(out var n) => n,
+            JsonValueKind.String when long.TryParse(element.GetString(), out var n) => n,
+            _ => null,
+        };
 }

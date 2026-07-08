@@ -25,6 +25,22 @@ internal static class MoneyFieldCensus
     public static readonly string[] OrderUpdateFields = ["totalSize", "price"];
 
     /// <summary>
+    /// A monetary ssd summary row (one that names a <c>currency</c>) is expected to carry a
+    /// <c>monetaryValue</c>; its absence is the WIR-5 drift signal. A non-monetary row (which carries
+    /// <c>value</c> instead of <c>currency</c>) is exempt — the mapper only censuses currency-bearing
+    /// rows, so a Cushion-style row never raises a false census.
+    /// </summary>
+    public static readonly string[] AccountSummaryFields = ["monetaryValue"];
+
+    /// <summary>
+    /// A substantive sld ledger row (one reporting a <c>cashbalance</c>) is expected to carry a
+    /// <c>netLiquidationValue</c>; its absence is the WIR-5 drift signal. A blank 10-second no-change
+    /// entry (only <c>key</c> + <c>timestamp</c>) carries no <c>cashbalance</c>, so the mapper's
+    /// cashbalance guard exempts it and it never raises a false census every interval.
+    /// </summary>
+    public static readonly string[] AccountLedgerFields = ["netLiquidationValue"];
+
+    /// <summary>
     /// Invokes <paramref name="onAbsent"/> once for each of <paramref name="requiredFields"/> that
     /// the <paramref name="element"/> does not carry as a property. No-op when
     /// <paramref name="onAbsent"/> is <see langword="null"/> or the element is not a JSON object.
