@@ -12,6 +12,7 @@ namespace IbkrConduit.Tests.Integration.Session;
 /// the codebase appears to handle correctly; they protect against future regressions.
 /// All four should pass without code changes — if any fails, investigate before merge.
 /// </summary>
+[Collection("Slow real-timer")]
 public class RestResilienceTests : IAsyncLifetime, IDisposable
 {
     private TestHarness _harness = null!;
