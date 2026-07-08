@@ -345,7 +345,7 @@ Findings STR-3, STR-2 (high, CONFIRMED), CON-2 (medium, CONFIRMED), STR-6 (low, 
 **TDD notes:** red tests per the spec test plan (fake adapter factory + deterministic gates per race).
 
 #### PVR-16 — WebSocket subscribe/reconnect protocol integrity
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #269 · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** trivial-skip
 Findings STR-4, STR-5 (medium, CONFIRMED), CON-3 (low, CONFIRMED): a failed subscribe send leaves the already-committed registration in place — an orphan replayed on every reconnect with a never-drained channel; a stale reconnect trigger tears down a healthy connection established after the trigger was raised; and subscribe racing reconnect-replay can double-send a subscription. Per the findings' fix directions (rollback on failed send; connection-epoch check under the lock; send-under-lock or generation-marked replay). Lane: after PVR-15 (same file). **`fix:`.**

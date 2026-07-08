@@ -1395,6 +1395,201 @@ public class IbkrWebSocketClientTests
         }
     }
 
+    [Fact]
+    public async Task SubscribeTopicAsync_SubscribeSendThrows_RollsBackRegistration()
+    {
+        // STR-4: the registration is committed to _subscriptions/_subscribers before the subscribe
+        // send. If the send throws (socket racing Open->Aborted, or the caller's token firing
+        // mid-send), the entry must be rolled back and its channel completed — otherwise it is
+        // replayed on every reconnect into a channel nobody reads, permanently polluting the drop
+        // metric for that topic.
+        var ct = TestContext.Current.CancellationToken;
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
+        await client.ConnectAsync(ct);
+
+        _adapter.FailSendAfterCount = 0; // the subscribe send (the next send) throws
+
+        await Should.ThrowAsync<System.Net.WebSockets.WebSocketException>(
+            () => client.SubscribeTopicAsync("sor+{}", "sor", "uor+{}", ct));
+
+        client.ActiveSubscriptionCount.ShouldBe(0, "a failed subscribe send must leave no registered state");
+
+        // A subsequent reconnect must replay nothing for the rolled-back topic.
+        _adapter.FailSendAfterCount = null;
+        while (_adapter.SentMessages.TryDequeue(out _))
+        {
+        }
+
+        var reconnectTask = Task.Run(() => _notifier.TriggerRefreshAsync(ct), ct);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!reconnectTask.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+        await reconnectTask;
+
+        _adapter.SentMessages.ShouldNotContain("sor+{}", "a rolled-back subscription must not be replayed");
+    }
+
+    [Fact]
+    public async Task SubscribeTopicAsync_SendThrows_DoesNotSuppressSiblingCancel()
+    {
+        // STR-4 consequence: a rolled-back ghost must not keep its CancelMessage referenced. A
+        // sibling subscription sharing the same cancel must still emit the wire cancel when it is the
+        // last one gone — the ghost's refcount would otherwise suppress it, leaking the wire topic.
+        var ct = TestContext.Current.CancellationToken;
+        await using var client = CreateClient();
+        await client.ConnectAsync(ct);
+
+        // X subscribes successfully with cancel "uor+{}".
+        var (_, unsubscribeX) = await client.SubscribeTopicAsync("sor+X+{}", "sor", "uor+{}", ct);
+
+        // Y (same cancel key) fails its subscribe send and must roll back entirely.
+        _adapter.FailSendAfterCount = 1; // X's send already happened (count 1); Y's send (count 2) throws
+        await Should.ThrowAsync<System.Net.WebSockets.WebSocketException>(
+            () => client.SubscribeTopicAsync("sor+Y+{}", "sor", "uor+{}", ct));
+
+        client.ActiveSubscriptionCount.ShouldBe(1); // only X survives
+
+        // Unsubscribing X (now the sole holder of "uor+{}") must send the wire cancel — the
+        // rolled-back Y ghost is gone and cannot keep the refcount alive.
+        _adapter.FailSendAfterCount = null;
+        while (_adapter.SentMessages.TryDequeue(out _))
+        {
+        }
+        await unsubscribeX(ct);
+
+        _adapter.SentMessages.ShouldContain("uor+{}");
+    }
+
+    [Fact]
+    public async Task StaleReconnectTrigger_AgainstFreshConnection_IsNoOp()
+    {
+        // STR-5: two triggers fire for one outage — a message-pump reconnect and a tickle-watchdog
+        // reconnect, both observing connection generation 1. The pump reconnect completes a full
+        // cycle (generation -> 2, socket healthy); the watchdog, whose observed generation is now
+        // stale, must no-op under the lock rather than tear down the freshly recovered connection.
+        // Exactly one Disconnected/Reconnected pair, exactly one extra connect.
+        var ct = TestContext.Current.CancellationToken;
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
+        await client.ConnectAsync(ct);
+
+        client.ConnectionEpoch.ShouldBe(1);
+        var (events, _) = client.RegisterConnectionEvents();
+        await client.SubscribeTopicAsync("sor+{}", "sor", "uor+{}", ct);
+
+        // Wait for the pump to be receiving, then park the reconnect's connect (holding _connectLock).
+        await _adapter.WaitForReceiveAsync(ct);
+        var gate = _adapter.InstallConnectGate();
+
+        // Trigger #1: a server close drives a pump reconnect. It disconnects (socket null, generation
+        // still 1) then parks inside ConnectAsync holding _connectLock.
+        _adapter.SignalClose();
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!gate.Entered.Task.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromMilliseconds(500));
+            await Task.Yield();
+        }
+        gate.Entered.Task.IsCompleted.ShouldBeTrue(
+            "the pump reconnect should be parked inside ConnectAsync holding the connect lock");
+
+        // Trigger #2: fire the tickle watchdog while the socket is down. Invoked directly (not via
+        // Task.Run) so it runs synchronously through its is-open check and generation capture
+        // (generation 1) and parks on _connectLock behind the in-flight reconnect — deterministic,
+        // no polling.
+        var watchdogTask = _notifier.TriggerTickleSucceededAsync(ct);
+        watchdogTask.IsCompleted.ShouldBeFalse(
+            "the watchdog reconnect should be queued behind the parked reconnect on the connect lock");
+
+        // Release the parked reconnect: it re-establishes the socket (generation -> 2) and releases
+        // the lock. The queued watchdog then runs with its now-stale generation 1 and must no-op.
+        gate.Release.TrySetResult();
+
+        deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!watchdogTask.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+        await watchdogTask;
+
+        // Let any final published events settle, then drain and count.
+        for (var i = 0; i < 10; i++)
+        {
+            await Task.Yield();
+        }
+
+        var disconnected = 0;
+        var reconnected = 0;
+        while (events.TryRead(out var ev))
+        {
+            if (ev is ConnectionDisconnected)
+            {
+                disconnected++;
+            }
+            else if (ev is ConnectionReconnected)
+            {
+                reconnected++;
+            }
+        }
+
+        disconnected.ShouldBe(1, "the stale watchdog trigger must not emit a second Disconnected");
+        reconnected.ShouldBe(1);
+        client.ConnectionEpoch.ShouldBe(2, "the stale trigger must not advance the connection generation");
+        client.IsConnected.ShouldBeTrue("the freshly recovered connection must survive the stale trigger");
+        _adapter.ConnectCallCount.ShouldBe(2, "initial connect + one reconnect only — no redundant teardown");
+    }
+
+    [Fact]
+    public async Task SubscribeTopicAsync_RacingInProgressReconnect_SerializedBehindConnectLock()
+    {
+        // CON-3: a subscribe must not race a reconnect's replay. With the direct send serialized
+        // behind _connectLock, a subscribe issued while a reconnect holds the lock does not register
+        // or send until the reconnect completes — so its message can never be both replayed and
+        // direct-sent on the same connection. Here the racing subscribe is the only subscription, so
+        // after settling its message is sent exactly once on the new connection.
+        var ct = TestContext.Current.CancellationToken;
+        var fakeTime = new FakeTimeProvider();
+        await using var client = CreateClient(fakeTime);
+        await client.ConnectAsync(ct);
+
+        // Park a reconnect's connect (holding _connectLock).
+        var gate = _adapter.InstallConnectGate();
+        var reconnectTask = Task.Run(() => _notifier.TriggerRefreshAsync(ct), ct);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!gate.Entered.Task.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            fakeTime.Advance(TimeSpan.FromMilliseconds(500));
+            await Task.Yield();
+        }
+        gate.Entered.Task.IsCompleted.ShouldBeTrue(
+            "the reconnect should be parked inside ConnectAsync holding the connect lock");
+
+        // Fire a subscribe while the reconnect holds the lock. Invoked directly (not via Task.Run) so
+        // it runs synchronously up to _connectLock.WaitAsync, then parks — deterministic. It must NOT
+        // register mid-reconnect (which would let replay and its own send both fire the topic).
+        const string subscribeMessage = "smd+265598+{}";
+        var subscribeTask = client.SubscribeTopicAsync(subscribeMessage, "smd", null, ct);
+
+        subscribeTask.IsCompleted.ShouldBeFalse(
+            "the subscribe must block on the connect lock during an in-flight reconnect");
+        client.ActiveSubscriptionCount.ShouldBe(0,
+            "the racing subscribe must not register until the reconnect releases the lock");
+
+        // Release the reconnect; the subscribe then registers and sends exactly once on the new socket.
+        gate.Release.TrySetResult();
+        await reconnectTask.WaitAsync(TimeSpan.FromSeconds(5), ct);
+        await subscribeTask.WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+        client.ActiveSubscriptionCount.ShouldBe(1);
+        _adapter.SentMessages.Count(m => m == subscribeMessage).ShouldBe(1,
+            "the subscribe message must be sent exactly once per connection — not replayed and direct-sent");
+    }
+
     private static async Task<ConnectionEvent> ReadEventAsync(ChannelReader<ConnectionEvent> reader, CancellationToken cancellationToken)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
