@@ -486,6 +486,36 @@ public class FlexOperationsPollingTests
         err.Message.ShouldContain("did not succeed after 3 attempts");
         err.Message.ShouldContain("1018");
         handler.CallCount.ShouldBe(3);
+
+        // ERR-3 (breaking-behavioral): a transient code (1018) whose send retries are exhausted stays
+        // classified transient — the surfaced error carries IsRetryable=true, not a hardcoded false. The
+        // condition (too many requests) is still resolvable by waiting; a consumer may retry later.
+        err.IsRetryable.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ExecuteQueryAsync_SendRequestExhaustedTransient_ErrorIsRetryable()
+    {
+        // ERR-3: dedicated guard — the exhausted-transient send error is retryable (the transient
+        // classification survives retry exhaustion, so a consumer is not told the failure is permanent).
+        var handler = new SequentialFakeHttpHandler(
+            _retryableSendRequest1018, _retryableSendRequest1018, _retryableSendRequest1018);
+        var fakeTime = new FakeTimeProvider();
+        var ops = CreateOperations(handler, timeProvider: fakeTime);
+
+        var resultTask = ops.ExecuteQueryAsync("Q1", TestContext.Current.CancellationToken);
+
+        fakeTime.Advance(TimeSpan.FromSeconds(13));
+        await Task.Yield();
+        fakeTime.Advance(TimeSpan.FromSeconds(13));
+        await Task.Yield();
+
+        var result = await resultTask;
+
+        result.IsSuccess.ShouldBeFalse();
+        var err = result.Error.ShouldBeOfType<IbkrFlexError>();
+        err.ErrorCode.ShouldBe(1018);
+        err.IsRetryable.ShouldBeTrue();
     }
 
     [Fact]

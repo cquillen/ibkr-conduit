@@ -19,7 +19,14 @@ internal static class ResultFactory
     /// <summary>
     /// Converts a Refit response with a pre-deserialized body into a Result.
     /// </summary>
-    public static Result<T> FromResponse<T>(IApiResponse<T> response, string? requestPath = null)
+    /// <param name="response">The Refit response to classify.</param>
+    /// <param name="requestPath">The request path, used for error attribution.</param>
+    /// <param name="orderMutating">
+    /// True when the response comes from an order-mutating endpoint (place, modify, reply). A 2xx body
+    /// carrying a bare-object error then classifies as <see cref="IbkrOrderRejectedError"/> rather than
+    /// the generic <see cref="IbkrHiddenError"/> (§9.9, ERR-4).
+    /// </param>
+    public static Result<T> FromResponse<T>(IApiResponse<T> response, string? requestPath = null, bool orderMutating = false)
     {
         response.ThrowOnSendFailure();
 
@@ -38,7 +45,7 @@ internal static class ResultFactory
         if (response.IsSuccessStatusCode)
         {
             // Check for hidden errors in 200 OK responses
-            var hiddenError = DetectHiddenError(rawBody, requestPath);
+            var hiddenError = DetectHiddenError(rawBody, requestPath, orderMutating);
             if (hiddenError is not null)
             {
                 return Result<T>.Failure(hiddenError);
@@ -61,7 +68,15 @@ internal static class ResultFactory
     /// Converts a Refit response with a raw string body into a Result using a custom parser.
     /// For <c>IApiResponse&lt;string&gt;</c>, the raw body is available via <c>Content</c>.
     /// </summary>
-    public static Result<T> FromResponse<T>(IApiResponse<string> response, Func<string, T> parser, string? requestPath = null)
+    /// <param name="response">The Refit response to classify.</param>
+    /// <param name="parser">Parser applied to the raw body on success.</param>
+    /// <param name="requestPath">The request path, used for error attribution.</param>
+    /// <param name="orderMutating">
+    /// True when the response comes from an order-mutating endpoint (place, modify, reply). A 2xx body
+    /// carrying a bare-object error then classifies as <see cref="IbkrOrderRejectedError"/> rather than
+    /// the generic <see cref="IbkrHiddenError"/> (§9.9, ERR-4).
+    /// </param>
+    public static Result<T> FromResponse<T>(IApiResponse<string> response, Func<string, T> parser, string? requestPath = null, bool orderMutating = false)
     {
         response.ThrowOnSendFailure();
 
@@ -78,7 +93,7 @@ internal static class ResultFactory
         if (response.IsSuccessStatusCode)
         {
             // Check for hidden errors in 200 OK responses
-            var hiddenError = DetectHiddenError(rawBody, requestPath);
+            var hiddenError = DetectHiddenError(rawBody, requestPath, orderMutating);
             if (hiddenError is not null)
             {
                 return Result<T>.Failure(hiddenError);
@@ -124,7 +139,14 @@ internal static class ResultFactory
         return new IbkrApiError(statusCode, errorMessage, rawBody, requestPath);
     }
 
-    private static IbkrHiddenError? DetectHiddenError(string rawBody, string? requestPath)
+    /// <summary>
+    /// Detects a 200-with-error "hidden error" in a bare-object 2xx body. Returns
+    /// <see cref="IbkrOrderRejectedError"/> when <paramref name="orderMutating"/> is true (place, modify,
+    /// reply — the request path is known to be an order endpoint, §9.9/ERR-4) and the generic
+    /// <see cref="IbkrHiddenError"/> for every other surface. Array-shaped bodies are skipped (order-array
+    /// rejects are classified downstream by <c>ClassifyOrderResponses</c>). Null when no error is present.
+    /// </summary>
+    private static IbkrError? DetectHiddenError(string rawBody, string? requestPath, bool orderMutating)
     {
         if (string.IsNullOrWhiteSpace(rawBody))
         {
@@ -154,16 +176,25 @@ internal static class ResultFactory
 
         if (!string.IsNullOrEmpty(errorBody.Error))
         {
-            return new IbkrHiddenError(errorBody.Error, rawBody, requestPath);
+            return BuildHiddenOrRejected(errorBody.Error, rawBody, requestPath, orderMutating);
         }
 
         if (errorBody.Success == false)
         {
-            return new IbkrHiddenError(errorBody.FailureList ?? "Operation failed", rawBody, requestPath);
+            return BuildHiddenOrRejected(errorBody.FailureList ?? "Operation failed", rawBody, requestPath, orderMutating);
         }
 
         return null;
     }
+
+    /// <summary>
+    /// Builds the taxonomy-correct 200-with-error subtype: <see cref="IbkrOrderRejectedError"/> for an
+    /// order-mutating endpoint, else the generic <see cref="IbkrHiddenError"/> (§9.9, ERR-4).
+    /// </summary>
+    private static IbkrError BuildHiddenOrRejected(string message, string rawBody, string? requestPath, bool orderMutating) =>
+        orderMutating
+            ? new IbkrOrderRejectedError(message, rawBody, requestPath)
+            : new IbkrHiddenError(message, rawBody, requestPath);
 
     private static string? TryParseErrorMessage(string? rawBody)
     {

@@ -304,8 +304,11 @@ public class IbkrClientTests
     }
 
     [Fact]
-    public async Task ValidateConnectionAsync_TransportError_ThrowsConfigurationException()
+    public async Task ValidateConnectionAsync_TransportError_ThrowsTransientException()
     {
+        // ERR-2 (breaking-behavioral): a transient TRANSPORT failure reaching the Flex Web Service is no
+        // longer misclassified as a FlexToken configuration problem — it classifies truthfully as
+        // transient (wait-and-retry), distinct from IbkrConfigurationException.
         var flex = new FakeFlexOperations
         {
             ExecuteQueryResult = Result<FlexGenericResult>.Failure(
@@ -318,11 +321,87 @@ public class IbkrClientTests
         };
         var client = CreateClient(flex: flex, options: options);
 
+        var ex = await Should.ThrowAsync<IbkrTransientException>(
+            () => client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("transient");
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_TransportErrorUnderThrowOnApiError_ThrowsTransientException()
+    {
+        // ERR-2: under ThrowOnApiError=true the transport failure arrives as a thrown IbkrApiException
+        // (EnsureSuccess) rather than a returned failure — it must STILL classify as transient, not leak
+        // the raw IbkrApiException nor be recast as a token problem.
+        var flex = new FakeFlexOperations
+        {
+            ExecuteQueryException = new IbkrApiException(
+                new IbkrApiError(null, "Connection refused", null, null))
+        };
+        var options = new IbkrClientOptions
+        {
+            FlexToken = "good-token",
+            FlexQueries = new FlexQueryOptions { CashTransactionsQueryId = "12345" }
+        };
+        var client = CreateClient(flex: flex, options: options);
+
+        var ex = await Should.ThrowAsync<IbkrTransientException>(
+            () => client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken));
+
+        ex.Message.ShouldContain("transient");
+    }
+
+    [Theory]
+    [InlineData(1015, "invalid")]
+    [InlineData(1012, "expired")]
+    [InlineData(1013, "IP restriction")]
+    public async Task ValidateConnectionAsync_FlexTokenErrorUnderThrowOnApiError_MapsToConfigurationException(
+        int errorCode, string expectedMessageFragment)
+    {
+        // ERR-2 (both throw settings): under ThrowOnApiError=true ExecuteQueryAsync THROWS
+        // IbkrApiException(IbkrFlexError) instead of returning a failed Result. The 1012/1013/1015 token
+        // mapping must still apply — the friendly IbkrConfigurationException is produced, not the raw
+        // IbkrApiException. The ThrowOnApiError=false path is covered by the sibling *_Throws* tests.
+        var flex = new FakeFlexOperations
+        {
+            ExecuteQueryException = new IbkrApiException(
+                new IbkrFlexError(errorCode, "Token error", false, "Token error", null, null))
+        };
+        var options = new IbkrClientOptions
+        {
+            FlexToken = "bad-token",
+            FlexQueries = new FlexQueryOptions { CashTransactionsQueryId = "12345" }
+        };
+        var client = CreateClient(flex: flex, options: options);
+
         var ex = await Should.ThrowAsync<IbkrConfigurationException>(
             () => client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken));
 
         ex.CredentialHint.ShouldBe("FlexToken");
-        ex.Message.ShouldContain("Could not reach the Flex Web Service");
+        ex.Message.ShouldContain(expectedMessageFragment);
+    }
+
+    [Fact]
+    public async Task ValidateConnectionAsync_FlexQueryErrorUnderThrowOnApiError_DoesNotThrow()
+    {
+        // ERR-2: a non-token Flex query error (token appears valid) is logged and swallowed even when it
+        // arrives as a thrown IbkrApiException under ThrowOnApiError=true — parity with the returned-Result
+        // path (ValidateConnectionAsync_FlexTokenOkButQueryFails_DoesNotThrow).
+        var flex = new FakeFlexOperations
+        {
+            ExecuteQueryException = new IbkrApiException(
+                new IbkrFlexError(1014, "Query is invalid", false, "Query is invalid", null, null))
+        };
+        var options = new IbkrClientOptions
+        {
+            FlexToken = "good-token",
+            FlexQueries = new FlexQueryOptions { CashTransactionsQueryId = "12345" }
+        };
+        var client = CreateClient(flex: flex, options: options);
+
+        await client.ValidateConnectionAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        flex.ExecuteQueryCallCount.ShouldBe(1);
     }
 
     [Fact]
@@ -488,6 +567,15 @@ public class IbkrClientTests
     private class FakeFlexOperations : IFlexOperations
     {
         public Result<FlexGenericResult>? ExecuteQueryResult { get; set; }
+
+        /// <summary>
+        /// When set, <see cref="ExecuteQueryAsync(string, CancellationToken)"/> throws this exception —
+        /// faithfully simulating <c>FlexOperations</c> under <c>ThrowOnApiError=true</c>, where
+        /// <c>EnsureSuccess()</c> throws an <see cref="IbkrApiException"/> instead of returning a failed
+        /// Result. Lets ERR-2 assert the classification holds under BOTH throw settings.
+        /// </summary>
+        public Exception? ExecuteQueryException { get; set; }
+
         public int ExecuteQueryCallCount { get; private set; }
         public string? LastQueryId { get; private set; }
 
@@ -498,6 +586,11 @@ public class IbkrClientTests
         {
             ExecuteQueryCallCount++;
             LastQueryId = queryId;
+            if (ExecuteQueryException is not null)
+            {
+                throw ExecuteQueryException;
+            }
+
             return Task.FromResult(ExecuteQueryResult ?? throw new NotImplementedException("ExecuteQueryResult not configured"));
         }
 

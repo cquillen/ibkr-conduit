@@ -9,19 +9,33 @@ public readonly struct Result<T>
 {
     private readonly T? _value;
     private readonly IbkrError? _error;
+    private readonly bool _isSuccess;
 
-    /// <summary>Whether the operation succeeded.</summary>
-    public bool IsSuccess { get; }
+    // §6.6 (ERR-5): distinguishes a value/error-carrying Result (set by both private constructors) from
+    // the uninitialized `default(Result<T>)` / `new Result<T>()` state, which carries neither. False for
+    // the uninitialized state (a struct's field defaults) and true for every constructed Result.
+    private readonly bool _initialized;
 
     /// <summary>
-    /// The success value. Throws <see cref="InvalidOperationException"/> if the result is a failure.
+    /// Whether the operation succeeded. Throws <see cref="InvalidOperationException"/> if this is an
+    /// uninitialized <c>default(Result&lt;T&gt;)</c> — which carries neither a value nor an error and is
+    /// invalid to consume (§6.6).
+    /// </summary>
+    public bool IsSuccess => _initialized
+        ? _isSuccess
+        : throw UninitializedResult();
+
+    /// <summary>
+    /// The success value. Throws <see cref="InvalidOperationException"/> if the result is a failure or is
+    /// uninitialized (§6.6).
     /// </summary>
     public T Value => IsSuccess
         ? _value!
         : throw new InvalidOperationException("Cannot access Value on a failed Result. Check IsSuccess first.");
 
     /// <summary>
-    /// The error details. Throws <see cref="InvalidOperationException"/> if the result is a success.
+    /// The error details. Throws <see cref="InvalidOperationException"/> if the result is a success or is
+    /// uninitialized (§6.6).
     /// </summary>
     public IbkrError Error => !IsSuccess
         ? _error!
@@ -31,15 +45,23 @@ public readonly struct Result<T>
     {
         _value = value;
         _error = null;
-        IsSuccess = true;
+        _isSuccess = true;
+        _initialized = true;
     }
 
     private Result(IbkrError error)
     {
         _value = default;
         _error = error;
-        IsSuccess = false;
+        _isSuccess = false;
+        _initialized = true;
     }
+
+    // §6.6 (ERR-5): a member access on an uninitialized Result names the misuse at the misuse site rather
+    // than surfacing a null-reference failure downstream.
+    private static InvalidOperationException UninitializedResult() => new(
+        "Uninitialized Result — a default(Result<T>) or new Result<T>() carries neither a value nor an " +
+        "error and is invalid to consume. Construct it via Result<T>.Success(...) or Result<T>.Failure(...).");
 
     /// <summary>Creates a successful result.</summary>
 #pragma warning disable CA1000 // Static factory methods on generic types are the standard Result pattern

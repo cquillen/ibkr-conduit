@@ -110,4 +110,88 @@ public class ResultTests
         result.Switch(v => { }, e => called = true);
         called.ShouldBeTrue();
     }
+
+    // --- ERR-5 / §6.6: an uninitialized Result<T> is invalid to consume — member access throws a clear
+    // InvalidOperationException naming the misuse, never a silent null-reference failure downstream. ---
+
+    [Fact]
+    public void DefaultResult_AccessingIsSuccess_ThrowsInvalidOperationException()
+    {
+        var result = default(Result<string>);
+        var ex = Should.Throw<InvalidOperationException>(() => { _ = result.IsSuccess; });
+        ex.Message.ShouldContain("uninitialized", Case.Insensitive);
+    }
+
+    [Fact]
+    public void DefaultResult_AccessingValue_ThrowsInvalidOperationException()
+    {
+        var result = default(Result<string>);
+        var ex = Should.Throw<InvalidOperationException>(() => { _ = result.Value; });
+        ex.Message.ShouldContain("uninitialized", Case.Insensitive);
+    }
+
+    [Fact]
+    public void DefaultResult_AccessingError_ThrowsInvalidOperationException()
+    {
+        var result = default(Result<string>);
+        var ex = Should.Throw<InvalidOperationException>(() => { _ = result.Error; });
+        ex.Message.ShouldContain("uninitialized", Case.Insensitive);
+    }
+
+    [Fact]
+    public void DefaultResult_EnsureSuccess_ThrowsInvalidOperationException()
+    {
+        var result = default(Result<string>);
+        Should.Throw<InvalidOperationException>(() => result.EnsureSuccess());
+    }
+
+    [Fact]
+    public void DefaultResult_Match_ThrowsInvalidOperationException()
+    {
+        var result = default(Result<string>);
+        Should.Throw<InvalidOperationException>(() => result.Match(v => v, e => e.Message ?? ""));
+    }
+
+    [Fact]
+    public void DefaultResult_Switch_ThrowsInvalidOperationException()
+    {
+        var result = default(Result<string>);
+        Should.Throw<InvalidOperationException>(() => result.Switch(v => { }, e => { }));
+    }
+
+    [Fact]
+    public void DefaultResult_Map_ThrowsInvalidOperationException()
+    {
+        var result = default(Result<int>);
+        Should.Throw<InvalidOperationException>(() => result.Map(v => v.ToString()));
+    }
+
+    [Fact]
+    public void NewResult_AccessingError_ThrowsInvalidOperationException()
+    {
+        // new Result<T>() is the same uninitialized state as default(Result<T>).
+        var result = new Result<string>();
+        Should.Throw<InvalidOperationException>(() => { _ = result.Error; });
+    }
+
+    [Fact]
+    public void ConstructedSuccess_MembersUnaffected_ByUninitializedGuard()
+    {
+        // A properly-constructed success Result is unaffected by the uninitialized guard.
+        var result = Result<string>.Success("ok");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBe("ok");
+        result.Match(v => v, e => "err").ShouldBe("ok");
+    }
+
+    [Fact]
+    public void ConstructedFailure_MembersUnaffected_ByUninitializedGuard()
+    {
+        // A properly-constructed failure Result is unaffected by the uninitialized guard.
+        var error = new IbkrApiError(HttpStatusCode.BadRequest, "bad", "", "/test");
+        var result = Result<string>.Failure(error);
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBe(error);
+        result.Match(v => v, e => e.Message ?? "").ShouldBe("bad");
+    }
 }

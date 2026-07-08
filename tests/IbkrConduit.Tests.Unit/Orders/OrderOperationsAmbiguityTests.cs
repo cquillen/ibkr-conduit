@@ -85,19 +85,22 @@ public class OrderOperationsAmbiguityTests
         result.Error.ShouldBeOfType<IbkrOrderRejectedError>().RejectionMessage.ShouldBe("Order rejected.");
     }
 
-    // --- AMB-3: reply 2xx routes through hidden-error detection ---
+    // --- AMB-3 / ERR-4: reply 2xx routes through order-mutating hidden-error detection ---
 
     [Fact]
-    public async Task ReplyAsync_HiddenErrorBody_ReturnsFailureWithRejectReason()
+    public async Task ReplyAsync_BareObjectErrorBody_ReturnsOrderRejectedError()
     {
+        // ERR-4 / §9.9 (breaking-behavioral): a bare-object 200-with-error on the reply endpoint (an
+        // order-mutating surface) now classifies as the order-rejection subtype, NOT the generic
+        // hidden-error subtype which is reserved for non-order surfaces.
         _fakeApi.ReplyStatus = HttpStatusCode.OK;
         _fakeApi.ReplyBody = """{"error":"We cannot accept an order at the limit price you selected."}""";
 
         var result = await _sut.ReplyAsync("reply-1", true, TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeFalse();
-        result.Error.Message.ShouldContain("cannot accept an order");
-        result.Error.ShouldBeOfType<IbkrHiddenError>();
+        var rejected = result.Error.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldContain("cannot accept an order");
     }
 
     [Fact]
