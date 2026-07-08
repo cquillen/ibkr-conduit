@@ -72,6 +72,11 @@ internal class SessionTokenProvider : ISessionTokenProvider, IDisposable
 
             activity?.SetTag(LogFields.Cached, false);
             _cached = await _lstClient.GetLiveSessionTokenAsync(_credentials, cancellationToken);
+
+            // AUT-3: advance the version so a concurrent RefreshAsync that snapshotted the version
+            // before this lazy acquisition sees the change and reuses this freshly-acquired token —
+            // rather than performing a redundant second handshake (a duplicate ssodh/init flight).
+            Interlocked.Increment(ref _version);
             return _cached;
         }
         finally

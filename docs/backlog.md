@@ -322,7 +322,7 @@ Findings SES-1, SES-2 (both high, CONFIRMED): a reauth failure thrown from the t
 **TDD notes:** red tests extend TickleTimerTests: reauth-throw inside the 401 branch leaves the loop ticking (mock-server tickle counts); cancel-initializer-token case.
 
 #### PVR-13 — Session/auth internals concurrency hardening
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #260 · **Stream:** PVR · **Depends on:** none
 **Risk:** high
 **Spec:** trivial-skip
 Findings CON-1 (high, CONFIRMED), AUT-3, AUT-4 (low, CONFIRMED): `SessionManager.DisposeAsync` neither cancels `_disposeCts` first nor serializes with an in-flight reauth — the ODE/leaked-tickle-timer window CON-1's corroboration traces end-to-end; `SessionTokenProvider`'s refresh dedupe misses acquisitions completed by the lazy path (redundant double-handshake); the LST-validation `CryptographicException` maps to misleading "signing" guidance instead of naming the credential fields actually implicated. **`fix:`.**

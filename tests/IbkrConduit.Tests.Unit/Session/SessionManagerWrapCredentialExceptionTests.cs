@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Tasks;
+using IbkrConduit.Auth;
 using IbkrConduit.Errors;
 using IbkrConduit.Session;
 using Shouldly;
@@ -107,6 +108,31 @@ public class SessionManagerWrapCredentialExceptionTests
         var result = SessionManager.WrapCredentialException(ex);
 
         result.ShouldBeOfType<IbkrConfigurationException>();
+    }
+
+    [Fact]
+    public void LiveSessionTokenValidationException_NamesImplicatedCredentialFields_NotSigning()
+    {
+        // AUT-4: an LST-validation failure implicates the fields that derive/validate the token —
+        // ConsumerKey, EncryptionPrivateKey (via the decrypted access-token secret), and DhPrime.
+        // It must NOT be classified as an RSA "signing" failure: the signing key only signs the LST
+        // *request*, and a bad signing key is rejected upstream as an HTTP 401 — it never reaches
+        // the local signature comparison. The message string "...signature..." would otherwise match
+        // the generic "sign" branch and point the operator at the wrong credential.
+        var ex = new LiveSessionTokenValidationException(
+            "Live Session Token validation failed: computed signature does not match server's signature.");
+
+        var result = SessionManager.WrapCredentialException(ex);
+
+        var config = result.ShouldBeOfType<IbkrConfigurationException>();
+        config.InnerException.ShouldBeSameAs(ex);
+        config.CredentialHint.ShouldNotBeNull();
+        config.CredentialHint!.ShouldContain("ConsumerKey");
+        config.CredentialHint.ShouldContain("EncryptionPrivateKey");
+        config.CredentialHint.ShouldContain("DhPrime");
+        config.CredentialHint.ShouldNotContain("SignaturePrivateKey");
+        config.Message.ShouldNotContain("RSA signature failed");
+        config.Message.ShouldContain("Live Session Token");
     }
 
     [Fact]

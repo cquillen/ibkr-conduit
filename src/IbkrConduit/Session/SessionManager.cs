@@ -91,6 +91,14 @@ internal sealed partial class SessionManager : ISessionManager
     private readonly object _proactiveRefreshLock = new();
     private ITickleTimer? _tickleTimer;
     private CancellationTokenSource? _proactiveRefreshCts;
+
+    /// <summary>
+    /// The currently-scheduled proactive-refresh loop, captured (not fire-and-forget) so
+    /// <see cref="DisposeAsync"/> can await it to completion — a leaked <see cref="RunProactiveRefreshAsync"/>
+    /// loop (or the re-auth it is mid-flight on) outliving dispose is CON-1's leaked-loop window.
+    /// Mutated only under <see cref="_proactiveRefreshLock"/>.
+    /// </summary>
+    private Task? _proactiveRefreshTask;
     private LiveSessionToken? _currentLst;
 
     /// <summary>
@@ -218,6 +226,19 @@ internal sealed partial class SessionManager : ISessionManager
                     connected: initResponse.Connected,
                     competing: initResponse.Competing,
                     established: initResponse.Established);
+
+                // CON-1: if dispose began while this init was awaiting ssodh/init, do NOT start a
+                // tickle timer. DisposeAsync sets _state = ShuttingDown (and _disposed) and cancels
+                // _disposeCts before parking on the semaphore barrier; the timer created below is
+                // linked to the CONSUMER's token, not _disposeCts, so a timer started now would
+                // outlive dispose as a leaked tickle loop. Mirrors the ShuttingDown short-circuit in
+                // ReauthenticateAsync. This narrows the window; DisposeAsync's post-barrier StopAsync
+                // is the airtight backstop for the residual race where this check passes just before
+                // dispose flips the state.
+                if (_disposed || _state == SessionState.ShuttingDown)
+                {
+                    return;
+                }
 
                 // Stop any prior tickle timer before creating a new one. A failed reauth leaves the
                 // old timer running (reauth intentionally does not stop it — deadlock hazard); re-init
@@ -448,24 +469,74 @@ internal sealed partial class SessionManager : ISessionManager
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Session.Shutdown");
         activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
 
-        // Key off whether the session was ever established (not the current state): a failed
-        // reauth resets _state to Uninitialized (SES-3) without un-establishing the session, so
-        // deriving "was initialized" from _state would skip the logout + gauge decrement.
-        var wasInitialized = _sessionEstablished;
         _state = SessionState.ShuttingDown;
+
+        // CON-1: cancel the dispose token FIRST, before touching the tickle timer, the
+        // proactive-refresh loop, or the semaphore. Every internal background operation that runs
+        // on this token — the proactive-refresh loop and the re-auth it drives — begins unwinding
+        // immediately. Without this first-cancel, an in-flight re-auth kept running past dispose,
+        // later touched the disposed semaphore (ObjectDisposedException) and left a live refresh
+        // loop behind: the leaked-loop window behind the intermittent tickle-watchdog hang.
+        _disposeCts.Cancel();
+
+        // Stop and AWAIT the tickle loop (which drains any tickle-triggered re-auth, cancelled via
+        // the tickle timer's own token).
+        if (_tickleTimer != null)
+        {
+            await _tickleTimer.StopAsync();
+        }
+
+        // Cancel the proactive-refresh slot, then serialize with any still-in-flight re-auth/init by
+        // acquiring the semaphore before AWAITing the proactive loop and tearing anything down. Once
+        // held, no re-auth/init can be inside its critical section (so disposing the semaphore cannot
+        // throw ObjectDisposedException into one) and no success path can schedule a fresh refresh
+        // loop. The dispose token is already cancelled, so an internal re-auth holding or waiting on
+        // the semaphore unwinds promptly and releases it — this acquisition cannot deadlock against it.
+        CancelProactiveRefresh();
+        await _semaphore.WaitAsync(CancellationToken.None);
+
+        // CON-1: a FIRST init that raced this dispose could have created and started a NEW tickle
+        // timer AFTER the pre-barrier stop above ran (which was a no-op because _tickleTimer was
+        // still null while that init was mid-flight). Now that the semaphore is held, no init/reauth
+        // is inside its critical section, so _tickleTimer references whatever a racing init started;
+        // stop it. Idempotent and null-safe — a no-op when nothing new was started or the timer is
+        // already stopped. The just-started timer has no callback in-flight, so this stops promptly
+        // (no deadlock), and it runs before _semaphore/_disposeCts are disposed, so it cannot throw
+        // ObjectDisposedException. This must NOT replace the pre-barrier stop: a tickle-callback
+        // reauth (on the tickle token, not _disposeCts) can hold the semaphore, so the pre-barrier
+        // stop is still needed to drain it and let the WaitAsync above proceed.
+        if (_tickleTimer != null)
+        {
+            await _tickleTimer.StopAsync();
+        }
+
+        Task? proactiveRefreshTask;
+        lock (_proactiveRefreshLock)
+        {
+            proactiveRefreshTask = _proactiveRefreshTask;
+            _proactiveRefreshTask = null;
+        }
+
+        if (proactiveRefreshTask != null)
+        {
+            // The loop runs on the (now-cancelled) dispose token and never re-enters the semaphore
+            // once cancelled, so awaiting it while holding the semaphore is safe — it cannot leak
+            // past dispose.
+            await proactiveRefreshTask;
+        }
+
+        // Read whether the session was ever established AFTER draining every in-flight operation and
+        // acquiring the semaphore, so a dispose racing an in-flight init sees the settled value (SES-6):
+        // the gauge decrement and the logout track exactly whether the session actually came up. Keyed
+        // off _sessionEstablished, not _state, because a failed reauth resets _state to Uninitialized
+        // without un-establishing the session.
+        var wasInitialized = _sessionEstablished;
 
         if (wasInitialized)
         {
             _activeSessionCount.Add(-1,
                 new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
         }
-
-        if (_tickleTimer != null)
-        {
-            await _tickleTimer.StopAsync();
-        }
-
-        CancelProactiveRefresh();
 
         // The manager path issues its own single bounded logout in ManagedTenant.DisposeAsync,
         // so it suppresses this one to avoid a duplicate (VCR-08 / MGR-1). The single-account
@@ -566,13 +637,17 @@ internal sealed partial class SessionManager : ISessionManager
         lock (_proactiveRefreshLock)
         {
             _proactiveRefreshCts = cts;
-        }
 
-        // Call the async method directly (not via Task.Run) so the Task.Delay timer
-        // is registered synchronously before this method returns. With Task.Run, the
-        // body is queued to the thread pool and may not register its timer before a
-        // test that advances a FakeTimeProvider, causing a missed-Advance hang.
-        _ = RunProactiveRefreshAsync(timeUntilRefresh, cts.Token);
+            // Call the async method directly (not via Task.Run) so the Task.Delay timer
+            // is registered synchronously before this method returns. With Task.Run, the
+            // body is queued to the thread pool and may not register its timer before a
+            // test that advances a FakeTimeProvider, causing a missed-Advance hang.
+            //
+            // Capture the running loop under the lock so DisposeAsync can await it to
+            // completion (CON-1) — a fire-and-forget task would let the loop, and any
+            // re-auth it is mid-flight on, outlive dispose.
+            _proactiveRefreshTask = RunProactiveRefreshAsync(timeUntilRefresh, cts.Token);
+        }
     }
 
     private async Task RunProactiveRefreshAsync(TimeSpan timeUntilRefresh, CancellationToken slotToken)
@@ -647,6 +722,18 @@ internal sealed partial class SessionManager : ISessionManager
     internal static Exception WrapCredentialException(Exception ex) =>
         ex switch
         {
+            // AUT-4: an LST-validation failure implicates the fields that derive and validate the token —
+            // ConsumerKey, EncryptionPrivateKey (via the decrypted access-token secret), and DhPrime — NOT
+            // SignaturePrivateKey (which only signs the LST request; a bad signing key is rejected upstream
+            // as an HTTP 401 and never reaches the local signature comparison). Matched by type and placed
+            // first so the "signature" wording in its message cannot fall through to the "sign" branch below.
+            LiveSessionTokenValidationException lve =>
+                new IbkrConfigurationException(
+                    "Live Session Token validation failed — the token derived from the OAuth handshake does not "
+                    + "match IBKR's signature. Verify ConsumerKey, EncryptionPrivateKey, EncryptedAccessTokenSecret, "
+                    + "and DhPrime (SignaturePrivateKey is not implicated — a bad signing key is rejected upstream as HTTP 401)",
+                    "ConsumerKey, EncryptionPrivateKey, EncryptedAccessTokenSecret, DhPrime", lve),
+
             CryptographicException ce when ce.Message.Contains("decrypt", StringComparison.OrdinalIgnoreCase) =>
                 new IbkrConfigurationException(
                     "Failed to decrypt access token secret — verify EncryptionPrivateKey matches the key registered in the IBKR portal",
