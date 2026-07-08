@@ -395,7 +395,7 @@ Finding TEN-1 (medium, CONFIRMED): `TenantBuilder` sets `SkipLogoutOnDispose=tru
 **Done when:** a post-init build failure issues the same bounded best-effort logout as `ManagedTenant` disposal (or the skip flag is set only once `ManagedTenant` takes ownership).
 
 #### PVR-23 — Market-data preflight cache vs session re-auth
-**Status:** Not started · **Stream:** PVR · **Depends on:** none
+**Status:** ✅ Done — #266 · **Stream:** PVR · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Finding RST-5 (low, PLAUSIBLE): the preflight cache marks a conid preflighted for `PreflightCacheDuration` at retry-issue time, so a session re-auth inside the window can leave snapshot calls returning field-less rows that are treated as fresh. The server-side preflight-reset behavior is unpinned and not observable on demand; rule-settled as safe-under-both (see stream Evidence): clear the cache on lifecycle notification regardless. **`fix:`.**
