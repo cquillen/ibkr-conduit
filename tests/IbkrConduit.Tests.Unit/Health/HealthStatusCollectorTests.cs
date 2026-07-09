@@ -240,6 +240,41 @@ public class HealthStatusCollectorTests
     }
 
     [Fact]
+    public async Task GetHealthStatusAsync_ActiveProbe_HealthyObserved_ClearsPriorCompetingFlag()
+    {
+        // PVR-20/ADR-0004: a competing verdict is sticky (set on an sts frame via MarkCompeting) and is
+        // "positively cleared later by a tickle/ssodh server response that reports competing:false". A
+        // healthy active probe (competing:false) is such a response — it must clear the prior competing
+        // flag, not leave it stuck. This exercises the true→false transition the sibling HealthyObserved
+        // test does not (it seeds only a failed state, leaving competing already false).
+        _tokenProvider.CurrentTokenExpiry.Returns(DateTimeOffset.UtcNow.AddHours(1));
+        _wsClient.IsConnected.Returns(false);
+        _wsClient.ActiveSubscriptionCount.Returns(0);
+
+        // Seed a sticky competing:true verdict as an sts frame would.
+        _sessionHealthState.MarkCompeting("competing session observed");
+        _sessionHealthState.GetSnapshot().Competing.ShouldBeTrue("precondition: the seeded state is competing");
+
+        // The active probe returns a healthy, non-competing verdict (competing is the 2nd field).
+        _sessionApi.GetAuthStatusAsync(Arg.Any<CancellationToken>())
+            .Returns(new AuthStatusResponse(true, false, true, true, null, null, null, null, null, null));
+
+        SetLastCallToNow();
+
+        var collector = CreateCollector();
+        var result = await collector.GetHealthStatusAsync(
+            activeProbe: true, cancellationToken: TestContext.Current.CancellationToken);
+
+        // The healthy probe positively cleared the prior competing flag — in the durable state and the
+        // returned health evidence.
+        var snapshot = _sessionHealthState.GetSnapshot();
+        snapshot.Competing.ShouldBeFalse("a healthy active probe must clear the prior sticky competing flag");
+        snapshot.Authenticated.ShouldBeTrue();
+        result.Session.Competing.ShouldBeFalse();
+        result.OverallStatus.ShouldBe(HealthState.Healthy);
+    }
+
+    [Fact]
     public async Task GetHealthStatusAsync_SessionCompeting_ReturnsDegraded()
     {
         _tokenProvider.CurrentTokenExpiry.Returns(DateTimeOffset.UtcNow.AddHours(1));

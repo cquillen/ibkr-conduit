@@ -241,6 +241,44 @@ public class OrderOperationsConfirmationWindowTests
     }
 
     [Fact]
+    public async Task ReplyAsync_ServiceUnavailableUnderThrowOnApiError_ThrowsAmbiguousButStillReleasesLock()
+    {
+        // PVR-06: under ThrowOnApiError=true a 503-invalidated reply must surface the ambiguous outcome by
+        // THROWING IbkrApiException(IbkrAmbiguousOrderError) — not by mis-ordering the teardown. Critically,
+        // the confirmation round is resolved (per-account lock released) BEFORE the throw propagates, so a
+        // blocked same-account placement is not wedged behind a throwing reply. This is the reply-ordering
+        // guarantee the ThrowOnApiError=false 503 tests do not cover.
+        var api = new ConfirmationFakeApi();
+        var time = new FakeTimeProvider();
+        var options = new IbkrClientOptions { ThrowOnApiError = true };
+        await using var sut = NewSut(api, time, options);
+
+        // A placement that returns a confirmation retains the per-account lock; the follow-up placement
+        // resolves once the round ends.
+        api.PlaceResponses.Enqueue(Confirmation("reply-1", "o354"));
+        api.PlaceResponses.Enqueue(Submitted("order-2"));
+
+        var first = await sut.PlaceOrderAsync("ACCT1", SampleOrder(), TestContext.Current.CancellationToken);
+        first.Value.IsT1.ShouldBeTrue("a confirmation is a success outcome even under ThrowOnApiError");
+
+        var second = sut.PlaceOrderAsync("ACCT1", SampleOrder(), TestContext.Current.CancellationToken);
+        (await CompletesWithinAsync(second, TimeSpan.FromMilliseconds(300)))
+            .ShouldBeFalse("the second placement waits on the retained confirmation lock");
+
+        // The reply 503s (invalidated confirmation). Under ThrowOnApiError it throws the ambiguous error.
+        api.SetReply(HttpStatusCode.ServiceUnavailable, _probeInvalidatedReplyBody);
+        var ex = await Should.ThrowAsync<IbkrApiException>(
+            () => sut.ReplyAsync("reply-1", true, TestContext.Current.CancellationToken));
+        var ambiguous = ex.Error.ShouldBeOfType<IbkrAmbiguousOrderError>();
+        ambiguous.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+
+        // The round resolved and released the lock even though the reply threw — reply-ordering preserved.
+        (await CompletesWithinAsync(second, TimeSpan.FromSeconds(2)))
+            .ShouldBeTrue("the confirmation round must release the account lock even when the reply throws");
+        (await second).Value.AsT0.OrderId.ShouldBe("order-2");
+    }
+
+    [Fact]
     public async Task ReplyAsync_AfterConfirmationTimeout_ReturnsAmbiguousOrderError()
     {
         // Acceptance: a reply after timeout classifies identically to the in-window invalidated reply.

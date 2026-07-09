@@ -153,6 +153,35 @@ public class IbkrClientTests
     }
 
     [Fact]
+    public async Task DisposeAsync_DisposesOrders()
+    {
+        // PVR-18 belt-and-suspenders: OrderOperations is an IAsyncDisposable that owns background
+        // §10.6 force-clear follow-ups and a confirmation-round timer. The container disposes this
+        // singleton on provider teardown, but the facade also disposes Orders defensively so a
+        // non-DI construction still tears the order operations down (no leaked follow-up/timer).
+        var orders = new DisposableFakeOrderOperations();
+        var client = CreateClient(orders: orders);
+
+        await client.DisposeAsync();
+
+        orders.DisposeCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_CalledTwice_DisposesOrdersOnce()
+    {
+        // The facade's atomic teardown guard covers the defensive Orders disposal too — a second
+        // dispose (provider disposal after `await using`) must not re-dispose Orders.
+        var orders = new DisposableFakeOrderOperations();
+        var client = CreateClient(orders: orders);
+
+        await client.DisposeAsync();
+        await client.DisposeAsync();
+
+        orders.DisposeCount.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task ValidateConnectionAsync_FlexTokenAndQueryIdConfigured_ValidatesSuccessfully()
     {
         var flex = new FakeFlexOperations
@@ -515,6 +544,22 @@ public class IbkrClientTests
         public Task<Result<OrderStatus>> GetOrderStatusAsync(string orderId, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<string>> DismissNotificationAsync(int orderId, string reqId, string text, CancellationToken ct = default) =>
             Task.FromResult(Result<string>.Success("ok"));
+    }
+
+    /// <summary>
+    /// An <see cref="IOrderOperations"/> that is also <see cref="IAsyncDisposable"/>, mirroring the real
+    /// <c>OrderOperations</c> (which owns background follow-ups + a confirmation timer) so the facade's
+    /// defensive Orders disposal (PVR-18) is observable.
+    /// </summary>
+    private sealed class DisposableFakeOrderOperations : FakeOrderOperations, IAsyncDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            return ValueTask.CompletedTask;
+        }
     }
 
     private class FakeMarketDataOperations : IMarketDataOperations
