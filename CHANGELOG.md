@@ -2,6 +2,89 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.8.0...IbkrConduit-v0.9.0) (2026-07-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* session-path HTTP 5xx and 429 (ssodh/init + LST acquisition) now surface as IbkrTransientException instead of IbkrConfigurationException. Consumers that catch IbkrConfigurationException around session initialization to handle transient outages must catch IbkrTransientException (or Exception) and drive retry/backoff off it. This is the safe direction — a transient IBKR outage signals retry rather than a spurious permanent credential error.
+* an order-mutating 200-with-error now surfaces as IbkrOrderRejectedError (was the generic hidden-error subtype); accessing a member of an uninitialized default(Result<T>) now throws InvalidOperationException; startup Flex validation classifies transport failures as transient.
+* Flex DTO money/quantity fields change from decimal to decimal? (null = unparseable-or-absent); timezone-abbreviation timestamps now parse to null (read RawElement).
+* target-qualified streaming frames now route only to their own subscription (previously by bare prefix, cross-delivering to all same-prefix subscribers); unmatched frames drop; the facade rejects malformed conid/account targets.
+* the default telemetry tenant label is now "default" instead of the OAuth consumer key; consumers relying on the consumer key as the implicit tenant id must pass an explicit tenantId.
+* concurrent same-account placements now wait for a pending confirmation round; a 503 on a reply now surfaces as IbkrAmbiguousOrderError (was IbkrApiError(503)). ConfirmationTimeout option is additive.
+* these REST DTO money/quantity fields change from double/non-nullable to decimal? — null now means absent from the response (was 0/0.0). Consumers doing arithmetic must handle null.
+* disposing the client now also tears down the WebSocket client (streaming socket, heartbeat, message pump), not just the REST session.
+* GetSubAccountsPagedAsync returns Result<SubAccountsPage> instead of Result<List<SubAccount>>; read .Value.Subaccounts (and .Value.Metadata when present).
+* GetLiveOrdersAsync now returns Result<LiveOrdersSnapshot> instead of Result<List<LiveOrder>>. Read the orders via `.Value.Orders` and the priming flag via `.Value.IsSnapshot`. Treat `IsSnapshot == false` together with an empty `Orders` as "unprimed — call again", NOT as "no live orders"; only an empty `Orders` with `IsSnapshot == true` is an authoritative no-orders fact. Consumers no longer need to send the force=true follow-up after a filtered call — the library issues it automatically.
+* init/reauth now fail (throw) on a 200 ssodh/init with authenticated=false where they previously reported success into a dead session — consumers that treated initialization/re-authentication success as unconditional must handle the failure path (IbkrApiException wrapping IbkrSessionError, with IsCompeting set on a competing takeover). The public SessionStatusEvent record gains two additive nullable fields, Competing and FailReason (ADR-0001 shapes).
+* consumer-observable streaming behavior changed and consumers must adapt: (1) a second concurrent Subscribe on IIbkrSubscription<T>.Stream now throws InvalidOperationException instead of silently splitting delivery; (2) an observer whose OnNext throws now tears the subscription down via OnError (including an OperationCanceledException) instead of completing gracefully; (3) new consumer-visible connection-lifecycle events are emitted via IStreamingOperations.SubscribeConnectionEvents(); (4) the default IbkrClientOptions.StreamingBufferSize is now 2048 (was 256).
+* order-mutating POSTs (place, modify, reply) are no longer automatically replayed after a 401. A 401 on such a POST now returns Result.Failure(IbkrAmbiguousOrderError) — a NEW public error type in the IbkrError taxonomy — instead of transparently retrying and returning the success/refusal of a second submission. Consumers must handle the ambiguous outcome: treat it as "sent — outcome unknown" (never a definitive refusal) and reconcile via GetLiveOrdersAsync / GetTradesAsync (matching your cOID) before resubmitting. Idempotent GET/DELETE calls and the /orders/whatif POST are unchanged (still replay-and-succeed).
+* wire-optional fields on public DTOs are now nullable; null means "absent from this frame/row" — do NOT treat null as 0/empty. Fields whose type changed:
+    - OrderUpdate.Conid: int -> int?
+    - OrderUpdate.Symbol/Side/OrderType/Status: string -> string?
+    - OrderUpdate.Size/FilledQuantity/RemainingQuantity: decimal -> decimal?
+    - TradeExecution.Size: decimal -> decimal?
+    - Trade.Size/Price: decimal -> decimal?
+    - Trade.OrderRef/Submitter: string -> string?
+    - LiveOrder.FilledQuantity/RemainingQuantity/TotalSize: decimal -> decimal?
+    - SessionStatusEvent.Authenticated: bool -> bool?
+    - AccountStatusEvent.IsFT/IsPaper: bool -> bool?
+    Consumers merging sparse deltas must overwrite only on non-null fields,
+    and must not read a null verdict/quantity/price as a real 0, false, or
+    empty string.
+
+### Features
+
+* add ExtOperator pass-through order field (VCR-12) ([#253](https://github.com/cquillen/ibkr-conduit/issues/253)) ([359463b](https://github.com/cquillen/ibkr-conduit/commit/359463b7fa7be41efaec7e39cea0b87cc1f14ff4))
+* add trailing-order parameters with fail-fast validation (PVR-05) ([#254](https://github.com/cquillen/ibkr-conduit/issues/254)) ([18d8757](https://github.com/cquillen/ibkr-conduit/commit/18d87575d8bde92f31f4952a7ed5355688d047ab))
+* complete error taxonomy wave 2 (order-rejected, flex classification, uninitialized Result) (PVR-10) ([#277](https://github.com/cquillen/ibkr-conduit/issues/277)) ([daa38d9](https://github.com/cquillen/ibkr-conduit/commit/daa38d9c7455215607d00b5b35cec8a133e1dfe7))
+* configurable health-status options + complete option validation (PVR-07) ([#256](https://github.com/cquillen/ibkr-conduit/issues/256)) ([438243b](https://github.com/cquillen/ibkr-conduit/commit/438243b0d0eb9d840602a26b22ce9eef963f7caf))
+* facade DisposeAsync performs full idempotent client teardown (PVR-21) ([#258](https://github.com/cquillen/ibkr-conduit/issues/258)) ([00a5241](https://github.com/cquillen/ibkr-conduit/commit/00a524186361403f987f981c5382fc4e3b92b887))
+* gate order-mutating POST 401 replay behind an ambiguous-outcome error ([#242](https://github.com/cquillen/ibkr-conduit/issues/242)) ([1bc97d6](https://github.com/cquillen/ibkr-conduit/commit/1bc97d687af715d76bb7b87f2c38e5ba336a8043))
+* live IBKR doc scouting — source registry, scout/probe agents, evidence discipline ([#251](https://github.com/cquillen/ibkr-conduit/issues/251)) ([4ba7d31](https://github.com/cquillen/ibkr-conduit/commit/4ba7d31756cd9ec4505f3f3cb1dda82483be36a0))
+* make streaming delivery loss observable and streams single-observer ([#243](https://github.com/cquillen/ibkr-conduit/issues/243)) ([5543def](https://github.com/cquillen/ibkr-conduit/commit/5543def4443505613f60af3f21c77f7b04fa056a))
+* nullable Flex money with parse-failure signal + raw timestamps + wall-clock poll bound (PVR-09) ([#276](https://github.com/cquillen/ibkr-conduit/issues/276)) ([4115646](https://github.com/cquillen/ibkr-conduit/commit/411564665fb182bcc51226617dcfa871ec834065))
+* page sub-accounts response tolerating wrapper and bare-array shapes (PVR-03) ([#257](https://github.com/cquillen/ibkr-conduit/issues/257)) ([0bc0cda](https://github.com/cquillen/ibkr-conduit/commit/0bc0cdaabeae8d73bd968c40db941c0a9bdf7628))
+* per-element isolation for sor/spl/ssd/sld mappers + ssd row value/extension-data (PVR-04) ([#273](https://github.com/cquillen/ibkr-conduit/issues/273)) ([0144dfe](https://github.com/cquillen/ibkr-conduit/commit/0144dfe2a2093560100a32e7e7d9089c4be890fb))
+* presence-preserving decimal money DTOs for portfolio/account-summary/event contracts (PVR-02) ([#271](https://github.com/cquillen/ibkr-conduit/issues/271)) ([827e060](https://github.com/cquillen/ibkr-conduit/commit/827e0605d6a314809f4f664d99dacb29b87c3995))
+* preserve wire field-presence as nullable on order/trade DTOs ([#238](https://github.com/cquillen/ibkr-conduit/issues/238)) ([86a076a](https://github.com/cquillen/ibkr-conduit/commit/86a076ac339e61eeb4d8eee05eff8c12e550aaa2))
+* redact credential ToString + default tenant label to default not consumer key (PVR-08) ([#274](https://github.com/cquillen/ibkr-conduit/issues/274)) ([9baaf3c](https://github.com/cquillen/ibkr-conduit/commit/9baaf3cfcee5cb9ee11f0308d911fab994f126b9))
+* serialized order confirmation-window with ambiguous-reply classification (PVR-06) ([#272](https://github.com/cquillen/ibkr-conduit/issues/272)) ([3b00a62](https://github.com/cquillen/ibkr-conduit/commit/3b00a62a3028b1bfc319d29ecf58cb557ae666c2))
+* subscription-scoped streaming routing by full topic identity (PVR-01) ([#275](https://github.com/cquillen/ibkr-conduit/issues/275)) ([b257a29](https://github.com/cquillen/ibkr-conduit/commit/b257a29213f3d10b9622360527eb5006bd8de361))
+* surface live-orders priming via LiveOrdersSnapshot + auto-force follow-up ([#245](https://github.com/cquillen/ibkr-conduit/issues/245)) ([27052c9](https://github.com/cquillen/ibkr-conduit/commit/27052c9e85b8e514646f7d996421553aabcb2b67))
+* truthful competing-session signaling and health evidence (VCR-07) ([#244](https://github.com/cquillen/ibkr-conduit/issues/244)) ([5d5b737](https://github.com/cquillen/ibkr-conduit/commit/5d5b737eb9d8cb3a61b2dc20034033a8da15b6c1))
+* unify session-path Refit error classification (FO-3) ([#281](https://github.com/cquillen/ibkr-conduit/issues/281)) ([ebbd7bb](https://github.com/cquillen/ibkr-conduit/commit/ebbd7bbb761fb9710cf1c10a7beecb5937fff554))
+
+
+### Bug Fixes
+
+* bound the single-account dispose logout to LogoutTimeout (FO-1) ([#286](https://github.com/cquillen/ibkr-conduit/issues/286)) ([e88bc90](https://github.com/cquillen/ibkr-conduit/commit/e88bc90c6759248b749a9c0c472d6b4003fb5c47))
+* classify suppress failures without masking successful re-auth (PVR-14) ([#268](https://github.com/cquillen/ibkr-conduit/issues/268)) ([780518d](https://github.com/cquillen/ibkr-conduit/commit/780518d0782316cb26e9e2eb3374dc9d17a33f4e))
+* correct OrderType XML docs to the captured wire enum (VCR-11) ([#246](https://github.com/cquillen/ibkr-conduit/issues/246)) ([79415b0](https://github.com/cquillen/ibkr-conduit/commit/79415b00fd2262f55b9908bfbdba1ad75e28f5f3))
+* descend schema validation into collection rows + strict-mode raw-endpoint sentinel (PVR-19) ([#259](https://github.com/cquillen/ibkr-conduit/issues/259)) ([05f112a](https://github.com/cquillen/ibkr-conduit/commit/05f112a2c2dae724dba9c10866a92d289126802c))
+* dispose Orders on facade teardown + strengthen probe/reply-ordering/dispose coverage (FO-8b) ([#287](https://github.com/cquillen/ibkr-conduit/issues/287)) ([5488261](https://github.com/cquillen/ibkr-conduit/commit/5488261559dc09f140416c18e7bb1d89fd390799))
+* feed active-probe health verdict into SessionHealthState (PVR-20) ([#264](https://github.com/cquillen/ibkr-conduit/issues/264)) ([db83a03](https://github.com/cquillen/ibkr-conduit/commit/db83a033ce8b03e0de0e21490676123bc523ec57))
+* harden 401-retry-leg hidden-error detection + caller-cancel passthrough (PVR-11) ([#267](https://github.com/cquillen/ibkr-conduit/issues/267)) ([f3e9fc4](https://github.com/cquillen/ibkr-conduit/commit/f3e9fc434d054a2a2aa4739ec93c1cd74226dede))
+* harden IbkrClientManager tenant lifecycle (MGR-1/2/3/6) ([#239](https://github.com/cquillen/ibkr-conduit/issues/239)) ([5ad0612](https://github.com/cquillen/ibkr-conduit/commit/5ad0612b3b23975e9f5ad73933138f76b1acdbd9))
+* harden response-schema validation net + streaming money-field census (VCR-10) ([#248](https://github.com/cquillen/ibkr-conduit/issues/248)) ([e8a665c](https://github.com/cquillen/ibkr-conduit/commit/e8a665cfae8f2b4eaeb80c0c9b6b61f09c5487e9))
+* harden SessionManager dispose/reauth race + refresh dedupe + LST-error clarity (PVR-13) ([#260](https://github.com/cquillen/ibkr-conduit/issues/260)) ([744e01d](https://github.com/cquillen/ibkr-conduit/commit/744e01d1227dd27aed441b4d8adb21007054db85))
+* harden the session lifecycle state machine (VCR-06) ([#240](https://github.com/cquillen/ibkr-conduit/issues/240)) ([6b79abf](https://github.com/cquillen/ibkr-conduit/commit/6b79abf2198cdca7310b360f572532110c85380a))
+* harden WebSocket dispose/connect/subscribe races (PVR-15) ([#261](https://github.com/cquillen/ibkr-conduit/issues/261)) ([e322b51](https://github.com/cquillen/ibkr-conduit/commit/e322b517b235254a447a006f26cdcd70280fbc0b))
+* invalidate market-data preflight cache on session re-auth (PVR-23) ([#266](https://github.com/cquillen/ibkr-conduit/issues/266)) ([db3d628](https://github.com/cquillen/ibkr-conduit/commit/db3d6285ef1ad1811a1c5a2bd37a0eb8ae0a9444))
+* issue best-effort logout when a post-auth init step throws (FO-2) ([#284](https://github.com/cquillen/ibkr-conduit/issues/284)) ([ed41d56](https://github.com/cquillen/ibkr-conduit/commit/ed41d56208ab0fe185f64d4009282c26c5cb27a4))
+* keep tickle keepalive alive across reauth failure + caller-token cancel (PVR-12) ([#262](https://github.com/cquillen/ibkr-conduit/issues/262)) ([b017cd6](https://github.com/cquillen/ibkr-conduit/commit/b017cd6d3c7e425e33590b39a3f520f2b0bbaa76))
+* log out server session on post-init tenant build failure (PVR-22) ([#265](https://github.com/cquillen/ibkr-conduit/issues/265)) ([23e3ce8](https://github.com/cquillen/ibkr-conduit/commit/23e3ce860a9a7733b74e92aa40af3c08667567b4))
+* per-tenant metrics registration & rate-limiter disposal hygiene ([#249](https://github.com/cquillen/ibkr-conduit/issues/249)) ([18c6a23](https://github.com/cquillen/ibkr-conduit/commit/18c6a23f958064521e89b339d8e58e83c2ad43ea))
+* reap empty streaming subscriber-map entries (FO-4) ([#282](https://github.com/cquillen/ibkr-conduit/issues/282)) ([e0e516e](https://github.com/cquillen/ibkr-conduit/commit/e0e516e8d1b81f626c51940b457182ae8307d32a))
+* reap the empty subscriber entry on the STR-4 send-failure rollback (FO-10) ([#293](https://github.com/cquillen/ibkr-conduit/issues/293)) ([6c5a490](https://github.com/cquillen/ibkr-conduit/commit/6c5a490f6e71e5ce1735b760e587326fe4dad70c))
+* redact the consumer key in the QueryAccount diagnostic tool (FO-7) ([#285](https://github.com/cquillen/ibkr-conduit/issues/285)) ([fd94e45](https://github.com/cquillen/ibkr-conduit/commit/fd94e45bc56bb864c4355d9643494f042533d463))
+* rewire the QueryAccount diagnostic tool to the public surface (FO-11) ([#291](https://github.com/cquillen/ibkr-conduit/issues/291)) ([086e0eb](https://github.com/cquillen/ibkr-conduit/commit/086e0eb9ded66cfbe7ec47664ef544072eb72920))
+* run filtered live-orders force-clear follow-up as a background-tracked task (PVR-18) ([#270](https://github.com/cquillen/ibkr-conduit/issues/270)) ([ba6b71d](https://github.com/cquillen/ibkr-conduit/commit/ba6b71d081153322604d4cd191b74b0fa3a67935))
+* streaming mapper robustness — per-element str isolation and tolerant sts authenticated (VCR-03) ([#247](https://github.com/cquillen/ibkr-conduit/issues/247)) ([9db68a4](https://github.com/cquillen/ibkr-conduit/commit/9db68a4e2ed71959e4fbe9ec3b15ff63cb84f997))
+* WebSocket subscribe rollback + reconnect epoch guard + single-send replay (PVR-16) ([#269](https://github.com/cquillen/ibkr-conduit/issues/269)) ([1eb2388](https://github.com/cquillen/ibkr-conduit/commit/1eb23889924218555fe179089b7ab95225a4b6ad))
+* widen OrderType XML docs to probe-verified values (VCR-13) ([#252](https://github.com/cquillen/ibkr-conduit/issues/252)) ([a825bbc](https://github.com/cquillen/ibkr-conduit/commit/a825bbc6f72d2b9e52a7e03129989930bc3da222))
+
 ## [0.8.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.7.1...IbkrConduit-v0.8.0) (2026-07-04)
 
 
