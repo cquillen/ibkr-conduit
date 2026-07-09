@@ -358,6 +358,44 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                     channel.Writer.TryComplete();
                     throw new ObjectDisposedException(GetType().FullName);
                 }
+
+                // FO-4 / CON-3: the list was captured via GetOrAdd before these locks were taken. A
+                // concurrent last-writer unsubscribe may have reaped it in that window, so our writer
+                // now sits in a list no longer mapped under routingKey — dispatch (which TryGetValues
+                // the map) would never find it. Re-assert the mapping; a benign reap must not fail a
+                // legitimate subscribe, so roll back and retry once with a fresh list re-added under
+                // this same lock (the reap and dispose sweep both mutate the map under _subscriptionLock,
+                // so the retry cannot itself be reaped). Distinct from the _disposed case above, which
+                // still fails.
+                if (!_subscribers.TryGetValue(routingKey, out var mapped) || !ReferenceEquals(mapped, writers))
+                {
+                    _subscriptions.Remove(entry);
+                    lock (writers)
+                    {
+                        writers.Remove(channel.Writer);
+                    }
+
+                    writers = _subscribers.GetOrAdd(routingKey, _ => []);
+                    lock (writers)
+                    {
+                        writers.Add(channel.Writer);
+                    }
+                    _subscriptions.Add(entry);
+
+                    // Defensive: the retry re-added under _subscriptionLock, which serializes with the
+                    // reap and the dispose sweep, so a second miss should be unreachable. Fail rather
+                    // than return a subscription orphaned outside the map if it ever occurs.
+                    if (!_subscribers.TryGetValue(routingKey, out var remapped) || !ReferenceEquals(remapped, writers))
+                    {
+                        _subscriptions.Remove(entry);
+                        lock (writers)
+                        {
+                            writers.Remove(channel.Writer);
+                        }
+                        channel.Writer.TryComplete();
+                        throw new ObjectDisposedException(GetType().FullName);
+                    }
+                }
             }
 
             // Only send the subscribe message immediately if the WebSocket is already open.
