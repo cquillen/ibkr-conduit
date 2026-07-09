@@ -458,7 +458,7 @@ After the last unsubscribe, `IbkrWebSocketClient._subscribers` keeps an empty wr
 **TDD notes:** red test sets `CultureInfo.CurrentCulture` to `de-DE` and asserts the mapped tick numeric is correct.
 
 #### FO-8b — Test-strength hardening (PVR-20/06/18)
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** ✅ Done — #287 · **Stream:** FO · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Test-strength nits from the PVR panels, bundled: PVR-20 — strengthen the healthy-active-probe test to seed `competing:true`→`false` clearing; PVR-06 — add a `ThrowOnApiError=true` + 503/timeout reply-ordering test; PVR-18 — add a provider-only dispose-direction test (client `DisposeAsync` never called) for the facade teardown, and add the small belt-and-suspenders `IbkrClient.DisposeAsync` → dispose `Orders`. **`test:` (+ the one tiny dispose line).**
