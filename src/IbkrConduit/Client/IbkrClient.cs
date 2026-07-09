@@ -165,7 +165,18 @@ internal partial class IbkrClient : IIbkrClient
         //    before the session it rides on is torn down.
         await _webSocketClient.DisposeAsync();
 
-        // 2. Session teardown — the best-effort logout (frees the server-side session slot) followed
+        // 2. Defensively dispose Orders (belt-and-suspenders, PVR-18) before the session is torn down:
+        //    OrderOperations is an IAsyncDisposable that owns background §10.6 force-clear follow-ups and
+        //    a confirmation-round timer. The container disposes this singleton on provider teardown too,
+        //    but disposing it here cancels any in-flight follow-up before the session logout and covers a
+        //    non-DI construction. Its own DisposeAsync is idempotent, so a later provider disposal is a
+        //    safe no-op.
+        if (Orders is IAsyncDisposable disposableOrders)
+        {
+            await disposableOrders.DisposeAsync();
+        }
+
+        // 3. Session teardown — the best-effort logout (frees the server-side session slot) followed
         //    by session disposal, both carried out by SessionManager.DisposeAsync, which decrements
         //    the active-session gauge exactly once via its own guard.
         await _sessionManager.DisposeAsync();

@@ -104,6 +104,74 @@ public sealed class FacadeDisposalTests
         Interlocked.Read(ref gaugeNet).ShouldBe(-1, "provider disposal must not decrement the gauge a second time");
     }
 
+    /// <summary>
+    /// The opposite disposal direction: the consumer NEVER calls <c>client.DisposeAsync</c> directly —
+    /// only the DI provider is disposed. The container-owned <c>IbkrClient</c> singleton is an
+    /// <c>IAsyncDisposable</c>, so provider disposal drives the facade's full-client teardown: the
+    /// WebSocket client is disposed and the session is logged out exactly once (one gauge decrement),
+    /// with the idempotent guards converging the facade-owned teardown and any direct container
+    /// disposal to exactly-once (design doc §5.4, PVR-21).
+    /// </summary>
+    [Fact]
+    public async Task ProviderDisposeWithoutFacadeDispose_RunsFacadeTeardownExactlyOnce()
+    {
+        using var wireMock = WireMockServer.Start();
+        var creds = TestCredentials.Create(TestCredentials.ConsumerKey, TestCredentials.AccessToken, _tenantId);
+        StubAuth(wireMock, creds);
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddIbkrClient(o =>
+        {
+            o.Credentials = creds;
+            o.BaseUrl = wireMock.Url!;
+            o.TickleIntervalSeconds = 3600;
+            o.WebSocketHeartbeatIntervalSeconds = 3600;
+        });
+        // Deliberately NOT `await using` — we dispose the provider explicitly and assert afterwards,
+        // and the facade's DisposeAsync is never called directly by this test.
+        var provider = services.BuildServiceProvider();
+
+        var client = provider.GetRequiredService<IIbkrClient>();
+        var webSocketClient = provider.GetRequiredService<IIbkrWebSocketClient>();
+
+        await client.ValidateConnectionAsync(
+            validateFlex: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        long gaugeNet = 0;
+        using var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, l) =>
+            {
+                if (instrument.Meter.Name == IbkrConduitDiagnostics.MeterName
+                    && instrument.Name == "ibkr.conduit.session.active")
+                {
+                    l.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        listener.SetMeasurementEventCallback<long>((_, measurement, tags, _) =>
+        {
+            foreach (var t in tags)
+            {
+                if (t.Key == LogFields.TenantId && (string?)t.Value == _tenantId)
+                {
+                    Interlocked.Add(ref gaugeNet, measurement);
+                }
+            }
+        });
+        listener.Start();
+
+        // Provider disposal ALONE drives the teardown — the consumer never disposed the client.
+        await provider.DisposeAsync();
+
+        LogoutCount(wireMock).ShouldBe(1, "provider disposal alone must run the facade teardown and log out exactly once");
+        Interlocked.Read(ref gaugeNet).ShouldBe(-1, "provider disposal must decrement the active-session gauge exactly once");
+
+        // The facade-owned WebSocket client was disposed as part of that teardown.
+        Should.Throw<ObjectDisposedException>(() => webSocketClient.RegisterConnectionEvents());
+    }
+
     private static int LogoutCount(WireMockServer server) =>
         server.FindLogEntries(Request.Create().WithPath(_logoutPath).UsingPost()).Count;
 
