@@ -284,6 +284,38 @@ public static class EndpointTable
             """{"conid":999999999}"""),
 
         // ---------------------------------------------------------------
+        // DividendProbe — read-only wire test of the market-data snapshot
+        // fundamental/dividend fields against the Jan-6-2026 changelog
+        // deprecation notice. Fields: 55=symbol, 31=last (liveness),
+        // 7671=Dividends, 7672=Dividends TTM, 7286-7291=suspected deprecated
+        // Dividend Amount/Yield%/Ex-Date/P-E/MktCap/EPS range, 7683/7684=WSH
+        // Upcoming Event/Date (expected-empty control, no WSH subscription).
+        // IBKR snapshot quirk: first call(s) per conid return sparse/empty
+        // fields — repeat 3x per conid to let the subscription populate.
+        // Dividend payers: IBM=8314, AAPL=265598, SPY=756733 (distributions).
+        // Read-only GET; no account state mutated. Run in isolation:
+        //   dotnet run --project tools/ApiCapture -- DividendProbe
+        // ---------------------------------------------------------------
+        new("DividendProbe", "Snapshot_IBM_1", HttpMethod.Get,
+            "/v1/api/iserver/marketdata/snapshot?conids=8314&fields=55,31,7671,7672,7286,7287,7288,7289,7290,7291,7683,7684", 200),
+        new("DividendProbe", "Snapshot_IBM_2", HttpMethod.Get,
+            "/v1/api/iserver/marketdata/snapshot?conids=8314&fields=55,31,7671,7672,7286,7287,7288,7289,7290,7291,7683,7684", 200),
+        new("DividendProbe", "Snapshot_IBM_3", HttpMethod.Get,
+            "/v1/api/iserver/marketdata/snapshot?conids=8314&fields=55,31,7671,7672,7286,7287,7288,7289,7290,7291,7683,7684", 200),
+        new("DividendProbe", "Snapshot_AAPL_1", HttpMethod.Get,
+            "/v1/api/iserver/marketdata/snapshot?conids=265598&fields=55,31,7671,7672,7286,7287,7288,7289,7290,7291,7683,7684", 200),
+        new("DividendProbe", "Snapshot_AAPL_2", HttpMethod.Get,
+            "/v1/api/iserver/marketdata/snapshot?conids=265598&fields=55,31,7671,7672,7286,7287,7288,7289,7290,7291,7683,7684", 200),
+        new("DividendProbe", "Snapshot_AAPL_3", HttpMethod.Get,
+            "/v1/api/iserver/marketdata/snapshot?conids=265598&fields=55,31,7671,7672,7286,7287,7288,7289,7290,7291,7683,7684", 200),
+        new("DividendProbe", "Snapshot_SPY_1", HttpMethod.Get,
+            "/v1/api/iserver/marketdata/snapshot?conids=756733&fields=55,31,7671,7672,7286,7287,7288,7289,7290,7291,7683,7684", 200),
+        new("DividendProbe", "Snapshot_SPY_2", HttpMethod.Get,
+            "/v1/api/iserver/marketdata/snapshot?conids=756733&fields=55,31,7671,7672,7286,7287,7288,7289,7290,7291,7683,7684", 200),
+        new("DividendProbe", "Snapshot_SPY_3", HttpMethod.Get,
+            "/v1/api/iserver/marketdata/snapshot?conids=756733&fields=55,31,7671,7672,7286,7287,7288,7289,7290,7291,7683,7684", 200),
+
+        // ---------------------------------------------------------------
         // Alerts — Success
         // ---------------------------------------------------------------
         // KNOWN LIMITATION: Alert creation (POST /alert) returns 403 on paper
