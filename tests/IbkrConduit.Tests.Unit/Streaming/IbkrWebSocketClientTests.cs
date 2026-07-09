@@ -1810,6 +1810,62 @@ public class IbkrWebSocketClientTests
         msg.GetProperty("topic").GetString().ShouldBe("smd+265598");
     }
 
+    [Fact]
+    public async Task SubscribeTopicAsync_SendThrowsAsSoleWriter_ReapsSubscriberMapEntry()
+    {
+        // FO-10: the STR-4 send-failure rollback must be reap-symmetric with FO-4's unsubscribe reap.
+        // A subscribe that is the sole writer for a routing key and fails its immediate subscribe send
+        // rolls its writer back out of the list; if that leaves the list empty, the now-empty entry
+        // must be reaped rather than left mapped — the exact leak FO-4 targets, on the one subscribe
+        // path FO-4 scoped out.
+        var ct = TestContext.Current.CancellationToken;
+        await using var client = CreateClient();
+        await client.ConnectAsync(ct);
+
+        _adapter.FailSendAfterCount = 0; // the subscribe send (the next send) throws
+
+        await Should.ThrowAsync<System.Net.WebSockets.WebSocketException>(
+            () => client.SubscribeTopicAsync("smd+265598+{}", "smd+265598", null, ct));
+
+        client.HasSubscriberKey("smd+265598").ShouldBeFalse(
+            "the empty writer-list must be reaped on the send-failure rollback, mirroring the unsubscribe reap");
+        client.SubscriberKeyCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task SubscribeTopicAsync_SendThrowsWithSurvivingCoWriter_RetainsKeyAndKeepsDelivering()
+    {
+        // FO-10: a send failure must reap only a now-empty list. With a co-writer already subscribed on
+        // the same routing key, a later subscribe on that key whose send fails rolls back only its own
+        // writer; the key is retained (the surviving writer keeps it non-empty) and the survivor still
+        // receives subsequently-broadcast frames.
+        var ct = TestContext.Current.CancellationToken;
+        await using var client = CreateClient();
+        await client.ConnectAsync(ct);
+
+        // A first writer subscribes successfully on the key and becomes the surviving co-writer.
+        var (survivorReader, _) = await client.SubscribeTopicAsync("smd+265598+{}", "smd+265598", null, ct);
+        await _adapter.WaitForReceiveAsync(ct);
+
+        // A second subscribe on the SAME key fails its send. Fail the next send only (no prior failed
+        // sends, so SentMessages.Count equals the adapter's cumulative send count).
+        _adapter.FailSendAfterCount = _adapter.SentMessages.Count;
+        await Should.ThrowAsync<System.Net.WebSockets.WebSocketException>(
+            () => client.SubscribeTopicAsync("smd+265598+{}", "smd+265598", null, ct));
+
+        client.HasSubscriberKey("smd+265598").ShouldBeTrue(
+            "a send failure with a surviving co-writer must not reap the key");
+
+        // The survivor still receives frames — the rollback removed only the failed writer.
+        _adapter.FailSendAfterCount = null;
+        _adapter.EnqueueServerMessage("""{"topic":"smd+265598","31":"y"}""");
+        await _adapter.WaitForReceiveAsync(ct);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var msg = await survivorReader.ReadAsync(cts.Token);
+        msg.GetProperty("topic").GetString().ShouldBe("smd+265598");
+    }
+
     private static async Task<ConnectionEvent> ReadEventAsync(ChannelReader<ConnectionEvent> reader, CancellationToken cancellationToken)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
