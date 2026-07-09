@@ -471,7 +471,7 @@ Test-strength nits from the PVR panels, bundled: PVR-20 — strengthen the healt
 **TDD notes:** each sub-item is its own focused test; the dispose line gets a test asserting `Orders` is disposed on facade teardown.
 
 #### FO-10 — Reap-symmetry on the STR-4 send-failure path
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** ✅ Done — #293 · **Stream:** FO · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-09-fo-10-str4-reap-symmetry.md
 Groomed loop-ready 2026-07-09. Surfaced by both FO-4 quality lenses on PR #282. FO-4 reaps empty `_subscribers` entries on the *unsubscribe* path, but the STR-4 **send-failure rollback** in `IbkrWebSocketClient.SubscribeTopicAsync` (the `catch` around the immediate `SendTextAsync`) removes the just-added writer *without* reaping a now-empty list — leaving exactly the empty full-topic-identity entry (`smd+<conid>`) FO-4 targets. Same leak class, on the sibling path FO-4's spec explicitly scoped out. Bounded/rare (send failures are uncommon; a later subscribe on that conid reuses the empty list, whose eventual unsubscribe reaps it), so it is a symmetry/hygiene fix, not a live leak. The spec pins the one subtlety — the interaction with FO-4's subscribe retry — and confirms the value-conditional, lock-atomic reap introduces no new race. No open fork; no upstream-behavior dependency (internal data structure). **`fix:` — internal only, no public surface.**
