@@ -495,7 +495,7 @@ Groomed loop-ready 2026-07-09 — **operator-decided retirement** (2026-07-09): 
 **TDD notes:** removal — verify by `dotnet build` (solution) + full offline suite staying green, and a repo-wide grep showing no residual `DiagnosticLst` references.
 
 #### FO-13 — Gate the tools in CI (tools-build step)
-**Status:** Not started · **Stream:** FO · **Depends on:** FO-11, FO-12
+**Status:** ✅ Done — #<PR> · **Stream:** FO · **Depends on:** FO-11, FO-12
 **Risk:** standard
 **Spec:** trivial-skip
 Groomed loop-ready 2026-07-09 (operator-decided: **add a CI tools-build step**). The two broken tools (QueryAccount, DiagnosticLst) rotted silently because `tools/` is neither in `IbkrConduit.slnx` nor built by CI — unlike `examples/` (both the `.csproj` examples in the solution and the single-file `examples/*.cs` that CI builds in a loop). Add a CI step that builds every `tools/*.csproj` (mirroring the existing "Build single-file example apps" step in `.github/workflows/ci.yml`) so a future breaking change that breaks a tool **fails CI** instead of silently rotting it. Depends on FO-11 (QueryAccount compiles) and FO-12 (DiagnosticLst removed) so the new gate is green on introduction. Build-only (no tests — the explicit KeyGenerator suite in `IbkrConduit.Setup` stays opt-in per `.claude/rules/explicit-tests.md`). Extend the workflow's `paths` filter so `tools/**` changes trigger the job. **`ci:` — CI only.**

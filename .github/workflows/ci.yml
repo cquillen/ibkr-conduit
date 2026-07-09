@@ -22,6 +22,7 @@ jobs:
               - 'src/**'
               - 'tests/**'
               - 'examples/**'
+              - 'tools/**'
               - '*.slnx'
               - '*.props'
               - '*.targets'
@@ -73,6 +74,23 @@ jobs:
           for app in examples/*.cs; do
             echo "::group::Building $app"
             dotnet build "$app" --configuration Release
+            echo "::endgroup::"
+          done
+
+      # The tool projects under tools/*/ (ApiCapture, CaptureFlexQuery, IbkrConduit.Setup,
+      # QueryAccount) reference the IbkrConduit project directly but are NOT part of the
+      # solution, so the solution build above does not compile them. Build each so a
+      # breaking API change that breaks a tool fails CI instead of silently rotting it —
+      # exactly how QueryAccount and DiagnosticLst broke unnoticed. Build-only: the
+      # IbkrConduit.Setup explicit KeyGenerator test suite stays opt-in (explicit-tests.md)
+      # and a plain build does not run it.
+      - name: Build tool projects
+        if: needs.changes.outputs.code == 'true'
+        run: |
+          shopt -s nullglob
+          for proj in tools/*/*.csproj; do
+            echo "::group::Building $proj"
+            dotnet build "$proj" --configuration Release
             echo "::endgroup::"
           done
 
