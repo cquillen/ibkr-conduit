@@ -671,8 +671,9 @@ internal sealed partial class SessionManager : ISessionManager
     /// uniformly by <see cref="WrapCredentialException"/> (ssodh/init + LST) and
     /// <see cref="ClassifySuppressFailure"/> (question suppression) so a session-path failure classifies
     /// identically whether it surfaces as a raw <see cref="HttpRequestException"/> or a Refit
-    /// <see cref="ApiException"/> (whose base <see cref="HttpRequestException.StatusCode"/> Refit 12 leaves
-    /// unset — the status must be read from <see cref="ApiException.StatusCode"/> at the call site):
+    /// <see cref="ApiException"/> (which in Refit 12.1.0 does not derive from <see cref="HttpRequestException"/>
+    /// — its chain is <c>ApiException : ApiExceptionBase : Exception</c> — so the status must be read from
+    /// <see cref="ApiException.StatusCode"/> at the call site rather than from an inherited HTTP-exception member):
     /// <list type="bullet">
     ///   <item>429 or 5xx → <see cref="IbkrTransientException"/> (retryable — server/rate-limiter fault);</item>
     ///   <item>401 or 403 → <see cref="IbkrConfigurationException"/> (credential/authorization failure);</item>
@@ -860,13 +861,14 @@ internal sealed partial class SessionManager : ISessionManager
                     "Cryptographic operation failed during session initialization — verify SignaturePrivateKey and EncryptionPrivateKey",
                     "SignaturePrivateKey, EncryptionPrivateKey", ce),
 
-            // FO-3/ADR-0007: the ssodh/init raw Task<T> path throws a Refit ApiException whose base
-            // HttpRequestException.StatusCode Refit 12 leaves unset — so it never matches the
-            // HttpRequestException arms below and previously fell through to the configuration-error
-            // fallback, mis-reporting transient 5xx/429 as permanent. Read ApiException.StatusCode and
-            // route through the shared status→category helper so it classifies uniformly with the raw
-            // HttpRequestException path (5xx/429 → transient, 401/403 → config). Placed above the
-            // HttpRequestException arms to keep all HTTP-status handling grouped.
+            // FO-3/ADR-0007: the ssodh/init raw Task<T> path throws a Refit ApiException, which in
+            // Refit 12.1.0 does not derive from HttpRequestException (its chain is
+            // ApiException : ApiExceptionBase : Exception). Because it is a distinct type, it never
+            // matches the HttpRequestException arms below and previously fell through to the
+            // configuration-error fallback, mis-reporting transient 5xx/429 as permanent. This arm is
+            // added to catch that distinct type: read Refit's own ApiException.StatusCode and route
+            // through the shared status→category helper so it classifies uniformly with the raw
+            // HttpRequestException path (5xx/429 → transient, 401/403 → config).
             ApiException ae => ClassifyHttpStatus(
                 ae.StatusCode,
                 ae,

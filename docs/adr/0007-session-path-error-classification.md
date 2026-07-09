@@ -8,7 +8,7 @@
 Two session-path failure classifiers diverged:
 
 - **`ClassifySuppressFailure`** (PVR-14) applies a finer HTTP-status split on the question-suppression path: Refit `ApiException` 429 or 5xx → `IbkrTransientException`; other `ApiException` (4xx) → `IbkrConfigurationException` (pointing at `SuppressMessageIds`); transport/other → `WrapCredentialException`.
-- **`WrapCredentialException`** (ssodh/init + LST acquisition) classifies a **raw `HttpRequestException`** correctly (5xx/429 → transient, 401/403 → config), but a probe on 2026-07-09 confirmed that the type actually thrown by the ssodh/init raw-`Task<T>` path — Refit's **`ApiException`** — does **not** match the `HttpRequestException` branch in Refit 12.1.0 (its base `HttpRequestException.StatusCode` is left unset and the type isn't matched as an `HttpRequestException` by the switch), so it falls through to the `_ => IbkrConfigurationException` fallback.
+- **`WrapCredentialException`** (ssodh/init + LST acquisition) classifies a **raw `HttpRequestException`** correctly (5xx/429 → transient, 401/403 → config), but a probe on 2026-07-09 confirmed that the type actually thrown by the ssodh/init raw-`Task<T>` path — Refit's **`ApiException`** — does **not** match the `HttpRequestException` branch in Refit 12.1.0 (in that version `ApiException` does not derive from `HttpRequestException` at all — its chain is `ApiException : ApiExceptionBase : Exception` — so the type isn't matched as an `HttpRequestException` by the switch), so it falls through to the `_ => IbkrConfigurationException` fallback.
 
 **Consequence of the gap:** every ssodh/init HTTP error — including transient **5xx** and **429** rate-limits — is currently reported as a permanent `IbkrConfigurationException` ("verify your credentials"), when the consumer (RTOS) should retry/back off. `IbkrConfigurationException` and `IbkrTransientException` are unrelated `Exception` subclasses (no common base), so a consumer that catches the configuration type around init genuinely never sees the transient case. This is a real, behaviorally-observable misclassification (empirically pinned; not the falsified ERR-1 premise — see that finding's retraction).
 
@@ -19,7 +19,7 @@ One session-path error taxonomy, keyed on HTTP status, applied **uniformly** acr
 1. **5xx or 429 → `IbkrTransientException`** — retryable; the server or a rate limiter is the cause, not the consumer's configuration.
 2. **401 or 403 → `IbkrConfigurationException`** — credential/authorization failure (bad or expired `ConsumerKey`/`AccessToken`).
 3. **Any other 4xx, and all non-HTTP failures** (crypto, DH, JSON, timeout→transient, unknown) → keep today's classification and path-specific hints (LST-validation/crypto branches keep their credential-field guidance; suppress 4xx keeps the `SuppressMessageIds` hint).
-4. **Refit `ApiException` is classified by its own `.StatusCode`** (never the base `HttpRequestException.StatusCode`, which Refit 12 leaves unset), via a shared status→category helper that both `WrapCredentialException` and `ClassifySuppressFailure` call — so the classification no longer depends on a Refit internal.
+4. **Refit `ApiException` is classified by its own `.StatusCode`** (in Refit 12.1.0 `ApiException` does not derive from `HttpRequestException`, so there is no inherited HTTP-status member to read — the status comes from `ApiException.StatusCode`), via a shared status→category helper that both `WrapCredentialException` and `ClassifySuppressFailure` call — so the classification no longer depends on a Refit internal.
 5. A **401/403 suppression** failure logs a status-specific Warning (authorization, not the misleading "verify `SuppressMessageIds`").
 
 ## Alternatives considered
@@ -32,7 +32,7 @@ One session-path error taxonomy, keyed on HTTP status, applied **uniformly** acr
 
 - 📦 **Breaking-behavioral (`feat!:`):** a session-path **5xx/429** now throws `IbkrTransientException` instead of `IbkrConfigurationException`. A consumer catching `IbkrConfigurationException` around session init to handle transient server errors will no longer catch them — the **safe** direction (they should retry; `catch (Exception)` and `catch (IbkrTransientException)` both still work). Folds into the **0.9.0 breaking train** (before release-please #241 is cut).
 - **401/403 init/LST failures keep classifying as configuration** (correct — bad credentials), so the *only* behavioral change is 5xx/429 → transient. No change for other 4xx.
-- The session-path taxonomy becomes uniform and unit-testable; whether a Refit `ApiException` happens to populate the base `HttpRequestException.StatusCode` no longer silently determines the outcome.
+- The session-path taxonomy becomes uniform and unit-testable; whether a Refit `ApiException` is matched as an `HttpRequestException` by the switch (in Refit 12.1.0 it is not — the types are unrelated) no longer silently determines the outcome.
 
 ## Relationships
 
