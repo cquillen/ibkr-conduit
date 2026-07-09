@@ -408,6 +408,8 @@ Finding RST-5 (low, PLAUSIBLE): the preflight cache marks a conid preflighted fo
 ## Stream FO — Post-Stream-PVR follow-ons
 
 > Review nits & named follow-ons from the 2026-07-07/08 ship-backlog run (Stream VCR + Stream PVR, PRs #252–#277). **Groomed loop-ready 2026-07-09** (open-question sweep: no operator-forks remained after FO-3/FO-9 were settled attended; no empirical blockers — all client-side/tooling). None blocked a merge. FO-5/FO-6 deferred (Flex); FO-9 resolved (ERR-1 retracted in place).
+>
+> **SHIPPED 2026-07-09 (ship-backlog run):** FO-3 (#281, `feat!:` — folds into the 0.9.0 train), FO-2 (#284), FO-4 (#282), FO-7 (#285), FO-1 (#286), FO-8b (#287) all merged — post-merge offline suite **1579/0**. **FO-8a deferred** (premise invalid — draft #283 unmerged; see its entry). Two follow-ons drafted from mid-run review findings: **FO-10** (STR-4 reap-symmetry) and **FO-11** (QueryAccount tool bit-rot). FO-5/FO-6 remain Flex-deferred. FO-3 must land in **release-please #241** before that 0.9.0 cut is accepted.
 
 #### FO-1 — Bounded single-account dispose logout
 **Status:** ✅ Done — #286 · **Stream:** FO · **Depends on:** FO-2
@@ -450,12 +452,13 @@ After the last unsubscribe, `IbkrWebSocketClient._subscribers` keeps an empty wr
 **TDD notes:** trivial — the tool has no test project; verify by inspection / a manual run. The redaction helper (if extracted) can carry a unit test.
 
 #### FO-8a — MarketDataTickMapper invariant-culture numeric parse
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** Deferred — premise invalid (draft PR #283, not merged); route to grooming to drop or re-file · **Stream:** FO · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 `MarketDataTickMapper`'s string→number parse uses `CurrentCulture`, so a host in a comma-decimal culture misparses streaming price/size fields (PVR-04). Align to `InvariantCulture` (IBKR wire numerics are invariant). A real correctness fix, split out from the FO-8 test-only nits. **`fix:`.**
 **Done when:** `MarketDataTickMapper` parses numerics with `InvariantCulture`; a test under a comma-decimal culture asserts a wire value like `"1.5"` parses to `1.5`, not `15`.
 **TDD notes:** red test sets `CultureInfo.CurrentCulture` to `de-DE` and asserts the mapped tick numeric is correct.
+> **Deferred 2026-07-09 (ship-backlog sweep) — premise does not hold for this library.** Implementation + independent review (draft PR #283, left unmerged) found: `MarketDataTickMapper` **integer-parses only** (conid, `_updated`, field-id keys) and stores price/size field *values* verbatim as `string`s — it never decimal-parses. `int/long.TryParse` with `NumberStyles.Integer` rejects `.`/`,` in **every** culture, so no real integer wire token diverges under a comma-decimal culture; the actual decimal/double wire parser (`EmptyTolerantNumberParsing`) **already** uses `InvariantCulture`. The Done-when's observable red test (`"1.5"`→`15`) is therefore unachievable here (the added test passed against both pre- and post-change code — a tautology, not a regression guard). The genuine comma-decimal risk, if any, lives in a **consumer** that parses the `Fields<string,string>` values, not in this library. **Grooming decision needed:** drop FO-8a, or re-file the explicit-`InvariantCulture` int/long-parse hardening as a `chore:`/`refactor:` (safe, convention-matching, but a no-op for all real inputs — the loop declined to merge a no-op under a `fix:` label).
 
 #### FO-8b — Test-strength hardening (PVR-20/06/18)
 **Status:** ✅ Done — #287 · **Stream:** FO · **Depends on:** none
@@ -464,6 +467,22 @@ After the last unsubscribe, `IbkrWebSocketClient._subscribers` keeps an empty wr
 Test-strength nits from the PVR panels, bundled: PVR-20 — strengthen the healthy-active-probe test to seed `competing:true`→`false` clearing; PVR-06 — add a `ThrowOnApiError=true` + 503/timeout reply-ordering test; PVR-18 — add a provider-only dispose-direction test (client `DisposeAsync` never called) for the facade teardown, and add the small belt-and-suspenders `IbkrClient.DisposeAsync` → dispose `Orders`. **`test:` (+ the one tiny dispose line).**
 **Done when:** the three test gaps are covered and green, and `IbkrClient.DisposeAsync` disposes `Orders` defensively.
 **TDD notes:** each sub-item is its own focused test; the dispose line gets a test asserting `Orders` is disposed on facade teardown.
+
+#### FO-10 — Reap-symmetry on the STR-4 send-failure path
+**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Risk:** standard
+**Spec:** pending
+Drafted 2026-07-09 by the ship-backlog sweep (surfaced by both FO-4 quality lenses on PR #282). FO-4 reaps empty `_subscribers` entries on the *unsubscribe* path, but the STR-4 **send-failure rollback** in `IbkrWebSocketClient.SubscribeTopicAsync` (~the `catch` around the immediate `SendTextAsync`) removes the just-added writer *without* reaping a now-empty list — leaving exactly the empty full-topic-identity entry (`smd+<conid>`) FO-4 targets. Same leak class, on the sibling path FO-4's spec explicitly scoped out. Bounded/rare in practice (send failures are uncommon; the next subscribe on that conid reuses the empty list, whose eventual unsubscribe reaps it), so it is a symmetry/hygiene follow-on, not a live leak. **`fix:` — internal only, no public surface.**
+**Done when:** a subscribe whose immediate `SendTextAsync` throws as the sole writer for a routing key leaves no empty `_subscribers` entry mapped (value-conditional reap on the rollback path, mirroring FO-4's unsubscribe reap and preserving the CON-2/CON-3 race invariants).
+**TDD notes:** gated race/rollback test in the FO-4 / VCR-08 / PVR-13 style — drive a send failure on a sole-writer subscribe, assert the key is reaped; assert a surviving co-writer on the same key is retained; the existing CON-2 dispose-vs-subscribe and FO-4 reap tests stay green.
+
+#### FO-11 — Restore or retire the QueryAccount diagnostic tool
+**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Risk:** standard
+**Spec:** pending
+Drafted 2026-07-09 by the ship-backlog sweep (surfaced during FO-7). `tools/QueryAccount` is **not** in `IbkrConduit.slnx` and no longer compiles against `main` — ~11 pre-existing API-drift errors (now-`internal` `OAuthSigningHandler` / `ISessionTokenProvider` / `ISessionManager`; `GetAccountsAsync` / `GetLiveOrdersAsync` / `GetTradesAsync` now return `Result<T>` rather than raw collections). Pre-existing bit-rot, unrelated to FO-7 (whose one-line redaction landed and is verified by inspection + the solution/unit gates). **Grooming decision needed:** either rewire QueryAccount to the current public surface (`IIbkrClient` + `Result<T>`) and add it to the solution so it is built/gated, or retire the tool. **`chore:`/`fix:` — tools-only.**
+**Done when:** `tools/QueryAccount` either compiles against the current public surface and is included in `IbkrConduit.slnx` (built by CI), or is removed with a note in its place.
+**TDD notes:** the tool has no test project; if restored, verify by build inclusion + a manual run against the paper account (attended, not in the unattended loop).
 
 ### Deferred (Flex — operator-deferred 2026-07-09)
 
