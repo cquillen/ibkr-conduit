@@ -544,9 +544,17 @@ internal sealed partial class SessionManager : ISessionManager
         // path leaves the flag false and still logs out here on dispose.
         if (wasInitialized && !_options.SkipLogoutOnDispose)
         {
+            // FO-1: cap this best-effort logout at LogoutTimeout so a hung logout can never block
+            // disposal for minutes — mirroring ManagedTenant.DisposeAsync's bound (§5.4). The
+            // single-account path has no caller token to link, so the cap IS the bound. Driven by
+            // the injected TimeProvider (not CancellationTokenSource.CancelAfter's system timer) so a
+            // FakeTimeProvider can advance past the cap deterministically in tests. Cancellation (the
+            // cap firing) abandons ONLY the logout — teardown below always runs; a logout that throws
+            // OperationCanceledException on the cap is swallowed by the best-effort catch.
+            using var logoutCts = new CancellationTokenSource(_options.LogoutTimeout, _timeProvider);
             try
             {
-                await _sessionApi.LogoutAsync(CancellationToken.None);
+                await _sessionApi.LogoutAsync(logoutCts.Token);
             }
             catch (Exception ex)
             {

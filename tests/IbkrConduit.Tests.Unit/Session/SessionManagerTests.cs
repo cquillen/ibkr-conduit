@@ -853,6 +853,82 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task DisposeAsync_SingleAccountLogoutHangs_AbandonedAtLogoutTimeout()
+    {
+        // FO-1: §5.4's bounded best-effort logout must be enforced on the single-account dispose path,
+        // not just the ManagedTenant path. A hanging logout must be abandoned once LogoutTimeout elapses
+        // so DisposeAsync still completes — it must NOT be awaited unbounded on CancellationToken.None.
+        var fakeTime = new FakeTimeProvider();
+        var deps = CreateDependencies();
+        deps.Options.LogoutTimeout = TimeSpan.FromSeconds(10);
+
+        var logoutInFlight = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        // The logout never returns on its own — it only unblocks when its token is cancelled, exactly
+        // like a real HTTP logout hung on the wire until the bounded CTS cancels the request.
+        deps.SessionApi.LogoutGate = async ct =>
+        {
+            logoutInFlight.TrySetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+        };
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"),
+            fakeTime);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        var disposeTask = manager.DisposeAsync();
+
+        // Wait until the dispose logout is actually in flight (so its LogoutTimeout-capped CTS,
+        // constructed on the fake clock, is registered) before advancing time.
+        await logoutInFlight.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // Advancing past LogoutTimeout on the fake clock fires the bounded CTS, which cancels the
+        // hung logout; dispose must then complete promptly instead of hanging unbounded.
+        fakeTime.Advance(deps.Options.LogoutTimeout + TimeSpan.FromSeconds(1));
+
+        await disposeTask.AsTask().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        deps.SessionApi.LogoutCallCount.ShouldBe(1,
+            "the single-account dispose still issues exactly one best-effort logout.");
+    }
+
+    [Fact]
+    public async Task DisposeAsync_FastSingleAccountLogout_CompletesNormallyAndTokenNotCancelled()
+    {
+        // FO-1 guard: bounding the logout must not change the happy path — a fast logout still completes
+        // normally, is issued exactly once, and its LogoutTimeout-capped token is never cancelled.
+        var fakeTime = new FakeTimeProvider();
+        var deps = CreateDependencies();
+        deps.Options.LogoutTimeout = TimeSpan.FromSeconds(10);
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"),
+            fakeTime);
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+        await manager.DisposeAsync();
+
+        deps.SessionApi.LogoutCallCount.ShouldBe(1);
+        deps.SessionApi.LastLogoutToken.IsCancellationRequested.ShouldBeFalse(
+            "a fast logout must complete before the LogoutTimeout cap fires — its token stays uncancelled.");
+    }
+
+    [Fact]
     public async Task EnsureInitializedAsync_PreCancelledToken_ThrowsOperationCanceled()
     {
         var deps = CreateDependencies();
@@ -2161,6 +2237,21 @@ public class SessionManagerTests
         public SuppressRequest? LastSuppressRequest { get; private set; }
         public bool LogoutShouldThrow { get; set; }
 
+        /// <summary>
+        /// The cancellation token the session manager passed to the most recent
+        /// <see cref="LogoutAsync"/> call. FO-1 pins that the single-account dispose logout is
+        /// bounded by a <see cref="IbkrClientOptions.LogoutTimeout"/>-capped token, so a guard test
+        /// can assert a fast logout's token was NOT cancelled.
+        /// </summary>
+        public CancellationToken LastLogoutToken { get; private set; }
+
+        /// <summary>
+        /// If set, awaited inside <see cref="LogoutAsync"/> before it returns, receiving the call's
+        /// <see cref="CancellationToken"/>. Lets a test hold the dispose-time logout in flight (e.g.
+        /// blocking on the token) so FO-1's bounded-logout timeout can be observed abandoning it.
+        /// </summary>
+        public Func<CancellationToken, Task>? LogoutGate { get; set; }
+
         /// <summary>If set, InitializeBrokerageSessionAsync throws this exception.</summary>
         public Exception? InitException { get; set; }
 
@@ -2260,15 +2351,21 @@ public class SessionManagerTests
             return SuppressResult ?? new SuppressResponse(Status: "submitted");
         }
 
-        public Task<LogoutResponse> LogoutAsync(CancellationToken cancellationToken = default)
+        public async Task<LogoutResponse> LogoutAsync(CancellationToken cancellationToken = default)
         {
             LogoutCallCount++;
+            LastLogoutToken = cancellationToken;
             if (LogoutShouldThrow)
             {
                 throw new HttpRequestException("Simulated logout failure");
             }
 
-            return Task.FromResult(new LogoutResponse(Confirmed: true));
+            if (LogoutGate != null)
+            {
+                await LogoutGate(cancellationToken);
+            }
+
+            return new LogoutResponse(Confirmed: true);
         }
 
         public Task<SuppressResetResponse> ResetSuppressedQuestionsAsync(CancellationToken cancellationToken = default) =>
