@@ -434,7 +434,7 @@ Session-path failures classify inconsistently: `ClassifySuppressFailure` (PVR-14
 **TDD notes:** red tests = `ApiException` 500/503/429→transient, 401/403/400/404→config in `SessionManagerWrapCredentialExceptionTests` (built via the existing `ApiException.Create` helper); WireMock `ssodh/init` 503 → `IbkrTransientException`; raw-`HttpRequestException` tests stay green.
 
 #### FO-4 — Reap empty streaming subscriber entries
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** ✅ Done — #282 · **Stream:** FO · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-09-fo-4-subscriber-map-reap.md
 After the last unsubscribe, `IbkrWebSocketClient._subscribers` keeps an empty writer-list keyed by the (now full-identity) routing key — bounded per key but unbounded over the lifetime of a client rotating many conids/accounts. Reap the key when its last writer unsubscribes, value-conditionally under the existing `_subscriptionLock`/`lock(writers)`, and extend the CON-2 subscribe-side guard so a subscribe racing a reap re-attempts (benign) while a subscribe racing a dispose still fails (ODE). (PVR-01 review; deferred at ship time to protect the race invariants.) **`fix:` — internal only, no public surface.**
