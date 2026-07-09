@@ -487,7 +487,7 @@ Groomed loop-ready 2026-07-09 (fork closed — **fix, don't retire**; QueryAccou
 **TDD notes:** the tool has no test project — verify by a clean `dotnet build` of the tool csproj (0 warnings under `TreatWarningsAsErrors`) and by inspection that every call unwraps `Result<T>` (no `Result<T>` used as a collection). A live run is attended-only (paper account) and out of the unattended loop.
 
 #### FO-12 — Retire the obsolete DiagnosticLst tool
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** ✅ Done — #PENDING · **Stream:** FO · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Groomed loop-ready 2026-07-09 — **operator-decided retirement** (2026-07-09): DiagnosticLst no longer provides value. It is a Milestone-1 OAuth bring-up tool (`=== ssodh/init 401 Investigation ===`) — five frozen request permutations that hand-build OAuth-signed calls to **live production** `api.ibkr.com` to debug a signing/header problem that has long since been resolved (the library establishes sessions correctly; VCR/PVR shipped). Keeping it compiling would require granting a non-test tool `InternalsVisibleTo` the crypto primitives (`HmacSha256Signer`, `StandardBaseStringBuilder`, `OAuthHeaderBuilder`, `LiveSessionTokenClient`) — eroding encapsulation for an answered question — and it echoes the LST token + auth headers to the console. Remove the `tools/DiagnosticLst/` project. No library code changes (the tool is not referenced by `IbkrConduit.slnx` or any project). **`chore:` — tools-only removal.**
