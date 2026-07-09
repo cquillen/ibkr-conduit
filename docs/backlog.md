@@ -479,7 +479,7 @@ Groomed loop-ready 2026-07-09. Surfaced by both FO-4 quality lenses on PR #282. 
 **TDD notes:** gated race/rollback test in the FO-4 / VCR-08 / PVR-13 style — drive a send failure on a sole-writer subscribe, assert the key is reaped; assert a surviving co-writer on the same key is retained; the existing CON-2 dispose-vs-subscribe and FO-4 reap tests stay green (run the streaming suite a few times for nondeterminism).
 
 #### FO-11 — Rewire the QueryAccount diagnostic tool to the public surface
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** ✅ Done — #291 · **Stream:** FO · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Groomed loop-ready 2026-07-09 (fork closed — **fix, don't retire**; QueryAccount is a useful data-query diagnostic). `tools/QueryAccount` no longer compiles against `main` (empirically verified 2026-07-09): `GetAccountsAsync` / `GetLiveOrdersAsync` / `GetTradesAsync` now return `Result<T>` (not raw collections), orders return `LiveOrdersSnapshot`, and its manual pipeline wiring references now-`internal` `OAuthSigningHandler` / `ISessionTokenProvider` / `ISessionManager`. Rewire it onto the **public consumer surface** exactly as `.claude/rules/testing.md` / the example apps do — `AddIbkrClient(opts => opts.Credentials = ...)` DI, resolve `IIbkrClient`, and unwrap each `Result<T>` via the `IbkrError` taxonomy (`src/IbkrConduit/Errors/`) — dropping all manual handler/session wiring (that's what pulled in the internals). Read `LiveOrdersSnapshot.Orders`/`.IsSnapshot`. **Preserve FO-7's consumer-key redaction** (the `[redacted]` echo). Rule-settled (consumers use the DI pipeline + `Result<T>`); no public-surface change to the library. CI gating of the compiled result is FO-13 (not this story). **`fix:` — tools-only.**
@@ -487,7 +487,7 @@ Groomed loop-ready 2026-07-09 (fork closed — **fix, don't retire**; QueryAccou
 **TDD notes:** the tool has no test project — verify by a clean `dotnet build` of the tool csproj (0 warnings under `TreatWarningsAsErrors`) and by inspection that every call unwraps `Result<T>` (no `Result<T>` used as a collection). A live run is attended-only (paper account) and out of the unattended loop.
 
 #### FO-12 — Retire the obsolete DiagnosticLst tool
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** ✅ Done — #292 · **Stream:** FO · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Groomed loop-ready 2026-07-09 — **operator-decided retirement** (2026-07-09): DiagnosticLst no longer provides value. It is a Milestone-1 OAuth bring-up tool (`=== ssodh/init 401 Investigation ===`) — five frozen request permutations that hand-build OAuth-signed calls to **live production** `api.ibkr.com` to debug a signing/header problem that has long since been resolved (the library establishes sessions correctly; VCR/PVR shipped). Keeping it compiling would require granting a non-test tool `InternalsVisibleTo` the crypto primitives (`HmacSha256Signer`, `StandardBaseStringBuilder`, `OAuthHeaderBuilder`, `LiveSessionTokenClient`) — eroding encapsulation for an answered question — and it echoes the LST token + auth headers to the console. Remove the `tools/DiagnosticLst/` project. No library code changes (the tool is not referenced by `IbkrConduit.slnx` or any project). **`chore:` — tools-only removal.**

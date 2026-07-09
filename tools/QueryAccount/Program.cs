@@ -1,18 +1,19 @@
+using System.Globalization;
 using IbkrConduit.Auth;
 using IbkrConduit.Client;
+using IbkrConduit.Errors;
 using IbkrConduit.Http;
-using IbkrConduit.Session;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// Load credentials
+// Load credentials from environment variables.
 using var creds = OAuthCredentialsFactory.FromEnvironment();
 // Redact the consumer key rather than echoing it in full — mirrors the
 // IbkrOAuthCredentials.ToString redaction convention (source of truth), which
 // renders the consumer key as "[redacted]" so no credential material reaches a log.
 Console.WriteLine("Consumer key: [redacted]");
 
-// Wire up via DI — the way a real consumer would
+// Wire up via DI — exactly as a real consumer would (see examples/ and .claude/rules/testing.md).
 var services = new ServiceCollection();
 services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
 services.AddIbkrClient(opts =>
@@ -26,39 +27,65 @@ var client = provider.GetRequiredService<IIbkrClient>();
 
 // --- Query accounts ---
 Console.WriteLine("\n=== ACCOUNTS ===");
-var accounts = await client.Portfolio.GetAccountsAsync();
-foreach (var acct in accounts)
+var accountsResult = await client.Portfolio.GetAccountsAsync();
+if (!accountsResult.IsSuccess)
 {
-    Console.WriteLine($"  {acct.Id} — {acct.AccountTitle} ({acct.Type})");
+    PrintError("accounts", accountsResult.Error);
+    Console.WriteLine("\nCannot continue without accounts. Done.");
+    return;
+}
+
+var accounts = accountsResult.Value;
+if (accounts.Count == 0)
+{
+    Console.WriteLine("  No accounts found.");
+}
+else
+{
+    foreach (var acct in accounts)
+    {
+        Console.WriteLine($"  {acct.Id} — {acct.AccountTitle} ({acct.Type})");
+    }
 }
 
 // --- Query live orders ---
 Console.WriteLine("\n=== LIVE ORDERS ===");
-try
+// The endpoint primes on the first call, so read again and use the primed snapshot —
+// IsSnapshot==false means "not yet primed", not "no orders" (design doc §10.6).
+_ = await client.Orders.GetLiveOrdersAsync();
+var liveOrdersResult = await client.Orders.GetLiveOrdersAsync();
+if (!liveOrdersResult.IsSuccess)
 {
-    var liveOrders = await client.Orders.GetLiveOrdersAsync();
-    if (liveOrders.Count == 0)
+    PrintError("live orders", liveOrdersResult.Error);
+}
+else
+{
+    var snapshot = liveOrdersResult.Value;
+    if (snapshot.Orders.Count == 0)
     {
-        Console.WriteLine("  No live orders in current session.");
+        Console.WriteLine(snapshot.IsSnapshot
+            ? "  No live orders in current session."
+            : "  Live-order snapshot not yet primed — no authoritative order list this call.");
     }
     else
     {
-        foreach (var order in liveOrders)
+        foreach (var order in snapshot.Orders)
         {
             Console.WriteLine($"  Order {order.OrderId}: {order.Side} {order.TotalSize} {order.Ticker} — Status: {order.Status} (Filled: {order.FilledQuantity}, Remaining: {order.RemainingQuantity})");
         }
     }
 }
-catch (Exception ex)
-{
-    Console.WriteLine($"  Error querying orders: {ex.Message}");
-}
 
 // --- Query trades ---
 Console.WriteLine("\n=== TRADES ===");
-try
+var tradesResult = await client.Orders.GetTradesAsync();
+if (!tradesResult.IsSuccess)
 {
-    var trades = await client.Orders.GetTradesAsync();
+    PrintError("trades", tradesResult.Error);
+}
+else
+{
+    var trades = tradesResult.Value;
     if (trades.Count == 0)
     {
         Console.WriteLine("  No trades in current session.");
@@ -71,49 +98,65 @@ try
         }
     }
 }
-catch (Exception ex)
-{
-    Console.WriteLine($"  Error querying trades: {ex.Message}");
-}
 
-// --- Query positions (raw HTTP — no Refit method yet) ---
+// --- Query positions (public portfolio surface) ---
 Console.WriteLine("\n=== POSITIONS ===");
-try
+if (accounts.Count == 0)
 {
-    var accountId = accounts[0].Id;
-    var posResponse = await provider.GetRequiredService<HttpClient>()
-        .GetAsync($"https://api.ibkr.com/v1/api/portfolio/{accountId}/positions/0");
-
-    // The DI HttpClient won't have signing. Use the Refit-backing client via a raw call instead.
-    // We'll use a simple signed HttpClient approach.
+    Console.WriteLine("  No account to query positions for.");
 }
-catch { /* ignore */ }
-
-// Use a signed HttpClient directly
-try
+else
 {
     var accountId = accounts[0].Id;
-    using var posClient = new HttpClient(new IbkrConduit.Auth.OAuthSigningHandler(
-        provider.GetRequiredService<IbkrConduit.Auth.ISessionTokenProvider>(),
-        creds.ConsumerKey, creds.AccessToken,
-        provider.GetRequiredService<IbkrConduit.Session.ISessionManager>())
+    var positionsResult = await client.Portfolio.GetPositionsAsync(accountId);
+    if (!positionsResult.IsSuccess)
     {
-        InnerHandler = new HttpClientHandler
+        PrintError("positions", positionsResult.Error);
+    }
+    else
+    {
+        var positions = positionsResult.Value;
+        if (positions.Count == 0)
         {
-            AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-        },
-    })
-    {
-        BaseAddress = new Uri("https://api.ibkr.com"),
-    };
-
-    var accountId2 = accounts[0].Id;
-    var posJson = await posClient.GetStringAsync($"/v1/api/portfolio/{accountId2}/positions/0");
-    Console.WriteLine(posJson);
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"  Error querying positions: {ex.Message}");
+            Console.WriteLine($"  No positions in {accountId}.");
+        }
+        else
+        {
+            foreach (var p in positions)
+            {
+                Console.WriteLine(
+                    string.Format(CultureInfo.InvariantCulture,
+                        "  {0,-10} qty={1,10:N0} mktPrice={2,12:N2} mktValue={3,14:N2} unrealizedPnl={4,14:N2}",
+                        p.Ticker ?? p.ContractDescription, p.Quantity, p.MarketPrice, p.MarketValue, p.UnrealizedPnl));
+            }
+        }
+    }
 }
 
 Console.WriteLine("\nDone.");
+
+// Unwrap a failed Result by pattern-matching the IbkrError taxonomy — never echo a raw
+// credential; the taxonomy fields carry only status/message/path, no secret material.
+static void PrintError(string operation, IbkrError error)
+{
+    var detail = error switch
+    {
+        IbkrSessionError s =>
+            $"session error (competing={s.IsCompeting}, status={s.StatusCode}): {s.Message}",
+        IbkrRateLimitError r =>
+            $"rate limited (retryAfter={r.RetryAfter}, status={r.StatusCode}): {r.Message}",
+        IbkrOrderRejectedError o =>
+            $"order rejected: {o.RejectionMessage}",
+        IbkrAmbiguousOrderError a =>
+            $"ambiguous order outcome (status={a.StatusCode}, reauthSucceeded={a.ReauthSucceeded}): {a.Message}",
+        IbkrFlexError f =>
+            $"flex error (code={f.ErrorCode}, retryable={f.IsRetryable}): {f.CodeDescription ?? f.Message}",
+        IbkrHiddenError h =>
+            $"hidden error (200 OK with error body): {h.Message}",
+        IbkrApiError e =>
+            $"API error (status={e.StatusCode}): {e.Message}",
+        _ => $"{error.GetType().Name} (status={error.StatusCode}): {error.Message}",
+    };
+
+    Console.WriteLine($"  Error querying {operation}: {detail}");
+}
