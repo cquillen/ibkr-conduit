@@ -506,7 +506,7 @@ The CP Web API itself (non-brokerage endpoints) remains accessible during mainte
 - **5xx or 429 → `IbkrTransientException`** (retryable; server/rate-limiter cause, not consumer configuration).
 - **401 or 403 → `IbkrConfigurationException`** (credential/authorization — bad or expired `ConsumerKey`/`AccessToken`).
 - **Other 4xx and non-HTTP failures** (crypto, DH, JSON, timeout) keep their path-specific configuration/credential-field hints.
-- A Refit `ApiException` is classified by its **own `.StatusCode`**, never the base `HttpRequestException.StatusCode` (Refit 12 leaves that unset) — via a shared helper both `WrapCredentialException` and `ClassifySuppressFailure` call, so a Refit internal no longer silently determines the outcome.
+- A Refit `ApiException` is classified by its **own `.StatusCode`** — in Refit 12.1.0 `ApiException` does not derive from `HttpRequestException` (`ApiException : ApiExceptionBase : Exception`), so there is no inherited HTTP-status member and it never matches an `HttpRequestException` switch arm — via a shared helper both `WrapCredentialException` and `ClassifySuppressFailure` call, so a Refit internal no longer silently determines the outcome.
 
 This generalizes PVR-14's suppress-path split to the whole session path. It is **breaking-behavioral** (`feat!:`): session-path 5xx/429 previously surfaced as `IbkrConfigurationException` (via the `ApiException` fallback) and now surface as `IbkrTransientException` — the safe direction for a retrying consumer. See §9.9 for the order-outcome side of the same `IbkrError` taxonomy.
 

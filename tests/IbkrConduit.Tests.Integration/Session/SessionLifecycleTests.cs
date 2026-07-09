@@ -238,6 +238,29 @@ public class SessionLifecycleTests : IAsyncDisposable
     }
 
     /// <summary>
+    /// FO-3 / ADR-0007: the ssodh/init raw Task&lt;T&gt; path surfaces a non-2xx as a Refit ApiException
+    /// (whose base HttpRequestException.StatusCode Refit 12 leaves unset). A 503 there is a transient
+    /// server error — through the full DI stack, initialization must throw IbkrTransientException so a
+    /// consumer can retry/back off, NOT IbkrConfigurationException ("fix your credentials").
+    /// </summary>
+    [Fact]
+    public async Task SsodhInitReturns503_InitFailsWithTransientException()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        _harness = await TestHarness.CreateAsync();
+
+        // Override the default 200 ssodh/init stub with a higher-priority 503 (transient server error).
+        _harness.Server.Given(
+            Request.Create().WithPath("/v1/api/iserver/auth/ssodh/init").UsingPost())
+            .AtPriority(-1)
+            .RespondWith(Response.Create().WithStatusCode(503).WithBody("Service Unavailable"));
+
+        var sessionManager = _harness.GetRequiredService<ISessionManager>();
+
+        await Should.ThrowAsync<IbkrTransientException>(() => sessionManager.EnsureInitializedAsync(ct));
+    }
+
+    /// <summary>
     /// SES-4 (ADR-0004): a successful tickle through the session pipeline records into the
     /// last-successful-call tracker, so a consumer-idle-but-tickling session has liveness evidence
     /// that is not tied to consumer REST traffic.
