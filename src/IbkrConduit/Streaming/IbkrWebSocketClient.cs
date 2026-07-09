@@ -199,6 +199,28 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     internal long ConnectionEpoch => Volatile.Read(ref _connectionEpoch);
 
     /// <summary>
+    /// Test seam (FO-4): the number of distinct routing keys currently mapped in
+    /// <see cref="_subscribers"/>. Asserts empty writer-lists are reaped once their last writer
+    /// unsubscribes rather than left mapped as an unbounded per-key leak.
+    /// </summary>
+    internal int SubscriberKeyCount => _subscribers.Count;
+
+    /// <summary>
+    /// Test seam (FO-4): whether <see cref="_subscribers"/> currently maps <paramref name="routingKey"/>.
+    /// </summary>
+    /// <param name="routingKey">The full-topic-identity routing key to probe.</param>
+    internal bool HasSubscriberKey(string routingKey) => _subscribers.ContainsKey(routingKey);
+
+    /// <summary>
+    /// Test-only hook (FO-4): invoked inside <see cref="SubscribeTopicAsync"/> immediately after the
+    /// <c>GetOrAdd</c> that captures the subscriber list, but before the registration locks are taken —
+    /// the exact window in which a concurrent last-writer unsubscribe can reap the captured list. A
+    /// test sets this to deterministically drive that reap into the race window; <see langword="null"/>
+    /// in production (no-op).
+    /// </summary>
+    internal Action? OnSubscribeListCaptured { get; set; }
+
+    /// <summary>
     /// Connects to the IBKR WebSocket API.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -290,6 +312,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
 
         var entry = new TopicSubscription(routingKey, topicPrefix, subscribeMessage, cancelMessage, channel.Writer);
         var writers = _subscribers.GetOrAdd(routingKey, _ => []);
+
+        // FO-4 test seam: the reap-vs-subscribe race window opens here, after the list is captured but
+        // before the registration locks are taken. No-op in production.
+        OnSubscribeListCaptured?.Invoke();
 
         // CON-3: register and send under _connectLock so a subscribe cannot race a reconnect's
         // replay — the replay snapshot (taken under this lock in ConnectCoreAsync) and this direct
