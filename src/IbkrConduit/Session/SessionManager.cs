@@ -641,34 +641,67 @@ internal sealed partial class SessionManager : ISessionManager
 
     /// <summary>
     /// Classifies a question-suppression failure into the same library taxonomy every other session
-    /// call uses (PRB-2.1): a Refit <see cref="ApiException"/> 5xx/429 → <see cref="IbkrTransientException"/>,
-    /// a 4xx → <see cref="IbkrConfigurationException"/> pointing at <see cref="IbkrClientOptions.SuppressMessageIds"/>,
-    /// and any transport/other failure → <see cref="WrapCredentialException"/> (transient for network faults).
-    /// The result is logged, not thrown — suppression is best-effort.
+    /// call uses (PRB-2.1), routing a Refit <see cref="ApiException"/> through the shared
+    /// <see cref="ClassifyHttpStatus"/> helper (ADR-0007) so the status→category split matches
+    /// <see cref="WrapCredentialException"/>: 429/5xx → <see cref="IbkrTransientException"/>;
+    /// 401/403 → an authorization-worded <see cref="IbkrConfigurationException"/>; any other 4xx →
+    /// <see cref="IbkrConfigurationException"/> pointing at <see cref="IbkrClientOptions.SuppressMessageIds"/>.
+    /// Any transport/other failure falls through to <see cref="WrapCredentialException"/> (transient for
+    /// network faults). The result is logged, not thrown — suppression is best-effort.
     /// </summary>
     private static Exception ClassifySuppressFailure(Exception ex) =>
         ex switch
         {
-            ApiException { StatusCode: HttpStatusCode.TooManyRequests } ae =>
-                new IbkrTransientException(
-                    "Question suppression was rate-limited (HTTP 429) — suppression not applied for this session; retry expected",
-                    ae),
-
-            ApiException ae when (int)ae.StatusCode >= 500 =>
-                new IbkrTransientException(
-                    $"Question suppression returned a transient server error (HTTP {(int)ae.StatusCode}) — suppression not applied for this session; retry expected",
-                    ae),
-
-            ApiException ae =>
-                new IbkrConfigurationException(
-                    $"Question suppression was rejected (HTTP {(int)ae.StatusCode}) — verify SuppressMessageIds contains supported message IDs (IBKR caps the list at 51 entries)",
-                    nameof(IbkrClientOptions.SuppressMessageIds),
-                    ae),
+            ApiException ae => ClassifyHttpStatus(
+                ae.StatusCode,
+                ae,
+                $"Question suppression returned a transient error (HTTP {(int)ae.StatusCode}) — suppression not applied for this session; retry expected",
+                $"Question suppression was rejected — authorization failure (HTTP {(int)ae.StatusCode}); the session credentials are not authorized for the suppress endpoint",
+                "ConsumerKey, AccessToken",
+                $"Question suppression was rejected (HTTP {(int)ae.StatusCode}) — verify SuppressMessageIds contains supported message IDs (IBKR caps the list at 51 entries)",
+                nameof(IbkrClientOptions.SuppressMessageIds)),
 
             ApiRequestException are => WrapCredentialException(are.InnerException ?? are),
 
             _ => WrapCredentialException(ex),
         };
+
+    /// <summary>
+    /// Shared session-path HTTP-status → error-category mapping (ADR-0007, design doc §7.8). Applied
+    /// uniformly by <see cref="WrapCredentialException"/> (ssodh/init + LST) and
+    /// <see cref="ClassifySuppressFailure"/> (question suppression) so a session-path failure classifies
+    /// identically whether it surfaces as a raw <see cref="HttpRequestException"/> or a Refit
+    /// <see cref="ApiException"/> (whose base <see cref="HttpRequestException.StatusCode"/> Refit 12 leaves
+    /// unset — the status must be read from <see cref="ApiException.StatusCode"/> at the call site):
+    /// <list type="bullet">
+    ///   <item>429 or 5xx → <see cref="IbkrTransientException"/> (retryable — server/rate-limiter fault);</item>
+    ///   <item>401 or 403 → <see cref="IbkrConfigurationException"/> (credential/authorization failure);</item>
+    ///   <item>any other 4xx → <see cref="IbkrConfigurationException"/> with the caller's path-specific hint.</item>
+    /// </list>
+    /// Callers supply the path-appropriate wording and hints; this helper owns only the status→category decision.
+    /// </summary>
+    private static Exception ClassifyHttpStatus(
+        HttpStatusCode status,
+        Exception inner,
+        string transientMessage,
+        string authMessage,
+        string? authHint,
+        string otherClientMessage,
+        string? otherClientHint)
+    {
+        var code = (int)status;
+        if (code == 429 || code >= 500)
+        {
+            return new IbkrTransientException(transientMessage, inner);
+        }
+
+        if (code is 401 or 403)
+        {
+            return new IbkrConfigurationException(authMessage, authHint, inner);
+        }
+
+        return new IbkrConfigurationException(otherClientMessage, otherClientHint, inner);
+    }
 
     /// <summary>
     /// Feeds the failed-auth server verdict into health state and builds the session error that
@@ -826,6 +859,22 @@ internal sealed partial class SessionManager : ISessionManager
                 new IbkrConfigurationException(
                     "Cryptographic operation failed during session initialization — verify SignaturePrivateKey and EncryptionPrivateKey",
                     "SignaturePrivateKey, EncryptionPrivateKey", ce),
+
+            // FO-3/ADR-0007: the ssodh/init raw Task<T> path throws a Refit ApiException whose base
+            // HttpRequestException.StatusCode Refit 12 leaves unset — so it never matches the
+            // HttpRequestException arms below and previously fell through to the configuration-error
+            // fallback, mis-reporting transient 5xx/429 as permanent. Read ApiException.StatusCode and
+            // route through the shared status→category helper so it classifies uniformly with the raw
+            // HttpRequestException path (5xx/429 → transient, 401/403 → config). Placed above the
+            // HttpRequestException arms to keep all HTTP-status handling grouped.
+            ApiException ae => ClassifyHttpStatus(
+                ae.StatusCode,
+                ae,
+                $"IBKR API returned a transient error (HTTP {(int)ae.StatusCode}) — retry expected",
+                "LST acquisition rejected by IBKR — verify ConsumerKey and AccessToken are correct and not expired",
+                "ConsumerKey, AccessToken",
+                $"IBKR session endpoint rejected the request (HTTP {(int)ae.StatusCode}) — verify ConsumerKey and AccessToken are correct and not expired",
+                "ConsumerKey, AccessToken"),
 
             HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden } he =>
                 new IbkrConfigurationException(
