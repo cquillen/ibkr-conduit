@@ -687,6 +687,7 @@ public class IbkrClientTests
         public bool Disposed { get; private set; }
         public int DisposeCount { get; private set; }
         public int EnsureInitializedCallCount { get; private set; }
+        public bool SessionEstablished => true;
         public Task EnsureInitializedAsync(CancellationToken cancellationToken) { EnsureInitializedCallCount++; return Task.CompletedTask; }
         public Task ReauthenticateAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 

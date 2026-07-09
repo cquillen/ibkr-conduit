@@ -88,6 +88,10 @@ internal sealed partial class SessionManager : ISessionManager
     /// clean re-init must not double-count the gauge (SES-6).
     /// </summary>
     private volatile bool _sessionEstablished;
+
+    /// <inheritdoc />
+    public bool SessionEstablished => _sessionEstablished;
+
     private readonly object _proactiveRefreshLock = new();
     private ITickleTimer? _tickleTimer;
     private CancellationTokenSource? _proactiveRefreshCts;
@@ -203,6 +207,21 @@ internal sealed partial class SessionManager : ISessionManager
                     throw BuildUnauthenticatedInitError(initResponse);
                 }
 
+                // FO-2: authenticated=true means the server-side brokerage session is live. Mark the
+                // session logout-eligible (and count it on the active-session gauge exactly once, even
+                // across a failed-reauth→re-init cycle — SES-6) RIGHT HERE, before the best-effort
+                // suppression and tickle-start steps below. If one of those later steps throws, this
+                // failed init still leaves _sessionEstablished true, so DisposeAsync issues the
+                // best-effort logout (single-account path) / TenantBuilder issues its bounded logout
+                // (managed path) instead of leaking the server session. Gated on authenticated=true —
+                // NOT merely "init started" — so a throw BEFORE this point marks nothing eligible.
+                if (!_sessionEstablished)
+                {
+                    _sessionEstablished = true;
+                    _activeSessionCount.Add(1,
+                        new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
+                }
+
                 // §7.5 (PVR-14): question suppression is best-effort convenience layered on top of an
                 // already-authenticated session, not the authentication itself. A suppress failure is
                 // classified + logged (observable) but must NOT fail this otherwise-successful init.
@@ -254,15 +273,9 @@ internal sealed partial class SessionManager : ISessionManager
 
                 _state = SessionState.Ready;
 
-                // Count the tenant on the active-session gauge exactly once, even across a
-                // failed-reauth→re-init cycle (SES-6: no duplicate increment).
-                if (!_sessionEstablished)
-                {
-                    _sessionEstablished = true;
-                    _activeSessionCount.Add(1,
-                        new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
-                }
-
+                // _sessionEstablished + the active-session gauge increment are done above, at the moment
+                // ssodh reported authenticated=true (FO-2), so a post-auth-throw init still leaves the
+                // session logout-eligible on dispose.
                 _initDuration.Record(sw.Elapsed.TotalMilliseconds,
                     new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
                 LogInitialized();

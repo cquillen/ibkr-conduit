@@ -195,6 +195,8 @@ public class OAuthSigningHandlerTests
         public Task ReauthenticateAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
+        public bool SessionEstablished => false;
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
@@ -210,6 +212,8 @@ public class OAuthSigningHandlerTests
 
         public Task ReauthenticateAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        public bool SessionEstablished => true;
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

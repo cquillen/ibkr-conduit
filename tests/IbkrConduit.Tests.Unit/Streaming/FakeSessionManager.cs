@@ -33,5 +33,8 @@ internal sealed class FakeSessionManager : ISessionManager
     public Task ReauthenticateAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     /// <inheritdoc />
+    public bool SessionEstablished => true;
+
+    /// <inheritdoc />
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
