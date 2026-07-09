@@ -418,7 +418,7 @@ Finding RST-5 (low, PLAUSIBLE): the preflight cache marks a conid preflighted fo
 **TDD notes:** red test = a fake logout that never returns; assert `DisposeAsync` completes within ~`LogoutTimeout` via a controllable `TimeProvider`.
 
 #### FO-2 — EnsureInitializedAsync post-auth-throw session leak
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** ✅ Done — #284 · **Stream:** FO · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 A narrow window where a post-`authenticated=true` step (SuppressQuestions / tickle `StartAsync`) throws before `_sessionEstablished` is set leaks the server-side session on both the single-account and `TenantBuilder` paths. Move `_sessionEstablished`/logout-eligibility to the moment ssodh reports `authenticated=true`, so a later-step throw still leaves the session logout-eligible on dispose. Repairs within the recorded §7 lifecycle contract — no new contract. (PVR-22 review; pre-existing.) **`fix:`.**
@@ -434,7 +434,7 @@ Session-path failures classify inconsistently: `ClassifySuppressFailure` (PVR-14
 **TDD notes:** red tests = `ApiException` 500/503/429→transient, 401/403/400/404→config in `SessionManagerWrapCredentialExceptionTests` (built via the existing `ApiException.Create` helper); WireMock `ssodh/init` 503 → `IbkrTransientException`; raw-`HttpRequestException` tests stay green.
 
 #### FO-4 — Reap empty streaming subscriber entries
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** ✅ Done — #282 · **Stream:** FO · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-09-fo-4-subscriber-map-reap.md
 After the last unsubscribe, `IbkrWebSocketClient._subscribers` keeps an empty writer-list keyed by the (now full-identity) routing key — bounded per key but unbounded over the lifetime of a client rotating many conids/accounts. Reap the key when its last writer unsubscribes, value-conditionally under the existing `_subscriptionLock`/`lock(writers)`, and extend the CON-2 subscribe-side guard so a subscribe racing a reap re-attempts (benign) while a subscribe racing a dispose still fails (ODE). (PVR-01 review; deferred at ship time to protect the race invariants.) **`fix:` — internal only, no public surface.**

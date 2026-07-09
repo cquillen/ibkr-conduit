@@ -571,6 +571,8 @@ public class TokenRefreshHandlerTests
         /// </summary>
         public Action? OnReauth { get; init; }
 
+        public bool SessionEstablished => true;
+
         public Task EnsureInitializedAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
 

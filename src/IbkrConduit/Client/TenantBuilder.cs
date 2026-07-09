@@ -27,7 +27,7 @@ internal sealed class TenantBuilder(ILoggerFactory loggerFactory) : ITenantBuild
         effectiveOptions.SkipLogoutOnDispose = true;
 
         ServiceProvider? provider = null;
-        var sessionEstablished = false;
+        ISessionManager? sessionManager = null;
         try
         {
             var services = new ServiceCollection();
@@ -41,10 +41,9 @@ internal sealed class TenantBuilder(ILoggerFactory loggerFactory) : ITenantBuild
 
             provider = services.BuildServiceProvider();
             var client = provider.GetRequiredService<IIbkrClient>();
+            sessionManager = provider.GetRequiredService<ISessionManager>();
             // Eager: force session init then connect the stream.
-            await provider.GetRequiredService<ISessionManager>()
-                .EnsureInitializedAsync(cancellationToken);
-            sessionEstablished = true;
+            await sessionManager.EnsureInitializedAsync(cancellationToken);
             await provider.GetRequiredService<IIbkrWebSocketClient>()
                 .ConnectAsync(cancellationToken);
             return new ManagedTenant(provider, client, credentials, effectiveOptions.LogoutTimeout);
@@ -59,7 +58,13 @@ internal sealed class TenantBuilder(ILoggerFactory loggerFactory) : ITenantBuild
             // best-effort logout here, before the provider that owns the HTTP pipeline is torn
             // down. Bounded by (caller token ∪ effectiveOptions.LogoutTimeout), same as
             // ManagedTenant.DisposeAsync, so a hung logout can never block this failure path.
-            if (sessionEstablished && provider is not null)
+            //
+            // FO-2: gate on the session manager's own SessionEstablished flag — set the moment
+            // ssodh reports authenticated=true — NOT a local flag set only after
+            // EnsureInitializedAsync RETURNS. This way, if a post-authenticated=true init step
+            // (suppression / tickle-start) throws out of EnsureInitializedAsync, the server session
+            // is still torn down here rather than leaked.
+            if (sessionManager?.SessionEstablished == true && provider is not null)
             {
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 linked.CancelAfter(effectiveOptions.LogoutTimeout);
