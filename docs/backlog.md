@@ -410,7 +410,7 @@ Finding RST-5 (low, PLAUSIBLE): the preflight cache marks a conid preflighted fo
 > Review nits & named follow-ons from the 2026-07-07/08 ship-backlog run (Stream VCR + Stream PVR, PRs #252–#277). **Groomed loop-ready 2026-07-09** (open-question sweep: no operator-forks remained after FO-3/FO-9 were settled attended; no empirical blockers — all client-side/tooling). None blocked a merge. FO-5/FO-6 deferred (Flex); FO-9 resolved (ERR-1 retracted in place).
 
 #### FO-1 — Bounded single-account dispose logout
-**Status:** Not started · **Stream:** FO · **Depends on:** FO-2
+**Status:** ✅ Done — #286 · **Stream:** FO · **Depends on:** FO-2
 **Risk:** standard
 **Spec:** trivial-skip
 `SessionManager.DisposeAsync`'s single-account logout uses `CancellationToken.None`, not `LogoutTimeout` — §5.4's "bounded" best-effort logout is only enforced on the `ManagedTenant` path. Thread a `LogoutTimeout`-capped CTS into the single-account dispose logout so both paths honour the same bound. (PVR-21 review.) Ordered after FO-2 (same `DisposeAsync`/logout region). **`fix:`.**
@@ -442,7 +442,7 @@ After the last unsubscribe, `IbkrWebSocketClient._subscribers` keeps an empty wr
 **TDD notes:** deterministic-gate race tests (VCR-08/PVR-13 pattern) — reap on last-unsubscribe; no premature reap with a surviving writer; gated reap-vs-subscribe asserts the new subscription receives a later broadcast; existing dispose-vs-subscribe CON-2 test stays green. Add an `internal` `_subscribers`-count seam if none exists.
 
 #### FO-7 — Redact the consumer key in the QueryAccount diagnostic tool
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** ✅ Done — #285 · **Stream:** FO · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 `tools/QueryAccount/Program.cs` echoes the full OAuth consumer key to the console — outside the library's `IbkrOAuthCredentials.ToString` redaction (PVR-08). Truncate it in the diagnostic tool, consistent with the `ToString` redaction convention. **Scope (operator-decided 2026-07-09): the `QueryAccount` diagnostic echo only — the `tools/IbkrConduit.Setup` wizard legitimately displays the key (the user copies it into the IBKR portal) and is left unchanged.** Tools-only change; the library's runtime credential handling already ships redacted (PVR-08), hence `standard` risk. **`fix:` (or `chore:`).**

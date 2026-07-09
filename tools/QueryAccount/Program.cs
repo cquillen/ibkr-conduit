@@ -7,7 +7,10 @@ using Microsoft.Extensions.Logging;
 
 // Load credentials
 using var creds = OAuthCredentialsFactory.FromEnvironment();
-Console.WriteLine($"Consumer key: {creds.ConsumerKey}");
+// Redact the consumer key rather than echoing it in full — mirrors the
+// IbkrOAuthCredentials.ToString redaction convention (source of truth), which
+// renders the consumer key as "[redacted]" so no credential material reaches a log.
+Console.WriteLine("Consumer key: [redacted]");
 
 // Wire up via DI — the way a real consumer would
 var services = new ServiceCollection();
