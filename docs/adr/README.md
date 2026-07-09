@@ -19,3 +19,4 @@ Cross-cutting decisions for IbkrConduit — each ADR records **one** decision, t
 | [0004](0004-competing-session-truth-and-health-evidence.md) | Truthful competing-session signaling and health evidence | Accepted | 2026-07-07 |
 | [0005](0005-subscription-scoped-streaming-delivery.md) | Subscription-scoped streaming delivery: full-topic-identity routing | Accepted | 2026-07-07 |
 | [0006](0006-order-confirmation-window.md) | Order confirmation window: reply-immediately obligation, typed invalidated-confirmation refusal | Accepted | 2026-07-07 |
+| [0007](0007-session-path-error-classification.md) | Session-path error classification: uniform HTTP-status taxonomy | Accepted | 2026-07-09 |

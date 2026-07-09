@@ -499,6 +499,17 @@ The CP Web API itself (non-brokerage endpoints) remains accessible during mainte
 - **Tickle successes are liveness evidence:** an initialized, tickling session is healthy while consumer-idle; consumer-call staleness alone is not Unhealthy.
 - **Health staleness thresholds are consumer-configurable** (surfaced through the client options, not a hardcoded internal default), with defaults derived from the tenant's tickle interval so a custom `TickleIntervalSeconds` cannot silently outrun the staleness window (operator-decided 2026-07-07; PVR-07). Active-probe evidence feeds `SessionHealthState` with the same durability as tickle/`sts` evidence (PVR-20).
 
+### 7.8 Session-Path Error Classification
+
+**[ADR-0007](adr/0007-session-path-error-classification.md).** Failures on the session-establishment path — question-suppression, `ssodh/init`, and LST acquisition — classify through **one** HTTP-status taxonomy, so the same status always yields the same `IbkrError`:
+
+- **5xx or 429 → `IbkrTransientException`** (retryable; server/rate-limiter cause, not consumer configuration).
+- **401 or 403 → `IbkrConfigurationException`** (credential/authorization — bad or expired `ConsumerKey`/`AccessToken`).
+- **Other 4xx and non-HTTP failures** (crypto, DH, JSON, timeout) keep their path-specific configuration/credential-field hints.
+- A Refit `ApiException` is classified by its **own `.StatusCode`**, never the base `HttpRequestException.StatusCode` (Refit 12 leaves that unset) — via a shared helper both `WrapCredentialException` and `ClassifySuppressFailure` call, so a Refit internal no longer silently determines the outcome.
+
+This generalizes PVR-14's suppress-path split to the whole session path. It is **breaking-behavioral** (`feat!:`): session-path 5xx/429 previously surfaced as `IbkrConfigurationException` (via the `ApiException` fallback) and now surface as `IbkrTransientException` — the safe direction for a retrying consumer. See §9.9 for the order-outcome side of the same `IbkrError` taxonomy.
+
 ---
 
 ## 8. Rate Limiting
