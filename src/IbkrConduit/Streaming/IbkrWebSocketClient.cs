@@ -199,6 +199,28 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
     internal long ConnectionEpoch => Volatile.Read(ref _connectionEpoch);
 
     /// <summary>
+    /// Test seam (FO-4): the number of distinct routing keys currently mapped in
+    /// <see cref="_subscribers"/>. Asserts empty writer-lists are reaped once their last writer
+    /// unsubscribes rather than left mapped as an unbounded per-key leak.
+    /// </summary>
+    internal int SubscriberKeyCount => _subscribers.Count;
+
+    /// <summary>
+    /// Test seam (FO-4): whether <see cref="_subscribers"/> currently maps <paramref name="routingKey"/>.
+    /// </summary>
+    /// <param name="routingKey">The full-topic-identity routing key to probe.</param>
+    internal bool HasSubscriberKey(string routingKey) => _subscribers.ContainsKey(routingKey);
+
+    /// <summary>
+    /// Test-only hook (FO-4): invoked inside <see cref="SubscribeTopicAsync"/> immediately after the
+    /// <c>GetOrAdd</c> that captures the subscriber list, but before the registration locks are taken —
+    /// the exact window in which a concurrent last-writer unsubscribe can reap the captured list. A
+    /// test sets this to deterministically drive that reap into the race window; <see langword="null"/>
+    /// in production (no-op).
+    /// </summary>
+    internal Action? OnSubscribeListCaptured { get; set; }
+
+    /// <summary>
     /// Connects to the IBKR WebSocket API.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -291,6 +313,10 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
         var entry = new TopicSubscription(routingKey, topicPrefix, subscribeMessage, cancelMessage, channel.Writer);
         var writers = _subscribers.GetOrAdd(routingKey, _ => []);
 
+        // FO-4 test seam: the reap-vs-subscribe race window opens here, after the list is captured but
+        // before the registration locks are taken. No-op in production.
+        OnSubscribeListCaptured?.Invoke();
+
         // CON-3: register and send under _connectLock so a subscribe cannot race a reconnect's
         // replay — the replay snapshot (taken under this lock in ConnectCoreAsync) and this direct
         // send are serialized, so each subscribe message goes out at most once per connection rather
@@ -331,6 +357,44 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                     }
                     channel.Writer.TryComplete();
                     throw new ObjectDisposedException(GetType().FullName);
+                }
+
+                // FO-4 / CON-3: the list was captured via GetOrAdd before these locks were taken. A
+                // concurrent last-writer unsubscribe may have reaped it in that window, so our writer
+                // now sits in a list no longer mapped under routingKey — dispatch (which TryGetValues
+                // the map) would never find it. Re-assert the mapping; a benign reap must not fail a
+                // legitimate subscribe, so roll back and retry once with a fresh list re-added under
+                // this same lock (the reap and dispose sweep both mutate the map under _subscriptionLock,
+                // so the retry cannot itself be reaped). Distinct from the _disposed case above, which
+                // still fails.
+                if (!_subscribers.TryGetValue(routingKey, out var mapped) || !ReferenceEquals(mapped, writers))
+                {
+                    _subscriptions.Remove(entry);
+                    lock (writers)
+                    {
+                        writers.Remove(channel.Writer);
+                    }
+
+                    writers = _subscribers.GetOrAdd(routingKey, _ => []);
+                    lock (writers)
+                    {
+                        writers.Add(channel.Writer);
+                    }
+                    _subscriptions.Add(entry);
+
+                    // Defensive: the retry re-added under _subscriptionLock, which serializes with the
+                    // reap and the dispose sweep, so a second miss should be unreachable. Fail rather
+                    // than return a subscription orphaned outside the map if it ever occurs.
+                    if (!_subscribers.TryGetValue(routingKey, out var remapped) || !ReferenceEquals(remapped, writers))
+                    {
+                        _subscriptions.Remove(entry);
+                        lock (writers)
+                        {
+                            writers.Remove(channel.Writer);
+                        }
+                        channel.Writer.TryComplete();
+                        throw new ObjectDisposedException(GetType().FullName);
+                    }
                 }
             }
 
@@ -1161,6 +1225,18 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                 lock (writers)
                 {
                     writers.Remove(entry.Writer);
+
+                    // FO-4: reap the key once its last writer is gone so a client rotating conids/
+                    // accounts does not leak one map entry per distinct topic identity. Value-
+                    // conditional: remove the key only if it still maps this exact (now empty) list
+                    // instance — never a list a concurrent subscribe's GetOrAdd already replaced or
+                    // repopulated (CON-3). Under _subscriptionLock and lock(writers), so it is atomic
+                    // with the writer removal.
+                    if (writers.Count == 0)
+                    {
+                        _subscribers.TryRemove(
+                            new KeyValuePair<string, List<ChannelWriter<JsonElement>>>(entry.RoutingKey, writers));
+                    }
                 }
             }
             entry.Writer.TryComplete();

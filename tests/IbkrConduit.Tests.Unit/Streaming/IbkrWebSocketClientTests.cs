@@ -1716,6 +1716,100 @@ public class IbkrWebSocketClientTests
             "the subscribe message must be sent exactly once per connection — not replayed and direct-sent");
     }
 
+    [Fact]
+    public async Task Unsubscribe_LastWriterForKey_ReapsSubscriberMapEntry()
+    {
+        // FO-4: after the last writer for a routing key unsubscribes, the empty writer-list must not
+        // be left mapped under that key — otherwise a client rotating conids/accounts leaks one map
+        // entry per distinct topic identity over its lifetime.
+        var ct = TestContext.Current.CancellationToken;
+        await using var client = CreateClient();
+        await client.ConnectAsync(ct);
+
+        var (_, unsubscribe) = await client.SubscribeTopicAsync("smd+265598+{}", "smd+265598", null, ct);
+        client.HasSubscriberKey("smd+265598").ShouldBeTrue("the subscription registers under its full topic identity");
+
+        await unsubscribe(ct);
+
+        client.HasSubscriberKey("smd+265598").ShouldBeFalse(
+            "the empty writer-list must be reaped once its last writer unsubscribes");
+        client.SubscriberKeyCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Unsubscribe_OneOfTwoWritersSameKey_RetainsKeyAndKeepsDelivering()
+    {
+        // FO-4: a key with a surviving writer must not be reaped. Unsubscribing one of two writers on
+        // the same routing key leaves the key mapped and the survivor still receiving frames.
+        var ct = TestContext.Current.CancellationToken;
+        await using var client = CreateClient();
+        await client.ConnectAsync(ct);
+
+        var (_, unsubscribeFirst) = await client.SubscribeTopicAsync("smd+265598+{}", "smd+265598", null, ct);
+        var (survivorReader, _) = await client.SubscribeTopicAsync("smd+265598+{}", "smd+265598", null, ct);
+        await _adapter.WaitForReceiveAsync(ct);
+
+        await unsubscribeFirst(ct);
+
+        client.HasSubscriberKey("smd+265598").ShouldBeTrue("a key with a surviving writer must not be reaped");
+
+        _adapter.EnqueueServerMessage("""{"topic":"smd+265598","31":"y"}""");
+        await _adapter.WaitForReceiveAsync(ct);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var msg = await survivorReader.ReadAsync(cts.Token);
+        msg.GetProperty("topic").GetString().ShouldBe("smd+265598");
+    }
+
+    [Fact]
+    public async Task SubscribeRacingReap_IsRoutedNotOrphaned()
+    {
+        // FO-4 / CON-3: a subscribe that captured the soon-empty writer-list via GetOrAdd, then had it
+        // reaped by a concurrent last-writer unsubscribe before it could add its writer under the lock,
+        // must recover — re-map a fresh list and route subsequently-broadcast frames — rather than add
+        // to an orphaned list dispatch never finds. Driven deterministically via OnSubscribeListCaptured.
+        var ct = TestContext.Current.CancellationToken;
+        await using var client = CreateClient();
+        await client.ConnectAsync(ct);
+
+        // Pre-existing sole writer W0 on the key, so the racing subscribe's GetOrAdd returns W0's list.
+        var (_, unsubscribeW0) = await client.SubscribeTopicAsync("smd+265598+{}", "smd+265598", null, ct);
+
+        using var subscribeReachedWindow = new ManualResetEventSlim(false);
+        using var reapCompleted = new ManualResetEventSlim(false);
+
+        // Park the racing subscribe in the reap window (after GetOrAdd, before the locks).
+        client.OnSubscribeListCaptured = () =>
+        {
+            client.OnSubscribeListCaptured = null; // one-shot: don't re-fire on the retry or W0 teardown
+            subscribeReachedWindow.Set();
+            reapCompleted.Wait(ct);
+        };
+
+        var subscribeTask = Task.Run(
+            () => client.SubscribeTopicAsync("smd+265598+{}", "smd+265598", null, ct),
+            ct);
+
+        // Wait until the racing subscribe is parked in the window, then reap the key by unsubscribing
+        // the sole existing writer — value-conditionally removing the exact list the subscribe captured.
+        subscribeReachedWindow.Wait(ct);
+        await unsubscribeW0(ct);
+        client.HasSubscriberKey("smd+265598").ShouldBeFalse("W0's unsubscribe reaps the captured list");
+
+        // Release the racing subscribe: it must detect the reap and re-map a fresh list.
+        reapCompleted.Set();
+        var (racedReader, _) = await subscribeTask.WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+        client.HasSubscriberKey("smd+265598").ShouldBeTrue("the recovered subscribe must re-map the key");
+
+        // The recovered subscription must receive a subsequently-broadcast frame — proof it is routed,
+        // not orphaned in a list no longer mapped.
+        _adapter.EnqueueServerMessage("""{"topic":"smd+265598","31":"z"}""");
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var msg = await racedReader.ReadAsync(cts.Token);
+        msg.GetProperty("topic").GetString().ShouldBe("smd+265598");
+    }
+
     private static async Task<ConnectionEvent> ReadEventAsync(ChannelReader<ConnectionEvent> reader, CancellationToken cancellationToken)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
