@@ -405,16 +405,76 @@ Finding RST-5 (low, PLAUSIBLE): the preflight cache marks a conid preflighted fo
 
 *(empty — VCR-12, formerly here, was groomed loop-ready on 2026-07-07 after its compliance claim was verified against the live docs; see its entry.)*
 
-## Post-Stream-PVR follow-ons (drafted — review nits & named follow-ons from the 2026-07-07/08 ship-backlog run)
+## Stream FO — Post-Stream-PVR follow-ons
 
-> Stream VCR + Stream PVR fully shipped 2026-07-08 (all 24 loop-ready stories merged, PRs #252–#277; plus two loop-hygiene test PRs #255/#263). These are **non-blocking** nits surfaced by the per-story adversarial review panels and grooming — captured here for triage/grooming, not yet loop-ready. None blocked a merge.
+> Review nits & named follow-ons from the 2026-07-07/08 ship-backlog run (Stream VCR + Stream PVR, PRs #252–#277). **Groomed loop-ready 2026-07-09** (open-question sweep: no operator-forks remained after FO-3/FO-9 were settled attended; no empirical blockers — all client-side/tooling). None blocked a merge. FO-5/FO-6 deferred (Flex); FO-9 resolved (ERR-1 retracted in place).
 
-- **FO-1 — Bounded single-account dispose logout.** `SessionManager.DisposeAsync`'s single-account logout uses `CancellationToken.None`, not `LogoutTimeout` — §5.4's "bounded" best-effort logout is only enforced on the `ManagedTenant` path. Thread a `LogoutTimeout`-capped CTS into the single-account dispose logout. (PVR-21 review.)
-- **FO-2 — EnsureInitializedAsync post-auth-throw session leak.** A narrow window where a post-`authenticated=true` step (SuppressQuestions / tickle `StartAsync`) throws before `_sessionEstablished` is set leaks the server-side session on both the single-account and `TenantBuilder` paths. Move `_sessionEstablished`/logout-eligibility to the moment ssodh reports `authenticated=true`. (PVR-22 review; pre-existing.)
-- **FO-3 — Unify session-path Refit error classification.** `ClassifySuppressFailure` (PVR-14) applies a finer 429/5xx→transient vs 4xx→config split than `WrapCredentialException`, which maps all ssodh/init `ApiException` to `IbkrConfigurationException`. Align `WrapCredentialException` for a consistent session-path taxonomy; also give a 401/403 suppress a status-specific Warning (not "verify SuppressMessageIds"). (PVR-14 review.)
-- **FO-4 — Reap empty streaming subscriber entries.** After the last unsubscribe, `IbkrWebSocketClient._subscribers` keeps an empty writer-list keyed by the (now full-identity) routing key — bounded but unbounded-over-lifetime growth for a client rotating many conids/accounts. Reap on empty under the lock (carefully, vs the CON-2/CON-3 add/remove race). (PVR-01 review; deferred deliberately to protect the race invariants.)
-- **FO-5 — Flex zone-less timestamp offset.** `ParseFlexDateTime`'s general parse assumes the host-local offset for a zone-less hyphenated timestamp (e.g. tz column disabled). Pass `DateTimeStyles.AssumeUniversal` or accept only explicit-offset forms. Pre-existing, outside RST-3's tz-abbreviation scope. (PVR-09 review.)
-- **FO-6 — Pin Flex wire formats against a real statement.** PVR-09's design is format-agnostic (no live Flex statement is configured on the paper account). Once a Flex query/token is configured, capture a real statement and pin the money/timestamp wire formats. (Grooming named follow-on.)
-- **FO-7 — Setup/diagnostic tools print the consumer key.** `tools/QueryAccount/Program.cs` (and the `tools/IbkrConduit.Setup` wizard, which needs it) echo the OAuth consumer key to the console — outside the library's `IbkrOAuthCredentials.ToString` redaction (PVR-08). Consider truncating in the diagnostic tool. (PVR-08 review.)
-- **FO-8 — Test-strength nits.** PVR-20: strengthen the healthy-active-probe test to seed `competing:true`→`false` clearing. PVR-06: add a `ThrowOnApiError=true` + 503/timeout reply ordering test. PVR-18: provider-only dispose direction (client `DisposeAsync` never called) untested for the facade-teardown, and `IbkrClient.DisposeAsync` could belt-and-suspenders dispose `Orders`. PVR-04: `MarketDataTickMapper` string parse uses `CurrentCulture` (align to `InvariantCulture`).
-- **FO-9 — Re-annotate ERR-1 in the findings doc.** `docs/findings/2026-07-07-multi-agent-code-review.md`'s ERR-1 "CONFIRMED" premise (`ApiResponse<T>.RequestMessage == HttpResponseMessage.RequestMessage`) was falsified by decompiling Refit 12.1.0 — hidden-error detection already fired on the 401-retry leg through the public surface; PVR-11's fix is defense-in-depth. Findings docs are immutable evidence — operator call on whether/how to annotate. (PVR-11 review.)
+#### FO-1 — Bounded single-account dispose logout
+**Status:** Not started · **Stream:** FO · **Depends on:** FO-2
+**Risk:** standard
+**Spec:** trivial-skip
+`SessionManager.DisposeAsync`'s single-account logout uses `CancellationToken.None`, not `LogoutTimeout` — §5.4's "bounded" best-effort logout is only enforced on the `ManagedTenant` path. Thread a `LogoutTimeout`-capped CTS into the single-account dispose logout so both paths honour the same bound. (PVR-21 review.) Ordered after FO-2 (same `DisposeAsync`/logout region). **`fix:`.**
+**Done when:** a hanging single-account dispose logout is cancelled at `LogoutTimeout` (not awaited unbounded), matching the `ManagedTenant` path; dispose still completes.
+**TDD notes:** red test = a fake logout that never returns; assert `DisposeAsync` completes within ~`LogoutTimeout` via a controllable `TimeProvider`.
+
+#### FO-2 — EnsureInitializedAsync post-auth-throw session leak
+**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+A narrow window where a post-`authenticated=true` step (SuppressQuestions / tickle `StartAsync`) throws before `_sessionEstablished` is set leaks the server-side session on both the single-account and `TenantBuilder` paths. Move `_sessionEstablished`/logout-eligibility to the moment ssodh reports `authenticated=true`, so a later-step throw still leaves the session logout-eligible on dispose. Repairs within the recorded §7 lifecycle contract — no new contract. (PVR-22 review; pre-existing.) **`fix:`.**
+**Done when:** if a post-`authenticated=true` init step throws, `DisposeAsync` still issues the best-effort server logout (no leaked brokerage session) on both the single-account and `TenantBuilder` paths.
+**TDD notes:** red test = fake SuppressQuestions/tickle-start that throws after ssodh reports `authenticated=true`; assert dispose issues a logout (mock server logout count == 1).
+
+#### FO-3 — 📦 Unify session-path Refit error classification
+**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Risk:** high
+**Spec:** docs/superpowers/specs/2026-07-09-fo-3-session-error-classification.md
+Session-path failures classify inconsistently: `ClassifySuppressFailure` (PVR-14) splits 429/5xx→transient vs 4xx→config, while `WrapCredentialException` sends every ssodh/init Refit `ApiException` to `IbkrConfigurationException` via the `_` fallback (probe-verified 2026-07-09: Refit 12's `ApiException` doesn't match the `HttpRequestException` branch), so transient 5xx/429 are mis-reported as permanent config errors. Introduce one shared status→category helper both classifiers call, add an `ApiException` arm to `WrapCredentialException` keyed on `ApiException.StatusCode`, and give a 401/403 suppress a status-specific Warning. Decision of record: [ADR-0007](adr/0007-session-path-error-classification.md); design doc §7.8. **Breaking-behavioral — `feat!:`; folds into the 0.9.0 train, must land before release-please #241 is cut.**
+**Done when:** a session-path failure classifies identically whether it arrives as a raw `HttpRequestException` or a Refit `ApiException` — 5xx/429→`IbkrTransientException`, 401/403→`IbkrConfigurationException`, other 4xx/non-HTTP→configuration with the path hint; `ssodh/init` 503 surfaces as transient; a 401/403 suppression logs an authorization-specific Warning.
+**TDD notes:** red tests = `ApiException` 500/503/429→transient, 401/403/400/404→config in `SessionManagerWrapCredentialExceptionTests` (built via the existing `ApiException.Create` helper); WireMock `ssodh/init` 503 → `IbkrTransientException`; raw-`HttpRequestException` tests stay green.
+
+#### FO-4 — Reap empty streaming subscriber entries
+**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Risk:** high
+**Spec:** docs/superpowers/specs/2026-07-09-fo-4-subscriber-map-reap.md
+After the last unsubscribe, `IbkrWebSocketClient._subscribers` keeps an empty writer-list keyed by the (now full-identity) routing key — bounded per key but unbounded over the lifetime of a client rotating many conids/accounts. Reap the key when its last writer unsubscribes, value-conditionally under the existing `_subscriptionLock`/`lock(writers)`, and extend the CON-2 subscribe-side guard so a subscribe racing a reap re-attempts (benign) while a subscribe racing a dispose still fails (ODE). (PVR-01 review; deferred at ship time to protect the race invariants.) **`fix:` — internal only, no public surface.**
+**Done when:** the key is removed once its last writer unsubscribes; a key with surviving writers is retained and keeps delivering; a subscribe racing a reap is routed (never orphaned); a subscribe racing a dispose still fails.
+**TDD notes:** deterministic-gate race tests (VCR-08/PVR-13 pattern) — reap on last-unsubscribe; no premature reap with a surviving writer; gated reap-vs-subscribe asserts the new subscription receives a later broadcast; existing dispose-vs-subscribe CON-2 test stays green. Add an `internal` `_subscribers`-count seam if none exists.
+
+#### FO-7 — Redact the consumer key in the QueryAccount diagnostic tool
+**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+`tools/QueryAccount/Program.cs` echoes the full OAuth consumer key to the console — outside the library's `IbkrOAuthCredentials.ToString` redaction (PVR-08). Truncate it in the diagnostic tool, consistent with the `ToString` redaction convention. **Scope (operator-decided 2026-07-09): the `QueryAccount` diagnostic echo only — the `tools/IbkrConduit.Setup` wizard legitimately displays the key (the user copies it into the IBKR portal) and is left unchanged.** Tools-only change; the library's runtime credential handling already ships redacted (PVR-08), hence `standard` risk. **`fix:` (or `chore:`).**
+**Done when:** `QueryAccount` prints a redacted/truncated consumer key matching the `IbkrOAuthCredentials.ToString` form; the Setup wizard is unchanged.
+**TDD notes:** trivial — the tool has no test project; verify by inspection / a manual run. The redaction helper (if extracted) can carry a unit test.
+
+#### FO-8a — MarketDataTickMapper invariant-culture numeric parse
+**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+`MarketDataTickMapper`'s string→number parse uses `CurrentCulture`, so a host in a comma-decimal culture misparses streaming price/size fields (PVR-04). Align to `InvariantCulture` (IBKR wire numerics are invariant). A real correctness fix, split out from the FO-8 test-only nits. **`fix:`.**
+**Done when:** `MarketDataTickMapper` parses numerics with `InvariantCulture`; a test under a comma-decimal culture asserts a wire value like `"1.5"` parses to `1.5`, not `15`.
+**TDD notes:** red test sets `CultureInfo.CurrentCulture` to `de-DE` and asserts the mapped tick numeric is correct.
+
+#### FO-8b — Test-strength hardening (PVR-20/06/18)
+**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Risk:** standard
+**Spec:** trivial-skip
+Test-strength nits from the PVR panels, bundled: PVR-20 — strengthen the healthy-active-probe test to seed `competing:true`→`false` clearing; PVR-06 — add a `ThrowOnApiError=true` + 503/timeout reply-ordering test; PVR-18 — add a provider-only dispose-direction test (client `DisposeAsync` never called) for the facade teardown, and add the small belt-and-suspenders `IbkrClient.DisposeAsync` → dispose `Orders`. **`test:` (+ the one tiny dispose line).**
+**Done when:** the three test gaps are covered and green, and `IbkrClient.DisposeAsync` disposes `Orders` defensively.
+**TDD notes:** each sub-item is its own focused test; the dispose line gets a test asserting `Orders` is disposed on facade teardown.
+
+### Deferred (Flex — operator-deferred 2026-07-09)
+
+#### FO-5 — Flex zone-less timestamp offset
+**Status:** Deferred — Flex, deferred with FO-6 (operator, 2026-07-09) · **Stream:** FO · **Depends on:** none
+`ParseFlexDateTime`'s general parse assumes the host-local offset for a zone-less hyphenated timestamp (e.g. tz column disabled). Pass `DateTimeStyles.AssumeUniversal` or accept only explicit-offset forms. Pre-existing, outside RST-3's tz-abbreviation scope. (PVR-09 review.) **Unblock:** operator lifts the Flex deferral.
+
+#### FO-6 — Pin Flex wire formats against a real statement
+**Status:** Deferred — Flex; blocked on a configured Flex token/query (operator, 2026-07-09) · **Stream:** FO · **Depends on:** none
+PVR-09's design is format-agnostic (no live Flex statement is configured on the paper account). Once a Flex query/token is configured, capture a real statement and pin the money/timestamp wire formats. (Grooming named follow-on.) 2026-07-08 scouting reconfirmed Flex query IDs are Client-Portal-UI-sourced only. **Unblock:** a Flex token + query ID configured on the paper account, then capture via `tools/ApiCapture/CaptureFlexQuery`.
+
+### Resolved (no build story)
+
+- **FO-9 — Re-annotate ERR-1 in the findings doc — RESOLVED 2026-07-09 (retracted in place).** ERR-1's verdict was flipped to `⚠️ FALSIFIED` in the summary table and a dated correction block added above the preserved original (`docs/findings/2026-07-07-multi-agent-code-review.md`). The CONFIRMED public-surface silently-wrong-data consequence is false (Refit's `ApiResponse<T>.RequestMessage` already returns the original request); PVR-11's `retryResponse.RequestMessage = request` reassignment was still load-bearing (removed a dangling disposed-clone reference + hardened the non-Refit `GetAmbiguousOrderOutcome` path). No build story.
