@@ -1187,6 +1187,18 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                 lock (writers)
                 {
                     writers.Remove(entry.Writer);
+
+                    // FO-4: reap the key once its last writer is gone so a client rotating conids/
+                    // accounts does not leak one map entry per distinct topic identity. Value-
+                    // conditional: remove the key only if it still maps this exact (now empty) list
+                    // instance — never a list a concurrent subscribe's GetOrAdd already replaced or
+                    // repopulated (CON-3). Under _subscriptionLock and lock(writers), so it is atomic
+                    // with the writer removal.
+                    if (writers.Count == 0)
+                    {
+                        _subscribers.TryRemove(
+                            new KeyValuePair<string, List<ChannelWriter<JsonElement>>>(entry.RoutingKey, writers));
+                    }
                 }
             }
             entry.Writer.TryComplete();
