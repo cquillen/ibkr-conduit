@@ -695,6 +695,142 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task EnsureInitializedAsync_TickleStartThrowsAfterAuth_DisposeStillLogsOut()
+    {
+        // FO-2: ssodh/init reports authenticated=true — the server-side brokerage session is live —
+        // but a LATER init step (here the tickle StartAsync) throws before init completes. The failed
+        // init must still leave the session logout-eligible: DisposeAsync must issue the best-effort
+        // server logout so the server-side session is not leaked. Pre-fix, _sessionEstablished was only
+        // set AFTER tickle-start, so this throw left it false and dispose skipped the logout.
+        var deps = CreateDependencies();
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        // The tickle StartAsync (a post-authenticated=true step) throws, failing the init.
+        deps.TickleTimerFactory.StartException = new InvalidOperationException("tickle start failed");
+
+        await Should.ThrowAsync<InvalidOperationException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        await manager.DisposeAsync();
+
+        deps.SessionApi.LogoutCallCount.ShouldBe(1,
+            "authenticated=true was observed (server session established), so a post-auth-throw init "
+            + "must still leave the session logout-eligible on dispose.");
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_InitThrowsBeforeAuth_DisposeDoesNotLogOut()
+    {
+        // FO-2 guard: eligibility is gated on authenticated=true, NOT merely "init started". A throw
+        // BEFORE ssodh reports authenticated=true (here the ssodh/init call itself fails) means the
+        // server session never came up — dispose must NOT attempt a logout.
+        var deps = CreateDependencies();
+        deps.SessionApi.InitException = new HttpRequestException(
+            "boom", null, HttpStatusCode.InternalServerError);
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        await Should.ThrowAsync<IbkrTransientException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        await manager.DisposeAsync();
+
+        deps.SessionApi.LogoutCallCount.ShouldBe(0,
+            "the session was never established (no authenticated=true) — there is nothing to log out.");
+    }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_AuthenticatedFalse_DisposeDoesNotLogOut()
+    {
+        // FO-2 guard: an authenticated=false ssodh/init is a FAILED init — no server session — so the
+        // eligibility flag must stay false and dispose must NOT log out.
+        var deps = CreateDependencies();
+        deps.SessionApi.InitResponse = new SsodhInitResponse(
+            Authenticated: false, Connected: true, Competing: false, Established: false,
+            Message: null, Mac: null, ServerInfo: null, HardwareInfo: null);
+
+        var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        await Should.ThrowAsync<IbkrApiException>(
+            () => manager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+
+        await manager.DisposeAsync();
+
+        deps.SessionApi.LogoutCallCount.ShouldBe(0,
+            "authenticated=false is a failed init — no server session to log out.");
+    }
+
+    [Fact]
+    public async Task SessionEstablished_TrueAfterPostAuthThrow_FalseBeforeAuth()
+    {
+        // FO-2: TenantBuilder's failure-path logout is gated on the session manager's established state,
+        // so a post-authenticated=true init throw must flip SessionEstablished to true (server session is
+        // up, must be torn down), while a pre-auth throw must leave it false. This pins the exact value
+        // TenantBuilder.BuildAsync's catch reads to decide whether to issue the bounded logout.
+        var deps = CreateDependencies();
+        deps.TickleTimerFactory.StartException = new InvalidOperationException("tickle start failed");
+
+        await using var establishedManager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        await Should.ThrowAsync<InvalidOperationException>(
+            () => establishedManager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+        establishedManager.SessionEstablished.ShouldBeTrue(
+            "authenticated=true was observed before the post-auth step threw.");
+
+        var preAuthDeps = CreateDependencies();
+        preAuthDeps.SessionApi.InitException = new HttpRequestException(
+            "boom", null, HttpStatusCode.InternalServerError);
+
+        await using var preAuthManager = new SessionManager(
+            preAuthDeps.TokenProvider,
+            preAuthDeps.TickleTimerFactory,
+            preAuthDeps.SessionApi,
+            preAuthDeps.Options,
+            preAuthDeps.Notifier,
+            preAuthDeps.SessionHealthState,
+            NullLogger<SessionManager>.Instance,
+            new TenantContext("test"));
+
+        await Should.ThrowAsync<IbkrTransientException>(
+            () => preAuthManager.EnsureInitializedAsync(TestContext.Current.CancellationToken));
+        preAuthManager.SessionEstablished.ShouldBeFalse(
+            "authenticated=true was never observed — no server session.");
+    }
+
+    [Fact]
     public async Task DisposeAsync_LogoutThrows_DoesNotPropagate()
     {
         var deps = CreateDependencies();
@@ -1936,6 +2072,13 @@ public class SessionManagerTests
         public int CreateCount { get; private set; }
         public FakeTickleTimer? CreatedTimer { get; private set; }
 
+        /// <summary>
+        /// If set, every timer this factory creates throws it from <see cref="FakeTickleTimer.StartAsync"/>.
+        /// Simulates a post-`authenticated=true` init step failing so a test can assert dispose still
+        /// issues the best-effort logout (FO-2).
+        /// </summary>
+        public Exception? StartException { get; set; }
+
         /// <summary>Every timer this factory has created, in creation order.</summary>
         public List<FakeTickleTimer> CreatedTimers { get; } = new();
 
@@ -1944,7 +2087,7 @@ public class SessionManagerTests
             Func<CancellationToken, Task> onFailure)
         {
             CreateCount++;
-            CreatedTimer = new FakeTickleTimer();
+            CreatedTimer = new FakeTickleTimer { StartException = StartException };
             CreatedTimers.Add(CreatedTimer);
             return CreatedTimer;
         }
@@ -1962,10 +2105,21 @@ public class SessionManagerTests
         /// </summary>
         public CancellationToken StartToken { get; private set; }
 
+        /// <summary>
+        /// If set, <see cref="StartAsync"/> throws this exception. Simulates a post-`authenticated=true`
+        /// init step failing so a test can assert dispose still issues the best-effort logout (FO-2).
+        /// </summary>
+        public Exception? StartException { get; set; }
+
         public Task StartAsync(CancellationToken cancellationToken)
         {
             Started = true;
             StartToken = cancellationToken;
+            if (StartException != null)
+            {
+                throw StartException;
+            }
+
             return Task.CompletedTask;
         }
 

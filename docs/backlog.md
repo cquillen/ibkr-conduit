@@ -418,7 +418,7 @@ Finding RST-5 (low, PLAUSIBLE): the preflight cache marks a conid preflighted fo
 **TDD notes:** red test = a fake logout that never returns; assert `DisposeAsync` completes within ~`LogoutTimeout` via a controllable `TimeProvider`.
 
 #### FO-2 — EnsureInitializedAsync post-auth-throw session leak
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** ✅ Done — #284 · **Stream:** FO · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 A narrow window where a post-`authenticated=true` step (SuppressQuestions / tickle `StartAsync`) throws before `_sessionEstablished` is set leaks the server-side session on both the single-account and `TenantBuilder` paths. Move `_sessionEstablished`/logout-eligibility to the moment ssodh reports `authenticated=true`, so a later-step throw still leaves the session logout-eligible on dispose. Repairs within the recorded §7 lifecycle contract — no new contract. (PVR-22 review; pre-existing.) **`fix:`.**
