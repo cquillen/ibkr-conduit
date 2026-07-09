@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using IbkrConduit.Streaming;
 using IbkrConduit.Streaming.Mappers;
@@ -7,6 +8,39 @@ namespace IbkrConduit.Tests.Unit.Streaming;
 
 public class MarketDataTickMapperTests
 {
+    [Fact]
+    public void Map_UnderCommaDecimalCulture_ParsesNumericsInvariantly()
+    {
+        // FO-8a: the mapper's string→number reads (conid, _updated, numeric field-id keys) must not
+        // depend on the host's thread culture. A comma-decimal culture (de-DE, "." is the group
+        // separator and "," the decimal separator) must not change how IBKR's invariant wire numerics
+        // parse. Culture is set only for the duration of this test and restored in finally so the
+        // assertion is hermetic and cannot leak into sibling tests.
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+
+            var frame = JsonDocument.Parse(
+                """{"topic":"smd","conid":"265598","_updated":"1751466605000","31":"1.5","7059":"100"}""")
+                .RootElement;
+
+            var tick = MarketDataTickMapper.Map(frame);
+
+            tick.Conid.ShouldBe(265598);
+            tick.Updated.ShouldBe(1751466605000L);
+            // The numeric field IDs must still be recognized as field keys (their invariant-integer
+            // parse must not shift under de-DE) and their values preserved verbatim off the wire.
+            tick.Fields.ShouldNotBeNull();
+            tick.Fields!["31"].ShouldBe("1.5");
+            tick.Fields["7059"].ShouldBe("100");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
     [Fact]
     public void Map_ConidFromTopic_ExtractsConid()
     {
