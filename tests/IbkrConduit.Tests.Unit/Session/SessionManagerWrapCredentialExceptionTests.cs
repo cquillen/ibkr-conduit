@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using IbkrConduit.Auth;
 using IbkrConduit.Errors;
 using IbkrConduit.Session;
+using Refit;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Session;
@@ -173,5 +174,98 @@ public class SessionManagerWrapCredentialExceptionTests
         var result = SessionManager.WrapCredentialException(ex);
 
         result.ShouldBeOfType<IbkrConfigurationException>();
+    }
+
+    // FO-3 / ADR-0007: the ssodh/init raw Task<T> path throws a Refit ApiException, whose base
+    // HttpRequestException.StatusCode is left unset in Refit 12 — so it must be classified by
+    // ApiException.StatusCode, uniformly with the raw-HttpRequestException path above.
+
+    [Fact]
+    public async Task ApiException_500_ReturnsTransientException()
+    {
+        var ex = await CreateApiException(HttpStatusCode.InternalServerError);
+
+        var result = SessionManager.WrapCredentialException(ex);
+
+        result.ShouldBeOfType<IbkrTransientException>();
+        result.InnerException.ShouldBe(ex);
+    }
+
+    [Fact]
+    public async Task ApiException_503_ReturnsTransientException()
+    {
+        var ex = await CreateApiException(HttpStatusCode.ServiceUnavailable);
+
+        var result = SessionManager.WrapCredentialException(ex);
+
+        result.ShouldBeOfType<IbkrTransientException>();
+    }
+
+    [Fact]
+    public async Task ApiException_429_ReturnsTransientException()
+    {
+        var ex = await CreateApiException(HttpStatusCode.TooManyRequests);
+
+        var result = SessionManager.WrapCredentialException(ex);
+
+        result.ShouldBeOfType<IbkrTransientException>();
+    }
+
+    [Fact]
+    public async Task ApiException_401_ReturnsConfigurationException()
+    {
+        var ex = await CreateApiException(HttpStatusCode.Unauthorized);
+
+        var result = SessionManager.WrapCredentialException(ex);
+
+        var config = result.ShouldBeOfType<IbkrConfigurationException>();
+        config.CredentialHint.ShouldNotBeNull();
+        config.CredentialHint!.ShouldContain("ConsumerKey");
+        config.CredentialHint.ShouldContain("AccessToken");
+    }
+
+    [Fact]
+    public async Task ApiException_403_ReturnsConfigurationException()
+    {
+        var ex = await CreateApiException(HttpStatusCode.Forbidden);
+
+        var result = SessionManager.WrapCredentialException(ex);
+
+        result.ShouldBeOfType<IbkrConfigurationException>();
+    }
+
+    [Fact]
+    public async Task ApiException_400_ReturnsConfigurationException()
+    {
+        var ex = await CreateApiException(HttpStatusCode.BadRequest);
+
+        var result = SessionManager.WrapCredentialException(ex);
+
+        var config = result.ShouldBeOfType<IbkrConfigurationException>();
+        config.CredentialHint.ShouldNotBeNull();
+        config.CredentialHint!.ShouldContain("ConsumerKey");
+        config.CredentialHint.ShouldContain("AccessToken");
+    }
+
+    [Fact]
+    public async Task ApiException_404_ReturnsConfigurationException()
+    {
+        var ex = await CreateApiException(HttpStatusCode.NotFound);
+
+        var result = SessionManager.WrapCredentialException(ex);
+
+        result.ShouldBeOfType<IbkrConfigurationException>();
+    }
+
+    /// <summary>
+    /// Builds a Refit <see cref="ApiException"/> for the given status code, exactly as Refit surfaces a
+    /// non-success HTTP response from a raw <c>Task&lt;T&gt;</c> session call (e.g. ssodh/init).
+    /// </summary>
+    private static async Task<ApiException> CreateApiException(HttpStatusCode statusCode)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post, "https://api.ibkr.com/v1/api/iserver/auth/ssodh/init");
+        using var response = new HttpResponseMessage(statusCode);
+        return await ApiException.Create(request, HttpMethod.Post, response, new RefitSettings());
     }
 }

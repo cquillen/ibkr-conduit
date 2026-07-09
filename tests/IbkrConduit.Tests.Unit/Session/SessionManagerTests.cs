@@ -222,6 +222,45 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public async Task EnsureInitializedAsync_SuppressReturnsUnauthorized_LogsAuthorizationWarningNotSuppressMessageIds()
+    {
+        // FO-3 / ADR-0007: a suppress 401/403 is an authorization failure, not a bad-message-ID
+        // configuration problem. It must be classified IbkrConfigurationException and logged (best-effort,
+        // does not fail the authenticated session), but the Warning it carries must be worded as an
+        // authorization failure — NOT the misleading "verify SuppressMessageIds" that a plain 4xx gets.
+        var deps = CreateDependencies();
+        deps.Options = new IbkrClientOptions
+        {
+            Compete = true,
+            SuppressMessageIds = new List<string> { "o163" },
+        };
+        deps.SessionApi.SuppressException = await CreateSuppressApiException(HttpStatusCode.Unauthorized);
+
+        var logger = new CapturingLogger<SessionManager>();
+        await using var manager = new SessionManager(
+            deps.TokenProvider,
+            deps.TickleTimerFactory,
+            deps.SessionApi,
+            deps.Options,
+            deps.Notifier,
+            deps.SessionHealthState,
+            logger,
+            new TenantContext("test"));
+
+        await manager.EnsureInitializedAsync(TestContext.Current.CancellationToken);
+
+        // Auth was not failed by the best-effort suppress step.
+        deps.TickleTimerFactory.CreatedTimer!.Started.ShouldBeTrue();
+
+        // The suppression failure is observable as a Warning carrying a configuration exception whose
+        // message is authorization-worded and does NOT point at SuppressMessageIds.
+        var suppressWarning = logger.Entries.Single(e =>
+            e.Level == LogLevel.Warning && e.Exception is IbkrConfigurationException);
+        suppressWarning.Exception!.Message.ShouldContain("authorization");
+        suppressWarning.Exception!.Message.ShouldNotContain("SuppressMessageIds");
+    }
+
+    [Fact]
     public async Task EnsureInitializedAsync_SuppressStatusNotSubmitted_DoesNotFailAuthAndIsObservable()
     {
         // PVR-14 / PRB-2.2: a 200 suppress body that is not the spec-pinned "submitted" (e.g. a hidden
