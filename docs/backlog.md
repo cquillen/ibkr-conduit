@@ -450,7 +450,7 @@ After the last unsubscribe, `IbkrWebSocketClient._subscribers` keeps an empty wr
 **TDD notes:** trivial — the tool has no test project; verify by inspection / a manual run. The redaction helper (if extracted) can carry a unit test.
 
 #### FO-8a — MarketDataTickMapper invariant-culture numeric parse
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** ✅ Done — #283 · **Stream:** FO · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 `MarketDataTickMapper`'s string→number parse uses `CurrentCulture`, so a host in a comma-decimal culture misparses streaming price/size fields (PVR-04). Align to `InvariantCulture` (IBKR wire numerics are invariant). A real correctness fix, split out from the FO-8 test-only nits. **`fix:`.**

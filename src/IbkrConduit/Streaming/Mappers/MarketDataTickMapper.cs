@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace IbkrConduit.Streaming.Mappers;
@@ -19,7 +20,7 @@ internal static class MarketDataTickMapper
             if (topic != null)
             {
                 var plusIndex = topic.IndexOf('+', StringComparison.Ordinal);
-                if (plusIndex >= 0 && int.TryParse(topic[(plusIndex + 1)..], out var parsedConid))
+                if (plusIndex >= 0 && int.TryParse(topic[(plusIndex + 1)..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedConid))
                 {
                     conid = parsedConid;
                 }
@@ -46,7 +47,7 @@ internal static class MarketDataTickMapper
                 continue;
             }
 
-            if (int.TryParse(prop.Name, out _))
+            if (int.TryParse(prop.Name, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
             {
                 // Numeric keys are market data field IDs.
                 fields[prop.Name] = prop.Value.ToString();
@@ -74,7 +75,7 @@ internal static class MarketDataTickMapper
         element.ValueKind switch
         {
             JsonValueKind.Number when element.TryGetInt32(out var n) => n,
-            JsonValueKind.String when int.TryParse(element.GetString(), out var n) => n,
+            JsonValueKind.String when int.TryParse(element.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) => n,
             _ => null,
         };
 
@@ -83,7 +84,7 @@ internal static class MarketDataTickMapper
         element.ValueKind switch
         {
             JsonValueKind.Number when element.TryGetInt64(out var n) => n,
-            JsonValueKind.String when long.TryParse(element.GetString(), out var n) => n,
+            JsonValueKind.String when long.TryParse(element.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) => n,
             _ => null,
         };
 }
