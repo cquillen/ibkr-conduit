@@ -422,6 +422,21 @@ internal sealed partial class IbkrWebSocketClient : IIbkrWebSocketClient
                         lock (writers)
                         {
                             writers.Remove(channel.Writer);
+
+                            // FO-10: reap-symmetry with FO-4's unsubscribe reap. The rollback above
+                            // just removed the last writer of a now-empty list; reap the key so a
+                            // sole-writer subscribe that fails its send leaves no empty entry mapped
+                            // (the same per-key leak FO-4 targets, on the STR-4 path it scoped out).
+                            // Value-conditional: remove the key only if it still maps this exact
+                            // (now empty) list instance — never a list a concurrent subscribe's
+                            // GetOrAdd already replaced or repopulated (CON-3). Under the same
+                            // _subscriptionLock and lock(writers) the rollback already holds, so it is
+                            // atomic with the writer removal; no lock scope widened, no new lock.
+                            if (writers.Count == 0)
+                            {
+                                _subscribers.TryRemove(
+                                    new KeyValuePair<string, List<ChannelWriter<JsonElement>>>(routingKey, writers));
+                            }
                         }
                     }
                     channel.Writer.TryComplete();
