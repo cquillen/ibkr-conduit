@@ -426,7 +426,7 @@ A narrow window where a post-`authenticated=true` step (SuppressQuestions / tick
 **TDD notes:** red test = fake SuppressQuestions/tickle-start that throws after ssodh reports `authenticated=true`; assert dispose issues a logout (mock server logout count == 1).
 
 #### FO-3 — 📦 Unify session-path Refit error classification
-**Status:** Not started · **Stream:** FO · **Depends on:** none
+**Status:** ✅ Done — #281 · **Stream:** FO · **Depends on:** none
 **Risk:** high
 **Spec:** docs/superpowers/specs/2026-07-09-fo-3-session-error-classification.md
 Session-path failures classify inconsistently: `ClassifySuppressFailure` (PVR-14) splits 429/5xx→transient vs 4xx→config, while `WrapCredentialException` sends every ssodh/init Refit `ApiException` to `IbkrConfigurationException` via the `_` fallback (probe-verified 2026-07-09: Refit 12's `ApiException` doesn't match the `HttpRequestException` branch), so transient 5xx/429 are mis-reported as permanent config errors. Introduce one shared status→category helper both classifiers call, add an `ApiException` arm to `WrapCredentialException` keyed on `ApiException.StatusCode`, and give a 401/403 suppress a status-specific Warning. Decision of record: [ADR-0007](adr/0007-session-path-error-classification.md); design doc §7.8. **Breaking-behavioral — `feat!:`; folds into the 0.9.0 train, must land before release-please #241 is cut.**
