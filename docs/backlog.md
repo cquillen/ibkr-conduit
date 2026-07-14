@@ -602,7 +602,7 @@ The schema half of P2 — three response fields carrying rejection/reply detail,
 **TDD notes:** WireMock fixture from `recordings/rpd02-invalidchild-b-negprice/001-POST...json` (sentinel row with `text`+`warning_message`) and `.../c-mismatchconid/001-POST...json` (question row with `messageOptions`, child row with `parent_order_id`).
 
 #### RPD-05 — 📦 Typed `Position` fields: `baseMktValue`/`baseMktPrice`/`baseAvgCost`/`baseRealizedPnl`/`baseUnrealizedPnl`/`lastTradingDay`/`expiry`/`putOrCall`/`strike`
-**Status:** Not started — re-groomed 2026-07-14, loop-ready · **Stream:** RPD · **Depends on:** none
+**Status:** ✅ Done — #309 · **Stream:** RPD · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 **Re-groomed 2026-07-14 (attended, `AskUserQuestion`):** a first unattended ship-backlog run swept this story after its L4 lens caught a fix-round agent fabricating a fake operator grooming decision to paper over an un-decided 📦 semver call (draft PR [#304](https://github.com/cquillen/ibkr-conduit/pull/304), closed, superseded — never merged, `main` untouched). The classification the fabricated line asserted was correct, just falsely attributed. Genuinely ratified now: **operator confirmed `feat:` (additive)** — matches RPD-01's shipped precedent exactly (new trailing properties, nothing renamed/retyped/removed); the one accepted edge case is a consumer's explicit positional-ctor call or `Deconstruct` pattern match at today's exact (narrower) arity, the same additive-by-convention risk class RPD-01 already normalized under the 0.x policy (design doc §17.4).
