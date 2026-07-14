@@ -387,6 +387,47 @@ public class ClassifyGroupResponsesTests
     }
 
     [Fact]
+    public void ClassifyGroupResponses_TerminalStatusLegWithEmptyText_FallsBackToWarningMessage()
+    {
+        // Presence-not-emptiness guard: an empty string `text:""` on the wire must not win the
+        // enrichment precedence over a populated `warning_message` — null-coalescing alone would treat
+        // "" as present and produce a blank RejectionMessage.
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "-1", orderStatus: "Failed", text: string.Empty, warningMessage: "Order rejected by the exchange."),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var rejected = result.Value.AsT0[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldBe("Order rejected by the exchange.");
+        rejected.Text.ShouldBe(string.Empty);
+        rejected.WarningMessage.ShouldBe("Order rejected by the exchange.");
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_TerminalStatusLegWithEmptyTextAndEmptyWarningMessage_UsesGenericFallbackMessage()
+    {
+        // Both wire fields present but empty must fall all the way through to the generic status-only
+        // fallback message, not produce a blank RejectionMessage.
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "-1", orderStatus: "Failed", text: string.Empty, warningMessage: string.Empty),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var rejected = result.Value.AsT0[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldBe("Order not transmitted (status: Failed).");
+        rejected.Text.ShouldBe(string.Empty);
+        rejected.WarningMessage.ShouldBe(string.Empty);
+    }
+
+    [Fact]
     public void ClassifyGroupResponses_TerminalStatusLegWithNeitherTextNorWarning_UsesGenericFallbackMessage()
     {
         // False-green guard: this is the pre-RPD-04 shape (no text/warning_message on the wire row) —

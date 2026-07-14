@@ -1158,6 +1158,27 @@ public class OrderTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task PlaceOrder_ArrayWrappedError200WithTextAndWarningMessage_PropagatesTypedFields()
+    {
+        // RPD-04: the single-order array-wrapped reject branch also exposes text/warning_message as typed
+        // fields on the classified IbkrOrderRejectedError, when the wire supplies them alongside error.
+        const string body = """[{"error":"We cannot accept an order at the limit price you selected.","text":"Reject detail from text.","warning_message":"Reject detail from warning_message."}]""";
+        _harness.StubAuthenticatedPost("/v1/api/iserver/account/*/orders", body);
+
+        var order = new OrderRequest { Conid = 756733, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC" };
+
+        var result = await _harness.Client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var rejected = result.Error.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.Text.ShouldBe("Reject detail from text.");
+        rejected.WarningMessage.ShouldBe("Reject detail from warning_message.");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
     public async Task PlaceOrder_EmptyArray200_ReturnsClassifiedFailureNotThrow()
     {
         // AMB-4: a 200 [] must classify as a failure carrying the raw body, not throw

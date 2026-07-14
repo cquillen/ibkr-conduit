@@ -860,8 +860,13 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             // RPD-04: enrich the message from text (documented, preferred) or warning_message (undocumented
             // fallback) when IBKR supplies rejection detail, instead of the generic status-only fallback.
             // Both are exposed as typed fields on the returned error regardless of which one wins the message.
-            var rejectionMessage = element.Text ?? element.WarningMessage
-                ?? $"Order not transmitted (status: {element.OrderStatus}).";
+            // Presence-not-emptiness: an empty string ("") on the wire is treated as absent so it falls
+            // through to the next candidate instead of winning the precedence with a blank message.
+            var rejectionMessage = !string.IsNullOrEmpty(element.Text)
+                ? element.Text
+                : !string.IsNullOrEmpty(element.WarningMessage)
+                    ? element.WarningMessage
+                    : $"Order not transmitted (status: {element.OrderStatus}).";
             return new IbkrOrderRejectedError(rejectionMessage, rawBody, requestPath)
             {
                 Text = element.Text,
