@@ -244,6 +244,46 @@ public record OrderSubmissionResponse(
     /// </summary>
     [JsonPropertyName("error")]
     public string? Error { get; init; }
+
+    /// <summary>
+    /// Rejection detail on an <c>advancedOrderReject</c>-style row (RPD-04). Documented + observed
+    /// in-context by IBKR (DOC-01); when present on a leg <see cref="Client.OrderOperations.ClassifyGroupResponses"/>
+    /// classifies as <see cref="IbkrConduit.Errors.IbkrOrderRejectedError"/> via the terminal-status path,
+    /// it enriches that error's message instead of the generic fallback. Null when absent.
+    /// </summary>
+    [JsonPropertyName("text")]
+    public string? Text { get; init; }
+
+    /// <summary>
+    /// Warning/rejection detail observed on the wire in the orders context (RPD-04) — undocumented there;
+    /// the same field name is documented elsewhere (DOC-01, DOC-03) on an unrelated FYI/alert-creation
+    /// endpoint as always returning null, a distinct context this field must not be confused with. Null
+    /// when absent.
+    /// </summary>
+    [JsonPropertyName("warning_message")]
+    public string? WarningMessage { get; init; }
+
+    /// <summary>
+    /// The selectable answer options for a confirmation question (RPD-04), e.g. <c>["Yes", "No"]</c> — the
+    /// values <see cref="Client.IOrderOperations.DismissNotificationAsync"/>'s <c>text</c> parameter
+    /// accepts. Documented only in a DOC-03 worked example, absent from DOC-01's formal schema. Null when
+    /// absent.
+    /// </summary>
+    [JsonPropertyName("messageOptions")]
+    public List<string>? MessageOptions { get; init; }
+
+    /// <summary>
+    /// Parent-order linkage observed on a child leg's submission-response row (RPD-04, ADR-0008) — links
+    /// back to the parent's <c>order_id</c>. Undocumented anywhere; distinct from both the request-side
+    /// <see cref="OrderRequest.ParentId"/>/<c>cOID</c> string and from <see cref="LiveOrder.ParentId"/>
+    /// (RPD-02's response-side integer linkage on the live-orders endpoint) — a third, separate field
+    /// carrying similar-but-not-identical linkage information at a different point in the flow. Kept as a
+    /// tolerant string (WIR-4) since IBKR's order identifiers are inconsistently quoted across surfaces.
+    /// Null when absent.
+    /// </summary>
+    [JsonPropertyName("parent_order_id")]
+    [JsonConverter(typeof(FlexibleStringJsonConverter))]
+    public string? ParentOrderId { get; init; }
 }
 
 /// <summary>

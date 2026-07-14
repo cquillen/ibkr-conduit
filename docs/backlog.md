@@ -587,7 +587,7 @@ RTOS's bracket child-id census resolves child→parent linkage from `parentId` a
 **TDD notes:** see the spec's 11-step TDD plan — unit tests on the new `ClassifyGroupResponses` against all three probe-captured wire shapes, plus a bare-object-reject regression guard and the mandatory 401-recovery test (confirms composition with ADR-0003's no-replay gate, not a fresh replay test).
 
 #### RPD-04 — 📦 Typed `text`, `warning_message`, `messageOptions`, `parent_order_id` on order-submission response models
-**Status:** Not started · **Stream:** RPD · **Depends on:** RPD-03
+**Status:** ✅ Done — #303 · **Stream:** RPD · **Depends on:** RPD-03
 **Risk:** standard — DTO field exposure, not order placement logic itself.
 **Spec:** trivial-skip
 The schema half of P2 — three response fields carrying rejection/reply detail, at three different levels of doc corroboration: `text` is **documented + observed**, in-context, on `advancedOrderReject` (DOC-01). `warning_message` is observed on the wire in the orders context but undocumented there — the *same field name* is documented elsewhere (DOC-01, DOC-03) on an unrelated FYI/alert-creation endpoint as always returning `null`; flag this explicitly in the spec so that always-null assumption doesn't get carried over by mistake. `messageOptions` is documented only in a DOC-03 worked example (not in DOC-03's own field-list prose, and absent from DOC-01's formal schema) — partially corroborated. (Findings doc P2, schema half.) Depends on RPD-03 landing first since these fields attach to whichever per-leg outcome type ADR-0008 produces (per the 📦-first ordering rule).

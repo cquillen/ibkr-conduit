@@ -33,8 +33,17 @@ public class ClassifyGroupResponsesTests
 
     private static OrderSubmissionResponse Leg(
         string? orderId = null, string? orderStatus = null, string? localOrderId = null,
-        string? ocaGroupId = null, string? id = null, List<string>? message = null, string? error = null) =>
-        new(id, message, null, null, orderId, orderStatus, localOrderId, ocaGroupId) { Error = error };
+        string? ocaGroupId = null, string? id = null, List<string>? message = null, string? error = null,
+        string? text = null, string? warningMessage = null, List<string>? messageOptions = null,
+        string? parentOrderId = null) =>
+        new(id, message, null, null, orderId, orderStatus, localOrderId, ocaGroupId)
+        {
+            Error = error,
+            Text = text,
+            WarningMessage = warningMessage,
+            MessageOptions = messageOptions,
+            ParentOrderId = parentOrderId,
+        };
 
     [Fact]
     public void ClassifyGroupResponses_CleanTwoLegBracket_ReturnsBothOrderSubmitted()
@@ -310,5 +319,226 @@ public class ClassifyGroupResponsesTests
         legs[0].IsT1.ShouldBeTrue();
         legs[0].AsT1.RejectionMessage.ShouldContain("cannot accept an order");
         legs[1].IsT0.ShouldBeTrue();
+    }
+
+    // --- RPD-04: text / warning_message / messageOptions / parent_order_id typed exposure ---
+
+    [Fact]
+    public void ClassifyGroupResponses_TerminalStatusLegWithText_MessageEnrichedFromText()
+    {
+        // RPD-04 Done when: a leg classified via RPD-03's terminal-status path enriches its message from
+        // `text` (documented + observed on advancedOrderReject, DOC-01) instead of the generic
+        // "Order not transmitted (status: ...)" fallback. Shape matches the sentinel row observed by the
+        // 2026-07-14 probe (recordings/rpd02-invalidchild-b-negprice, gitignored — PII).
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "-1", orderStatus: "Failed", text: "The size, 1, does not conform to the minimum variation of 100 for this contract."),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var rejected = result.Value.AsT0[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldBe("The size, 1, does not conform to the minimum variation of 100 for this contract.");
+        rejected.Text.ShouldBe("The size, 1, does not conform to the minimum variation of 100 for this contract.");
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_TerminalStatusLegWithWarningMessageOnly_MessageEnrichedFromWarningMessage()
+    {
+        // `warning_message` is observed on the wire in the orders context (undocumented there — the same
+        // field name is documented elsewhere as an FYI/alert field that always returns null, a distinct
+        // context). When `text` is absent it still enriches the rejection message.
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "-1", orderStatus: "Failed", warningMessage: "Order rejected by the exchange."),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var rejected = result.Value.AsT0[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldBe("Order rejected by the exchange.");
+        rejected.WarningMessage.ShouldBe("Order rejected by the exchange.");
+        rejected.Text.ShouldBeNull();
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_TerminalStatusLegWithTextAndWarningMessage_PrefersTextOverWarningMessage()
+    {
+        // Both fields observed together on the same sentinel row (the probe's negprice sample) — `text` is
+        // the documented field, so it wins the message-enrichment precedence, while both stay independently
+        // exposed as typed fields (never discarded).
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "-1", orderStatus: "Failed", text: "Documented reject text.", warningMessage: "Undocumented warning text."),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var rejected = result.Value.AsT0[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldBe("Documented reject text.");
+        rejected.Text.ShouldBe("Documented reject text.");
+        rejected.WarningMessage.ShouldBe("Undocumented warning text.");
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_TerminalStatusLegWithEmptyText_FallsBackToWarningMessage()
+    {
+        // Presence-not-emptiness guard: an empty string `text:""` on the wire must not win the
+        // enrichment precedence over a populated `warning_message` — null-coalescing alone would treat
+        // "" as present and produce a blank RejectionMessage.
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "-1", orderStatus: "Failed", text: string.Empty, warningMessage: "Order rejected by the exchange."),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var rejected = result.Value.AsT0[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldBe("Order rejected by the exchange.");
+        rejected.Text.ShouldBe(string.Empty);
+        rejected.WarningMessage.ShouldBe("Order rejected by the exchange.");
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_TerminalStatusLegWithEmptyTextAndEmptyWarningMessage_UsesGenericFallbackMessage()
+    {
+        // Both wire fields present but empty must fall all the way through to the generic status-only
+        // fallback message, not produce a blank RejectionMessage.
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "-1", orderStatus: "Failed", text: string.Empty, warningMessage: string.Empty),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var rejected = result.Value.AsT0[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldBe("Order not transmitted (status: Failed).");
+        rejected.Text.ShouldBe(string.Empty);
+        rejected.WarningMessage.ShouldBe(string.Empty);
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_TerminalStatusLegWithNeitherTextNorWarning_UsesGenericFallbackMessage()
+    {
+        // False-green guard: this is the pre-RPD-04 shape (no text/warning_message on the wire row) —
+        // the generic fallback must still be used, and the new typed fields must be null, not fabricated.
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "1760268467", orderStatus: "Inactive"),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var rejected = result.Value.AsT0[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldBe("Order not transmitted (status: Inactive).");
+        rejected.Text.ShouldBeNull();
+        rejected.WarningMessage.ShouldBeNull();
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_ErrorLeg_ExposesTextAndWarningMessageTypedFields()
+    {
+        // The explicit-error branch (a leg carrying `error`) also exposes text/warning_message as typed
+        // fields when present, even though the rejection message itself comes from `error`.
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(error: "Rejected.", text: "Extra reject detail.", warningMessage: "Extra warning detail."),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var rejected = result.Value.AsT0[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldBe("Rejected.");
+        rejected.Text.ShouldBe("Extra reject detail.");
+        rejected.WarningMessage.ShouldBe("Extra warning detail.");
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_TransmittedLegWithParentOrderId_ExposesParentOrderIdOnOrderSubmitted()
+    {
+        // `parent_order_id` — observed on a child's submission-response row in the confirmation-chain
+        // scenario (recordings/rpd02-invalidchild-c-mismatchconid, gitignored — PII), linking it to the
+        // parent's order_id. Distinct from the request-side ParentId/cOID and from LiveOrder.ParentId (RPD-02).
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "1799911", orderStatus: "PendingSubmit", parentOrderId: "1799910"),
+        };
+        var orders = new List<OrderRequest> { Order(parentId: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var submitted = result.Value.AsT0[0].AsT0;
+        submitted.OrderId.ShouldBe("1799911");
+        submitted.ParentOrderId.ShouldBe("1799910");
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_TransmittedLegWithoutParentOrderId_ParentOrderIdIsNull()
+    {
+        // Regression guard: a parent leg (no parent_order_id on the wire) must not fabricate one.
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "1799910", orderStatus: "PreSubmitted", localOrderId: "Parent"),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var submitted = result.Value.AsT0[0].AsT0;
+        submitted.ParentOrderId.ShouldBeNull();
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_SingleQuestionWithMessageOptions_ExposesMessageOptionsOnConfirmation()
+    {
+        // `messageOptions` — documented only in a DOC-03 worked example (not in DOC-03's own field-list
+        // prose, absent from DOC-01's formal schema); observed on the question row of the confirmation-chain
+        // probe (recordings/rpd02-invalidchild-c-mismatchconid, gitignored — PII).
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(id: "reply-1", message: new List<string> { "Confirm?" }, messageOptions: new List<string> { "Yes", "No" }),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent"), Order(parentId: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.IsT1.ShouldBeTrue();
+        result.Value.AsT1.MessageOptions.ShouldNotBeNull();
+        result.Value.AsT1.MessageOptions.ShouldBe(["Yes", "No"]);
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_SingleQuestionWithoutMessageOptions_MessageOptionsIsNull()
+    {
+        // Regression guard: absence on the wire must surface as null, never a fabricated empty list
+        // (ADR-0001 nullable-as-presence).
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(id: "reply-1", message: new List<string> { "Confirm?" }),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent"), Order(parentId: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.IsT1.ShouldBeTrue();
+        result.Value.AsT1.MessageOptions.ShouldBeNull();
     }
 }

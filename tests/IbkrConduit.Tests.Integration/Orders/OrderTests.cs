@@ -78,6 +78,9 @@ public class OrderTests : IAsyncLifetime, IDisposable
         confirmation.Messages.ShouldNotBeEmpty();
         confirmation.Messages[0].ShouldContain("without market data");
         confirmation.MessageIds.ShouldContain("o354");
+        // RPD-04: `messageOptions` — the selectable answer options for the question — typed and exposed.
+        confirmation.MessageOptions.ShouldNotBeNull();
+        confirmation.MessageOptions.ShouldBe(["Yes", "No"]);
 
         var replyResult = (await _harness.Client.Orders.ReplyAsync(
             confirmation.ReplyId, true, TestContext.Current.CancellationToken)).Value;
@@ -1155,6 +1158,27 @@ public class OrderTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task PlaceOrder_ArrayWrappedError200WithTextAndWarningMessage_PropagatesTypedFields()
+    {
+        // RPD-04: the single-order array-wrapped reject branch also exposes text/warning_message as typed
+        // fields on the classified IbkrOrderRejectedError, when the wire supplies them alongside error.
+        const string body = """[{"error":"We cannot accept an order at the limit price you selected.","text":"Reject detail from text.","warning_message":"Reject detail from warning_message."}]""";
+        _harness.StubAuthenticatedPost("/v1/api/iserver/account/*/orders", body);
+
+        var order = new OrderRequest { Conid = 756733, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC" };
+
+        var result = await _harness.Client.Orders.PlaceOrderAsync(
+            "U1234567", order, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse();
+        var rejected = result.Error.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.Text.ShouldBe("Reject detail from text.");
+        rejected.WarningMessage.ShouldBe("Reject detail from warning_message.");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
     public async Task PlaceOrder_EmptyArray200_ReturnsClassifiedFailureNotThrow()
     {
         // AMB-4: a 200 [] must classify as a failure carrying the raw body, not throw
@@ -1378,6 +1402,13 @@ public class OrderTests : IAsyncLifetime, IDisposable
         legs.ShouldAllBe(l => l.IsT0);
         var parentLeg = legs.Select(l => l.AsT0).First(s => s.LocalOrderId == "Parent");
         parentLeg.OrderId.ShouldBe("111");
+        parentLeg.ParentOrderId.ShouldBeNull("the parent leg itself carries no parent_order_id");
+
+        // RPD-04: both child legs carry `parent_order_id` linking back to the parent's order_id — a field
+        // distinct from the request-side ParentId/cOID and from LiveOrder.ParentId (RPD-02).
+        var childLegs = legs.Select(l => l.AsT0).Where(s => s.LocalOrderId != "Parent").ToList();
+        childLegs.Count.ShouldBe(2);
+        childLegs.ShouldAllBe(s => s.ParentOrderId == "111");
 
         var entries = _harness.Server.FindLogEntries(
             Request.Create().WithPath("/v1/api/iserver/account/*/orders").UsingPost());
@@ -1432,6 +1463,21 @@ public class OrderTests : IAsyncLifetime, IDisposable
         legs.ShouldAllBe(l => l.IsT1);
         legs[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
         legs[1].AsT1.RejectionMessage.ShouldContain("Inactive");
+
+        // RPD-04: the sentinel child row carries `text`/`warning_message` — the terminal-status path
+        // enriches the rejection message from `text` (preferred) instead of the generic status-only
+        // fallback, and both fields are exposed as typed properties.
+        var childRejection = legs[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        childRejection.RejectionMessage.ShouldBe(
+            "The size, 1, does not conform to the minimum variation of 100 for this contract.");
+        childRejection.Text.ShouldBe(
+            "The size, 1, does not conform to the minimum variation of 100 for this contract.");
+        childRejection.WarningMessage.ShouldBe("Order rejected by the exchange.");
+
+        // The parent row carries neither field — the generic fallback stands, and the typed fields are null.
+        var parentRejection = legs[1].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        parentRejection.Text.ShouldBeNull();
+        parentRejection.WarningMessage.ShouldBeNull();
 
         _harness.VerifyHandshakeOccurred();
     }
