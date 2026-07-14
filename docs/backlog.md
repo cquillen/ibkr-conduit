@@ -615,7 +615,7 @@ Nine `Position` fields, all **documented + observed**: the five `base*` fields a
 **TDD notes:** see the spec's 10-step TDD plan — WireMock call-count-sequenced fixtures from `recordings/coldread-rpd06/` for both endpoints (sparse→enriched, clean→no-retry, sparse→sparse-capped), plus the Activity-tag observability test and the mandatory 401-recovery composition test.
 
 #### RPD-07 — 📦 Typed `endofbundle` on the ledger response
-**Status:** Not started · **Stream:** RPD · **Depends on:** none
+**Status:** ✅ Done — #306 · **Stream:** RPD · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 `endofbundle` is absent from every source's *formal* ledger schema (DOC-01, DOC-03, DOC-05 all agree) but present in all three sources' own *worked examples* — consistently only on the `USD` currency block, consistently absent from `BASE` (and, in DOC-01's example, `AUD`). RTOS observed it missing on 4/4 live captures. (Findings doc P4.) The three-source agreement on the "one-currency-block-only" pattern is too consistent to be coincidental and points away from a simple "nullable per-entry field."

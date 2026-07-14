@@ -32,7 +32,7 @@
         "futuresonlypnl": 0.0, "tbondsmarketvalue": 0.0,
         "futureoptionmarketvalue": 0.0, "cashbalancefxsegment": 0.0,
         "secondkey": "BASE", "tbillsmarketvalue": 0.0,
-        "endofbundle": 1, "dividends": 0.0, "cryptocurrencyvalue": 0.0
+        "dividends": 0.0, "cryptocurrencyvalue": 0.0
       }
     }
   }

@@ -233,7 +233,11 @@ public record AccountSummaryEntry(
 /// Every money/balance field is <c>decimal?</c> and nullable-as-presence (§6.5, ADR-0001):
 /// <see langword="null"/> means the value was absent from (or not parseable in) this row — never a
 /// fabricated <c>0</c>. Non-money counters (<see cref="SessionId"/>, <see cref="Timestamp"/>,
-/// <see cref="Severity"/>, <see cref="EndOfBundle"/>) remain non-nullable.
+/// <see cref="Severity"/>) remain non-nullable. <see cref="EndOfBundle"/> is <c>int?</c> and
+/// nullable-as-presence too: it is a per-response marker landing on one specific (real-currency)
+/// entry, present (value <c>1</c>) there and absent (<see langword="null"/>, never a fabricated
+/// <c>0</c>) on every other entry (e.g. <c>BASE</c>) — confirmed 5/5 by a live probe
+/// (<c>recordings/ledger-endofbundle-probe/</c>).
 /// </summary>
 /// <param name="CommodityMarketValue">Market value of commodity positions.</param>
 /// <param name="FutureMarketValue">Market value of futures positions.</param>
@@ -263,7 +267,10 @@ public record AccountSummaryEntry(
 /// <param name="CashBalanceFxSegment">Cash balance in FX segment.</param>
 /// <param name="SecondKey">Secondary key (typically currency code).</param>
 /// <param name="TBillsMarketValue">Market value of treasury bills.</param>
-/// <param name="EndOfBundle">End-of-bundle indicator.</param>
+/// <param name="EndOfBundle">
+/// End-of-bundle marker. Present (value <c>1</c>) on the real-currency entry (e.g. <c>USD</c>);
+/// <see langword="null"/> — never a fabricated <c>0</c> — on every other entry (e.g. <c>BASE</c>).
+/// </param>
 /// <param name="Dividends">Dividend income.</param>
 /// <param name="CryptocurrencyValue">Cryptocurrency position value.</param>
 [ExcludeFromCodeCoverage]
@@ -296,7 +303,7 @@ public record LedgerEntry(
     [property: JsonPropertyName("cashbalancefxsegment")] decimal? CashBalanceFxSegment,
     [property: JsonPropertyName("secondkey")] string? SecondKey,
     [property: JsonPropertyName("tbillsmarketvalue")] decimal? TBillsMarketValue,
-    [property: JsonPropertyName("endofbundle")] int EndOfBundle,
+    [property: JsonPropertyName("endofbundle")] int? EndOfBundle,
     [property: JsonPropertyName("dividends")] decimal? Dividends,
     [property: JsonPropertyName("cryptocurrencyvalue")] decimal? CryptocurrencyValue)
 {
