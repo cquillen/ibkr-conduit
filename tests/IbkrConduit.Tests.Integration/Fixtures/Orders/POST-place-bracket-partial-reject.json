@@ -9,7 +9,12 @@
       "Content-Type": "application/json; charset=utf-8"
     },
     "Body": [
-      { "order_id": "-1", "order_status": "Failed" },
+      {
+        "order_id": "-1",
+        "order_status": "Failed",
+        "text": "The size, 1, does not conform to the minimum variation of 100 for this contract.",
+        "warning_message": "Order rejected by the exchange."
+      },
       { "order_id": "1760268467", "order_status": "Inactive" }
     ]
   }

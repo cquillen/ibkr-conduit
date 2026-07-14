@@ -706,11 +706,16 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         var first = responses[0];
 
         // AMB-4: an array-wrapped reject [{"error":"…"}] bypasses DetectHiddenError (which skips arrays);
-        // classify it as a refusal carrying the reject text and raw body.
+        // classify it as a refusal carrying the reject text and raw body. text/warning_message (RPD-04) are
+        // exposed as typed fields here too, when present.
         if (first.OrderId is null && (first.Id is null || first.Message is null) && !string.IsNullOrEmpty(first.Error))
         {
             return Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(
-                new IbkrOrderRejectedError(first.Error, rawBody, requestPath));
+                new IbkrOrderRejectedError(first.Error, rawBody, requestPath)
+                {
+                    Text = first.Text,
+                    WarningMessage = first.WarningMessage,
+                });
         }
 
         return Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(ClassifyResponse(first, rawBody));
@@ -799,7 +804,8 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             {
                 return Result<GroupPlacementOutcome>.Success(
                     new OrderConfirmationRequired(
-                        only.Id, only.Message.AsReadOnly(), (only.MessageIds ?? []).AsReadOnly()));
+                        only.Id, only.Message.AsReadOnly(), (only.MessageIds ?? []).AsReadOnly(),
+                        only.MessageOptions?.AsReadOnly()));
             }
         }
 
@@ -834,10 +840,16 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
     private static GroupLegOutcome ClassifyLeg(OrderSubmissionResponse element, string? rawBody, string? requestPath)
     {
         // A leg carrying an explicit error field is a definite rejection (covers an array-wrapped
-        // [{"error":"…"}] element that bypasses bare-object hidden-error detection, AMB-4).
+        // [{"error":"…"}] element that bypasses bare-object hidden-error detection, AMB-4). text/
+        // warning_message (RPD-04) are exposed as typed fields here too, when present, even though the
+        // rejection message itself comes from the explicit error field.
         if (element.Error is not null)
         {
-            return new IbkrOrderRejectedError(element.Error, rawBody, requestPath);
+            return new IbkrOrderRejectedError(element.Error, rawBody, requestPath)
+            {
+                Text = element.Text,
+                WarningMessage = element.WarningMessage,
+            };
         }
 
         // A known terminal non-transmitting status is a definite rejection EVEN with a real-looking order_id —
@@ -845,8 +857,16 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         // because it carries an order_id). Checked before the order_id branch so the status wins.
         if (element.OrderStatus is not null && _terminalNonTransmittingStatuses.Contains(element.OrderStatus))
         {
-            return new IbkrOrderRejectedError(
-                $"Order not transmitted (status: {element.OrderStatus}).", rawBody, requestPath);
+            // RPD-04: enrich the message from text (documented, preferred) or warning_message (undocumented
+            // fallback) when IBKR supplies rejection detail, instead of the generic status-only fallback.
+            // Both are exposed as typed fields on the returned error regardless of which one wins the message.
+            var rejectionMessage = element.Text ?? element.WarningMessage
+                ?? $"Order not transmitted (status: {element.OrderStatus}).";
+            return new IbkrOrderRejectedError(rejectionMessage, rawBody, requestPath)
+            {
+                Text = element.Text,
+                WarningMessage = element.WarningMessage,
+            };
         }
 
         // POSITIVE allowlist (the money-safety boundary): a leg is OrderSubmitted ONLY when it carries a real
@@ -862,7 +882,8 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             && _transmittingStatuses.Contains(element.OrderStatus))
         {
             return new OrderSubmitted(
-                element.OrderId, element.OrderStatus, element.LocalOrderId, element.OcaGroupId);
+                element.OrderId, element.OrderStatus, element.LocalOrderId, element.OcaGroupId,
+                element.ParentOrderId);
         }
 
         // An order_id-bearing row that is NOT a recognized transmitting shape — a sentinel/non-positive
@@ -897,7 +918,8 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
                 response.OrderId,
                 response.OrderStatus ?? string.Empty,
                 response.LocalOrderId,
-                response.OcaGroupId);
+                response.OcaGroupId,
+                response.ParentOrderId);
         }
 
         if (response.Id is not null && response.Message is not null)
@@ -905,7 +927,8 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             return new OrderConfirmationRequired(
                 response.Id,
                 response.Message.AsReadOnly(),
-                (response.MessageIds ?? []).AsReadOnly());
+                (response.MessageIds ?? []).AsReadOnly(),
+                response.MessageOptions?.AsReadOnly());
         }
 
         // AMB-4: the residual fallback carries the raw body so the broker's shape survives to the log.

@@ -56,7 +56,25 @@ public record IbkrOrderRejectedError(
     string RejectionMessage,
     string? RawBody,
     string? RequestPath)
-    : IbkrError(HttpStatusCode.OK, RejectionMessage, RawBody, RequestPath);
+    : IbkrError(HttpStatusCode.OK, RejectionMessage, RawBody, RequestPath)
+{
+    /// <summary>
+    /// Rejection detail carried on the wire's <c>text</c> field (RPD-04), when present — documented +
+    /// observed in-context by IBKR (DOC-01) on an <c>advancedOrderReject</c>-style row. When a leg
+    /// classifies via <c>OrderOperations.ClassifyGroupResponses</c>'s terminal-status path, this value (or
+    /// <see cref="WarningMessage"/> when this is absent) enriches <see cref="RejectionMessage"/> instead of
+    /// the generic fallback. Null when absent from the wire.
+    /// </summary>
+    public string? Text { get; init; }
+
+    /// <summary>
+    /// Warning/rejection detail carried on the wire's <c>warning_message</c> field (RPD-04), when present —
+    /// observed on the wire in the orders context, undocumented there (the same field name is documented
+    /// elsewhere, DOC-01/DOC-03, on an unrelated FYI/alert-creation endpoint as always returning null — a
+    /// distinct context this field must not be confused with). Null when absent from the wire.
+    /// </summary>
+    public string? WarningMessage { get; init; }
+}
 
 /// <summary>
 /// Error from a Flex Web Service query. Carries the numeric error code,
