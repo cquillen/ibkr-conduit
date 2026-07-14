@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
 using IbkrConduit.Diagnostics;
@@ -66,9 +67,51 @@ internal partial class PortfolioOperations : IPortfolioOperations
         activity?.SetTag("page", page);
         var response = await _api.GetPositionsAsync(accountId, page, waitForSecDef: waitForSecDef, cancellationToken: cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+
+        // ADR-0009 §10.7 (RPD-06): Positions carries no wire-reported freshness signal (unlike
+        // LiveOrders' snapshot:bool), so a heuristically-sparse first read of a session (a non-empty
+        // list with a row missing name/ticker) gets one transparent, immediate retry. Capped at one
+        // attempt — never a loop — and recorded on this span only when it actually fires.
+        if (result.IsSuccess && LooksSparse(result.Value))
+        {
+            activity?.SetTag("ibkr.cold_read_retry", true);
+            try
+            {
+                var retryResponse = await _api.GetPositionsAsync(accountId, page, waitForSecDef: waitForSecDef, cancellationToken: cancellationToken);
+                var retryResult = ResultFactory.FromResponse(retryResponse, retryResponse.RequestMessage?.RequestUri?.AbsolutePath);
+
+                // ADR-0009 Decision point 4: a false-positive retry must never corrupt data or change
+                // the result the consumer ultimately sees. Only adopt the retry's outcome when the
+                // retry itself succeeded — a transient retry failure (500/503/timeout) must not discard
+                // the good first read.
+                if (retryResult.IsSuccess)
+                {
+                    result = retryResult;
+                }
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // ADR-0009 Decision point 4a: a retry transport failure (connection fault, timeout,
+                // etc. — thrown rather than captured as a Result.Failure, e.g. via
+                // ResultFactory.FromResponse's ThrowOnSendFailure) must not discard the good first
+                // read either, same rationale as the HTTP-status failure case above. Caller-requested
+                // cancellation is excluded via the filter and propagates normally.
+            }
+        }
+
         LogResult(result, "GetPositions");
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
+
+    /// <summary>
+    /// ADR-0009's "looks sparse" heuristic for a positions read: a non-empty list is sparse when any
+    /// row is missing <see cref="Position.Name"/> or <see cref="Position.Ticker"/> — the fields IBKR
+    /// omits on the first positions read of a fresh session (2026-07-14 live probe,
+    /// <c>recordings/coldread-rpd06/</c>). An empty list is never itself evidence of sparseness — a
+    /// genuinely zero-position account must not trigger a retry.
+    /// </summary>
+    internal static bool LooksSparse(List<Position> positions) =>
+        positions.Count > 0 && positions.Any(p => string.IsNullOrEmpty(p.Name) || string.IsNullOrEmpty(p.Ticker));
 
     /// <inheritdoc />
     public async Task<Result<Dictionary<string, AccountSummaryEntry>>> GetAccountSummaryAsync(string accountId,
