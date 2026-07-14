@@ -484,8 +484,21 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
     {
         using var activity = IbkrConduitDiagnostics.ActivitySource.StartActivity("IbkrConduit.Order.GetTrades");
         activity?.SetTag(LogFields.TenantId, _tenant.TenantId);
+        activity?.SetTag("days", days);
         var response = await _orderApi.GetTradesAsync(days, cancellationToken);
         var result = ResultFactory.FromResponse(response, response.RequestMessage?.RequestUri?.AbsolutePath);
+
+        // ADR-0009 §10.7 (RPD-06): Trades carries no wire-reported freshness signal either, and IBKR
+        // returns an empty result on the first trades read of a session despite trades existing. An
+        // empty first read gets one transparent, immediate retry, capped at one attempt — a genuinely
+        // trade-free day pays one wasted retry, never a loop.
+        if (result.IsSuccess && result.Value.Count == 0)
+        {
+            activity?.SetTag("ibkr.cold_read_retry", true);
+            var retryResponse = await _orderApi.GetTradesAsync(days, cancellationToken);
+            result = ResultFactory.FromResponse(retryResponse, retryResponse.RequestMessage?.RequestUri?.AbsolutePath);
+        }
+
         return _options.ThrowOnApiError ? result.EnsureSuccess() : result;
     }
 
