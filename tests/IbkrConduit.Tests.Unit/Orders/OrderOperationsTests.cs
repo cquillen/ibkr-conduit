@@ -692,9 +692,9 @@ public class OrderOperationsTests
         // per leg (child legs carry parent linkage, the parent carries the echoed cOID).
         _fakeApi.PlaceOrderResponses.Enqueue(
         [
-            new OrderSubmissionResponse(null, null, null, null, "child-tp", "PreSubmitted"),
-            new OrderSubmissionResponse(null, null, null, null, "child-stop", "PreSubmitted"),
-            new OrderSubmissionResponse(null, null, null, null, "parent-1", "PreSubmitted", "Parent"),
+            new OrderSubmissionResponse(null, null, null, null, "1760268468", "PreSubmitted"),
+            new OrderSubmissionResponse(null, null, null, null, "1760268469", "PreSubmitted"),
+            new OrderSubmissionResponse(null, null, null, null, "1760268467", "PreSubmitted", "Parent"),
         ]);
 
         var parent = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 50, OrderType = "LMT", Price = 1.00m, Tif = "GTC", CustomerOrderId = "Parent" };
@@ -706,7 +706,7 @@ public class OrderOperationsTests
         var legs = result.Value.AsT0;
         legs.Count.ShouldBe(3);
         legs.ShouldAllBe(l => l.IsT0);
-        legs.Select(l => l.AsT0).ShouldContain(s => s.OrderId == "parent-1" && s.LocalOrderId == "Parent");
+        legs.Select(l => l.AsT0).ShouldContain(s => s.OrderId == "1760268467" && s.LocalOrderId == "Parent");
 
         var payload = _fakeApi.LastPlaceOrderPayload;
         payload.ShouldNotBeNull();
@@ -721,8 +721,8 @@ public class OrderOperationsTests
     {
         _fakeApi.PlaceOrderResponses.Enqueue(
         [
-            new OrderSubmissionResponse(null, null, null, null, "leg-a", "PreSubmitted"),
-            new OrderSubmissionResponse(null, null, null, null, "leg-b", "PreSubmitted"),
+            new OrderSubmissionResponse(null, null, null, null, "636441070", "PreSubmitted"),
+            new OrderSubmissionResponse(null, null, null, null, "636441071", "PreSubmitted"),
         ]);
 
         var a = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC", CustomerOrderId = "A", IsSingleGroup = true };
@@ -732,8 +732,8 @@ public class OrderOperationsTests
 
         var legs = result.Value.AsT0;
         legs.Count.ShouldBe(2);
-        legs[0].AsT0.OrderId.ShouldBe("leg-a");
-        legs[1].AsT0.OrderId.ShouldBe("leg-b");
+        legs[0].AsT0.OrderId.ShouldBe("636441070");
+        legs[1].AsT0.OrderId.ShouldBe("636441071");
     }
 
     [Fact]
@@ -778,8 +778,8 @@ public class OrderOperationsTests
     {
         _fakeApi.PlaceOrderResponses.Enqueue(
         [
-            new OrderSubmissionResponse(null, null, null, null, "leg-a", "PreSubmitted", "A", "oco-636441077"),
-            new OrderSubmissionResponse(null, null, null, null, "leg-b", "PreSubmitted", "B", "oco-636441077"),
+            new OrderSubmissionResponse(null, null, null, null, "636441077", "PreSubmitted", "A", "oco-636441077"),
+            new OrderSubmissionResponse(null, null, null, null, "636441078", "PreSubmitted", "B", "oco-636441077"),
         ]);
 
         var a = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC", CustomerOrderId = "A", IsSingleGroup = true };
@@ -788,7 +788,7 @@ public class OrderOperationsTests
         var legs = (await _sut.PlaceOrdersAsync("DU1234567", [a, b], TestContext.Current.CancellationToken)).Value.AsT0;
 
         var submitted = legs[0].AsT0;
-        submitted.OrderId.ShouldBe("leg-a");
+        submitted.OrderId.ShouldBe("636441077");
         submitted.LocalOrderId.ShouldBe("A");
         submitted.OcaGroupId.ShouldBe("oco-636441077");
     }
@@ -803,7 +803,7 @@ public class OrderOperationsTests
     [Fact]
     public async Task PlaceOrdersAsync_SingleOrder_Succeeds()
     {
-        _fakeApi.PlaceOrderResponses.Enqueue([new OrderSubmissionResponse(null, null, null, null, "ord-1", "Submitted")]);
+        _fakeApi.PlaceOrderResponses.Enqueue([new OrderSubmissionResponse(null, null, null, null, "636441099", "Submitted")]);
 
         var order = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "MKT", Tif = "DAY" };
 
@@ -811,7 +811,7 @@ public class OrderOperationsTests
 
         var legs = result.Value.AsT0;
         legs.Count.ShouldBe(1);
-        legs[0].AsT0.OrderId.ShouldBe("ord-1");
+        legs[0].AsT0.OrderId.ShouldBe("636441099");
     }
 
     [Fact]

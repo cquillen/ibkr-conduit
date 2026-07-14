@@ -191,6 +191,107 @@ public class ClassifyGroupResponsesTests
     }
 
     [Fact]
+    public void ClassifyGroupResponses_CaseVariantTerminalStatus_ClassifiesAsRejected()
+    {
+        // Locks the OrdinalIgnoreCase contract on the terminal-non-transmitting set: a case variant of a
+        // known terminal wire value ("inactive"/"FAILED") must still be a definite rejection, never fall
+        // through to a false OrderSubmitted. Without the case-insensitive comparer these rows would skip the
+        // rejection branch and (pre-fix) surface as OrderSubmitted for a leg that never transmitted.
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "1760268467", orderStatus: "FAILED"),
+            Leg(orderId: "1760268468", orderStatus: "inactive"),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent"), Order(parentId: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var legs = result.Value.AsT0;
+        legs.Count.ShouldBe(2);
+        legs[0].IsT1.ShouldBeTrue("a case-variant \"FAILED\" terminal status must be a rejection, not OrderSubmitted");
+        legs[1].IsT1.ShouldBeTrue("a case-variant \"inactive\" terminal status must be a rejection, not OrderSubmitted");
+        legs[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        legs[1].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_RealOrderIdUnrecognizedTerminalStatus_ClassifiesAmbiguousNotSubmitted()
+    {
+        // THE core money-safety fix (ADR-0008): a leg with a REAL order_id under a terminal/non-transmitting
+        // order_status OUTSIDE the small known-terminal set ("Cancelled", "Rejected", "PendingCancel", …) must
+        // NOT surface as OrderSubmitted. The positive transmitting allowlist fails this toward the safe
+        // direction — IbkrAmbiguousOrderError — because IBKR's status vocabulary is not closed. The pre-fix
+        // blocklist gate let exactly this shape fall through to OrderSubmitted (the false-green this story kills).
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "1760268467", orderStatus: "Cancelled"),
+            Leg(orderId: "1760268468", orderStatus: "Rejected"),
+            Leg(orderId: "1760268469", orderStatus: "PendingCancel"),
+        };
+        var orders = new List<OrderRequest>
+        {
+            Order(coid: "Parent"), Order(parentId: "Parent"), Order(parentId: "Parent"),
+        };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var legs = result.Value.AsT0;
+        legs.Count.ShouldBe(3);
+        legs[0].IsT0.ShouldBeFalse("a real order_id under an unrecognized terminal status must NOT be OrderSubmitted");
+        legs[0].IsT2.ShouldBeTrue("an unrecognized terminal status degrades to ambiguous, the safe direction");
+        legs[1].IsT2.ShouldBeTrue("\"Rejected\" is not a recognized transmitting status — ambiguous, not OrderSubmitted");
+        legs[2].IsT2.ShouldBeTrue("\"PendingCancel\" is not a recognized transmitting status — ambiguous");
+        legs[0].AsT2.ShouldBeOfType<IbkrAmbiguousOrderError>();
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_SentinelOrderIdWithLiveStatus_ClassifiesAmbiguousNotSubmitted()
+    {
+        // Real-vs-sentinel order_id signal (design doc §9.11): a non-positive sentinel order_id ("-1") paired
+        // with a status that WOULD be transmitting on a real id must still not surface as OrderSubmitted —
+        // "-1" is never a transmitted order identity. Degrades to ambiguous, never a false OrderSubmitted.
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "-1", orderStatus: "PreSubmitted"),
+            Leg(orderId: "0", orderStatus: "Submitted"),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent"), Order(parentId: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var legs = result.Value.AsT0;
+        legs.Count.ShouldBe(2);
+        legs[0].IsT0.ShouldBeFalse("a sentinel order_id (\"-1\") must never surface as OrderSubmitted");
+        legs[0].IsT2.ShouldBeTrue("a sentinel order_id degrades to ambiguous");
+        legs[1].IsT0.ShouldBeFalse("a non-positive order_id (\"0\") must never surface as OrderSubmitted");
+        legs[1].IsT2.ShouldBeTrue("a non-positive order_id degrades to ambiguous");
+    }
+
+    [Fact]
+    public void ClassifyGroupResponses_CaseVariantTransmittingStatus_ReturnsOrderSubmitted()
+    {
+        // Locks OrdinalIgnoreCase on the positive transmitting allowlist: a case variant of a live wire status
+        // ("presubmitted") on a real order_id still classifies as a transmitted OrderSubmitted — the guard is
+        // case-insensitive in both directions so a wire-case wobble neither fabricates nor suppresses success.
+        var responses = new List<OrderSubmissionResponse>
+        {
+            Leg(orderId: "1760268467", orderStatus: "presubmitted"),
+        };
+        var orders = new List<OrderRequest> { Order(coid: "Parent") };
+
+        var result = OrderOperations.ClassifyGroupResponses(responses, orders, _rawBody, _requestPath);
+
+        result.IsSuccess.ShouldBeTrue();
+        var legs = result.Value.AsT0;
+        legs.Count.ShouldBe(1);
+        legs[0].IsT0.ShouldBeTrue("a case-variant transmitting status on a real order_id is OrderSubmitted");
+        legs[0].AsT0.OrderId.ShouldBe("1760268467");
+    }
+
+    [Fact]
     public void ClassifyGroupResponses_ArrayWrappedErrorLeg_ClassifiesThatLegAsRejected()
     {
         // A leg carrying an explicit error field is a definite per-leg rejection (an array-wrapped

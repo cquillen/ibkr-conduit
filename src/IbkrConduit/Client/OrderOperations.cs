@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Globalization;
 using System.Text.Json;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
@@ -716,16 +717,50 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
     }
 
     /// <summary>
-    /// Terminal, non-transmitting <c>order_status</c> values (ADR-0008 §9.11): a leg carrying one of these
-    /// did NOT transmit, even when it also carries a real-looking <c>order_id</c> (observed on a rejected
-    /// bracket's parent row). Compared case-insensitively so a case variant of the wire value cannot bypass
-    /// the money-safety rejection check (same rationale as the trailing-parameter fail-fast). Deliberately
-    /// open/extensible — wire-observed values only (<c>"Failed"</c>, <c>"Inactive"</c>); an unrecognized
-    /// future status is caught by the classifier's defensive fallback (degrades to
-    /// <see cref="IbkrAmbiguousOrderError"/>), never silently treated as success.
+    /// Terminal, non-transmitting <c>order_status</c> values (ADR-0008 §9.11) that are <b>known</b> to mean a
+    /// leg did NOT transmit, even when it also carries a real-looking <c>order_id</c> (observed on a rejected
+    /// bracket's parent row). A leg matching one of these is classified as a <em>definite</em>
+    /// <see cref="IbkrOrderRejectedError"/> (as opposed to the merely-ambiguous fallback the positive
+    /// transmitting allowlist produces for an <em>unrecognized</em> status). Compared case-insensitively so a
+    /// case variant of the wire value cannot bypass the money-safety rejection check (same rationale as the
+    /// trailing-parameter fail-fast). Wire-observed values only (<c>"Failed"</c>, <c>"Inactive"</c>) — this set
+    /// is <b>not</b> the safety boundary: the boundary is the positive <see cref="_transmittingStatuses"/>
+    /// allowlist, so an unrecognized future terminal status (e.g. a hypothetical <c>"Rejected"</c> /
+    /// <c>"Cancelled"</c>) never surfaces as <see cref="OrderSubmitted"/> even though it is absent here — it
+    /// falls to the ambiguous fallback instead. This set only upgrades a known-bad status from <em>ambiguous</em>
+    /// to <em>definite rejection</em>.
     /// </summary>
     private static readonly HashSet<string> _terminalNonTransmittingStatuses =
         new(StringComparer.OrdinalIgnoreCase) { "Failed", "Inactive" };
+
+    /// <summary>
+    /// Live/working <c>order_status</c> values (ADR-0008 §9.11) that mean a leg <b>did</b> transmit — the
+    /// positive allowlist that is the actual money-safety boundary. A group leg is classified as
+    /// <see cref="OrderSubmitted"/> <b>only</b> when it carries a real (positive) <c>order_id</c> AND an
+    /// <c>order_status</c> in this set; every other <c>order_id</c>-bearing row (a sentinel/non-positive
+    /// <c>order_id</c>, or a status not recognized as transmitting) degrades to the <em>safe</em> direction —
+    /// <see cref="IbkrAmbiguousOrderError"/> — rather than a false <see cref="OrderSubmitted"/>. This inverts an
+    /// earlier blocklist gate whose miss-case (an order_id-bearing row under a terminal status outside the small
+    /// blocklist) failed toward <see cref="OrderSubmitted"/> — the exact false-green ADR-0008 exists to prevent.
+    /// Compared case-insensitively for the same reason as <see cref="_terminalNonTransmittingStatuses"/>. Wire
+    /// vocabulary is not closed; adding an unknown status to this set is a deliberate safety decision, never a
+    /// default. Wire-observed transmitting values: <c>"PreSubmitted"</c>, <c>"PendingSubmit"</c>,
+    /// <c>"Submitted"</c>; <c>"Filled"</c> and <c>"Modified"</c> included as the other documented working states.
+    /// </summary>
+    private static readonly HashSet<string> _transmittingStatuses =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "PreSubmitted", "PendingSubmit", "Submitted", "Filled", "Modified",
+        };
+
+    /// <summary>
+    /// A real IBKR <c>order_id</c> is a positive integer. IBKR's rejection sentinel is <c>"-1"</c>
+    /// (ADR-0008 §9.11 — "real vs. sentinel order_id" signal); anything non-positive or non-numeric is a
+    /// sentinel/placeholder, never a transmitted order identity, so it must not gate an
+    /// <see cref="OrderSubmitted"/> however live-looking its <c>order_status</c> is.
+    /// </summary>
+    private static bool IsRealOrderId(string orderId) =>
+        long.TryParse(orderId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) && id > 0;
 
     /// <summary>
     /// ADR-0008 §9.11: classifies a bracket/OCA group's <see cref="PlaceOrdersAsync"/> response into a
@@ -805,7 +840,7 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             return new IbkrOrderRejectedError(element.Error, rawBody, requestPath);
         }
 
-        // A terminal non-transmitting status is a definite rejection EVEN with a real-looking order_id —
+        // A known terminal non-transmitting status is a definite rejection EVEN with a real-looking order_id —
         // the dangerous case ADR-0008 fixes (a rejected parent must never surface as OrderSubmitted just
         // because it carries an order_id). Checked before the order_id branch so the status wins.
         if (element.OrderStatus is not null && _terminalNonTransmittingStatuses.Contains(element.OrderStatus))
@@ -814,15 +849,38 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
                 $"Order not transmitted (status: {element.OrderStatus}).", rawBody, requestPath);
         }
 
-        // A real order_id with a non-terminal status is a transmitted leg (existing OrderSubmitted mapping).
-        if (element.OrderId is not null)
+        // POSITIVE allowlist (the money-safety boundary): a leg is OrderSubmitted ONLY when it carries a real
+        // (positive) order_id AND a recognized live/working order_status. Everything else that carries an
+        // order_id falls through to the ambiguous branch below — the SAFE direction. This deliberately does
+        // NOT trust "has an order_id" alone: a sentinel order_id ("-1"), or a real order_id under a status we
+        // do not recognize as transmitting (an unobserved terminal value like "Cancelled"/"Rejected"), must
+        // never surface as a transmitted order. IBKR's status vocabulary is not closed, so the unknown case
+        // fails toward ambiguous, never toward a false OrderSubmitted.
+        if (element.OrderId is not null
+            && IsRealOrderId(element.OrderId)
+            && element.OrderStatus is not null
+            && _transmittingStatuses.Contains(element.OrderStatus))
         {
             return new OrderSubmitted(
-                element.OrderId, element.OrderStatus ?? string.Empty, element.LocalOrderId, element.OcaGroupId);
+                element.OrderId, element.OrderStatus, element.LocalOrderId, element.OcaGroupId);
         }
 
-        // Defensive (not wire-observed): a row matching none of the above degrades to ambiguous — the safe
-        // direction — never a silent OrderSubmitted with empty fields and never an exception.
+        // An order_id-bearing row that is NOT a recognized transmitting shape — a sentinel/non-positive
+        // order_id, or a real order_id under an unrecognized (non-terminal, non-transmitting) status — is
+        // ambiguous: something may have been sent, but its outcome is unknown. Reconcile, never re-place.
+        if (element.OrderId is not null)
+        {
+            return new IbkrAmbiguousOrderError(
+                null,
+                $"This order-leg response carried an order id ({element.OrderId}) but an order_status " +
+                $"(\"{element.OrderStatus ?? "<none>"}\") that is neither a recognized transmitting state nor a " +
+                "known terminal rejection; its outcome is unknown. Reconcile via GetLiveOrdersAsync/GetTradesAsync " +
+                "(matching your cOID) before resubmitting — never re-place, which can double-submit.",
+                rawBody, requestPath, ReauthSucceeded: false);
+        }
+
+        // Defensive (not wire-observed): a row carrying no order_id and matching none of the above degrades to
+        // ambiguous — the safe direction — never a silent OrderSubmitted with empty fields and never an exception.
         return new IbkrAmbiguousOrderError(
             null, "Unrecognized order-leg response shape.", rawBody, requestPath, ReauthSucceeded: false);
     }

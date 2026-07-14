@@ -44,12 +44,20 @@ public interface IOrderOperations
     /// in wire order, each classified independently as an <see cref="OrderSubmitted"/> (that leg
     /// transmitted — its own <c>order_id</c> is carried directly, so no
     /// <see cref="GetLiveOrdersAsync"/> round-trip is needed for the common case), an
-    /// <see cref="IbkrOrderRejectedError"/> (that leg was rejected — including a sentinel
-    /// <c>order_id</c> row and a row whose <c>order_status</c> is terminal/non-transmitting such
-    /// as <c>"Failed"</c> or <c>"Inactive"</c>), or an <see cref="IbkrAmbiguousOrderError"/> (a
-    /// requested leg with no corresponding response entry — sent, outcome unknown; reconcile via
-    /// <see cref="GetLiveOrdersAsync"/>/<see cref="GetTradesAsync"/> before resubmitting, never
-    /// re-place). Classification keys on each row's field signature, never on array position.
+    /// <see cref="IbkrOrderRejectedError"/> (that leg was rejected — a row carrying an explicit
+    /// error, or a row whose <c>order_status</c> is a known terminal/non-transmitting value such as
+    /// <c>"Failed"</c> or <c>"Inactive"</c>), or an <see cref="IbkrAmbiguousOrderError"/> (sent,
+    /// outcome unknown — reconcile before resubmitting, never re-place). A leg is classified
+    /// <see cref="OrderSubmitted"/> <b>only</b> when it carries a real (positive) <c>order_id</c>
+    /// AND a recognized live/working <c>order_status</c> (<c>"PreSubmitted"</c>,
+    /// <c>"PendingSubmit"</c>, <c>"Submitted"</c>, <c>"Filled"</c>, <c>"Modified"</c>); because
+    /// IBKR's status vocabulary is not closed, any other <c>order_id</c>-bearing row — a sentinel
+    /// <c>order_id</c> (e.g. <c>"-1"</c>), or a real <c>order_id</c> under an <em>unrecognized</em>
+    /// status — degrades to <see cref="IbkrAmbiguousOrderError"/> (the safe direction), never a
+    /// false <see cref="OrderSubmitted"/>. An <see cref="IbkrAmbiguousOrderError"/> also covers a
+    /// requested leg with no corresponding response entry. Reconcile any ambiguous leg via
+    /// <see cref="GetLiveOrdersAsync"/>/<see cref="GetTradesAsync"/> before resubmitting.
+    /// Classification keys on each row's field signature, never on array position.
     /// A group confirmation-required response remains a single event for the whole group (the
     /// <see cref="OneOf{T0,T1}.IsT1"/> arm) — a question blocks every leg alike, so there is
     /// nothing to break down per-leg yet — and is handled via <see cref="ReplyAsync"/>. When IBKR
