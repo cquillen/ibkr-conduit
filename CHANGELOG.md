@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.9.0...IbkrConduit-v0.10.0) (2026-07-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* LedgerEntry.EndOfBundle changes from int to int?. Consumers assigning it directly to an int must unwrap the nullable (e.g. EndOfBundle ?? 0, or handle null explicitly per its now-correct presence semantics).
+* PlaceOrdersAsync's return type changes from Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> to Task<Result<OneOf<IReadOnlyList<OneOf<OrderSubmitted, IbkrOrderRejectedError, IbkrAmbiguousOrderError>>, OrderConfirmationRequired>>>. Consumers of bracket/OCA group submissions must migrate to iterate per-leg outcomes instead of treating the result as a single OrderSubmitted.
+
+### Features
+
+* classify bracket/OCA group submission outcomes per leg (RPD-03) ([fc52167](https://github.com/cquillen/ibkr-conduit/commit/fc52167f7f5cb5d67247cab7a3860a48d91be9e2))
+* promote LiveOrder/ContractSearchResult/CancelOrderResponse fields (RPD-01) ([d906fc5](https://github.com/cquillen/ibkr-conduit/commit/d906fc5acf0925e88e78c3b4190b22562a4154bd))
+* type LedgerEntry.EndOfBundle as int? (RPD-07) ([cc3e45d](https://github.com/cquillen/ibkr-conduit/commit/cc3e45d1f75080816b1dc0057871002ed81d1c8c))
+* type parentId/ocaGroupId on LiveOrder for bracket/OCA linkage (RPD-02) ([96787f0](https://github.com/cquillen/ibkr-conduit/commit/96787f05d957eab96ef2f431a1c765522c9ec7b0))
+* type Position base-currency/option fields incl. tolerant strike (RPD-05) ([d3b6895](https://github.com/cquillen/ibkr-conduit/commit/d3b68952d478f84368ee9cb25f562a6408a3d988))
+* type text/warning_message/messageOptions/parent_order_id on order-submission responses (RPD-04) ([9f24dbd](https://github.com/cquillen/ibkr-conduit/commit/9f24dbd10ed8f1cebbcdbd9a013f202c2ff8aee9))
+
+
+### Bug Fixes
+
+* retry once on sparse first-read for Positions; document Trades cold read (RPD-06) ([fc78aee](https://github.com/cquillen/ibkr-conduit/commit/fc78aee899a773371e178182f9ac7c09c2fe288c))
+
 ## [0.9.0](https://github.com/cquillen/ibkr-conduit/compare/IbkrConduit-v0.8.0...IbkrConduit-v0.9.0) (2026-07-09)
 
 
