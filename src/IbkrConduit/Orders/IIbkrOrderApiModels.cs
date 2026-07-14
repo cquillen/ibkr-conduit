@@ -358,6 +358,40 @@ public record LiveOrder(
     [JsonPropertyName("order_cancellation_by_system_reason")]
     public string? OrderCancellationBySystemReason { get; init; }
 
+    /// <summary>
+    /// Parent-order linkage for a bracket/OCA <em>child</em> leg (IBKR <c>parentId</c>). Present only
+    /// on child legs; the parent order itself carries no <c>parentId</c> (null here). This is the
+    /// <em>response</em>-side linkage value — the parent's server-assigned <see cref="OrderId"/> (an
+    /// integer) — NOT the request-side <see cref="OrderRequest.ParentId"/>/<c>cOID</c> string the child
+    /// was submitted with: a deliberate request/response type asymmetry. Resolve child→parent by
+    /// matching this value against another order's <see cref="OrderId"/>, keying on the response-side
+    /// integer (never the request-side cOID). Typed <c>int?</c> and tolerant of the integer-valued
+    /// string form IBKR uses on its other order surfaces (observed on the wire as an unquoted JSON
+    /// integer). Null when absent (a non-child order). Documented only as a request-side field by every
+    /// IBKR source (DOC-01/03/05); its presence on the live-orders response is verified by recording +
+    /// live probe (RPD-02), not by any doc.
+    /// </summary>
+    [JsonPropertyName("parentId")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    public int? ParentId { get; init; }
+
+    /// <summary>
+    /// One-cancels-all group identifier (IBKR <c>ocaGroupId</c>) linking legs that cancel together.
+    /// Kept as the raw string exactly as IBKR sends it. It appears in TWO observed shapes that grouping
+    /// logic MUST both handle — never assume the <c>oco-</c> prefix, and never strip or reinterpret it:
+    /// <list type="bullet">
+    /// <item>an explicit OCA group (legs submitted with <see cref="OrderRequest.IsSingleGroup"/>) carries
+    /// a prefixed <c>"oco-&lt;orderId&gt;"</c> string;</item>
+    /// <item>a bracket's own take-profit/stop exit legs carry a <em>bare</em> integer-valued string equal
+    /// to the parent's <see cref="OrderId"/> — no <c>oco-</c> prefix.</item>
+    /// </list>
+    /// Null when the order belongs to no OCA group. Documented by <em>no</em> IBKR source for the CP Web
+    /// API (DOC-08's TWS-API OCA uses a differently-named <c>ocaGroup</c> on a different surface); its
+    /// presence and both shapes are verified by recording + live probe (RPD-02).
+    /// </summary>
+    [JsonPropertyName("ocaGroupId")]
+    public string? OcaGroupId { get; init; }
+
     /// <summary>Additional unmapped properties from the API response.</summary>
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? AdditionalData { get; init; }
