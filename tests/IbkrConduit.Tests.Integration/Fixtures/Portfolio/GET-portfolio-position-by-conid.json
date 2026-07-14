@@ -35,7 +35,13 @@
         "countryCode": "US",
         "type": "ETF",
         "hasOptions": true,
-        "pageSize": 100
+        "pageSize": 100,
+        "baseMktValue": 28859.36,
+        "baseMktPrice": 655.8945923,
+        "baseAvgCost": 652.47477275,
+        "baseRealizedPnl": 0.0,
+        "baseUnrealizedPnl": 150.47,
+        "lastTradingDay": null
       }
     ]
   }

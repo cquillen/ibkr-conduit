@@ -11,7 +11,10 @@
         "realizedPnl": 0.0, "unrealizedPnl": 1.1, "exchs": null,
         "expiry": null, "putOrCall": null, "multiplier": null,
         "strike": 0.0, "exerciseStyle": null, "conExchMap": [],
-        "assetClass": "STK", "undConid": 0, "model": ""
+        "assetClass": "STK", "undConid": 0, "model": "",
+        "baseMktValue": 1754.04, "baseMktPrice": 584.6799927,
+        "baseAvgCost": 584.31333335, "baseRealizedPnl": 0.0,
+        "baseUnrealizedPnl": 1.1, "lastTradingDay": null
       }
     ]
   }

@@ -8,7 +8,8 @@
         "acctId": "U1234567", "conid": 320227571, "contractDesc": "QQQ",
         "position": 3.0, "mktPrice": "", "avgCost": 1234567890.123456789,
         "avgPrice": 584.31333335, "realizedPnl": 0.0, "currency": "USD",
-        "assetClass": "STK", "undConid": 0, "model": ""
+        "assetClass": "STK", "undConid": 0, "model": "",
+        "baseMktValue": "", "baseMktPrice": ""
       }
     ]
   }

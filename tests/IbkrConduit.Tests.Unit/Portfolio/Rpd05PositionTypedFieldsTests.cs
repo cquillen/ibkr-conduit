@@ -1,5 +1,6 @@
 using System.Text.Json;
 using IbkrConduit.Portfolio;
+using IbkrConduit.Serialization;
 using Shouldly;
 
 namespace IbkrConduit.Tests.Unit.Portfolio;
@@ -11,6 +12,12 @@ namespace IbkrConduit.Tests.Unit.Portfolio;
 /// typed nullable properties (ADR-0001), and that <c>strike</c> tolerates both the JSON-number and
 /// JSON-string wire shapes observed on the live probe (a live, reproducible instability tied to
 /// read-freshness — not just cross-source doc disagreement, per the backlog entry).
+/// Deserializes via <see cref="IbkrRefitSettings.Options"/> (not the <see cref="JsonSerializer"/>
+/// defaults) so these unit tests mirror the production Refit pipeline, where the empty-tolerant
+/// converters are registered globally rather than per-property — the production-faithful coverage
+/// this exact class name is otherwise a proxy for is asserted end-to-end via WireMock in
+/// <c>PortfolioTests.GetPositions_ReturnsAllFields</c> /
+/// <c>GetPositionByConid_ReturnsAllFields</c> / <c>GetPositions_SparseRow_MoneyFieldsSurfacePresenceAndPrecision</c>.
 /// </summary>
 public class Rpd05PositionTypedFieldsTests
 {
@@ -50,7 +57,7 @@ public class Rpd05PositionTypedFieldsTests
     {
         var json = _positionJsonTemplate.Replace("__STRIKE__", "200.0");
 
-        var position = JsonSerializer.Deserialize<Position>(json);
+        var position = JsonSerializer.Deserialize<Position>(json, IbkrRefitSettings.Options);
 
         position.ShouldNotBeNull();
         position.BaseMarketValue.ShouldBe(1250.0m);
@@ -89,7 +96,7 @@ public class Rpd05PositionTypedFieldsTests
             }
             """;
 
-        var position = JsonSerializer.Deserialize<Position>(json);
+        var position = JsonSerializer.Deserialize<Position>(json, IbkrRefitSettings.Options);
 
         position.ShouldNotBeNull();
         position.BaseMarketValue.ShouldBeNull();
@@ -110,7 +117,7 @@ public class Rpd05PositionTypedFieldsTests
     {
         var json = _positionJsonTemplate.Replace("__STRIKE__", strikeToken);
 
-        var position = JsonSerializer.Deserialize<Position>(json);
+        var position = JsonSerializer.Deserialize<Position>(json, IbkrRefitSettings.Options);
 
         position.ShouldNotBeNull();
         position.Strike.ShouldBe(0m);
@@ -121,7 +128,7 @@ public class Rpd05PositionTypedFieldsTests
     {
         var json = _positionJsonTemplate.Replace("__STRIKE__", "\"704\"");
 
-        var position = JsonSerializer.Deserialize<Position>(json);
+        var position = JsonSerializer.Deserialize<Position>(json, IbkrRefitSettings.Options);
 
         position.ShouldNotBeNull();
         position.Strike.ShouldBe(704m);

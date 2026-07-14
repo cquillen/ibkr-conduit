@@ -119,6 +119,15 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
         pos.AssetClass.ShouldBe("STK");
         pos.UndConid.ShouldBe(0L);
         pos.Model.ShouldBe("");
+        pos.BaseMarketValue.ShouldBe(1754.04m);
+        pos.BaseMarketPrice.ShouldBe(584.6799927m);
+        pos.BaseAverageCost.ShouldBe(584.31333335m);
+        pos.BaseRealizedPnl.ShouldBe(0.0m);
+        pos.BaseUnrealizedPnl.ShouldBe(1.1m);
+        pos.LastTradingDay.ShouldBeNull();
+        pos.Expiry.ShouldBeNull();
+        pos.PutOrCall.ShouldBeNull();
+        pos.Strike.ShouldBe(0m);
 
         _harness.VerifyHandshakeOccurred();
     }
@@ -191,6 +200,11 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
         pos.UnrealizedPnl.ShouldBeNull();
         pos.Quantity.ShouldBe(3.0m);
         pos.AverageCost.ShouldBe(1234567890.123456789m);
+        pos.BaseMarketValue.ShouldBeNull();
+        pos.BaseMarketPrice.ShouldBeNull();
+        pos.BaseAverageCost.ShouldBeNull();
+        pos.BaseRealizedPnl.ShouldBeNull();
+        pos.BaseUnrealizedPnl.ShouldBeNull();
 
         _harness.VerifyHandshakeOccurred();
     }
@@ -528,6 +542,15 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
         pos.RealizedPnl.ShouldBe(0.0m);
         pos.UnrealizedPnl.ShouldBe(150.47m);
         pos.AssetClass.ShouldBe("STK");
+        pos.BaseMarketValue.ShouldBe(28859.36m);
+        pos.BaseMarketPrice.ShouldBe(655.8945923m);
+        pos.BaseAverageCost.ShouldBe(652.47477275m);
+        pos.BaseRealizedPnl.ShouldBe(0.0m);
+        pos.BaseUnrealizedPnl.ShouldBe(150.47m);
+        pos.LastTradingDay.ShouldBeNull();
+        pos.Expiry.ShouldBeNull();
+        pos.PutOrCall.ShouldBeNull();
+        pos.Strike.ShouldBe(0m);
 
         _harness.VerifyHandshakeOccurred();
     }
