@@ -111,6 +111,45 @@ public class OrderColdReadRetryTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task GetTradesAsync_EmptyFirstReadRetryFails_ReturnsFirstSuccessfulResult()
+    {
+        const int days = 90005;
+
+        // Call 1: empty-but-successful (a genuinely trade-free day). Call 2 (the cold-read retry): a
+        // transient 500. ADR-0009 Decision point 4 — a false-positive retry must never corrupt data or
+        // change the result the consumer ultimately sees, so the good first read must win, not the
+        // failed retry.
+        _harness.Server.Given(
+            Request.Create().WithPath(_tradesPath).UsingGet())
+            .InScenario("coldread-trades-retry-fails")
+            .WillSetStateTo("retry-failed")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "GET-trades-empty")));
+
+        _harness.Server.Given(
+            Request.Create().WithPath(_tradesPath).UsingGet())
+            .InScenario("coldread-trades-retry-fails")
+            .WhenStateIs("retry-failed")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(500)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"error":"Internal Server Error"}"""));
+
+        var result = await _harness.Client.Orders.GetTradesAsync(
+            days, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue("a failed retry must not discard the good first read");
+        result.Value.ShouldBeEmpty();
+
+        _harness.Server.FindLogEntries(Request.Create().WithPath(_tradesPath).UsingGet())
+            .Count.ShouldBe(2, "the empty first read still triggers exactly one cold-read retry attempt");
+    }
+
+    [Fact]
     public async Task GetTradesAsync_401ThenEmptyReplay_ComposesRetryWithReauth()
     {
         const int days = 90004;

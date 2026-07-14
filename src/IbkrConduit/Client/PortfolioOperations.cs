@@ -76,7 +76,16 @@ internal partial class PortfolioOperations : IPortfolioOperations
         {
             activity?.SetTag("ibkr.cold_read_retry", true);
             var retryResponse = await _api.GetPositionsAsync(accountId, page, waitForSecDef: waitForSecDef, cancellationToken: cancellationToken);
-            result = ResultFactory.FromResponse(retryResponse, retryResponse.RequestMessage?.RequestUri?.AbsolutePath);
+            var retryResult = ResultFactory.FromResponse(retryResponse, retryResponse.RequestMessage?.RequestUri?.AbsolutePath);
+
+            // ADR-0009 Decision point 4: a false-positive retry must never corrupt data or change
+            // the result the consumer ultimately sees. Only adopt the retry's outcome when the
+            // retry itself succeeded — a transient retry failure (500/503/timeout) must not discard
+            // the good first read.
+            if (retryResult.IsSuccess)
+            {
+                result = retryResult;
+            }
         }
 
         LogResult(result, "GetPositions");

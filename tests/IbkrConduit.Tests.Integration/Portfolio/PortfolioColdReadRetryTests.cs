@@ -119,6 +119,48 @@ public class PortfolioColdReadRetryTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task GetPositionsAsync_SparseFirstReadRetryFails_ReturnsFirstSuccessfulResult()
+    {
+        const string accountId = "U9990005";
+        var path = $"/v1/api/portfolio/{accountId}/positions/0";
+
+        // Call 1: sparse-but-successful (a legitimately-sparse thin account, e.g. a cash/forex
+        // position with no ticker). Call 2 (the cold-read retry): a transient 500. ADR-0009 Decision
+        // point 4 — a false-positive retry must never corrupt data or change the result the consumer
+        // ultimately sees, so the good first read must win, not the failed retry.
+        _harness.Server.Given(
+            Request.Create().WithPath(path).UsingGet())
+            .InScenario("coldread-positions-retry-fails")
+            .WillSetStateTo("retry-failed")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Portfolio", "GET-coldread-positions-sparse")));
+
+        _harness.Server.Given(
+            Request.Create().WithPath(path).UsingGet())
+            .InScenario("coldread-positions-retry-fails")
+            .WhenStateIs("retry-failed")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(500)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"error":"Internal Server Error"}"""));
+
+        var result = await _harness.Client.Portfolio.GetPositionsAsync(
+            accountId, 0, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue("a failed retry must not discard the good first read");
+        result.Value.Count.ShouldBe(2);
+        result.Value[0].Name.ShouldBeNullOrEmpty();
+        result.Value[0].Ticker.ShouldBeNullOrEmpty();
+
+        _harness.Server.FindLogEntries(Request.Create().WithPath(path).UsingGet())
+            .Count.ShouldBe(2, "the sparse first read still triggers exactly one cold-read retry attempt");
+    }
+
+    [Fact]
     public async Task GetPositionsAsync_401ThenSparseReplay_ComposesRetryWithReauth()
     {
         const string accountId = "U9990004";
