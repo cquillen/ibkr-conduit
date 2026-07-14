@@ -729,6 +729,26 @@ The CP Web API does not support native multi-leg combo orders. Legs must be subm
 
 ---
 
+### 9.11 Bracket/OCA Group Submission — Per-Leg Outcome Classification
+
+**[ADR-0008](adr/0008-bracket-per-leg-outcome-classification.md).** A bracket or OCA group's legs do not all transmit-or-fail together — IBKR can accept a parent while rejecting a child. `PlaceOrdersAsync`'s response classification breaks down **per leg** rather than collapsing IBKR's response array to a single group-level outcome:
+
+- Every leg present in IBKR's response is classified independently as transmitted (`OrderSubmitted`), a definite rejection (`IbkrOrderRejectedError`), or — for a requested leg with no corresponding response entry — an ambiguous outcome (`IbkrAmbiguousOrderError`, ADR-0003/ADR-0006 semantics: sent, outcome unknown, reconcile before resubmitting, never re-place). Classification keys on each row's own field signature (does it carry `local_order_id`? `parent_order_id`? a real vs. sentinel `order_id`? a terminal `order_status`?) — **never on array position**, even though a 2026-07-14 live probe observed the child consistently at index 0 and the parent at index 1 in its array-shaped samples; that ordering is not a documented IBKR contract.
+- When IBKR hard-rejects the whole submission before assigning any leg an identity (observed: a bare `{"error": "..."}` object, no array at all — e.g. a bogus child conid), the existing whole-call rejection classification (§9.9 AMB-4) applies; there is no per-leg data to break down in this case.
+- A group confirmation-required response remains a single event for the whole group — a question blocks transmission of every leg alike.
+- This applies only to `PlaceOrdersAsync` (multi-leg groups); `PlaceOrderAsync` (single order) is unchanged.
+- **Verified 2026-07-14 by live probe** (`recordings/rpd02-invalidchild-{a,b,c}-*/`): an invalid child produces at least three distinct wire shapes depending on the invalidity mechanism — a no-array hard reject, a sentinel-array reject where the *whole bracket* fails together (parent included, `order_status="Inactive"`), and a real-ID array where the parent transmits after a confirmation-question chain. RTOS's original "parent live, child dead" observation is one of these outcomes, not the only one.
+
+### 9.12 Bracket/OCA Order Atomicity — No Client-Side Emulation
+
+**[ADR-0010](adr/0010-bracket-atomicity-no-emulation.md).** The CP Web API gives no atomicity guarantee for bracket/OCA group submission — partial acceptance (e.g. parent live, child rejected) is possible and undocumented in either direction. TWS API mitigates the equivalent race with a client-side `Transmit` flag that withholds every leg from the server until the last is sent; the CP Web API's single-HTTP-request model has no equivalent, and IbkrConduit does not attempt to emulate one (no staged transmission, no synthetic rollback) — a best-effort emulation would misrepresent a guarantee the library cannot actually deliver. Consumers building bracket/OCA flows must treat partial acceptance as a real possibility and reconcile via the per-leg classification (§9.11) or `GetLiveOrdersAsync`.
+
+### 9.13 Cancel Order Outcome Classification
+
+**[ADR-0011](adr/0011-cancel-order-no-dead-order-classification.md).** `DELETE /iserver/account/{accountId}/order/{orderId}` gives no structured signal to distinguish "already inactive," "already cancelled," and "never existed" cancel failures — one generic `{"error": "<string>"}` shape covers all of them, with no status-code table (unlike Place Order). IbkrConduit does not build a typed classification for this distinction: doing so could only pattern-match IBKR's undocumented, unstable message text, reintroducing the same fragility the order-submission path (§9.11) deliberately moves away from. These cases continue to surface as `IbkrApiError` carrying IBKR's raw message. Separately, note that a cancel **success** acknowledgment does not itself confirm the cancellation was enacted (IBKR's own documented caveat) — "nothing to cancel" and "cancel likely worked" are not cleanly separable from this endpoint's response at all.
+
+---
+
 ## 10. Order History and Reconciliation Data
 
 ### 10.1 The Session-Scoped Order History Problem
@@ -785,6 +805,12 @@ This sequence handles arbitrarily long outages. The flex query for open orders i
 `GET /iserver/account/orders` is unprimed on first call — `{"orders":[],"snapshot":false}` even when orders exist — and reprimes on a follow-up call; `force=true` clears cached state and itself returns a blank array. All three shapes are pinned by live captures (`recordings/orders/001-002`, `recordings/priming/001-003` — local captures per the `recordings/` convention, carried into committed WireMock fixtures; the latter showing a *filtered* call returning fake-empty while cancelled orders demonstrably exist). The live docs (DOC-03, re-scouted 2026-07-07 — `docs/ibkr-doc-evidence/2026-07-07-live-orders-filters-force.md`, superseding the deprecated-mirror citation) further warn that filtered calls "will prevent order details from coming through over the websocket \"sor\" topic" until a `force=true` **follow-up** call — documented, not independently observable on demand; the same page's own example combines filters+force in one call without comment, so single-call sufficiency is unpinned in every tier. The contract (operator-decided 2026-07-07, implemented by VCR-05):
 
 - **`GetLiveOrdersAsync` returns a record carrying the orders and `IsSnapshot`** so primedness is consumer-visible; an unprimed empty response is distinguishable from "no orders."
+
+### 10.7 Positions/Trades Cold-Read Retry
+
+**[ADR-0009](adr/0009-positions-trades-cold-read-retry.md).** `GET /portfolio/{accountId}/positions/{pageId}` and `GET /iserver/account/trades` show the same first-touch-after-session-start sparseness §10.6 documents for live orders — sparse/field-missing position rows, an empty trades result — but neither carries a wire-reported freshness flag the way live orders' `snapshot: bool` does. `GetPositionsAsync`/`GetTradesAsync` transparently retry once, immediately, when the first read of a session looks sparse (Positions: a row missing `name`/`ticker`; Trades: an empty result on the session's first call) — a bounded, best-effort heuristic, not a verified contract, since there is no server signal to confirm cold-vs-genuinely-sparse. No public-surface change: unlike `GetLiveOrdersAsync`, neither method gains an `IsSnapshot`-style wrapper. A retry is observable only via an `Activity` tag, not the return value.
+- **The immediate-no-delay retry timing is verified, not assumed** — a 2026-07-14 live probe (`recordings/coldread-rpd06/`) reproduced first-read sparseness 3/3 on both endpoints, and confirmed an immediate follow-up call reprimes both 3/3, under homogeneous conditions (one account, ~2 minutes). The residual risk — a consumer racing session init faster than the retry — remains untested and is accepted per ADR-0009.
+- The same probe found `Position.strike` changes JSON type between the sparse and enriched read of the same row (number vs. string) — a modeling nuance carried into `Position`'s field typing (§9.7's sibling field-fidelity concerns), not a further change to this retry contract.
 - **After any filtered call, the library itself issues the `force=true` follow-up** (the library-owns-quirks rule, `.claude/rules/architecture.md`) — defensive against the documented `sor` suppression whether or not it manifests.
 
 ---
