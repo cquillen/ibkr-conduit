@@ -555,7 +555,7 @@ PVR-09's design is format-agnostic (no live Flex statement is configured on the 
 ---
 
 #### RPD-01 — 📦 Typed-field promotion sweep: `LiveOrder.order_cancellation_by_system_reason`, `ContractSearchResult` (`showPrips`, `legSecType`), `CancelOrderResponse.account`
-**Status:** Not started · **Stream:** RPD · **Depends on:** none
+**Status:** ✅ Done — #299 · **Stream:** RPD · **Depends on:** none
 **Risk:** standard
 **Spec:** trivial-skip
 Three independently clean field promotions bundled as one mechanical sweep — each is either doc-confirmed or a total (harmless) doc gap, none carries an open fork:

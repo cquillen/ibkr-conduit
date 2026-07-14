@@ -1,0 +1,13 @@
+{
+  "Request": { "Path": "/v1/api/iserver/account/U1234567/order/987654", "Methods": ["DELETE"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": {
+      "msg": "Request was submitted",
+      "order_id": 987654,
+      "conid": 265598,
+      "account": "DU123456"
+    }
+  }
+}

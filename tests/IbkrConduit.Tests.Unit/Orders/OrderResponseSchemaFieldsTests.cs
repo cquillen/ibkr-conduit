@@ -239,4 +239,54 @@ public class OrderResponseSchemaFieldsTests
         result.RemainingQuantity.ShouldBeNull();
         result.TotalSize.ShouldBeNull();
     }
+
+    [Fact]
+    public async Task LiveOrder_DeserializesOrderCancellationBySystemReason_WhenPresent()
+    {
+        // RPD-01/P1: documented by IBKR (DOC-01) as "Only present for Cancelled orders" —
+        // promote it from AdditionalData to a typed nullable field.
+        var result = await DeserializeAsync<LiveOrder>(
+            """{"orderId":1,"side":"BUY","status":"Cancelled","order_cancellation_by_system_reason":"Cancelled by System: order expired"}""");
+
+        result.ShouldNotBeNull();
+        result!.OrderCancellationBySystemReason.ShouldBe("Cancelled by System: order expired");
+        // Fully mapped — no longer spills into AdditionalData.
+        result.AdditionalData.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task LiveOrder_OrderCancellationBySystemReasonAbsent_MapsToNull()
+    {
+        var result = await DeserializeAsync<LiveOrder>(
+            """{"orderId":1,"side":"BUY","status":"PreSubmitted"}""");
+
+        result.ShouldNotBeNull();
+        result!.OrderCancellationBySystemReason.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task CancelOrderResponse_DeserializesAccount_WhenPresent()
+    {
+        // RPD-01/P6: documented (DOC-01, DOC-03, DOC-05) as a string; populated example
+        // (DOC-05): {"msg": "...", "order_id": 987654, "conid": 265598, "account": "DU123456"}.
+        var result = await DeserializeAsync<CancelOrderResponse>(
+            """{"msg":"Request was submitted","order_id":987654,"conid":265598,"account":"DU123456"}""");
+
+        result.ShouldNotBeNull();
+        result!.Account.ShouldBe("DU123456");
+    }
+
+    [Fact]
+    public async Task CancelOrderResponse_AccountNullWithConidNegativeOne_IsImmediateCancelSentinel()
+    {
+        // RPD-01/P6: DOC-01 + DOC-03 both document account:null paired with conid:-1 as the
+        // specific sentinel for "order was immediately cancelled on request" — not generic
+        // nullability of an otherwise-populated field.
+        var result = await DeserializeAsync<CancelOrderResponse>(
+            """{"msg":"Request was submitted","order_id":602801486,"conid":-1,"account":null}""");
+
+        result.ShouldNotBeNull();
+        result!.Account.ShouldBeNull();
+        result.Conid.ShouldBe(-1);
+    }
 }

@@ -305,6 +305,26 @@ public class OrderTests : IAsyncLifetime, IDisposable
         order.Price.ShouldBeNull(); // market order: IBKR sends price="" -> null
         order.TimeInForce.ShouldBe("CLOSE");
         order.OrderDescription.ShouldBe("Bought 1 SPY Market, Day");
+        order.OrderCancellationBySystemReason.ShouldBeNull(); // only present for Cancelled orders
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task GetLiveOrders_CancelledOrder_ReturnsOrderCancellationBySystemReason()
+    {
+        // RPD-01/P1: documented by IBKR (DOC-01) as "Only present for Cancelled orders" —
+        // promoted from AdditionalData to a typed nullable field.
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/orders",
+            FixtureLoader.LoadBody("Orders", "GET-live-orders-cancelled"));
+
+        var snapshot = (await _harness.Client.Orders.GetLiveOrdersAsync(
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        var order = snapshot.Orders[0];
+        order.Status.ShouldBe("Cancelled");
+        order.OrderCancellationBySystemReason.ShouldBe("Cancelled by System: order expired");
 
         _harness.VerifyHandshakeOccurred();
     }
@@ -850,6 +870,29 @@ public class OrderTests : IAsyncLifetime, IDisposable
         result.Message.ShouldBe("Request was submitted");
         result.OrderId.ShouldBe(602801486);
         result.Conid.ShouldBe(-1);
+        // RPD-01/P6: account:null paired with conid:-1 is IBKR's documented sentinel for
+        // "order was immediately cancelled on request" (DOC-01, DOC-03).
+        result.Account.ShouldBeNull();
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task CancelOrder_PopulatedAccount_ReturnsAccountId()
+    {
+        // RPD-01/P6: the non-sentinel case (DOC-05 example) — account is a real accountId, not
+        // paired with the -1 conid sentinel.
+        _harness.StubAuthenticated(
+            HttpMethod.Delete,
+            "/v1/api/iserver/account/U1234567/order/987654",
+            FixtureLoader.LoadBody("Orders", "DELETE-cancel-order-with-account"));
+
+        var result = (await _harness.Client.Orders.CancelOrderAsync(
+            "U1234567", "987654", cancellationToken: TestContext.Current.CancellationToken)).Value;
+
+        result.ShouldNotBeNull();
+        result.Account.ShouldBe("DU123456");
+        result.Conid.ShouldBe(265598);
 
         _harness.VerifyHandshakeOccurred();
     }

@@ -43,6 +43,13 @@ public class ContractTests : IAsyncLifetime, IDisposable
         first.Sections![0].SecurityType.ShouldBe("STK");
         first.Sections![1].SecurityType.ShouldBe("OPT");
         first.Sections![1].Months.ShouldNotBeNull();
+        // RPD-01/P5: observed on the wire, undocumented by IBKR anywhere.
+        first.ShowPrips.ShouldBe(true);
+        first.LegSecType.ShouldBe("STK");
+
+        var second = results[1];
+        second.ShowPrips.ShouldBeNull();
+        second.LegSecType.ShouldBeNull();
 
         _harness.VerifyHandshakeOccurred();
     }
