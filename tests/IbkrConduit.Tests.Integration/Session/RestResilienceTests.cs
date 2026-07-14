@@ -232,10 +232,16 @@ public class RestResilienceTests : IAsyncLifetime, IDisposable
             .WillSetStateTo("orders-401-served")
             .RespondWith(Response.Create().WithStatusCode(401).WithBody("Unauthorized"));
 
+        // Test-hygiene rider (RPD-06 spec): a scenario's terminal stub must set an explicit
+        // WillSetStateTo — a stub whose action completes without one leaves the scenario eligible to
+        // finish-and-reset, letting a 401->200 stub pair cycle forever (401, 200, 401, ... on
+        // subsequent requests). Naming the post-recovery state explicitly ("orders-recovered" /
+        // "trades-recovered") models a server that stays authenticated once recovered.
         _harness.Server.Given(
             Request.Create().WithPath("/v1/api/iserver/account/orders").UsingGet())
             .InScenario("concurrent-401-orders")
             .WhenStateIs("orders-401-served")
+            .WillSetStateTo("orders-recovered")
             .RespondWith(
                 Response.Create()
                     .WithStatusCode(200)
@@ -252,6 +258,7 @@ public class RestResilienceTests : IAsyncLifetime, IDisposable
             Request.Create().WithPath("/v1/api/iserver/account/trades").UsingGet())
             .InScenario("concurrent-401-trades")
             .WhenStateIs("trades-401-served")
+            .WillSetStateTo("trades-recovered")
             .RespondWith(
                 Response.Create()
                     .WithStatusCode(200)

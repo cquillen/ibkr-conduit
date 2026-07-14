@@ -753,6 +753,27 @@ public class OrderTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task GetTradesAsync_EmptyFirstRead_MakesExactlyOneCall()
+    {
+        // RPD-06 re-scope (ADR-0009): unlike GetPositionsAsync, GetTradesAsync must NOT retry on an
+        // empty cold read — an empty list is indistinguishable from a genuinely trade-free window, and
+        // the endpoint's own 1 req/5 secs limiter would turn a retry into an up-to-~5s stall on every
+        // quiet-day poll. Pins the re-scope so the retry can't silently return.
+        _harness.StubAuthenticatedGet(
+            "/v1/api/iserver/account/trades",
+            FixtureLoader.LoadBody("Orders", "GET-trades-empty"));
+
+        var result = await _harness.Client.Orders.GetTradesAsync(
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBeEmpty();
+
+        _harness.Server.FindLogEntries(Request.Create().WithPath("/v1/api/iserver/account/trades").UsingGet())
+            .Count.ShouldBe(1, "an empty Trades read must not trigger a retry (RPD-06 re-scope)");
+    }
+
+    [Fact]
     public async Task GetTrades_ReturnsAllFields()
     {
         _harness.StubAuthenticatedGet(

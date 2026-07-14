@@ -1,0 +1,31 @@
+{
+  "Request": { "Path": "/v1/api/portfolio/{accountId}/positions/{page}", "Methods": ["GET"] },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json; charset=utf-8" },
+    "Body": [
+      {
+        "acctId": "U9990001", "conid": 320227571, "contractDesc": "QQQ",
+        "position": 5.0, "mktPrice": 710.64001465, "mktValue": 3553.2,
+        "currency": "USD", "avgCost": 638.976, "avgPrice": 638.976,
+        "realizedPnl": 0.0, "unrealizedPnl": 358.32, "exchs": null,
+        "expiry": null, "putOrCall": null, "multiplier": 0.0,
+        "strike": "0", "exerciseStyle": null, "conExchMap": [],
+        "assetClass": "STK", "undConid": 0, "model": "",
+        "name": "INVESCO QQQ TRUST SERIES 1", "ticker": "QQQ",
+        "isUS": true
+      },
+      {
+        "acctId": "U9990001", "conid": 756733, "contractDesc": "SPY",
+        "position": 48.0, "mktPrice": 748.2199707, "mktValue": 35914.56,
+        "currency": "USD", "avgCost": 659.81625, "avgPrice": 659.81625,
+        "realizedPnl": 0.0, "unrealizedPnl": 4243.38, "exchs": null,
+        "expiry": null, "putOrCall": null, "multiplier": 0.0,
+        "strike": "0", "exerciseStyle": null, "conExchMap": [],
+        "assetClass": "STK", "undConid": 0, "model": "",
+        "name": "SS SPDR S&P 500 ETF TRUST-US", "ticker": "SPY",
+        "isUS": true
+      }
+    ]
+  }
+}

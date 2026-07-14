@@ -144,7 +144,16 @@ public interface IOrderOperations
     /// <summary>
     /// Retrieves completed trades for the current session.
     /// </summary>
-    /// <param name="days">Number of prior days to include (1-7). Default is current day only.</param>
+    /// <param name="days">Number of prior days to include (1-7). Default is current day only.
+    /// <para>
+    /// <b>Cold-read quirk (ADR-0009, §10.7) — not retried:</b> the first read of this endpoint in a
+    /// session may return an empty list even when trades exist. There is no wire-reported signal
+    /// distinguishing this from a genuinely trade-free window, so this library deliberately does
+    /// <b>not</b> retry — an empty-triggered retry would misfire on every quiet-trading-day poll and,
+    /// since this endpoint carries IBKR's own <c>1 req/5 secs</c> per-endpoint rate limit (§8.1), would
+    /// add up to ~5s of latency to that common case. A consumer that needs certainty an empty result
+    /// reflects reality (rather than a cold read) should call again.
+    /// </para></param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<List<Trade>>> GetTradesAsync(
         int? days = null, CancellationToken cancellationToken = default);

@@ -121,6 +121,11 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
         pos.Model.ShouldBe("");
 
         _harness.VerifyHandshakeOccurred();
+
+        // Fixture carries name/ticker, so this is not a sparse first read (RPD-06) — a clean
+        // read must not trigger the internal cold-read retry.
+        _harness.Server.FindLogEntries(Request.Create().WithPath("/v1/api/portfolio/U1234567/positions/0").UsingGet())
+            .Count.ShouldBe(1, "an enriched (non-sparse) positions read must not trigger a cold-read retry");
     }
 
     [Fact]
@@ -156,6 +161,12 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
         positions[0].Conid.ShouldBe(320227571L);
 
         _harness.VerifyReauthenticationOccurred();
+
+        // Fixture carries name/ticker, so the post-reauth replay is not a sparse read (RPD-06) — it
+        // must not trigger an additional cold-read retry on top of the 401 replay (401 call + 1
+        // successful retried call = 2 total).
+        _harness.Server.FindLogEntries(Request.Create().WithPath("/v1/api/portfolio/U1234567/positions/0").UsingGet())
+            .Count.ShouldBe(2, "the 401 replay must not itself trigger a cold-read retry once the replayed read is enriched");
     }
 
     [Fact]
