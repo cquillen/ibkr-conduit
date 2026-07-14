@@ -184,25 +184,65 @@ public class PortfolioColdReadRetryTests : IAsyncLifetime, IDisposable
         const string accountId = "U9990006";
         var path = $"/v1/api/portfolio/{accountId}/positions/0";
 
+        // A shared counter (not a shared handler instance — HttpMessageHandlerBuilder forbids reusing
+        // a DelegatingHandler across the multiple named-client pipelines this DI setup builds) so the
+        // test can inspect the call count after the fact — this is what proves the retry request was
+        // actually issued and faulted, rather than never attempted at all (the exact RPD-06
+        // gate-regression class: a dropped retry leaves every other assertion in this test identically
+        // green, since the sparse fixture already satisfies IsSuccess/Count==2/Name-empty on the single
+        // first read).
+        var callCounter = new CallCounter();
         await using var faultHarness = await TestHarness.CreateAsync(configureServices: services =>
         {
             services.AddSingleton<IReadOnlyDictionary<string, RateLimiter>>(new Dictionary<string, RateLimiter>());
             services.ConfigureHttpClientDefaults(builder =>
-                builder.AddHttpMessageHandler(() => new FaultOnNthCallHandler(path, faultOnCall: 2)));
+                builder.AddHttpMessageHandler(() => new FaultOnNthCallHandler(path, faultOnCall: 2, callCounter)));
         });
 
         faultHarness.StubAuthenticatedGet(path, FixtureLoader.LoadBody("Portfolio", "GET-coldread-positions-sparse"));
 
-        var result = await faultHarness.Client.Portfolio.GetPositionsAsync(
-            accountId, 0, cancellationToken: TestContext.Current.CancellationToken);
+        Activity? captured = null;
+        using (var listener = MakeListener(accountId, a => captured = a))
+        {
+            var result = await faultHarness.Client.Portfolio.GetPositionsAsync(
+                accountId, 0, cancellationToken: TestContext.Current.CancellationToken);
 
-        result.IsSuccess.ShouldBeTrue("a retry transport fault must not discard the good first read");
-        result.Value.Count.ShouldBe(2);
-        result.Value[0].Name.ShouldBeNullOrEmpty();
-        result.Value[0].Ticker.ShouldBeNullOrEmpty();
+            result.IsSuccess.ShouldBeTrue("a retry transport fault must not discard the good first read");
+            result.Value.Count.ShouldBe(2);
+            result.Value[0].Name.ShouldBeNullOrEmpty();
+            result.Value[0].Ticker.ShouldBeNullOrEmpty();
+        }
 
         faultHarness.Server.FindLogEntries(Request.Create().WithPath(path).UsingGet())
             .Count.ShouldBe(1, "the retry's request never receives a WireMock response — it faults in the handler before reaching the server");
+
+        // The two assertions above are also exactly what a no-retry path would produce from the sparse
+        // first read alone — neither proves the retry fired. These two do: the counter only increments
+        // on a request matching this path (across whichever handler instance served it), so reaching
+        // faultOnCall (2) proves a second request was actually issued (and faulted) rather than the
+        // retry being skipped entirely; the span tag proves the production code's retry branch itself
+        // was entered.
+        callCounter.Value.ShouldBe(2,
+            "the retry request must actually be issued (and fault) — a dropped retry would leave this at 1");
+        captured.ShouldNotBeNull();
+        captured!.GetTagItem("ibkr.cold_read_retry").ShouldBe(true);
+    }
+
+    /// <summary>
+    /// A thread-safe call counter shared across possibly-multiple <see cref="FaultOnNthCallHandler"/>
+    /// instances (one HTTP pipeline is built per named client, so the factory delegate passed to
+    /// <c>AddHttpMessageHandler</c> is invoked more than once — the handler instance itself cannot be
+    /// shared, per <c>HttpMessageHandlerBuilder</c>'s no-reuse contract, but a plain counter object can).
+    /// </summary>
+    private sealed class CallCounter
+    {
+        private int _value;
+
+        /// <summary>The current count.</summary>
+        public int Value => _value;
+
+        /// <summary>Atomically increments and returns the new count.</summary>
+        public int Increment() => System.Threading.Interlocked.Increment(ref _value);
     }
 
     /// <summary>
@@ -211,16 +251,69 @@ public class PortfolioColdReadRetryTests : IAsyncLifetime, IDisposable
     /// fault simulators don't reach, since this handler intercepts before the request ever leaves the
     /// process.
     /// </summary>
-    private sealed class FaultOnNthCallHandler(string path, int faultOnCall) : System.Net.Http.DelegatingHandler
+    private sealed class FaultOnNthCallHandler(string path, int faultOnCall, CallCounter counter)
+        : System.Net.Http.DelegatingHandler
+    {
+        protected override async Task<System.Net.Http.HttpResponseMessage> SendAsync(
+            System.Net.Http.HttpRequestMessage request, System.Threading.CancellationToken cancellationToken)
+        {
+            if (request.RequestUri?.AbsolutePath == path && counter.Increment() == faultOnCall)
+            {
+                throw new System.Net.Http.HttpRequestException("Simulated transport fault (RPD-06 retry-failure coverage)");
+            }
+
+            return await base.SendAsync(request, cancellationToken);
+        }
+    }
+
+    [Fact]
+    public async Task GetPositionsAsync_CallerCancelsDuringColdReadRetry_PropagatesCancellation()
+    {
+        // ADR-0009 Decision point 4a's catch is `catch (Exception) when
+        // (!cancellationToken.IsCancellationRequested)` — it must swallow a genuine transport fault on
+        // the retry (covered above) but must NOT swallow a caller-requested cancellation of that same
+        // retry. A regression that broadened the catch (e.g. dropping the `when` filter, or catching
+        // OperationCanceledException unconditionally) would silently convert a cancelled positions read
+        // into a stale sparse "success" instead of propagating the cancellation — this pins that it
+        // doesn't.
+        const string accountId = "U9990007";
+        var path = $"/v1/api/portfolio/{accountId}/positions/0";
+        using var cts = new CancellationTokenSource();
+
+        await using var cancelHarness = await TestHarness.CreateAsync(configureServices: services =>
+        {
+            services.AddSingleton<IReadOnlyDictionary<string, RateLimiter>>(new Dictionary<string, RateLimiter>());
+            services.ConfigureHttpClientDefaults(builder =>
+                builder.AddHttpMessageHandler(() => new CancelOnNthCallHandler(path, cancelOnCall: 2, cts)));
+        });
+
+        cancelHarness.StubAuthenticatedGet(path, FixtureLoader.LoadBody("Portfolio", "GET-coldread-positions-sparse"));
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            cancelHarness.Client.Portfolio.GetPositionsAsync(accountId, 0, cancellationToken: cts.Token));
+    }
+
+    /// <summary>
+    /// Cancels <paramref name="cts"/> and throws <see cref="OperationCanceledException"/> on the Nth
+    /// request to a specific path — simulates a caller cancelling the call while the cold-read retry is
+    /// in flight. Cancelling before throwing ensures <c>cancellationToken.IsCancellationRequested</c> is
+    /// already true by the time <c>PortfolioOperations</c>' retry catch-filter observes it, so the
+    /// <c>when</c> clause correctly lets the exception propagate instead of swallowing it.
+    /// </summary>
+    private sealed class CancelOnNthCallHandler(string path, int cancelOnCall, CancellationTokenSource cts)
+        : System.Net.Http.DelegatingHandler
     {
         private int _count;
 
         protected override async Task<System.Net.Http.HttpResponseMessage> SendAsync(
             System.Net.Http.HttpRequestMessage request, System.Threading.CancellationToken cancellationToken)
         {
-            if (request.RequestUri?.AbsolutePath == path && System.Threading.Interlocked.Increment(ref _count) == faultOnCall)
+            if (request.RequestUri?.AbsolutePath == path && System.Threading.Interlocked.Increment(ref _count) == cancelOnCall)
             {
-                throw new System.Net.Http.HttpRequestException("Simulated transport fault (RPD-06 retry-failure coverage)");
+                cts.Cancel();
+                throw new OperationCanceledException(
+                    "Simulated caller cancellation during cold-read retry (RPD-06 cancellation-propagation coverage)",
+                    cts.Token);
             }
 
             return await base.SendAsync(request, cancellationToken);
