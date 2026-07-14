@@ -490,8 +490,14 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
 
         // ADR-0009 §10.7 (RPD-06): Trades carries no wire-reported freshness signal either, and IBKR
         // returns an empty result on the first trades read of a session despite trades existing. An
-        // empty first read gets one transparent, immediate retry, capped at one attempt — a genuinely
-        // trade-free day pays one wasted retry, never a loop.
+        // empty first read gets one transparent retry — issued back-to-back with no artificial delay
+        // of its own — capped at one attempt, never a loop. NOTE: "no artificial delay" is about this
+        // code path only. The retry below still travels the same rate-limited pipeline as any other
+        // call, including /iserver/account/trades's endpoint limiter (1 req/5s, §8.1) — if the first
+        // call just consumed that endpoint's sole token, the retry queues behind it and can take up to
+        // ~5s to actually fire. Deliberately not bypassed: bypassing IBKR's own documented per-endpoint
+        // limit risks a 429 and the shared IP-wide penalty box (§8.5), which is worse for every tenant
+        // than a bounded ~5s stall for this one caller (ADR-0009 Consequences, 2026-07-14).
         if (result.IsSuccess && result.Value.Count == 0)
         {
             activity?.SetTag("ibkr.cold_read_retry", true);

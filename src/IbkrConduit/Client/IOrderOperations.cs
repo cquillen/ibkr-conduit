@@ -144,7 +144,19 @@ public interface IOrderOperations
     /// <summary>
     /// Retrieves completed trades for the current session.
     /// </summary>
-    /// <param name="days">Number of prior days to include (1-7). Default is current day only.</param>
+    /// <param name="days">Number of prior days to include (1-7). Default is current day only.
+    /// <para>
+    /// <b>Quirk handled for you (ADR-0009, §10.7):</b> IBKR returns an empty result on a "cold" read of
+    /// this endpoint even when trades exist. An empty read gets one transparent, capped-at-one-attempt
+    /// retry. <b>Latency note:</b> this endpoint carries IBKR's own <c>1 req/5 secs</c> per-endpoint rate
+    /// limit (§8.1); the retry is issued back-to-back in its own code path (no artificial delay), but it
+    /// still queues behind that limiter like any other call, so it can add up to ~5s of latency when the
+    /// first call just consumed the endpoint's sole token — including on a genuinely trade-free day,
+    /// since the "looks empty" check runs on every call, not just the session's first. This is a
+    /// deliberate tradeoff: bypassing IBKR's documented per-endpoint limit for the retry risks a 429 and
+    /// the shared, IP-wide 10-minute penalty box (§8.5), a worse outcome for every tenant than one
+    /// bounded ~5s stall for a polling consumer.
+    /// </para></param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<Result<List<Trade>>> GetTradesAsync(
         int? days = null, CancellationToken cancellationToken = default);
