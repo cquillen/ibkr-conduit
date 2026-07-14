@@ -108,7 +108,11 @@ public record OrderRequest
 /// </summary>
 /// <param name="Message">The cancellation message.</param>
 /// <param name="OrderId">The cancelled order identifier.</param>
-/// <param name="Conid">The contract identifier of the cancelled order.</param>
+/// <param name="Conid">
+/// The contract identifier of the cancelled order. IBKR sends <c>-1</c>, paired with a
+/// <c>null</c> <see cref="Account"/>, as a documented sentinel meaning the order was
+/// immediately cancelled on request (see <see cref="Account"/>).
+/// </param>
 [ExcludeFromCodeCoverage]
 public record CancelOrderResponse(
     [property: JsonPropertyName("msg")] string Message,
@@ -117,7 +121,21 @@ public record CancelOrderResponse(
     int OrderId,
     [property: JsonPropertyName("conid")]
     [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
-    int Conid);
+    int Conid)
+{
+    /// <summary>
+    /// The account the cancelled order was originally set to clear on (IBKR <c>account</c>).
+    /// <c>null</c>, paired with <see cref="Conid"/> == <c>-1</c>, is a documented sentinel
+    /// (DOC-01, DOC-03) meaning the order was immediately cancelled on request — not a
+    /// generically-absent field.
+    /// </summary>
+    [JsonPropertyName("account")]
+    public string? Account { get; init; }
+
+    /// <summary>Additional unmapped properties from the API response.</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+}
 
 /// <summary>
 /// Wrapper for the orders array sent to IBKR.
@@ -330,6 +348,15 @@ public record LiveOrder(
     /// </summary>
     [JsonPropertyName("order_ref")]
     public string? OrderRef { get; init; }
+
+    /// <summary>
+    /// The reason the order was cancelled or rejected by the system (IBKR
+    /// <c>order_cancellation_by_system_reason</c>). Documented by IBKR (DOC-01): "Only present
+    /// for Cancelled orders. Provides the reason for order to have been cancelled or rejected
+    /// by the system." Null for every other status.
+    /// </summary>
+    [JsonPropertyName("order_cancellation_by_system_reason")]
+    public string? OrderCancellationBySystemReason { get; init; }
 
     /// <summary>Additional unmapped properties from the API response.</summary>
     [JsonExtensionData]

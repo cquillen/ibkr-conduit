@@ -113,6 +113,80 @@ public class ContractApiModelTests
     }
 
     [Fact]
+    public void ContractSearchResult_DeserializesShowPripsAndLegSecType_WhenPresent()
+    {
+        // RPD-01/P5: observed on the wire, undocumented by IBKR anywhere — no source types
+        // showPrips, so it is modeled defensively (FlexibleBoolJsonConverter) to tolerate a real
+        // JSON boolean or one of IBKR's other boolean-ish wire shapes without throwing.
+        var json = """
+            [
+              {
+                "conid": "756733",
+                "companyHeader": "SPDR S&P 500 ETF TRUST - ARCA",
+                "companyName": "SPDR S&P 500 ETF TRUST",
+                "symbol": "SPY",
+                "description": "ARCA",
+                "showPrips": true,
+                "legSecType": "STK"
+              }
+            ]
+            """;
+
+        var results = JsonSerializer.Deserialize<List<ContractSearchResult>>(json, _options);
+
+        results.ShouldNotBeNull();
+        var result = results![0];
+        result.ShowPrips.ShouldBe(true);
+        result.LegSecType.ShouldBe("STK");
+    }
+
+    [Fact]
+    public void ContractSearchResult_ShowPripsQuotedOneZero_DeserializesToBool()
+    {
+        // Undocumented wire type: IBKR's pervasive "1"/"0" quoted-boolean pattern (as seen on
+        // Trade.SupportsTaxOpt etc.) must not throw if showPrips arrives that way.
+        var json = """
+            [
+              {
+                "conid": "756733",
+                "companyHeader": "SPDR S&P 500 ETF TRUST - ARCA",
+                "companyName": "SPDR S&P 500 ETF TRUST",
+                "symbol": "SPY",
+                "description": "ARCA",
+                "showPrips": "1"
+              }
+            ]
+            """;
+
+        var results = JsonSerializer.Deserialize<List<ContractSearchResult>>(json, _options);
+
+        results.ShouldNotBeNull();
+        results![0].ShowPrips.ShouldBe(true);
+    }
+
+    [Fact]
+    public void ContractSearchResult_ShowPripsAndLegSecTypeAbsent_MapToNull()
+    {
+        var json = """
+            [
+              {
+                "conid": "756733",
+                "companyHeader": "SPDR S&P 500 ETF TRUST - ARCA",
+                "companyName": "SPDR S&P 500 ETF TRUST",
+                "symbol": "SPY",
+                "description": "ARCA"
+              }
+            ]
+            """;
+
+        var results = JsonSerializer.Deserialize<List<ContractSearchResult>>(json, _options);
+
+        results.ShouldNotBeNull();
+        results![0].ShowPrips.ShouldBeNull();
+        results[0].LegSecType.ShouldBeNull();
+    }
+
+    [Fact]
     public void SecurityDefinitionInfo_CapturesUnknownProperties()
     {
         var json = """

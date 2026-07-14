@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using IbkrConduit.Serialization;
 
 namespace IbkrConduit.Contracts;
 
@@ -34,7 +35,31 @@ public record ContractSearchResult(
     [property: JsonPropertyName("opt")] string? Opt,
     [property: JsonPropertyName("war")] string? War,
     [property: JsonPropertyName("sections")] List<ContractSection>? Sections,
-    [property: JsonPropertyName("issuers")] List<ContractIssuer>? Issuers);
+    [property: JsonPropertyName("issuers")] List<ContractIssuer>? Issuers)
+{
+    /// <summary>
+    /// Whether PRIIPs (Packaged Retail Investment and Insurance Products) disclosure display
+    /// applies to this instrument (IBKR <c>showPrips</c>). Observed on the wire; undocumented
+    /// by IBKR anywhere (no source names it or anything adjacent), so its wire type is unverified
+    /// — typed via <see cref="FlexibleBoolJsonConverter"/> to tolerate a real JSON boolean or any
+    /// of IBKR's other boolean-ish wire shapes (quoted "0"/"1", "true"/"false") without throwing.
+    /// </summary>
+    [JsonPropertyName("showPrips")]
+    [JsonConverter(typeof(FlexibleBoolJsonConverter))]
+    public bool? ShowPrips { get; init; }
+
+    /// <summary>
+    /// The security type of the matched leg (IBKR <c>legSecType</c>) — distinct from any
+    /// <see cref="ContractSection.SecurityType"/> nested under <see cref="Sections"/>. Observed
+    /// on the wire; undocumented by IBKR anywhere.
+    /// </summary>
+    [JsonPropertyName("legSecType")]
+    public string? LegSecType { get; init; }
+
+    /// <summary>Additional unmapped properties from the API response.</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+}
 
 /// <summary>
 /// A section within a contract search result, representing a derivative type or sub-instrument.
