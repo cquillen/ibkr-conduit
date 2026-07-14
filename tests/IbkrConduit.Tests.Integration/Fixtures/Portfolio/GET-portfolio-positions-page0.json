@@ -11,7 +11,8 @@
         "realizedPnl": 0.0, "unrealizedPnl": 1.1, "exchs": null,
         "expiry": null, "putOrCall": null, "multiplier": null,
         "strike": 0.0, "exerciseStyle": null, "conExchMap": [],
-        "assetClass": "STK", "undConid": 0, "model": ""
+        "assetClass": "STK", "undConid": 0, "model": "",
+        "name": "INVESCO QQQ TRUST SERIES 1", "ticker": "QQQ"
       }
     ]
   }
