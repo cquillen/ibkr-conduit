@@ -75,16 +75,27 @@ internal partial class PortfolioOperations : IPortfolioOperations
         if (result.IsSuccess && LooksSparse(result.Value))
         {
             activity?.SetTag("ibkr.cold_read_retry", true);
-            var retryResponse = await _api.GetPositionsAsync(accountId, page, waitForSecDef: waitForSecDef, cancellationToken: cancellationToken);
-            var retryResult = ResultFactory.FromResponse(retryResponse, retryResponse.RequestMessage?.RequestUri?.AbsolutePath);
-
-            // ADR-0009 Decision point 4: a false-positive retry must never corrupt data or change
-            // the result the consumer ultimately sees. Only adopt the retry's outcome when the
-            // retry itself succeeded — a transient retry failure (500/503/timeout) must not discard
-            // the good first read.
-            if (retryResult.IsSuccess)
+            try
             {
-                result = retryResult;
+                var retryResponse = await _api.GetPositionsAsync(accountId, page, waitForSecDef: waitForSecDef, cancellationToken: cancellationToken);
+                var retryResult = ResultFactory.FromResponse(retryResponse, retryResponse.RequestMessage?.RequestUri?.AbsolutePath);
+
+                // ADR-0009 Decision point 4: a false-positive retry must never corrupt data or change
+                // the result the consumer ultimately sees. Only adopt the retry's outcome when the
+                // retry itself succeeded — a transient retry failure (500/503/timeout) must not discard
+                // the good first read.
+                if (retryResult.IsSuccess)
+                {
+                    result = retryResult;
+                }
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // ADR-0009 Decision point 4a: a retry transport failure (connection fault, timeout,
+                // etc. — thrown rather than captured as a Result.Failure, e.g. via
+                // ResultFactory.FromResponse's ThrowOnSendFailure) must not discard the good first
+                // read either, same rationale as the HTTP-status failure case above. Caller-requested
+                // cancellation is excluded via the filter and propagates normally.
             }
         }
 

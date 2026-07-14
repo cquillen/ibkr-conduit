@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using IbkrConduit.Tests.Integration.Fixtures;
@@ -168,6 +169,62 @@ public class PortfolioColdReadRetryTests : IAsyncLifetime, IDisposable
 
         _harness.Server.FindLogEntries(Request.Create().WithPath(path).UsingGet())
             .Count.ShouldBe(2, "the sparse first read still triggers exactly one cold-read retry attempt");
+    }
+
+    [Fact]
+    public async Task GetPositionsAsync_SparseFirstReadRetryThrowsTransportFault_ReturnsFirstSuccessfulResult()
+    {
+        // Unlike an HTTP-status retry failure (covered above), a genuine pre-response transport fault
+        // (connection reset, DNS failure, a real client-side timeout) makes ResultFactory.FromResponse
+        // itself throw (via ThrowOnSendFailure, ADR-0009 point 4a names "timeout" explicitly) rather
+        // than returning a Result.Failure — this must be caught too, not just a captured non-2xx.
+        // A DelegatingHandler fault-injects a thrown HttpRequestException on the 2nd call to this path
+        // (the retry) — WireMock's own fault simulators (EMPTY_RESPONSE, MALFORMED_RESPONSE_CHUNK) were
+        // confirmed not to reach this code path; they resolve to a non-throwing Result.Failure instead.
+        const string accountId = "U9990006";
+        var path = $"/v1/api/portfolio/{accountId}/positions/0";
+
+        await using var faultHarness = await TestHarness.CreateAsync(configureServices: services =>
+        {
+            services.AddSingleton<IReadOnlyDictionary<string, RateLimiter>>(new Dictionary<string, RateLimiter>());
+            services.ConfigureHttpClientDefaults(builder =>
+                builder.AddHttpMessageHandler(() => new FaultOnNthCallHandler(path, faultOnCall: 2)));
+        });
+
+        faultHarness.StubAuthenticatedGet(path, FixtureLoader.LoadBody("Portfolio", "GET-coldread-positions-sparse"));
+
+        var result = await faultHarness.Client.Portfolio.GetPositionsAsync(
+            accountId, 0, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue("a retry transport fault must not discard the good first read");
+        result.Value.Count.ShouldBe(2);
+        result.Value[0].Name.ShouldBeNullOrEmpty();
+        result.Value[0].Ticker.ShouldBeNullOrEmpty();
+
+        faultHarness.Server.FindLogEntries(Request.Create().WithPath(path).UsingGet())
+            .Count.ShouldBe(1, "the retry's request never receives a WireMock response — it faults in the handler before reaching the server");
+    }
+
+    /// <summary>
+    /// Throws a thrown (not HTTP-status) transport-level exception on the Nth request to a specific
+    /// path — simulates a genuine pre-response fault (connection reset, timeout) that WireMock's own
+    /// fault simulators don't reach, since this handler intercepts before the request ever leaves the
+    /// process.
+    /// </summary>
+    private sealed class FaultOnNthCallHandler(string path, int faultOnCall) : System.Net.Http.DelegatingHandler
+    {
+        private int _count;
+
+        protected override async Task<System.Net.Http.HttpResponseMessage> SendAsync(
+            System.Net.Http.HttpRequestMessage request, System.Threading.CancellationToken cancellationToken)
+        {
+            if (request.RequestUri?.AbsolutePath == path && System.Threading.Interlocked.Increment(ref _count) == faultOnCall)
+            {
+                throw new System.Net.Http.HttpRequestException("Simulated transport fault (RPD-06 retry-failure coverage)");
+            }
+
+            return await base.SendAsync(request, cancellationToken);
+        }
     }
 
     [Fact]
