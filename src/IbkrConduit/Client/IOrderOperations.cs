@@ -56,9 +56,23 @@ public interface IOrderOperations
     /// hard-rejects the whole submission before assigning any leg an identity (a bare
     /// <c>{"error": …}</c> object, no array), the call fails as a whole with an
     /// <see cref="IbkrOrderRejectedError"/> — there is no per-leg data to break down.
-    /// <see cref="GetLiveOrdersAsync"/> correlation remains necessary only for a leg classified
+    /// <see cref="GetLiveOrdersAsync"/> correlation remains necessary for a leg classified
     /// <see cref="IbkrAmbiguousOrderError"/>, or to confirm the eventual live/filled state of a
     /// transmitted leg.
+    /// </para>
+    /// <para>
+    /// <b>Sharp edge — a group resolved through <see cref="ReplyAsync"/> is NOT per-leg
+    /// classified:</b> the per-leg breakdown above applies only to the array this method returns
+    /// <em>directly</em>. When a group instead returns an <see cref="OrderConfirmationRequired"/>
+    /// (the <see cref="OneOf{T0,T1}.IsT1"/> arm) and you resolve it via <see cref="ReplyAsync"/>,
+    /// that reply endpoint collapses the whole group into a <b>single</b> outcome (it classifies
+    /// only the response's first row — <c>responses[0]</c>, structurally the child per ADR-0008's
+    /// probe) and does not carry the per-leg list. That single outcome therefore must NOT be
+    /// trusted as the group's per-leg result: after confirming a <em>group</em> via
+    /// <see cref="ReplyAsync"/>, reconcile every leg via <see cref="GetLiveOrdersAsync"/>/
+    /// <see cref="GetTradesAsync"/> (keyed on your <see cref="OrderRequest.CustomerOrderId"/>)
+    /// before treating any leg as live or rejected. This is a documented limitation of the reply
+    /// path, not of the direct-response path; see <see cref="ReplyAsync"/>.
     /// </para>
     /// <para>
     /// <b>Serialized confirmation round (ADR-0006, §9.10):</b> a confirmation-required outcome
@@ -148,6 +162,18 @@ public interface IOrderOperations
     /// never re-place, which can double-submit), not a generic/transient 503; and <b>every 2xx reply
     /// shape classifies</b> — an empty, whitespace, or non-JSON body surfaces as a classified error
     /// carrying the raw body, never an uncaught exception.
+    /// </para>
+    /// <para>
+    /// <b>Sharp edge — replying to a GROUP confirmation yields a single collapsed outcome, not a
+    /// per-leg result:</b> the <see cref="OrderSubmitted"/> arm of this reply's result is derived
+    /// from the response's first row only (<c>responses[0]</c>, structurally the child per
+    /// ADR-0008's probe). Unlike <see cref="PlaceOrdersAsync"/>'s <em>direct</em> array response,
+    /// the reply path does NOT classify a bracket/OCA group per leg — so a group whose
+    /// confirmation you resolve here returns one collapsed outcome that must NOT be trusted as the
+    /// group's per-leg state. After confirming a <em>group</em> via this method, reconcile every
+    /// leg via <see cref="GetLiveOrdersAsync"/>/<see cref="GetTradesAsync"/> (keyed on your
+    /// <see cref="OrderRequest.CustomerOrderId"/>) before treating any leg as live or rejected.
+    /// (Single-order confirmations are unaffected — there is only one leg to report.)
     /// </para>
     /// </summary>
     Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> ReplyAsync(

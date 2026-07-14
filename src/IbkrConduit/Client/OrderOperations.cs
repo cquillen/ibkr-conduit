@@ -618,6 +618,12 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         try
         {
             // WIR-4: hardened deserialize; AMB-4: empty/array-error shapes classify as refusals.
+            // KNOWN LIMITATION (RPD-08 follow-on): when the reply resolves a bracket/OCA GROUP,
+            // ClassifyOrderResponses collapses the array to responses[0] only — it is NOT the
+            // per-leg breakdown ClassifyGroupResponses gives PlaceOrdersAsync's direct response.
+            // The reply-for-group wire shape isn't wire-pinned yet (out of RPD-03 scope), so this
+            // path stays collapsed and the interface XML doc directs consumers to reconcile a
+            // group per leg via GetLiveOrdersAsync/GetTradesAsync after a group confirmation reply.
             var replyResponses = DeserializeReplyResponse(bodyResult.Value);
             return ClassifyOrderResponses(replyResponses, bodyResult.Value, requestPath);
         }
