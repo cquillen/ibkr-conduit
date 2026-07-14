@@ -119,6 +119,39 @@ public class RestMoneyDtoPresenceTests
         entry.NetLiquidationValue.ShouldBe(_highPrecision);
     }
 
+    // ---- LedgerEntry.EndOfBundle (RPD-07) — per-response marker, per-entry nullable-as-presence -
+
+    [Fact]
+    public async Task LedgerEntry_EndOfBundlePresent_DeserializesToValue()
+    {
+        // Per the live probe (recordings/ledger-endofbundle-probe/): endofbundle is present (value 1)
+        // on the real-currency (USD) entry.
+        var json = """
+            {"currency":"USD","secondkey":"USD","timestamp":1,"severity":0,"endofbundle":1}
+            """;
+
+        var entry = await DeserializeAsync<LedgerEntry>(json);
+
+        entry.ShouldNotBeNull();
+        entry!.EndOfBundle.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task LedgerEntry_EndOfBundleOmitted_DeserializesToNull()
+    {
+        // Per the live probe: endofbundle is absent (not a fabricated 0) on the BASE entry.
+        // Guards the ADR-0001 violation the probe found: modeling this as non-nullable int silently
+        // defaults an absent field to 0, indistinguishable from a real 0.
+        var json = """
+            {"currency":"BASE","secondkey":"BASE","timestamp":1,"severity":0}
+            """;
+
+        var entry = await DeserializeAsync<LedgerEntry>(json);
+
+        entry.ShouldNotBeNull();
+        entry!.EndOfBundle.ShouldBeNull();
+    }
+
     // ---- AccountSummaryOverview / AccountSummaryCashBalance -------------------------------------
 
     [Fact]

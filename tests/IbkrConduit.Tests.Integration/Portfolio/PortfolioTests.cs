@@ -302,6 +302,7 @@ public class PortfolioTests : IAsyncLifetime, IDisposable
         var baseEntry = ledger["BASE"];
         baseEntry.Currency.ShouldBe("BASE");
         baseEntry.SecondKey.ShouldBe("BASE");
+        baseEntry.EndOfBundle.ShouldBeNull();
 
         _harness.VerifyHandshakeOccurred();
     }
