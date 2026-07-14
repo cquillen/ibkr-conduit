@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using IbkrConduit.Errors;
 using IbkrConduit.Orders;
 using IbkrConduit.Tests.Integration.Fixtures;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
@@ -19,7 +22,16 @@ public class OrderTests : IAsyncLifetime, IDisposable
 
     public async ValueTask InitializeAsync()
     {
-        _harness = await TestHarness.CreateAsync();
+        // Override the per-endpoint rate limiters: /iserver/account/trades is TokenLimit=1,
+        // TokensPerPeriod=1 per 5s. GetTrades_EmptyResponse_ReturnsEmptyList's empty fixture now
+        // trips the RPD-06 cold-read retry (a second call to the same limited path), which would
+        // otherwise block on the token-bucket's real AutoReplenishment wall-clock timer. Mirrors the
+        // sanctioned ScannerTests precedent.
+        _harness = await TestHarness.CreateAsync(configureServices: services =>
+        {
+            services.AddSingleton<IReadOnlyDictionary<string, RateLimiter>>(
+                new Dictionary<string, RateLimiter>());
+        });
     }
 
     [Fact]

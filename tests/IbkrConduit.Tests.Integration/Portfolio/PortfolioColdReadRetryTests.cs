@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using IbkrConduit.Tests.Integration.Fixtures;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
@@ -22,7 +25,14 @@ public class PortfolioColdReadRetryTests : IAsyncLifetime, IDisposable
 
     public async ValueTask InitializeAsync()
     {
-        _harness = await TestHarness.CreateAsync();
+        // The portfolio positions path isn't endpoint-rate-limited today, so this override is a
+        // no-op in practice — applied anyway (mirroring OrderColdReadRetryTests/ScannerTests) to keep
+        // this class robust to future limiter additions on the positions path.
+        _harness = await TestHarness.CreateAsync(configureServices: services =>
+        {
+            services.AddSingleton<IReadOnlyDictionary<string, RateLimiter>>(
+                new Dictionary<string, RateLimiter>());
+        });
     }
 
     [Fact]

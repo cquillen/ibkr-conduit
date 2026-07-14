@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using IbkrConduit.Tests.Integration.Fixtures;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
@@ -22,7 +25,15 @@ public class OrderColdReadRetryTests : IAsyncLifetime, IDisposable
 
     public async ValueTask InitializeAsync()
     {
-        _harness = await TestHarness.CreateAsync();
+        // Override the per-endpoint rate limiters: /iserver/account/trades is TokenLimit=1,
+        // TokensPerPeriod=1 per 5s, and the cold-read retry (plus the 401-composition test's third
+        // call) would otherwise block on the token-bucket's real AutoReplenishment wall-clock timer.
+        // Mirrors the sanctioned ScannerTests precedent.
+        _harness = await TestHarness.CreateAsync(configureServices: services =>
+        {
+            services.AddSingleton<IReadOnlyDictionary<string, RateLimiter>>(
+                new Dictionary<string, RateLimiter>());
+        });
     }
 
     [Fact]
