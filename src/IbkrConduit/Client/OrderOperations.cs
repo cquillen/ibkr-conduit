@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Globalization;
 using System.Text.Json;
 using IbkrConduit.Diagnostics;
 using IbkrConduit.Errors;
@@ -10,6 +11,13 @@ using IbkrConduit.Session;
 using Microsoft.Extensions.Logging;
 using OneOf;
 using Refit;
+
+// ADR-0008 §9.11: the per-leg outcome of a single group leg, and the whole-group placement outcome
+// (a per-leg outcome list, or a group-wide confirmation-required). Aliased here to keep the
+// PlaceOrdersAsync signature and classifier readable; the public IOrderOperations surface spells the
+// same type out in full.
+using GroupLegOutcome = OneOf.OneOf<IbkrConduit.Orders.OrderSubmitted, IbkrConduit.Errors.IbkrOrderRejectedError, IbkrConduit.Errors.IbkrAmbiguousOrderError>;
+using GroupPlacementOutcome = OneOf.OneOf<System.Collections.Generic.IReadOnlyList<OneOf.OneOf<IbkrConduit.Orders.OrderSubmitted, IbkrConduit.Errors.IbkrOrderRejectedError, IbkrConduit.Errors.IbkrAmbiguousOrderError>>, IbkrConduit.Orders.OrderConfirmationRequired>;
 
 namespace IbkrConduit.Client;
 
@@ -151,7 +159,7 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public async Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> PlaceOrdersAsync(
+    public async Task<Result<GroupPlacementOutcome>> PlaceOrdersAsync(
         string accountId, IReadOnlyList<OrderRequest> orders, CancellationToken cancellationToken = default)
     {
         // Validate the group shape up front — fail fast on caller error before opening a span/lock.
@@ -179,19 +187,34 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
             var apiResult = ResultFactory.FromResponse(response, requestPath, orderMutating: true);
             if (!apiResult.IsSuccess)
             {
-                var failResult = Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Failure(apiResult.Error);
+                // No-array hard rejection (ADR-0008 §9.11): a bare {"error": …} object is caught by
+                // ResultFactory's whole-call classification (AMB-4) before it ever reaches the per-leg
+                // classifier — there is no per-leg data to break down.
+                var failResult = Result<GroupPlacementOutcome>.Failure(apiResult.Error);
                 return _options.ThrowOnApiError ? failResult.EnsureSuccess() : failResult;
             }
 
-            // A grouped submission returns a single parent element (verified live); child
-            // order ids are obtained via GetLiveOrdersAsync, correlated on the parent cOID.
-            var result = ClassifyOrderResponses(apiResult.Value, ResultFactory.GetRawBody(response), requestPath);
+            // ADR-0008 §9.11: classify each leg of the group's response independently (never collapse the
+            // array to a single group-level outcome, never key on array position). A rejected child — even
+            // one carrying a real-looking order_id under a terminal status — never surfaces as OrderSubmitted.
+            var result = ClassifyGroupResponses(
+                apiResult.Value, orders, ResultFactory.GetRawBody(response), requestPath);
 
-            // ADR-0006 §9.10: retain the per-account lock while a group's confirmation round is pending.
-            retainLock = TryRetainForConfirmation(accountId, result, semaphore);
+            // ADR-0006 §9.10: retain the per-account lock while a group's confirmation round is pending. The
+            // confirmation arm (T1) is unchanged by per-leg classification, so reuse the shared retention
+            // helper via a confirmation-shaped view of the outcome.
+            if (result.IsSuccess && result.Value.IsT1)
+            {
+                retainLock = TryRetainForConfirmation(
+                    accountId,
+                    Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(result.Value.AsT1),
+                    semaphore);
+            }
 
             if (result.IsSuccess)
             {
+                // Telemetry stays gated on the outer Result's success — IBKR accepted the request —
+                // independent of what each leg's per-leg outcome turned out to be (§9.11).
                 _submissionDuration.Record(sw.Elapsed.TotalMilliseconds,
                     new KeyValuePair<string, object?>(LogFields.TenantId, _tenant.TenantId));
 
@@ -596,6 +619,12 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         try
         {
             // WIR-4: hardened deserialize; AMB-4: empty/array-error shapes classify as refusals.
+            // KNOWN LIMITATION (RPD-08 follow-on): when the reply resolves a bracket/OCA GROUP,
+            // ClassifyOrderResponses collapses the array to responses[0] only — it is NOT the
+            // per-leg breakdown ClassifyGroupResponses gives PlaceOrdersAsync's direct response.
+            // The reply-for-group wire shape isn't wire-pinned yet (out of RPD-03 scope), so this
+            // path stays collapsed and the interface XML doc directs consumers to reconcile a
+            // group per leg via GetLiveOrdersAsync/GetTradesAsync after a group confirmation reply.
             var replyResponses = DeserializeReplyResponse(bodyResult.Value);
             return ClassifyOrderResponses(replyResponses, bodyResult.Value, requestPath);
         }
@@ -685,6 +714,175 @@ internal partial class OrderOperations : IOrderOperations, IAsyncDisposable
         }
 
         return Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(ClassifyResponse(first, rawBody));
+    }
+
+    /// <summary>
+    /// Terminal, non-transmitting <c>order_status</c> values (ADR-0008 §9.11) that are <b>known</b> to mean a
+    /// leg did NOT transmit, even when it also carries a real-looking <c>order_id</c> (observed on a rejected
+    /// bracket's parent row). A leg matching one of these is classified as a <em>definite</em>
+    /// <see cref="IbkrOrderRejectedError"/> (as opposed to the merely-ambiguous fallback the positive
+    /// transmitting allowlist produces for an <em>unrecognized</em> status). Compared case-insensitively so a
+    /// case variant of the wire value cannot bypass the money-safety rejection check (same rationale as the
+    /// trailing-parameter fail-fast). Wire-observed values only (<c>"Failed"</c>, <c>"Inactive"</c>) — this set
+    /// is <b>not</b> the safety boundary: the boundary is the positive <see cref="_transmittingStatuses"/>
+    /// allowlist, so an unrecognized future terminal status (e.g. a hypothetical <c>"Rejected"</c> /
+    /// <c>"Cancelled"</c>) never surfaces as <see cref="OrderSubmitted"/> even though it is absent here — it
+    /// falls to the ambiguous fallback instead. This set only upgrades a known-bad status from <em>ambiguous</em>
+    /// to <em>definite rejection</em>.
+    /// </summary>
+    private static readonly HashSet<string> _terminalNonTransmittingStatuses =
+        new(StringComparer.OrdinalIgnoreCase) { "Failed", "Inactive" };
+
+    /// <summary>
+    /// Live/working <c>order_status</c> values (ADR-0008 §9.11) that mean a leg <b>did</b> transmit — the
+    /// positive allowlist that is the actual money-safety boundary. A group leg is classified as
+    /// <see cref="OrderSubmitted"/> <b>only</b> when it carries a real (positive) <c>order_id</c> AND an
+    /// <c>order_status</c> in this set; every other <c>order_id</c>-bearing row (a sentinel/non-positive
+    /// <c>order_id</c>, or a status not recognized as transmitting) degrades to the <em>safe</em> direction —
+    /// <see cref="IbkrAmbiguousOrderError"/> — rather than a false <see cref="OrderSubmitted"/>. This inverts an
+    /// earlier blocklist gate whose miss-case (an order_id-bearing row under a terminal status outside the small
+    /// blocklist) failed toward <see cref="OrderSubmitted"/> — the exact false-green ADR-0008 exists to prevent.
+    /// Compared case-insensitively for the same reason as <see cref="_terminalNonTransmittingStatuses"/>. Wire
+    /// vocabulary is not closed; adding an unknown status to this set is a deliberate safety decision, never a
+    /// default. Wire-observed transmitting values: <c>"PreSubmitted"</c>, <c>"PendingSubmit"</c>,
+    /// <c>"Submitted"</c>; <c>"Filled"</c> and <c>"Modified"</c> included as the other documented working states.
+    /// </summary>
+    private static readonly HashSet<string> _transmittingStatuses =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "PreSubmitted", "PendingSubmit", "Submitted", "Filled", "Modified",
+        };
+
+    /// <summary>
+    /// A real IBKR <c>order_id</c> is a positive integer. IBKR's rejection sentinel is <c>"-1"</c>
+    /// (ADR-0008 §9.11 — "real vs. sentinel order_id" signal); anything non-positive or non-numeric is a
+    /// sentinel/placeholder, never a transmitted order identity, so it must not gate an
+    /// <see cref="OrderSubmitted"/> however live-looking its <c>order_status</c> is.
+    /// </summary>
+    private static bool IsRealOrderId(string orderId) =>
+        long.TryParse(orderId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) && id > 0;
+
+    /// <summary>
+    /// ADR-0008 §9.11: classifies a bracket/OCA group's <see cref="PlaceOrdersAsync"/> response into a
+    /// <b>per-leg outcome list</b> (one <see cref="GroupLegOutcome"/> per leg, in wire order) or a
+    /// group-wide <see cref="OrderConfirmationRequired"/>. Unlike <see cref="ClassifyOrderResponses"/>
+    /// (single-order path, unchanged), this never collapses the response array to a single group-level
+    /// outcome and <b>never keys on array position</b> — each row is classified by its own field signature,
+    /// so a rejected child (even one carrying a real-looking <c>order_id</c> under a terminal
+    /// <c>order_status</c>) never surfaces as an <see cref="OrderSubmitted"/>.
+    /// </summary>
+    /// <param name="responses">IBKR's deserialized per-leg response array.</param>
+    /// <param name="orders">The originally-requested group, used to detect a leg-count shortfall.</param>
+    /// <param name="rawBody">The raw response body, carried into every classified outcome.</param>
+    /// <param name="requestPath">The order endpoint path, carried into every classified outcome.</param>
+    internal static Result<GroupPlacementOutcome> ClassifyGroupResponses(
+        IReadOnlyList<OrderSubmissionResponse> responses,
+        IReadOnlyList<OrderRequest> orders,
+        string? rawBody,
+        string? requestPath)
+    {
+        // Step 1 (AMB-4, unchanged): an empty array is a whole-call refusal carrying the raw body — never
+        // an index-out-of-range, and no per-leg data to break down.
+        if (responses.Count == 0)
+        {
+            return Result<GroupPlacementOutcome>.Failure(
+                new IbkrOrderRejectedError(
+                    "IBKR returned an empty order response with no order id or question.", rawBody, requestPath));
+        }
+
+        // Step 2 (unchanged): a single question-shaped element blocks every leg alike — one confirmation
+        // for the whole group; there is nothing to break down per-leg yet.
+        if (responses.Count == 1)
+        {
+            var only = responses[0];
+            if (only.OrderId is null && only.Id is not null && only.Message is not null)
+            {
+                return Result<GroupPlacementOutcome>.Success(
+                    new OrderConfirmationRequired(
+                        only.Id, only.Message.AsReadOnly(), (only.MessageIds ?? []).AsReadOnly()));
+            }
+        }
+
+        // Step 3: classify every element independently, preserving wire order.
+        var legs = new List<GroupLegOutcome>(orders.Count);
+        foreach (var element in responses)
+        {
+            legs.Add(ClassifyLeg(element, rawBody, requestPath));
+        }
+
+        // Step 4: leg-count shortfall — a requested leg with no corresponding response entry is ambiguous
+        // (sent, outcome unknown; reconcile, never re-place). Known limitation: for a group with more than
+        // two legs this cannot identify WHICH requested leg is missing, only that some count is — the wire
+        // evidence covers only 2-leg groups (1 parent + 1 child). A future 3+-leg finding may refine this.
+        for (var i = responses.Count; i < orders.Count; i++)
+        {
+            legs.Add(new IbkrAmbiguousOrderError(
+                null,
+                "This requested order leg had no corresponding entry in IBKR's group response; its outcome " +
+                "is unknown. Reconcile via GetLiveOrdersAsync/GetTradesAsync (matching your cOID) before " +
+                "resubmitting — never re-place, which can double-submit.",
+                rawBody, requestPath, ReauthSucceeded: false));
+        }
+
+        return Result<GroupPlacementOutcome>.Success(legs.AsReadOnly());
+    }
+
+    /// <summary>
+    /// Classifies a single group-response leg by its own field signature (ADR-0008 §9.11), never by its
+    /// array position.
+    /// </summary>
+    private static GroupLegOutcome ClassifyLeg(OrderSubmissionResponse element, string? rawBody, string? requestPath)
+    {
+        // A leg carrying an explicit error field is a definite rejection (covers an array-wrapped
+        // [{"error":"…"}] element that bypasses bare-object hidden-error detection, AMB-4).
+        if (element.Error is not null)
+        {
+            return new IbkrOrderRejectedError(element.Error, rawBody, requestPath);
+        }
+
+        // A known terminal non-transmitting status is a definite rejection EVEN with a real-looking order_id —
+        // the dangerous case ADR-0008 fixes (a rejected parent must never surface as OrderSubmitted just
+        // because it carries an order_id). Checked before the order_id branch so the status wins.
+        if (element.OrderStatus is not null && _terminalNonTransmittingStatuses.Contains(element.OrderStatus))
+        {
+            return new IbkrOrderRejectedError(
+                $"Order not transmitted (status: {element.OrderStatus}).", rawBody, requestPath);
+        }
+
+        // POSITIVE allowlist (the money-safety boundary): a leg is OrderSubmitted ONLY when it carries a real
+        // (positive) order_id AND a recognized live/working order_status. Everything else that carries an
+        // order_id falls through to the ambiguous branch below — the SAFE direction. This deliberately does
+        // NOT trust "has an order_id" alone: a sentinel order_id ("-1"), or a real order_id under a status we
+        // do not recognize as transmitting (an unobserved terminal value like "Cancelled"/"Rejected"), must
+        // never surface as a transmitted order. IBKR's status vocabulary is not closed, so the unknown case
+        // fails toward ambiguous, never toward a false OrderSubmitted.
+        if (element.OrderId is not null
+            && IsRealOrderId(element.OrderId)
+            && element.OrderStatus is not null
+            && _transmittingStatuses.Contains(element.OrderStatus))
+        {
+            return new OrderSubmitted(
+                element.OrderId, element.OrderStatus, element.LocalOrderId, element.OcaGroupId);
+        }
+
+        // An order_id-bearing row that is NOT a recognized transmitting shape — a sentinel/non-positive
+        // order_id, or a real order_id under an unrecognized (non-terminal, non-transmitting) status — is
+        // ambiguous: something may have been sent, but its outcome is unknown. Reconcile, never re-place.
+        if (element.OrderId is not null)
+        {
+            return new IbkrAmbiguousOrderError(
+                null,
+                $"This order-leg response carried an order id ({element.OrderId}) but an order_status " +
+                $"(\"{element.OrderStatus ?? "<none>"}\") that is neither a recognized transmitting state nor a " +
+                "known terminal rejection; its outcome is unknown. Reconcile via GetLiveOrdersAsync/GetTradesAsync " +
+                "(matching your cOID) before resubmitting — never re-place, which can double-submit.",
+                rawBody, requestPath, ReauthSucceeded: false);
+        }
+
+        // Defensive (not wire-observed): a row carrying no order_id and matching none of the above degrades to
+        // ambiguous — the safe direction — never a silent OrderSubmitted with empty fields and never an exception.
+        return new IbkrAmbiguousOrderError(
+            null, "Unrecognized order-leg response shape.", rawBody, requestPath, ReauthSucceeded: false);
     }
 
     /// <summary>

@@ -34,16 +34,64 @@ public interface IOrderOperations
     /// <see cref="OrderRequest.ParentId"/> (equal to the parent's
     /// <see cref="OrderRequest.CustomerOrderId"/>) on each child for a bracket, or
     /// <see cref="OrderRequest.IsSingleGroup"/> on every order for an OCA group.
-    /// IBKR returns a single result for the group (the parent's outcome): either a confirmed
-    /// submission or a confirmation-required response to handle via <see cref="ReplyAsync"/>.
-    /// Child order ids are NOT returned here — query <see cref="GetLiveOrdersAsync"/> and
-    /// correlate on the parent's cOID/order_ref. For unrelated orders, call
-    /// <see cref="PlaceOrderAsync"/> once per order (IBKR rejects unrelated bulk).
+    /// For unrelated orders, call <see cref="PlaceOrderAsync"/> once per order (IBKR rejects
+    /// unrelated bulk).
+    /// <para>
+    /// <b>Per-leg outcome classification (ADR-0008, §9.11):</b> a group's legs do not all
+    /// transmit-or-fail together — IBKR can accept a parent while rejecting a child. When IBKR
+    /// returns a per-leg response array, this method surfaces a
+    /// <b>per-leg outcome list</b> (the <see cref="OneOf{T0,T1}.IsT0"/> arm): one entry per leg,
+    /// in wire order, each classified independently as an <see cref="OrderSubmitted"/> (that leg
+    /// transmitted — its own <c>order_id</c> is carried directly, so no
+    /// <see cref="GetLiveOrdersAsync"/> round-trip is needed for the common case), an
+    /// <see cref="IbkrOrderRejectedError"/> (that leg was rejected — a row carrying an explicit
+    /// error, or a row whose <c>order_status</c> is a known terminal/non-transmitting value such as
+    /// <c>"Failed"</c> or <c>"Inactive"</c>), or an <see cref="IbkrAmbiguousOrderError"/> (sent,
+    /// outcome unknown — reconcile before resubmitting, never re-place). A leg is classified
+    /// <see cref="OrderSubmitted"/> <b>only</b> when it carries a real (positive) <c>order_id</c>
+    /// AND a recognized live/working <c>order_status</c> (<c>"PreSubmitted"</c>,
+    /// <c>"PendingSubmit"</c>, <c>"Submitted"</c>, <c>"Filled"</c>, <c>"Modified"</c>); because
+    /// IBKR's status vocabulary is not closed, any other <c>order_id</c>-bearing row — a sentinel
+    /// <c>order_id</c> (e.g. <c>"-1"</c>), or a real <c>order_id</c> under an <em>unrecognized</em>
+    /// status — degrades to <see cref="IbkrAmbiguousOrderError"/> (the safe direction), never a
+    /// false <see cref="OrderSubmitted"/>. An <see cref="IbkrAmbiguousOrderError"/> also covers a
+    /// requested leg with no corresponding response entry. Reconcile any ambiguous leg via
+    /// <see cref="GetLiveOrdersAsync"/>/<see cref="GetTradesAsync"/> before resubmitting.
+    /// Classification keys on each row's field signature, never on array position.
+    /// A group confirmation-required response remains a single event for the whole group (the
+    /// <see cref="OneOf{T0,T1}.IsT1"/> arm) — a question blocks every leg alike, so there is
+    /// nothing to break down per-leg yet — and is handled via <see cref="ReplyAsync"/>. When IBKR
+    /// hard-rejects the whole submission before assigning any leg an identity (a bare
+    /// <c>{"error": …}</c> object, no array), the call fails as a whole with an
+    /// <see cref="IbkrOrderRejectedError"/> — there is no per-leg data to break down.
+    /// <see cref="GetLiveOrdersAsync"/> correlation remains necessary for a leg classified
+    /// <see cref="IbkrAmbiguousOrderError"/>, or to confirm the eventual live/filled state of a
+    /// transmitted leg.
+    /// </para>
+    /// <para>
+    /// <b>Sharp edge — a group resolved through <see cref="ReplyAsync"/> is NOT per-leg
+    /// classified:</b> the per-leg breakdown above applies only to the array this method returns
+    /// <em>directly</em>. When a group instead returns an <see cref="OrderConfirmationRequired"/>
+    /// (the <see cref="OneOf{T0,T1}.IsT1"/> arm) and you resolve it via <see cref="ReplyAsync"/>,
+    /// that reply endpoint collapses the whole group into a <b>single</b> outcome (it classifies
+    /// only the response's first row — <c>responses[0]</c>, structurally the child per ADR-0008's
+    /// probe) and does not carry the per-leg list. That single outcome therefore must NOT be
+    /// trusted as the group's per-leg result: after confirming a <em>group</em> via
+    /// <see cref="ReplyAsync"/>, reconcile every leg via <see cref="GetLiveOrdersAsync"/>/
+    /// <see cref="GetTradesAsync"/> (keyed on your <see cref="OrderRequest.CustomerOrderId"/>)
+    /// before treating any leg as live or rejected. This is a documented limitation of the reply
+    /// path, not of the direct-response path; see <see cref="ReplyAsync"/>.
+    /// </para>
+    /// <para>
+    /// <b>Serialized confirmation round (ADR-0006, §9.10):</b> a confirmation-required outcome
+    /// retains the per-account order lock until the round resolves, exactly as
+    /// <see cref="PlaceOrderAsync"/> documents.
+    /// </para>
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="orders">The linked group to submit (parent first). At least one order; multiple orders must form a valid bracket or OCA group.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> PlaceOrdersAsync(
+    Task<Result<OneOf<IReadOnlyList<OneOf<OrderSubmitted, IbkrOrderRejectedError, IbkrAmbiguousOrderError>>, OrderConfirmationRequired>>> PlaceOrdersAsync(
         string accountId, IReadOnlyList<OrderRequest> orders, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -122,6 +170,18 @@ public interface IOrderOperations
     /// never re-place, which can double-submit), not a generic/transient 503; and <b>every 2xx reply
     /// shape classifies</b> — an empty, whitespace, or non-JSON body surfaces as a classified error
     /// carrying the raw body, never an uncaught exception.
+    /// </para>
+    /// <para>
+    /// <b>Sharp edge — replying to a GROUP confirmation yields a single collapsed outcome, not a
+    /// per-leg result:</b> the <see cref="OrderSubmitted"/> arm of this reply's result is derived
+    /// from the response's first row only (<c>responses[0]</c>, structurally the child per
+    /// ADR-0008's probe). Unlike <see cref="PlaceOrdersAsync"/>'s <em>direct</em> array response,
+    /// the reply path does NOT classify a bracket/OCA group per leg — so a group whose
+    /// confirmation you resolve here returns one collapsed outcome that must NOT be trusted as the
+    /// group's per-leg state. After confirming a <em>group</em> via this method, reconcile every
+    /// leg via <see cref="GetLiveOrdersAsync"/>/<see cref="GetTradesAsync"/> (keyed on your
+    /// <see cref="OrderRequest.CustomerOrderId"/>) before treating any leg as live or rejected.
+    /// (Single-order confirmations are unaffected — there is only one leg to report.)
     /// </para>
     /// </summary>
     Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> ReplyAsync(

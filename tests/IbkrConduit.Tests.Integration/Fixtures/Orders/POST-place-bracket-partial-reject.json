@@ -1,0 +1,16 @@
+{
+  "Request": {
+    "Path": "/v1/api/iserver/account/U1234567/orders",
+    "Methods": ["POST"]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "Body": [
+      { "order_id": "-1", "order_status": "Failed" },
+      { "order_id": "1760268467", "order_status": "Inactive" }
+    ]
+  }
+}

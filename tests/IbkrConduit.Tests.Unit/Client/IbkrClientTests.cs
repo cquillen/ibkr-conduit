@@ -534,7 +534,7 @@ public class IbkrClientTests
     private class FakeOrderOperations : IOrderOperations
     {
         public Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> PlaceOrderAsync(string accountId, OrderRequest order, CancellationToken ct = default) => Task.FromResult(Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>.Success(new OrderSubmitted("1", "Submitted")));
-        public Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> PlaceOrdersAsync(string accountId, IReadOnlyList<OrderRequest> orders, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<Result<OneOf<IReadOnlyList<OneOf<OrderSubmitted, IbkrOrderRejectedError, IbkrAmbiguousOrderError>>, OrderConfirmationRequired>>> PlaceOrdersAsync(string accountId, IReadOnlyList<OrderRequest> orders, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<CancelOrderResponse>> CancelOrderAsync(string accountId, string orderId, string? extOperator = null, bool? manualIndicator = null, DateTimeOffset? manualCancelTime = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Result<LiveOrdersSnapshot>> GetLiveOrdersAsync(OrderStatusFilter[]? filters = null, bool? force = null, CancellationToken ct = default) => Task.FromResult(Result<LiveOrdersSnapshot>.Success(new LiveOrdersSnapshot([], true)));
         public Task<Result<List<Trade>>> GetTradesAsync(int? days = null, CancellationToken ct = default) => Task.FromResult(Result<List<Trade>>.Success([]));

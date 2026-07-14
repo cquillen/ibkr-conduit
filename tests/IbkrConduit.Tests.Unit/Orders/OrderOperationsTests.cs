@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -685,12 +686,15 @@ public class OrderOperationsTests
     }
 
     [Fact]
-    public async Task PlaceOrdersAsync_BracketGroup_ReturnsParentResultAndSendsLinkage()
+    public async Task PlaceOrdersAsync_BracketGroup_ClassifiesEachLegAndSendsLinkage()
     {
-        // A grouped submission returns a single parent element (verified live).
+        // ADR-0008 §9.11: a fully-transmitted bracket surfaces a per-leg outcome list — one OrderSubmitted
+        // per leg (child legs carry parent linkage, the parent carries the echoed cOID).
         _fakeApi.PlaceOrderResponses.Enqueue(
         [
-            new OrderSubmissionResponse(null, null, null, null, "parent-1", "PreSubmitted"),
+            new OrderSubmissionResponse(null, null, null, null, "1760268468", "PreSubmitted"),
+            new OrderSubmissionResponse(null, null, null, null, "1760268469", "PreSubmitted"),
+            new OrderSubmissionResponse(null, null, null, null, "1760268467", "PreSubmitted", "Parent"),
         ]);
 
         var parent = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 50, OrderType = "LMT", Price = 1.00m, Tif = "GTC", CustomerOrderId = "Parent" };
@@ -699,7 +703,10 @@ public class OrderOperationsTests
 
         var result = await _sut.PlaceOrdersAsync("DU1234567", [parent, takeProfit, stop], TestContext.Current.CancellationToken);
 
-        result.Value.AsT0.OrderId.ShouldBe("parent-1");
+        var legs = result.Value.AsT0;
+        legs.Count.ShouldBe(3);
+        legs.ShouldAllBe(l => l.IsT0);
+        legs.Select(l => l.AsT0).ShouldContain(s => s.OrderId == "1760268467" && s.LocalOrderId == "Parent");
 
         var payload = _fakeApi.LastPlaceOrderPayload;
         payload.ShouldNotBeNull();
@@ -710,11 +717,12 @@ public class OrderOperationsTests
     }
 
     [Fact]
-    public async Task PlaceOrdersAsync_OcaGroup_ReturnsParentResult()
+    public async Task PlaceOrdersAsync_OcaGroup_ClassifiesEachLeg()
     {
         _fakeApi.PlaceOrderResponses.Enqueue(
         [
-            new OrderSubmissionResponse(null, null, null, null, "leg-a", "PreSubmitted"),
+            new OrderSubmissionResponse(null, null, null, null, "636441070", "PreSubmitted"),
+            new OrderSubmissionResponse(null, null, null, null, "636441071", "PreSubmitted"),
         ]);
 
         var a = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC", CustomerOrderId = "A", IsSingleGroup = true };
@@ -722,7 +730,10 @@ public class OrderOperationsTests
 
         var result = await _sut.PlaceOrdersAsync("DU1234567", [a, b], TestContext.Current.CancellationToken);
 
-        result.Value.AsT0.OrderId.ShouldBe("leg-a");
+        var legs = result.Value.AsT0;
+        legs.Count.ShouldBe(2);
+        legs[0].AsT0.OrderId.ShouldBe("636441070");
+        legs[1].AsT0.OrderId.ShouldBe("636441071");
     }
 
     [Fact]
@@ -767,15 +778,17 @@ public class OrderOperationsTests
     {
         _fakeApi.PlaceOrderResponses.Enqueue(
         [
-            new OrderSubmissionResponse(null, null, null, null, "leg-a", "PreSubmitted", "A", "oco-636441077"),
+            new OrderSubmissionResponse(null, null, null, null, "636441077", "PreSubmitted", "A", "oco-636441077"),
+            new OrderSubmissionResponse(null, null, null, null, "636441078", "PreSubmitted", "B", "oco-636441077"),
         ]);
 
         var a = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.00m, Tif = "GTC", CustomerOrderId = "A", IsSingleGroup = true };
         var b = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "LMT", Price = 1.01m, Tif = "GTC", CustomerOrderId = "B", IsSingleGroup = true };
 
-        var submitted = (await _sut.PlaceOrdersAsync("DU1234567", [a, b], TestContext.Current.CancellationToken)).Value.AsT0;
+        var legs = (await _sut.PlaceOrdersAsync("DU1234567", [a, b], TestContext.Current.CancellationToken)).Value.AsT0;
 
-        submitted.OrderId.ShouldBe("leg-a");
+        var submitted = legs[0].AsT0;
+        submitted.OrderId.ShouldBe("636441077");
         submitted.LocalOrderId.ShouldBe("A");
         submitted.OcaGroupId.ShouldBe("oco-636441077");
     }
@@ -790,13 +803,15 @@ public class OrderOperationsTests
     [Fact]
     public async Task PlaceOrdersAsync_SingleOrder_Succeeds()
     {
-        _fakeApi.PlaceOrderResponses.Enqueue([new OrderSubmissionResponse(null, null, null, null, "ord-1", "Submitted")]);
+        _fakeApi.PlaceOrderResponses.Enqueue([new OrderSubmissionResponse(null, null, null, null, "636441099", "Submitted")]);
 
         var order = new OrderRequest { Conid = 265598, Side = "BUY", Quantity = 1, OrderType = "MKT", Tif = "DAY" };
 
         var result = await _sut.PlaceOrdersAsync("DU1234567", [order], TestContext.Current.CancellationToken);
 
-        result.Value.AsT0.OrderId.ShouldBe("ord-1");
+        var legs = result.Value.AsT0;
+        legs.Count.ShouldBe(1);
+        legs[0].AsT0.OrderId.ShouldBe("636441099");
     }
 
     [Fact]

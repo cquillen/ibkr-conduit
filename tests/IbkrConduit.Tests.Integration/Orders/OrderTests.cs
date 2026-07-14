@@ -1371,11 +1371,13 @@ public class OrderTests : IAsyncLifetime, IDisposable
         var result = (await _harness.Client.Orders.PlaceOrdersAsync(
             "U1234567", [parent, takeProfit, stop], TestContext.Current.CancellationToken)).Value;
 
-        // A grouped submission returns a single parent result (verified live).
-        result.IsT0.ShouldBeTrue("Expected OrderSubmitted but got OrderConfirmationRequired");
-        var submitted = result.AsT0;
-        submitted.OrderId.ShouldBe("111");
-        submitted.LocalOrderId.ShouldBe("Parent");
+        // ADR-0008 §9.11: a fully-transmitted bracket surfaces a per-leg outcome list, not a single result.
+        result.IsT0.ShouldBeTrue("Expected a per-leg outcome list but got OrderConfirmationRequired");
+        var legs = result.AsT0;
+        legs.Count.ShouldBe(3);
+        legs.ShouldAllBe(l => l.IsT0);
+        var parentLeg = legs.Select(l => l.AsT0).First(s => s.LocalOrderId == "Parent");
+        parentLeg.OrderId.ShouldBe("111");
 
         var entries = _harness.Server.FindLogEntries(
             Request.Create().WithPath("/v1/api/iserver/account/*/orders").UsingPost());
@@ -1386,6 +1388,159 @@ public class OrderTests : IAsyncLifetime, IDisposable
         body.ShouldContain("\"outsideRTH\":true");
 
         _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task PlaceOrders_SentinelChildAndInactiveParent_ClassifiesEachLegNoLegSurfacesSubmitted()
+    {
+        // ADR-0008 §9.11 (money-safety, end-to-end through the public Result/OneOf stack): a bracket whose
+        // child is a sentinel reject (order_id=-1/Failed) and whose parent carries a real-looking order_id
+        // under a terminal "Inactive" status must surface BOTH legs as rejections — the parent's real
+        // order_id must never fool the classifier into an OrderSubmitted. Fixture shape verified by the
+        // 2026-07-14 live probe (recordings/rpd02-invalidchild-b-negprice, gitignored — PII).
+        _harness.StubAuthenticatedPost(
+            "/v1/api/iserver/account/*/orders",
+            FixtureLoader.LoadBody("Orders", "POST-place-bracket-partial-reject"));
+
+        var parent = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "LMT",
+            Price = 1.00m,
+            Tif = "GTC",
+            CustomerOrderId = "Parent",
+        };
+        var child = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "SELL",
+            Quantity = 1,
+            OrderType = "LMT",
+            Price = 2.00m,
+            Tif = "GTC",
+            ParentId = "Parent",
+        };
+
+        var result = await _harness.Client.Orders.PlaceOrdersAsync(
+            "U1234567", [parent, child], TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue("IBKR accepted the request; per-leg outcomes are carried in the list");
+        var legs = result.Value.AsT0;
+        legs.Count.ShouldBe(2);
+        legs.ShouldAllBe(l => l.IsT1);
+        legs[0].AsT1.ShouldBeOfType<IbkrOrderRejectedError>();
+        legs[1].AsT1.RejectionMessage.ShouldContain("Inactive");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task PlaceOrders_BareObjectHardReject_ReturnsWholeCallRejection()
+    {
+        // ADR-0008 §9.11 (regression guard): a whole-submission hard rejection — a bare {"error": …}
+        // object, no array — is caught by the existing whole-call classification (§9.9 AMB-4) before the
+        // per-leg classifier; the call fails as a whole with IbkrOrderRejectedError. Per-leg classification
+        // must not regress this already-correct no-array path. Fixture shape verified by the 2026-07-14
+        // live probe (recordings/rpd02-invalidchild-a-bogusconid, gitignored — PII).
+        const string body = """{"error":"Order couldn't be submitted: Invalid conid for the child leg."}""";
+        _harness.StubAuthenticatedPost("/v1/api/iserver/account/*/orders", body);
+
+        var parent = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "LMT",
+            Price = 1.00m,
+            Tif = "GTC",
+            CustomerOrderId = "Parent",
+        };
+        var child = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "SELL",
+            Quantity = 1,
+            OrderType = "LMT",
+            Price = 2.00m,
+            Tif = "GTC",
+            ParentId = "Parent",
+        };
+
+        var result = await _harness.Client.Orders.PlaceOrdersAsync(
+            "U1234567", [parent, child], TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse("a no-array hard rejection fails the whole call");
+        var rejected = result.Error.ShouldBeOfType<IbkrOrderRejectedError>();
+        rejected.RejectionMessage.ShouldContain("Invalid conid");
+
+        _harness.VerifyHandshakeOccurred();
+    }
+
+    [Fact]
+    public async Task PlaceOrders_401_ReturnsAmbiguousError_WithoutReplay()
+    {
+        // Mandatory 401 recovery (.claude/rules/testing.md): order-mutating POSTs are excluded from
+        // automatic 401 replay (ADR-0003). The group POST is order-mutating too — a 401 surfaces the
+        // existing IbkrAmbiguousOrderError, unchanged by RPD-03's per-leg classification. Confirms the two
+        // ADRs compose (ADR-0003's replay gate is reached before ADR-0008's per-leg classifier).
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/*/orders")
+                .UsingPost())
+            .InScenario("place-group-401")
+            .WillSetStateTo("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(401)
+                    .WithBody("Unauthorized"));
+
+        _harness.Server.Given(
+            Request.Create()
+                .WithPath("/v1/api/iserver/account/*/orders")
+                .UsingPost())
+            .InScenario("place-group-401")
+            .WhenStateIs("token-expired")
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(FixtureLoader.LoadBody("Orders", "POST-place-bracket-submitted")));
+
+        var parent = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "BUY",
+            Quantity = 1,
+            OrderType = "LMT",
+            Price = 1.00m,
+            Tif = "GTC",
+            CustomerOrderId = "Parent",
+        };
+        var child = new OrderRequest
+        {
+            Conid = 756733,
+            Side = "SELL",
+            Quantity = 1,
+            OrderType = "LMT",
+            Price = 2.00m,
+            Tif = "GTC",
+            ParentId = "Parent",
+        };
+
+        var result = await _harness.Client.Orders.PlaceOrdersAsync(
+            "U1234567", [parent, child], TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeFalse("a 401 on the group POST is ambiguous, never replayed");
+        var ambiguous = result.Error.ShouldBeOfType<IbkrAmbiguousOrderError>();
+        ambiguous.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        ambiguous.ReauthSucceeded.ShouldBeTrue();
+
+        _harness.Server.FindLogEntries(
+            Request.Create().WithPath("/v1/api/iserver/account/*/orders").UsingPost())
+            .Count.ShouldBe(1, "the group POST must be sent exactly once — no replay");
+        _harness.VerifyReauthenticationOccurred();
     }
 
     [Fact]
