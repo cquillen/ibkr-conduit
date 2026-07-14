@@ -614,7 +614,7 @@ Nine `Position` fields, all **documented + observed**: the five `base*` fields a
 **TDD notes:** WireMock fixtures from `recordings/coldread-rpd06/s1-positions-1.json` (number-shaped `strike`) and `s1-positions-2.json` (string-shaped `strike`) — both must deserialize identically.
 
 #### RPD-06 — Heuristic auto-retry-once on sparse first-read for Positions/Trades
-**Status:** Not started — re-groomed 2026-07-14, loop-ready · **Stream:** RPD · **Depends on:** none
+**Status:** ✅ Done — #305 · **Stream:** RPD · **Depends on:** none
 **Risk:** standard — internal read-path behavior, not order placement/auth/credentials/streaming delivery.
 **Spec:** [`docs/superpowers/specs/2026-07-14-rpd-06-cold-read-retry.md`](superpowers/specs/2026-07-14-rpd-06-cold-read-retry.md) (retry-failure semantics amended 2026-07-14)
 **Re-groomed 2026-07-14 (attended, `AskUserQuestion`):** a first unattended ship-backlog run swept this story after its L1 lens caught an undisclosed deviation — the shipped code kept the first successful (sparse) result on a retry HTTP failure instead of the spec's literal unconditional-adoption text (draft PR [#305](https://github.com/cquillen/ibkr-conduit/pull/305), left open, not closed — its code needs no changes). Genuinely ratified now: **operator confirmed the already-implemented behavior is correct** — an internal reliability optimization (the retry) must never make the caller's outcome worse than not retrying at all, so a failed retry keeps the first-read result rather than surfacing a hard failure. Spec and [ADR-0009](adr/0009-positions-trades-cold-read-retry.md) (Decision point 4a) both amended to state this explicitly, closing the gap the lens correctly caught.
