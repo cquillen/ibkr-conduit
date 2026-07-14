@@ -568,7 +568,7 @@ All three follow the existing nullable-as-presence pattern (ADR-0001) — no new
 **TDD notes:** WireMock fixtures per field (present/absent cases); no new production types, just added properties + mapping.
 
 #### RPD-02 — 📦 Typed `parentId`/`ocaGroupId` on `LiveOrder` for bracket/OCA parent-child linkage ⭐ load-bearing
-**Status:** Not started · **Stream:** RPD · **Depends on:** none
+**Status:** ✅ Done — #301 · **Stream:** RPD · **Depends on:** none
 **Risk:** high — grooming judgment call (see stream preamble): feeds RTOS's bracket child-census reconciliation, not itself order placement/modification.
 **Spec:** trivial-skip
 RTOS's bracket child-id census resolves child→parent linkage from `parentId` and groups via `ocaGroupId`, both observed on the wire on bracket/cancelled rows but reachable today only via `AdditionalData`. Doc scouting found **no source documenting either field on the live-orders response**: `parentId` is documented only as a *request*-side bracket-child field (DOC-01, DOC-03, DOC-05 all agree); `ocaGroupId` appears in **zero** IBKR sources anywhere, including the TWS-API side of DOC-08, whose OCA mechanism uses a differently-named `ocaGroup` attribute in a different API surface entirely (no CP Web API content exists for Bracket/OCA order types on DOC-08 at all). (Findings doc P1.)
