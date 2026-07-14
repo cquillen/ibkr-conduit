@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using IbkrConduit.Serialization;
 
 namespace IbkrConduit.Portfolio;
 
@@ -167,6 +168,20 @@ public sealed record AccountParent
 /// <param name="ConExchMap">List of exchange mappings for the contract.</param>
 /// <param name="UndConid">The underlying contract identifier (0 if not applicable).</param>
 /// <param name="Model">The model code (empty string if not applicable).</param>
+/// <param name="BaseMarketValue">Market value of the position in the account's base currency, or <see langword="null"/> when absent from (or not parseable in) this row (§6.5).</param>
+/// <param name="BaseMarketPrice">Market price of the instrument in the account's base currency, or <see langword="null"/> when absent from (or not parseable in) this row (§6.5).</param>
+/// <param name="BaseAverageCost">Average cost in the account's base currency, or <see langword="null"/> when absent from (or not parseable in) this row (§6.5).</param>
+/// <param name="BaseRealizedPnl">Realized profit and loss for the instrument in the account's base currency, or <see langword="null"/> when absent from (or not parseable in) this row (§6.5).</param>
+/// <param name="BaseUnrealizedPnl">Unrealized profit and loss for the instrument in the account's base currency, or <see langword="null"/> when absent from (or not parseable in) this row (§6.5).</param>
+/// <param name="LastTradingDay">Last day of trading in the instrument, formatted <c>YYYYMMDD</c>, if applicable, or <see langword="null"/> when absent from this row.</param>
+/// <param name="Expiry">Expiration of the instrument, if applicable, or <see langword="null"/> when absent from this row.</param>
+/// <param name="PutOrCall">The right of an options contract (<c>"P"</c> or <c>"C"</c>), if applicable, or <see langword="null"/> when absent from this row.</param>
+/// <param name="Strike">
+/// Strike price, if applicable, or <see langword="null"/> when absent from this row. IBKR's wire
+/// type for this field is unstable across reads of the same session — observed as both a JSON
+/// number and a JSON string on the Positions endpoint (RPD-05 live probe) — so it deserializes via
+/// <see cref="EmptyTolerantNullableDecimalConverter"/>, which tolerates either shape.
+/// </param>
 [ExcludeFromCodeCoverage]
 public record Position(
     [property: JsonPropertyName("acctId")] string AccountId,
@@ -191,7 +206,18 @@ public record Position(
     [property: JsonPropertyName("exerciseStyle")] string? ExerciseStyle = null,
     [property: JsonPropertyName("conExchMap")] List<string>? ConExchMap = null,
     [property: JsonPropertyName("undConid")] long UndConid = 0,
-    [property: JsonPropertyName("model")] string? Model = null)
+    [property: JsonPropertyName("model")] string? Model = null,
+    [property: JsonPropertyName("baseMktValue")] decimal? BaseMarketValue = null,
+    [property: JsonPropertyName("baseMktPrice")] decimal? BaseMarketPrice = null,
+    [property: JsonPropertyName("baseAvgCost")] decimal? BaseAverageCost = null,
+    [property: JsonPropertyName("baseRealizedPnl")] decimal? BaseRealizedPnl = null,
+    [property: JsonPropertyName("baseUnrealizedPnl")] decimal? BaseUnrealizedPnl = null,
+    [property: JsonPropertyName("lastTradingDay")] string? LastTradingDay = null,
+    [property: JsonPropertyName("expiry")] string? Expiry = null,
+    [property: JsonPropertyName("putOrCall")] string? PutOrCall = null,
+    [property: JsonPropertyName("strike")]
+    [property: JsonConverter(typeof(EmptyTolerantNullableDecimalConverter))]
+    decimal? Strike = null)
 {
     /// <summary>
     /// Additional undocumented fields from the API response.
