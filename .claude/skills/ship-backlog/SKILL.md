@@ -8,170 +8,142 @@ description: >-
   backlog to drain, batch-shipping a milestone's stories, hands-off DAG build-and-merge.
 ---
 
-# Ship backlog
+# Ship backlog (driver)
 
-*Ported from realtest-order-steward @ 758375ab, adapted for a contract-first wrapper library.*
+*Ported from realtest-order-steward @ bfec311a, adapted for a contract-first C#/.NET wrapper library.*
 
-## Overview
+Drain a **loop-ready** backlog (`.claude/rules/backlog-format.md`) into merged code, unattended, and **survive all night** — across compactions, rate-limits, API errors, and a hard-dead session. Full design + rationale: **`.claude/workflows/ship-backlog.workflow.md`** (D1–D13).
 
-Drain a **loop-ready** backlog (`.claude/rules/backlog-format.md`) into merged code, unattended, while the operator is away. The loop's value is in two disciplines the ambient project rules do **not** supply:
+## Two artifacts — you are the DRIVER
 
-1. **Build by DAG waves with an independent reviewer per story** — never serial-by-listing, never all-at-once, never author-grades-own-work.
-2. **Sweep, don't interrupt** — a single story that won't converge is swept and the loop continues; you wake the operator ONLY for a *systemic* blocker.
+Orchestration is split by execution-fit:
 
-**Foundational rule:** violating the letter of these is violating the spirit. "It's faster," "it's basically done," and "just this once" are exactly the pressures this skill exists to resist. When tempted, sweep — don't shortcut.
+- **`.claude/workflows/ship-story.mjs`** (Workflow tool) — a deterministic script that builds ONE story to review-CLEAN (approach-check → impl → content-assigned lens panel → bounded fix). It sheds all impl/review/fix churn into discardable agents and returns a terse verdict. It does **NOT** gate or merge.
+- **This skill (the driver)** — the thin main-loop that walks the DAG, invokes `ship-story.mjs` per story, runs the **serialized local heavy gate** (background bash — the one place a multi-minute job runs reliably), judges flake-vs-real, merges, sweeps, and keeps the ledger/observability. Run the driver on **Opus 4.8 or newer** (Fable 5 included).
 
-## When to use
+## THE CARDINAL RULE — the ledger is your ONLY working memory (D5)
 
-- A loop-ready backlog of 2+ specced, dependency-ordered stories to ship in one unattended session.
-- "Build this stream out / merge as you go / while I sleep."
+`ship-run-ledger.md` (in the main checkout) is the single source of truth. **Re-derive full state from it — plus `git log main`, `gh pr list`, backlog `Status:` lines — at the top of EVERY iteration. Never act on remembered conversation history without a ledger re-read.** This is what makes auto-compaction, a restart, a lease takeover, or resume-tomorrow a **non-event** instead of "the orchestrator forgot." Update the ledger row + heartbeat after **every** state transition.
 
-**Not** for: a single story (use `superpowers:subagent-driven-development`); a backlog that isn't loop-ready (run `groom-backlog` first — pre-flight bounces it); anything the operator wants to review story-by-story (that's not unattended).
+## THE OFFLINE BOUNDARY — IbkrConduit-specific, non-negotiable
 
-## The offline boundary (load-bearing)
+**The merge gate is the OFFLINE suite. The live-paper tier is NEVER an unattended gate.** The offline suite is everything `dotnet test`/the built MTP exe runs without credentials: unit tests, WireMock-integration tests, mock-WebSocket tests (`[EnvironmentFact]` E2E tests auto-skip without `IBKR_CONSUMER_KEY` — that skip is correct, never chase it). Live-paper verification is **attended, operator-run only**: it needs credentials, IBKR allows one brokerage session per user (a loop-opened session competes with the operator's), and behavior is market-hours-dependent. `groom-backlog` pre-verifies every empirical dependency (a recording or live probe the spec cites) precisely so this loop **never needs the live account**. **No lane, agent, or gate step in this entire loop — impl, fix, reviewer, driver, or gate — ever sets `IBKR_CONSUMER_KEY`, reads `.ibkr-credentials/`, or opens a live IBKR session.** A story whose `Done when` genuinely requires live confirmation should never have passed grooming; if one slipped through, bounce it (`deferred — needs attended live verification`), never improvise a live session. Touching the live account from this loop is a **systemic interrupt**, not a sweep.
 
-**The merge gate is the OFFLINE suite — the live-paper tier is NEVER an unattended gate.** The offline suite is everything `dotnet test` runs without credentials: unit tests, WireMock-integration tests, mock-WebSocket tests (`[EnvironmentFact]` E2E tests auto-skip without `IBKR_CONSUMER_KEY`). Live-paper verification is **attended, operator-run**: it needs credentials, IBKR allows one brokerage session per user (a loop-opened session competes with the operator's), and behavior is market-hours-dependent. `groom-backlog` pre-verifies every empirical dependency precisely so this loop **never needs the live account**. No lane, agent, or "quick check" in this loop ever sets `IBKR_CONSUMER_KEY` or touches `.ibkr-credentials/`.
+## Entry (every invocation — interactive OR a restart re-invocation)
 
-## Pre-flight
+1. **Read `ship-run-ledger.md`.** None → fresh run: run **Pre-flight**. Exists → **claim-or-yield the lease**: the `lease` block holds `{session_id, phase, phase_started_at, heartbeat_at}`. **Staleness is HEARTBEAT AGE, never phase duration:** stale ⇔ `now − heartbeat_at` exceeds the current phase's ceiling — `building` 60m (one phase covers the whole ship-story run; the workflow is opaque to the driver), `gating` 25m, idle 25m. `phase_started_at` is informational — a 3-hour build phase with fresh heartbeats is **LIVE** (a legitimately long story must never invite a takeover). Fresh heartbeat → **another driver is live → exit immediately** (no double-drive). Stale → claim it (write your session id, `heartbeat_at=now`) and continue.
+2. **Emit the status block** (see Observability) so this session shows current state.
 
-1. **Verify the loop-ready contract per story** (§ `backlog-format.md`): merged `Spec` (path or `trivial-skip`, not `pending`), `Risk` set, `Done when` refined, no open fork, upstream-behavior dependencies verified (a recording or probe the spec cites). Any story that isn't loop-ready → **bounce it**: mark `Deferred — not loop-ready`, defer its dependents, flag for grooming. Never guess a missing spec/decision.
-2. **Build the dependency DAG** from each `Depends on:` id-list. Group into **waves** (a story is buildable once all its deps are *merged*).
-3. **Init the run-state ledger** — a **durable** file, one row per story: `id → {wave, phase, PR, risk, verdict}`. This is the orchestrator's **external memory**, so your context stays lean and the run is **resumable**: after a compaction/restart, re-read the ledger + `git log main` + `gh pr list` and continue from the first incomplete row. Update it after **every** state transition. **Keep it outside any disposable worktree/sandbox** — a wiped worktree or a tree-moving `git pull` must not take the ledger (and thus the run state) with it; durability + git/gh as the source of truth is what makes a mid-run reset recoverable.
+## Pre-flight (fresh run only)
 
-## The wave loop (until the DAG is drained)
+1. **Verify the loop-ready contract per story** (`backlog-format.md`): merged `Spec` (not `pending`), `Risk` set, `Done when` refined, no open fork, upstream-behavior dependencies verified (a recording or probe the spec cites — `.claude/rules/contract-design.md`). Not loop-ready → **bounce**: ledger `phase: deferred`, note `not loop-ready`, defer dependents. Never guess a missing spec/decision.
+2. **Build the ledger** (one row per story; parse `deps`, read `risk`, note the 📦 marker; `phase: pending`, `attempts: 0`, and a **deterministic `branch`** — `feat/<id>-<short-slug>` computed once HERE, so every retry of the story reuses one branch/PR instead of orphaning drafts).
+3. **Arm the in-session heartbeat** (a `ScheduleWakeup` re-entry cadence — see Fault recovery). There is **no** external cron watchdog (`CronCreate` is session-only).
+4. **Claim the lease.**
 
-Launch every story whose deps are **merged**, concurrently, **up to a cap of 3**, **each in its own git worktree (see Worktree isolation)**. Each story runs the per-story pipeline. When a story merges, re-evaluate the DAG — its dependents may now be buildable. Repeat until no story remains buildable (all done or deferred).
+## The loop (until the DAG is drained)
 
-> **Why 3 (re-derived for this repo):** (a) agent-API rate limits — more concurrent impl/review agents than ~3 stalls on throttling; (b) each lane's genuine-run gate is a full offline suite (~1200 tests spinning WireMock servers, mock WebSocket servers, and real-timer resilience tests — the `Category=Slow` set); several concurrent suites on one box starve CPU and surface timing flakes in the rate-limiter/tickle-timer tests that pass in isolation; (c) merges serialize anyway — extra lanes mostly wait. **≤3, never 4; on a small box, dial to 2.** And regardless of lane count, the offline boundary holds: no lane ever opens a live IBKR session.
+Each iteration:
 
-## Worktree isolation (load-bearing — one story, one branch, one worktree)
+1. **Re-derive** from the ledger. **Buildable** = `pending`/`retry-pending` stories whose every `dep` is `merged`. None buildable and none in flight → **Finalize**.
+2. **Pick the next buildable story** (DAG order; **fresh `pending` ahead of `retry-pending`** — don't grind a retry while fresh work waits; ties by backlog order). Set `phase: building`, `phase_started_at=now`, heartbeat. **A `retry-pending` row that already carries `review: CLEAN` + branch/PR (a gate-time infra retry) skips the build — go straight to Gate.**
+3. **Invoke** `Workflow({ scriptPath: ".claude/workflows/ship-story.mjs", args: {id,title,risk,deps,specPath,doneWhen,backlogFile,frozenMarker,branchName} })` (run in background; await the task-notification). `branchName` is the row's deterministic branch — the SAME name on every attempt, so a retry reuses the prior attempt's branch/PR. Record the returned **runId** in the row (`wf_run`). On its return:
+   - `status: 'INFRA'` (or the workflow died / returned null) → **infra failure** → `attempts += 1`. Under the cap → `phase: retry-pending`, note the cause, heartbeat, **continue** (retried a later pass — NEVER swept as a code failure). **At `attempts = 3` → `phase: deferred`, note `infra cap`** — the livelock guard: a story failing the same way every pass must not spin the loop all night; it lands in the Brief for the operator. **Same-session retry: prefer `Workflow({scriptPath, resumeFromRunId: <wf_run>, args: <same>})`** — completed stages replay from the journal cache; only the dead stage re-runs. (Resume is same-session only — after a restart, invoke fresh with the same `branchName`.)
+   - `status: 'DEFERRED'` → the story itself didn't converge (2 fix rounds, an unfixable finding, or impl blocked on the story) → **code sweep**: `phase: deferred`, PR stays a **draft**, defer dependents.
+   - `status: 'CLEAN'` (`{branch, pr, verdict}`) → **Gate** (below). Carry the verdict's nits/author-deviations into the row's `notes`.
+4. **Gate + merge.** Update `phase` per outcome.
+5. **Update ledger + heartbeat + emit the status block.** Then run the between-stories cleanup: `dotnet build-server shutdown` (reclaims MSBuild/compiler server nodes a build agent left, so RAM doesn't creep) and `git worktree prune` + `git worktree remove --force` any leftover `.claude/worktrees/wf_*` (fix/review agent worktrees that wrote commits don't always auto-clean and accumulate across a long run). Loop.
 
-**Every story builds in its own git worktree + branch — REGARDLESS of parallelism.** This is not a parallelism optimization; it is a hard isolation rule that holds even for a single sequential story.
+## The gate (serialized local heavy lane — the ONE heavy run at a time)
 
-- **Concurrent stories in one checkout stomp each other** — the wave loop runs up to 3 at once, and their `git checkout` / branch / file-edit operations collide in a shared working folder. (A real RTOS `ship-backlog` run had multiple agents colliding in the same folder — this rule is the fix.)
-- **Sequential reuse of one checkout is also wrong** — a successive story inherits the prior story's dirty tree / checked-out branch / leftover artifacts. So a fresh worktree per story, even when building one at a time.
+On a CLEAN story:
 
-The mechanism: spawn each story's impl/fix/quality agent with **`isolation: "worktree"`** (the Agent/Workflow tool creates a fresh worktree off `main` and auto-cleans it), or `git worktree add` a per-story directory off `main`. The **branch** (`feat/<id>-…`) and the **worktree** are per-story and 1:1.
+> **Driver immunity (load-bearing).** Do ALL gate work in a **dedicated worktree**; NEVER `git checkout`/rebase in the orchestrator's main checkout. A build agent may have moved the main checkout's HEAD, so the driver must **not depend on its own HEAD being stable** — the main checkout's branch is irrelevant to gating and merging, which go via worktrees + `gh`.
 
-- **The run-state ledger lives in the MAIN checkout, never a worktree** (already required in Pre-flight) — a `git worktree remove` or a tree-moving `git pull` must never take the ledger (and thus the run state) with it.
-- **Cleanup on merge:** `git worktree remove --force <dir>`, then `git branch -D <branch>`, then `git pull --ff-only` on `main` in the orchestrator's checkout. A swept/deferred story's worktree is removed too (its draft branch stays on the remote).
+1. `git fetch origin`. Create the gate worktree **on the story branch**: `git worktree add <dir> origin/<branch>`. **Inside it** (operate via `git -C <dir> …`, never `cd` the main checkout): rebase on current `origin/main` (near-trivial — serial build means nothing else is in flight; resolve the routine backlog-file line-flip keep-both if any), then `git -C <dir> push --force-with-lease origin HEAD:<branch>`.
+2. **In that same gate worktree**, via a **main-loop background bash** (it reliably notifies on completion, unlike a stalling subagent):
+   1. `dotnet build --configuration Release -nodeReuse:false` (the `-nodeReuse:false` stops persistent MSBuild server nodes leaking — they accumulate across a long run → memory pressure/OOM).
+   2. **Run the built MTP test executable directly** (NOT `dotnet test` — it discovers 0 and exits green per `.claude/rules/test-filtering.md`) with **`--minimum-expected-tests <N>`** (genuine-run guard). Set `N` from the **previous green gate's reported total** (first gate of the run: the last known suite count) — a ratchet, so a silently-shrunk discovery fails loudly; a story that legitimately deletes tests lowers the floor (note it in the ledger).
+   3. `dotnet format --verify-no-changes`.
+   4. A story touching `tools/IbkrConduit.Setup/` also runs the explicit KeyGenerator suite (`.claude/rules/explicit-tests.md`) in this same serial lane.
+3. **STRICT SERIAL HEAVY — cardinal:** the gate and any impl/fix scoped test run must **never overlap** (box-starvation/timing-flake class — this repo's own memory records exactly this failure mode: leaked dispose loops + real-timer parallelism, fixed by the `DisableParallelization` collection). Serial build makes this hold by construction; still, before a gate, confirm nothing else heavy runs (`ps` for `testhost`).
+4. **Outcomes:**
+   - **green** → **`gh pr ready <pr>`** (the impl opened it as a *draft*; a draft can't be merged — mark it ready ONLY now, on green, never for a swept story) → confirm **`build-and-test`** CI green → squash-merge via `gh` (curated Conventional-Commits subject) → `phase: merged`, `git fetch origin` (the driver works via worktrees + `gh` — it does NOT need local `main` checked out, so no `git pull`/`checkout` in the main checkout), remove the gate + story worktrees (`git worktree remove --force`, `git branch -D`).
+   - **fail** → spawn a **flake-vs-real judgment agent** (Opus/high — it reads the failure so the output never enters your context): `flake` → re-run the gate **SOLO** locally; still ambiguous → one `gh workflow run ci.yml --ref <branch>` clean-runner disambiguation. **Real / reproduces on the clean runner** → `phase: deferred` (real regression — never fix-looped, never merged). Rate-limit/infra during the gate → `attempts += 1`, `phase: retry-pending` **keeping `review: CLEAN` + branch/PR in the row** — the re-pass goes straight back to Gate, never a rebuild.
 
-## Per-story pipeline
+**Local-first CI discipline:** the local serial gate is authoritative. Reserve GitHub CI for flake-disambiguation + the single Finalize pass (CI-minute conservation). CI's `build-and-test` job excludes `Category=Slow` — the local gate's full run includes it.
 
-```
-implement ──▶ quality (independent) ──▶ CLEAN? ──▶ merge ──▶ ledger:done, unblock dependents
-   │                  ▲                    │
-   │ large story      │ ISSUES             └─ still ISSUES after 2 rounds
-   └▶ subagent-       └─ fix agent ◀────────┐         │
-      driven-dev          (≤ 2 rounds)──────┘         ▼
-                                              SWEEP + defer (PR stays DRAFT)
-```
+## Sweep, don't interrupt
 
-1. **Implement — adaptive grain.** Default: **one impl agent**, full standard workflow (TDD red/green/refactor per `.claude/rules/tdd-workflow.md`, self-review, the full check clean — build, test, `dotnet format --verify-no-changes` as **separate commands** per `.claude/rules/bash-usage.md` — **in its own per-story worktree + branch off `main`** — never the shared checkout, see Worktree isolation — draft PR, flip the story's backlog `Status` + add the `Completes:` trailer per `backlog-status.md`). A pre-flight-flagged **large/multi-subsystem** story → delegate to `superpowers:subagent-driven-development` (which still runs inside that story's one worktree).
-2. **Quality — an INDEPENDENT agent** (never the impl agent grading its own work). It re-runs the full offline suite, **verifies the genuine-run guard** (below), checks `Done when` spec-compliance + false-green guards, and adversarially probes the impl's self-flagged risks. **Risk-scaled** off the entry's `Risk` field: `high` (or an impl self-flag, or a large diff, or a 📦 public-surface story) → a **2–3 agent adversarial panel** (distinct lenses — e.g. correctness, wire-fidelity-vs-recordings, consumer-impact); `standard` → one agent. **Panel adjudication is by finding, not by vote:** the merge requires *every* panelist `CLEAN`. Any non-CLEAN verdict carrying a **correctness, security, hermeticity, or rule-mandated finding blocks** (e.g. a missing 401-recovery test on a new integration-tested endpoint — `testing.md` mandates it) → fix-loop; a panelist's pure **nit** (style, or coverage of a genuinely non-required path) is noted and does **not** block. A split (one CLEAN, one `CHANGES-REQUESTED`) is **not** a tie to majority-vote — the substantive finding governs. (A real RTOS run caught exactly this: one reviewer CLEAN, one flagging an untested rule-mandated path — the path won, correctly.)
-3. **Fix loop — bounded to 2 rounds.** On ISSUES, a fix agent addresses them; re-quality. Still ISSUES after the 2nd round → **sweep** (Escalation, below). Do not start a 3rd round.
-4. **Merge — on CLEAN + CI green:** squash-merge with a curated Conventional-Commits subject (this is release-please input — see Release discipline), update the ledger to `done`, unblock dependents.
+- **Default on per-story trouble is SWEEP** — the story becomes a backlog follow-on, its PR stays a **draft**, it + its dependents go `deferred`, the loop continues.
+- **INTERRUPT (wake the operator) ONLY for a systemic blocker**: shared infra genuinely down (a rate-limit is NOT this — that's `retry-pending`), destructive/ambiguous state, security/secret/**credential** exposure, or any lane about to touch a live IBKR session (the offline boundary, above). **Never** for one non-converged story.
 
-### The genuine-run guard (this repo's exact mechanism — verified empirically 2026-07-06)
+## Fault recovery (never waste the night)
 
-The quality agent MUST confirm the local suite **genuinely ran** — a real, non-zero test count, with the new tests confirmed to have executed. Never assume the suite ran because it printed green. This repo is xUnit v3 + Microsoft Testing Platform (`global.json`); MTP flags per `.claude/rules/test-filtering.md`. What's verified here:
+- **In-session heartbeat + ledger-based restart — NOT an external cron (`CronCreate` is session-only).** ⚠️ `CronCreate` and `ScheduleWakeup` are **in-memory, session-scoped** — they die WITH the session — so there is **no in-tool mechanism to auto-resurrect a hard-dead session**. Realistic fault recovery is two-legged: **(a) while the session LIVES**, use `ScheduleWakeup` to re-enter the driver on a heartbeat cadence and to **back off on rate-limits** — the session survives a rate-limit and resumes from the ledger; **(b) a hard-dead/killed session must be RE-INVOKED externally** (the operator, or a `/goal` Stop-hook keeping the session alive). Because *all* state lives in the ledger (D5), that restart **resumes cleanly** — re-derive from ledger + `git log main` + `gh pr list`, continue from the first incomplete row. The lease/heartbeat still earns its keep: it stops a restart from **double-driving** a session that is in fact still alive.
+- **Phase-aware heartbeat + lease.** Write `heartbeat_at` every loop iteration + transition **and on every `ScheduleWakeup` wake — including while a background ship-story or gate is still running.** The wakeup cadence must sit comfortably inside the tightest ceiling (fire every ~10–15m vs the 25m idle/gating ceiling), or a long quiet phase looks dead. Staleness is **heartbeat age vs the phase ceiling** (see Entry), never phase duration.
+- **Infra-vs-code (load-bearing).** Rate-limit / API error / terminal `agent()` null / infra-blocked impl / gate-time transient → `phase: retry-pending`, **retried a later pass, NEVER swept as a code failure** — but bounded: **3 INFRA attempts → `deferred (infra cap)`**, the livelock guard. Back off FIRST on a rate-limit so one rate-limit window doesn't burn the cap. Only 2-round non-convergence, an impl blocked on the story itself, or a real gate regression → permanent `deferred`.
+- **Exponential backoff.** On a rate-limit, the live driver `ScheduleWakeup`s an increasing delay and resumes from the ledger when it clears.
 
-- **A zero-test run fails loudly by default**: exit code 8, summary `Zero tests ran` (unlike VSTest-era runners whose 0-test run exits green). So a completely-empty run cannot masquerade as success.
-- **The residual false-greens are under-counts, not zero-counts** — guard them explicitly:
-  - **Stale binaries:** `--no-build` runs whatever was last compiled; new tests that never built "pass" by absence. Always `dotnet build --configuration Release` first, then test.
-  - **Over-narrow filters:** a `--filter-class` typo that matches *some* tests passes the zero-check while silently skipping the new ones. Enforce a floor with **`--minimum-expected-tests <N>`** — an under-count fails with exit code 9 and prints the real count (`tests ran X, minimum expected N`).
-  - **CI ≠ local scope:** CI excludes `--filter-not-trait "Category=Slow"`; the local full run includes them. The quality agent's authoritative run is the **full** local suite.
-  - **Skips are not runs:** `[EnvironmentFact]` E2E and `[Fact(Explicit = true)]` tests report `skipped` — they never count toward the executed total.
-- **The canonical quality-agent sequence** (separate commands per `.claude/rules/bash-usage.md`):
-  1. `dotnet build --configuration Release`
-  2. `dotnet test --no-build --configuration Release` — read the summary's aggregate `total:` (the full offline suite prints a four-digit count, e.g. `total: 1180` at the time of porting) and confirm it is ≥ the pre-change baseline plus the story's new tests
-  3. `dotnet test --project <test project> --no-build --configuration Release --filter-class "*<NewTestClass>*" --minimum-expected-tests <N>` — pin that the story's own tests executed
-  4. `dotnet format --verify-no-changes`
-- The quality agent **reports the actual numbers it observed** (aggregate total + the story's scoped count). This independent confirmation is the only reason per-story local-green is authoritative.
+## Observability — the in-session status block
 
-### Agent contracts (terse structured returns)
-
-| Agent | Returns |
-|---|---|
-| **Impl** | `{branch, pr, files-by-area, test-count+result, guards-confirmed, format-clean, deviations+why, risks-for-reviewer}` (≤ ~30 lines) |
-| **Quality** | `VERDICT: CLEAN \| ISSUES`. CLEAN → verified items + **genuine-run confirmation (real counts: aggregate + scoped)** + nits. ISSUES → numbered `area · what's wrong · severity · specific fix` (actionable without re-investigation). |
-
-The orchestrator retains only these verdicts — never the implementation churn.
-
-## Escalation — sweep, don't interrupt
+`ship-run-ledger.md` is BOTH the machine source AND the human board. Emit this block (rendered from it) on **every transition and each wake**, and on demand ("status?"):
 
 ```
-per-story trouble (fix-loop non-convergence after 2 rounds; blocker the fix agent can't resolve)
-        │
-        ├─ systemic? (shared infra down · destructive/ambiguous · security/secret or credential exposure)
-        │        └─ YES ─▶ INTERRUPT (wake the operator) — the only wake reason
-        │
-        └─ single story didn't converge ─▶ SWEEP: backlog follow-on + Status `Deferred — <reason>`,
-                                            leave its PR a DRAFT (never merge broken),
-                                            defer its dependents, CONTINUE the loop.
+SHIP RUN — <label> · started HH:MM · ❤️ updated Nm ago
+  ✅ X merged · 🔧 Y deferred · 🔁 Z retry-pending · ⏳ W remaining · of TOTAL
+▶ NOW: <id> · phase <PHASE> (~Nm) │ NEXT: <ids>
+DEFERRED: <id> (<reason>) …
+RETRY-PENDING: <id> (<reason> → next pass) …
 ```
 
-**Default on any per-story trouble is SWEEP.** Keep the loop alive: the unresolved issue becomes a backlog follow-on, the story's PR stays a **draft** (a non-converged story is never merged and never marked ready-for-review), the story + its dependents are marked `Deferred`, and the loop continues with whatever is still buildable. **Interrupt only for a systemic blocker** — never for a single story that didn't converge. The finalize wrap-up lists every deferral and why.
-
-## CI cadence — the merge gate
-
-- **Per-story gate:** the repo CI workflow's **`build-and-test`** job green on the PR (format + build + single-file example-app builds + the offline test run) **+** two genuine full-suite local runs (impl + quality, with the guard above) **+** quality CLEAN. That job **is** the offline suite — there is no heavier unattended tier to wait for.
-- **What CI does NOT cover** (the local runs do): the `Category=Slow` tests (CI excludes them) and the `[Fact(Explicit = true)]` KeyGenerator tests — if a story touches `tools/IbkrConduit.Setup/`, the impl agent must run the explicit KeyGenerator suite per `.claude/rules/explicit-tests.md` and the quality agent must confirm it.
-- **Live-paper verification is NOT a gate here, per-story or at finalize** — see The offline boundary. A story whose `Done when` genuinely requires live confirmation should never have passed grooming into this loop; if one slipped through, bounce it (`Deferred — needs attended live verification`), don't improvise a live session.
-
-## Release discipline
-
-Squash-merge subjects are **release-please input** (`release-please-config.json`, pre-1.0: `feat`/`feat!` → minor, `fix` → patch, `docs`/`chore`/`test`/`refactor` → no release):
-
-- Use the story's grooming-decided commit type. A 📦 story's **breaking-vs-additive decision was made at grooming** — carry it: `feat!:` (with a `BREAKING CHANGE:` footer naming what consumers must change) vs `feat:`. Never decide breaking-ness in the loop.
-- Release-please will open/refresh its release PR as merges land; **leave it alone** — the operator cuts the release. Never merge the release PR from the loop.
+The heartbeat age surfaces a stall; the retry/deferred lists surface trouble. The **file is the anchor** (any session — the live one or a restart — writes it, so it's never stale). An Artifact dashboard is an optional best-effort mirror only, never the source of truth.
 
 ## Finalize
 
-Run the full check once on post-merge `main` (build, full test suite, format — separate commands). **Sweep** all deferred/follow-on items into the backlog. Post a wrap-up: shipped (PR numbers) vs deferred (+ why) vs blocked, including the observed final test total.
+DAG drained → one `workflow_dispatch` CI pass on `main` (the single sanctioned heavy dispatch — confirms the integrated whole on the clean runner; red → fix-forward). **Release the lease.** Post the **Brief**: shipped (PR#s) · deferred (+why — code vs `infra cap`) · retry-pending-that-never-cleared (+why) · blocked, including the observed final test total. Sweep all follow-ons into the backlog.
 
-## Project adapter (IbkrConduit) — references, not inlined
+## Release discipline
 
-- **Backlog entry shape + hygiene:** `.claude/rules/backlog-format.md` (entry shape, `Risk`, `Deferred`, parseable `Depends on`, 📦 marker); `.claude/rules/backlog-status.md` (the `Status`-flip + `Completes:` trailer — convention-only today; required when a PR completes a backlog story).
-- **Merge gate:** `.github/workflows/ci.yml` — the `build-and-test` job (docs-only diffs skip it via the paths filter; `Category=Slow` excluded in CI only).
-- **Test invocation + filtering:** `.claude/rules/test-filtering.md` (MTP flags: `--project`, `--filter-class`, `--filter-method`, `--minimum-expected-tests`); `.claude/rules/bash-usage.md` (no `&&` chaining — separate Bash calls); `.claude/rules/explicit-tests.md` (the opt-in KeyGenerator suite).
-- **Hermeticity the quality agent probes:** `.claude/rules/testing.md` — unit tests make no network calls and no file I/O; integration tests are WireMock-only through the full DI stack (`AddIbkrClient` + `BaseUrl`); every integration-tested endpoint has its **401-recovery test**; E2E classes carry `[Collection("IBKR E2E")]`; fixtures use synthetic credentials only (`.claude/rules/security.md` — and a leaked credential in a fixture is a **systemic interrupt**, not a sweep).
-- **Coverage discipline:** `.claude/rules/testing.md` `[ExcludeFromCodeCoverage]` rules — the quality agent checks a story didn't hide new branching logic behind an exclusion.
-- **Release train:** `release-please-config.json` + `docs/ibkr_conduit_design.md` §17.4.
+Squash-merge subjects are **release-please input** (`release-please-config.json`, pre-1.0: `feat`/`feat!` → minor, `fix` → patch, `docs`/`chore`/`test`/`refactor` → no release): use the story's grooming-decided commit type. A 📦 story's **breaking-vs-additive decision was made at grooming** — carry it: `feat!:` (with a `BREAKING CHANGE:` footer naming what consumers must change) vs `feat:`. **Never decide breaking-ness in the loop.** Release-please will open/refresh its release PR as merges land; **leave it alone** — the operator cuts the release. Never merge the release PR from the loop.
 
 ## Red flags — STOP
 
-- About to **merge** a PR with any known or flaky failure.
-- About to **wake the operator** for a single story that didn't converge.
-- Trusting a **green** suite without confirming the real counts (aggregate total + the story's scoped count).
-- About to **set `IBKR_CONSUMER_KEY`, read `.ibkr-credentials/`, or open any live IBKR session** from the loop.
-- Building a story whose deps **aren't merged**, or launching **more than 3** concurrently.
-- Building a story in the **shared main checkout** instead of its own per-story worktree (concurrent OR sequential).
-- The **impl agent grading its own** work (no independent quality agent).
+- Acting on remembered state **without re-reading the ledger** (the compaction-forgetting bug this design exists to kill).
+- Treating a **rate-limit / API error as a permanent sweep** (it's `retry-pending`) — or waking the operator for it.
+- **Merging past a red gate** without confirming real-vs-flake on the clean runner; dismissing a clean-runner-reproducing failure as "just a flake" (that's a REAL regression → sweep).
+- **Overlapping the serial gate** with any impl/fix scoped test run (or a zombie agent still testing) — strict serial heavy.
+- Trusting a **green** suite without a real **non-zero** count (the `--minimum-expected-tests` floor); `dotnet test` (discovers 0, exits green — run the built MTP exe).
+- Any agent operating in the **shared main checkout** instead of its own worktree.
+- Marking a non-converged story's PR **ready** instead of leaving it a draft; starting a **3rd** fix round.
+- Building a story whose deps **aren't merged**.
+- Retrying an INFRA story past the **3-attempt cap**.
+- Taking over a lease whose **heartbeat is fresh** because the phase has merely run long — staleness is heartbeat age, never phase duration.
+- **Rebuilding a gate-time infra retry from scratch** — a row with `review: CLEAN` + branch/PR re-enters at Gate, not at ship-story.
+- **Setting `IBKR_CONSUMER_KEY`, reading `.ibkr-credentials/`, or opening any live IBKR session** from any lane in this loop — the offline boundary is absolute.
 - Deciding a 📦 story's **breaking-vs-additive** call in the loop, or merging the **release-please PR**.
-- Marking a parked / non-converged story's PR **"ready"** instead of leaving it a draft.
-- Starting a **3rd** fix round on the same story.
 
 ## Rationalizations — and the reality
 
 | Rationalization | Reality |
 |---|---|
-| "4 of 5 merged, the 5th has 1 flaky failure, re-running is slow — just merge it." | A flake is **stop-and-fix, never merge-past**. Sweep the story (`Deferred` + follow-on), leave its PR a draft, finalize the rest. A merged flake poisons trust in the whole suite. |
-| "It's 3am and this one story is stuck — just wake the operator to decide." | One non-converged story is **never** a wake reason. Sweep it and continue. Wake **only** for a systemic blocker (shared infra down, destructive/ambiguous, security/credential exposure). |
-| "Local green is enough — the suite obviously ran." | Confirm the real counts. Zero-test runs fail loudly here (MTP exit 8), but **under-counts don't** — stale `--no-build` binaries and over-narrow filters pass the zero-check while skipping the new tests. `--minimum-expected-tests` + reported counts are **mandatory**, assigned to the independent quality agent, not assumed. |
-| "The spec says IBKR behaves this way — I can code to it and skip the recording check." | The loop builds only what grooming verified. If the spec cites no recording/probe for a load-bearing upstream behavior, the story is **not loop-ready** — bounce it. Documented ≠ verified. |
-| "A quick live tickle against the paper account would settle this ambiguity." | The live tier is **attended-only**: credentials, a competing brokerage session, market-hours variance. The loop never opens one — sweep the story with the exact live question written out for the operator. |
-| "These stories are basically independent — build them all at once / all serially." | Build by the **DAG**: launch only stories whose deps are *merged*, cap 3. All-at-once races merges and saturates the box; all-serial wastes the night. |
-| "They run one-after-another, so one working folder is fine." | **Per-story worktree regardless of parallelism.** Sequential reuse inherits the prior story's dirty tree/branch state; concurrent reuse has agents stomping each other's checkout. One story = one branch = one worktree, always. |
-| "I'll just self-review the impl I wrote." | The reviewer must be an **independent agent**. Author-grades-own-work misses the false-greens an independent re-run catches. `high` risk / 📦 → an adversarial panel. |
-| "The spec looks fine, the story's basically ready — start building." | Pre-flight **verifies** the loop-ready contract per story. `Spec: pending` / open fork / missing `Risk` / unverified empirics → **bounce** to grooming. Don't guess. |
-| "It's additive-ish — I'll soften the subject to `feat:` so the release looks calmer." | Breaking-ness was **decided at grooming** and RTOS re-pins against it. Carry the decided `feat!:`/`feat:` exactly; a mislabeled breaking change ships a corrupted contract to a live consumer. |
-| "Leave the stuck high-risk PR ready-for-review so the operator just merges it." | A non-converged story's PR stays a **draft**. Marking it ready invites an unreviewed merge of broken — possibly irreversible — work. |
-| "Just keep retrying the fix until it's green." | Bounded to **2** rounds, then sweep + defer. Unbounded retry is how the loop hangs till morning with nothing shipped. |
+| "It hit a rate-limit at 2am — mark the story failed and move on." | Rate-limit = **`retry-pending`**, retried when the API clears. In-session `ScheduleWakeup` backoff resumes the live session; a *killed* session resumes cleanly from the ledger on restart. Nothing is swept for infra. |
+| "I remember I already merged that one." | **Re-read the ledger.** Memory is disposable; the ledger + git are truth. |
+| "The gate failed on unrelated classes — box flake, just merge." | Confirm: re-run SOLO, then the clean runner. Reproduces on the clean runner = REAL regression → **sweep, don't merge**. |
+| "A quick live tickle against the paper account would settle this ambiguity." | The live tier is **attended-only** — the offline boundary is non-negotiable. Sweep the story with the exact live question written out for the operator. |
+| "One story is stuck — wake the operator." | Never for one story. **Sweep** and continue. Wake only for a systemic blocker. |
+| "I'll gate two ready branches in parallel to save time." | **One heavy run at a time, ever.** Concurrent WireMock/mock-WebSocket suites starve the box. |
+| "It'll probably work on the 4th retry." | Three INFRA attempts is the cap. A story failing the same way every pass is a **livelock**, not bad luck — park it `deferred (infra cap)`, spend the run on stories that CAN ship. |
+| "That build phase has run 90 minutes — the driver must be dead, take the lease." | Staleness is **heartbeat age**, not phase duration. A meaty story legitimately runs hours; if heartbeats are fresh, the driver is live. |
+| "I'll just self-review the impl I wrote." | The reviewer must be an **independent agent**. `high` risk / 📦 → the full lens panel is unconditional anyway. |
+| "It's additive-ish — I'll soften the subject to `feat:` so the release looks calmer." | Breaking-ness was **decided at grooming**. A mislabeled breaking change ships a corrupted contract to a live consumer (RTOS). |
+| "Leave the stuck high-risk PR ready-for-review so the operator just merges it." | A non-converged story's PR stays a **draft**. |
+| "Just keep retrying the fix until it's green." | Bounded to **2** rounds, then sweep + defer. |
 
 ## See also
 
-- `.claude/rules/backlog-format.md` — the loop-ready entry schema this parses; `.claude/rules/backlog-status.md` — `Status`/`Completes:` hygiene the impl agent performs.
-- `.claude/skills/groom-backlog/` — the upstream producer of loop-ready backlogs (run it if pre-flight bounces stories); `.claude/skills/draft-backlog/` — the (further upstream) decomposition stage.
-- `superpowers:subagent-driven-development` — delegated per-*story* execution for a large story (this skill is per-*stream*; they nest).
-- `superpowers:test-driven-development` + `.claude/rules/tdd-workflow.md` — the impl agents' inner discipline; `.claude/rules/testing.md` — the hermeticity standard the genuine-run guard and quality probes serve.
+- `.claude/workflows/ship-backlog.workflow.md` — the full design + D1–D13 rationale; `.claude/workflows/ship-story.mjs` — the per-story builder.
+- `.claude/rules/backlog-format.md` / `backlog-status.md` — the loop-ready entry schema + `Status`/`Completes:` hygiene the impl agent performs.
+- `.claude/rules/testing.md` — the hermeticity discipline the lenses probe and the serial gate serves; `.claude/rules/test-filtering.md` — MTP invocation.
+- `.claude/rules/contract-design.md` — the design-pass/spec routing the lenses assume already happened (a story never authors a contract decision).
+- `.claude/skills/groom-backlog/` — the upstream producer of loop-ready backlogs (run it if pre-flight bounces stories).
