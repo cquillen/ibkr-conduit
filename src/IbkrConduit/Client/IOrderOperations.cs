@@ -34,16 +34,42 @@ public interface IOrderOperations
     /// <see cref="OrderRequest.ParentId"/> (equal to the parent's
     /// <see cref="OrderRequest.CustomerOrderId"/>) on each child for a bracket, or
     /// <see cref="OrderRequest.IsSingleGroup"/> on every order for an OCA group.
-    /// IBKR returns a single result for the group (the parent's outcome): either a confirmed
-    /// submission or a confirmation-required response to handle via <see cref="ReplyAsync"/>.
-    /// Child order ids are NOT returned here — query <see cref="GetLiveOrdersAsync"/> and
-    /// correlate on the parent's cOID/order_ref. For unrelated orders, call
-    /// <see cref="PlaceOrderAsync"/> once per order (IBKR rejects unrelated bulk).
+    /// For unrelated orders, call <see cref="PlaceOrderAsync"/> once per order (IBKR rejects
+    /// unrelated bulk).
+    /// <para>
+    /// <b>Per-leg outcome classification (ADR-0008, §9.11):</b> a group's legs do not all
+    /// transmit-or-fail together — IBKR can accept a parent while rejecting a child. When IBKR
+    /// returns a per-leg response array, this method surfaces a
+    /// <b>per-leg outcome list</b> (the <see cref="OneOf{T0,T1}.IsT0"/> arm): one entry per leg,
+    /// in wire order, each classified independently as an <see cref="OrderSubmitted"/> (that leg
+    /// transmitted — its own <c>order_id</c> is carried directly, so no
+    /// <see cref="GetLiveOrdersAsync"/> round-trip is needed for the common case), an
+    /// <see cref="IbkrOrderRejectedError"/> (that leg was rejected — including a sentinel
+    /// <c>order_id</c> row and a row whose <c>order_status</c> is terminal/non-transmitting such
+    /// as <c>"Failed"</c> or <c>"Inactive"</c>), or an <see cref="IbkrAmbiguousOrderError"/> (a
+    /// requested leg with no corresponding response entry — sent, outcome unknown; reconcile via
+    /// <see cref="GetLiveOrdersAsync"/>/<see cref="GetTradesAsync"/> before resubmitting, never
+    /// re-place). Classification keys on each row's field signature, never on array position.
+    /// A group confirmation-required response remains a single event for the whole group (the
+    /// <see cref="OneOf{T0,T1}.IsT1"/> arm) — a question blocks every leg alike, so there is
+    /// nothing to break down per-leg yet — and is handled via <see cref="ReplyAsync"/>. When IBKR
+    /// hard-rejects the whole submission before assigning any leg an identity (a bare
+    /// <c>{"error": …}</c> object, no array), the call fails as a whole with an
+    /// <see cref="IbkrOrderRejectedError"/> — there is no per-leg data to break down.
+    /// <see cref="GetLiveOrdersAsync"/> correlation remains necessary only for a leg classified
+    /// <see cref="IbkrAmbiguousOrderError"/>, or to confirm the eventual live/filled state of a
+    /// transmitted leg.
+    /// </para>
+    /// <para>
+    /// <b>Serialized confirmation round (ADR-0006, §9.10):</b> a confirmation-required outcome
+    /// retains the per-account order lock until the round resolves, exactly as
+    /// <see cref="PlaceOrderAsync"/> documents.
+    /// </para>
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="orders">The linked group to submit (parent first). At least one order; multiple orders must form a valid bracket or OCA group.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Result<OneOf<OrderSubmitted, OrderConfirmationRequired>>> PlaceOrdersAsync(
+    Task<Result<OneOf<IReadOnlyList<OneOf<OrderSubmitted, IbkrOrderRejectedError, IbkrAmbiguousOrderError>>, OrderConfirmationRequired>>> PlaceOrdersAsync(
         string accountId, IReadOnlyList<OrderRequest> orders, CancellationToken cancellationToken = default);
 
     /// <summary>
